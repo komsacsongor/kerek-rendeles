@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEREK – Receptúra</title>
+<link rel="stylesheet" href="fonts.css">
+<script src="supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6;
+  --teal-pale:#E0F2EF; --gold-dark:#B78029; --gold:#EFB036; --gold-light:#EBCF9E;
+  --slate:#395A63; --cream:#FAF7F0; --white:#FFFFFF; --text:#1A2E31;
+  --text-soft:#5A7A80; --border:#C8DDD9; --shadow:rgba(6,76,72,0.12);
+  --red:#dc2626; --red-pale:#fee2e2; --green:#059669; --green-pale:#d1fae5;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Kodchasan',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* ===== SIDEBAR ===== */
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:var(--teal-dark);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:40;overflow-y:auto;}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo svg{height:32px;width:auto;}
+.sidebar-tagline{font-size:0.62rem;color:var(--teal-mid);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;}
+.nav-section{padding:10px 0 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.nav-label{padding:5px 18px;font-size:0.62rem;color:rgba(163,209,198,0.5);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 18px;color:rgba(163,209,198,0.8);font-size:0.82rem;font-weight:500;cursor:pointer;transition:all 0.18s;border:none;background:none;width:100%;text-align:left;font-family:'Kodchasan',sans-serif;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:var(--gold-light);}
+.nav-item.active{background:rgba(239,176,54,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item .icon{font-size:0.95rem;width:18px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,0.08);}
+.btn-back{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,0.07);color:var(--teal-light);border:1px solid rgba(163,209,198,0.2);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.btn-back:hover{border-color:var(--gold-light);color:var(--gold-light);}
+
+/* ===== CONTENT ===== */
+.content{margin-left:220px;flex:1;}
+.topbar{background:white;border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;box-shadow:0 1px 8px var(--shadow);}
+.topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--teal-dark);font-weight:400;}
+.topbar-sub{font-size:0.75rem;color:var(--text-soft);}
+.main-pad{padding:24px;}
+
+/* ===== VIEWS ===== */
+.view{display:none;} .view.active{display:block;}
+
+/* ===== CARDS ===== */
+.card{background:white;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 2px 12px var(--shadow);margin-bottom:18px;}
+.card-head{background:var(--teal-dark);padding:13px 18px;display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-family:'Fraunces',serif;color:var(--gold-light);font-size:0.92rem;font-weight:400;display:flex;align-items:center;gap:8px;}
+.card-body{padding:18px;}
+
+/* ===== GRID ===== */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+
+/* ===== STAT BOXES ===== */
+.stat-box{background:white;border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.stat-val{font-family:'Fraunces',serif;font-size:1.8rem;color:var(--teal-dark);line-height:1;}
+.stat-val.gold{color:var(--gold-dark);}
+.stat-val.sm{font-size:1.2rem;}
+.stat-label{font-size:0.7rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;}
+
+/* ===== BUTTONS ===== */
+.btn{padding:8px 16px;border-radius:9px;border:none;font-family:'Kodchasan',sans-serif;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--teal);color:white;}
+.btn-primary:hover{background:var(--teal-dark);}
+.btn-gold{background:var(--gold);color:var(--teal-dark);font-weight:700;}
+.btn-gold:hover{background:var(--gold-dark);color:white;}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text-soft);}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal);}
+.btn-danger{background:var(--red-pale);color:var(--red);}
+.btn-danger:hover{background:var(--red);color:white;}
+.btn-sm{padding:5px 12px;font-size:0.76rem;}
+.btn-xs{padding:3px 9px;font-size:0.7rem;}
+
+/* ===== FORMS ===== */
+.form-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.form-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px;}
+.form-group label{font-size:0.7rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px;}
+.form-group input,.form-group select,.form-group textarea{padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;background:white;color:var(--text);outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--teal);}
+.form-group textarea{resize:vertical;min-height:70px;}
+
+/* ===== TABLES ===== */
+.tbl-wrap{overflow-x:auto;}
+table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.tbl thead{background:var(--slate);}
+.tbl th{padding:10px 12px;text-align:left;color:var(--cream);font-weight:500;font-size:0.72rem;letter-spacing:0.3px;white-space:nowrap;}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.tbl tbody tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover{background:#f5faf9;}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tbl .gold{color:var(--gold-dark);font-weight:700;}
+.tbl .bold{font-weight:700;color:var(--teal-dark);}
+
+/* ===== BADGE ===== */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.7rem;font-weight:600;}
+.badge-teal{background:var(--teal-pale);color:var(--teal-dark);}
+.badge-gold{background:#fef3c7;color:#92400e;}
+.badge-green{background:var(--green-pale);color:var(--green);}
+.badge-red{background:var(--red-pale);color:var(--red);}
+.badge-gray{background:#f3f4f6;color:#6b7280;}
+
+/* ===== RECIPE CARD ===== */
+.recipe-card{border:1.5px solid var(--border);border-radius:14px;background:white;overflow:hidden;transition:all 0.2s;cursor:pointer;}
+.recipe-card:hover{border-color:var(--teal);box-shadow:0 4px 18px var(--shadow);}
+.recipe-card-img{height:120px;background:linear-gradient(135deg,var(--teal-pale),var(--teal-light));display:flex;align-items:center;justify-content:center;font-size:2.5rem;position:relative;overflow:hidden;}
+.recipe-card-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.recipe-card-body{padding:14px;}
+.recipe-card-name{font-family:'Fraunces',serif;font-size:1rem;color:var(--teal-dark);margin-bottom:4px;}
+.recipe-card-meta{font-size:0.75rem;color:var(--text-soft);display:flex;gap:10px;flex-wrap:wrap;}
+.recipe-card-price{font-family:'Fraunces',serif;font-size:1.2rem;color:var(--gold-dark);margin-top:8px;}
+
+/* ===== INGREDIENT TABLE ===== */
+.ing-section{margin-bottom:16px;}
+.ing-section-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;margin-bottom:6px;}
+.ing-section-head.dry{background:#fef9f0;color:var(--gold-dark);border:1px solid #fde68a;}
+.ing-section-head.wet{background:#eff8ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+.ing-section-head.levain{background:var(--teal-pale);color:var(--teal-dark);border:1px solid var(--teal-light);}
+.ing-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f0f5f4;font-size:0.82rem;}
+.ing-row:last-child{border-bottom:none;}
+.ing-name{flex:1;font-weight:500;}
+.ing-pct{width:60px;text-align:right;color:var(--text-soft);font-size:0.75rem;}
+.ing-amount{width:90px;text-align:right;font-weight:700;color:var(--teal-dark);}
+.ing-type{width:50px;}
+.ing-cost{width:80px;text-align:right;font-size:0.75rem;color:var(--gold-dark);font-weight:600;}
+.ing-source{font-size:0.68rem;color:var(--teal-mid);cursor:pointer;margin-left:4px;text-decoration:underline dotted;}
+.ing-source:hover{color:var(--teal);}
+.ing-section-head.other-dry{background:#f3f0fb;color:#6d28d9;border:1px solid #ddd6fe;}
+
+/* ===== LEVAIN CALCULATOR ===== */
+.levain-box{background:linear-gradient(135deg,var(--teal-dark),var(--slate));border-radius:14px;padding:20px;color:var(--cream);margin-bottom:16px;}
+.levain-box h3{font-family:'Fraunces',serif;font-size:1rem;color:var(--gold-light);margin-bottom:14px;font-style:italic;}
+.levain-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.levain-col-title{font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--teal-mid);margin-bottom:8px;font-weight:600;}
+.levain-line{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:0.82rem;}
+.levain-line:last-child{border-bottom:none;}
+.levain-val{font-weight:700;color:var(--gold);}
+.levain-pct{font-size:0.7rem;color:var(--teal-mid);}
+
+/* ===== PROCESS STEPS ===== */
+.step-item{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);}
+.step-item:last-child{border-bottom:none;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--teal);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;flex-shrink:0;margin-top:2px;}
+.step-content{flex:1;}
+.step-title{font-weight:700;font-size:0.88rem;color:var(--teal-dark);margin-bottom:3px;}
+.step-desc{font-size:0.82rem;color:var(--text-soft);line-height:1.6;}
+.step-timer{display:inline-flex;align-items:center;gap:5px;background:var(--gold-light);color:var(--gold-dark);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;margin-top:5px;}
+
+/* ===== COST BOX ===== */
+.cost-box{background:white;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+.cost-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem;}
+.cost-row:last-child{border-bottom:none;}
+.cost-total{background:var(--teal-dark);border-radius:10px;padding:14px 16px;color:var(--cream);margin-top:10px;}
+.cost-total-row{display:flex;justify-content:space-between;padding:4px 0;}
+.cost-total-row .lbl{font-size:0.75rem;opacity:0.8;}
+.cost-total-row .val{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--gold);}
+.cost-total-row.main .val{font-size:1.6rem;}
+
+/* ===== MODAL ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(6,76,72,0.55);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:18px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(6,76,72,0.25);animation:slideUp 0.22s ease;}
+.modal-lg{max-width:900px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-head{background:var(--teal-dark);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;}
+.modal-head h3{font-family:'Fraunces',serif;color:var(--gold-light);font-size:1rem;font-weight:400;font-style:italic;}
+.modal-close{background:none;border:none;color:var(--teal-light);font-size:1.2rem;cursor:pointer;}
+.modal-close:hover{color:var(--gold);}
+.modal-body{padding:22px;}
+.modal-tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:18px;}
+.modal-tab{padding:9px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;color:var(--text-soft);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Kodchasan',sans-serif;background:none;border-top:none;border-left:none;border-right:none;transition:all 0.2s;}
+.modal-tab.active{color:var(--teal);border-bottom-color:var(--teal);}
+
+/* ===== SCALE CONTROL ===== */
+.scale-control{background:var(--teal-pale);border-radius:12px;padding:16px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.scale-label{font-size:0.8rem;font-weight:600;color:var(--teal-dark);}
+.scale-input-wrap{display:flex;align-items:center;gap:10px;}
+.scale-btn{width:36px;height:36px;border-radius:9px;border:2px solid var(--teal);background:white;font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--teal);display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.scale-btn:hover{background:var(--teal);color:white;}
+.scale-input{width:80px;text-align:center;padding:8px;border:2px solid var(--teal);border-radius:9px;font-family:'Fraunces',serif;font-size:1.2rem;font-weight:700;color:var(--teal-dark);outline:none;}
+.scale-unit{font-size:0.82rem;color:var(--text-soft);}
+
+/* ===== OPERATIONAL VIEW ===== */
+.op-header{background:linear-gradient(135deg,var(--teal-dark),var(--slate));border-radius:16px;padding:22px 26px;margin-bottom:20px;color:white;}
+.op-header h2{font-family:'Fraunces',serif;font-size:1.6rem;color:var(--gold-light);font-style:italic;}
+.op-header p{color:var(--teal-light);font-size:0.82rem;margin-top:4px;}
+.op-step{background:white;border:1.5px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;}
+.op-step-head{padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;background:white;}
+.op-step-head:hover{background:var(--teal-pale);}
+.op-step-num{width:32px;height:32px;border-radius:50%;background:var(--teal);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;}
+.op-step-num.done{background:var(--green);}
+.op-step-title{font-weight:700;font-size:0.9rem;color:var(--teal-dark);flex:1;}
+.op-step-timer{font-size:0.75rem;color:var(--text-soft);}
+.op-step-body{padding:14px 18px 16px;border-top:1px solid var(--border);display:none;}
+.op-step-body.open{display:block;}
+.op-step-desc{font-size:0.85rem;color:var(--text-soft);line-height:1.7;margin-bottom:12px;}
+.op-ing-list{background:var(--teal-pale);border-radius:10px;padding:12px 14px;}
+.op-ing-item{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(163,209,198,0.3);font-size:0.82rem;}
+.op-ing-item:last-child{border-bottom:none;}
+.op-ing-amount{font-weight:700;color:var(--teal-dark);font-family:'Fraunces',serif;font-size:1rem;}
+
+/* ===== DIVIDER ===== */
+.sep{height:1px;background:var(--border);margin:16px 0;}
+.mb-16{margin-bottom:16px;} .mb-20{margin-bottom:20px;}
+.mt-16{margin-top:16px;} .mt-20{margin-top:20px;}
+.flex{display:flex;} .gap-10{gap:10px;} .gap-12{gap:12px;}
+.items-center{align-items:center;} .justify-between{justify-content:space-between;}
+.flex-wrap{flex-wrap:wrap;} .text-soft{color:var(--text-soft);}
+.text-sm{font-size:0.82rem;} .text-xs{font-size:0.72rem;}
+.font-serif{font-family:'Fraunces',serif;}
+
+/* ===== TOAST ===== */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--teal-dark);color:var(--gold-light);padding:11px 18px;border-radius:11px;font-size:0.83rem;box-shadow:0 6px 24px rgba(6,76,72,0.35);display:none;z-index:500;border-left:4px solid var(--gold);}
+
+/* ===== LOGIN ===== */
+#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;}
+.login-card{background:white;border-radius:22px;padding:40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
+</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <img src="img/logo_teal_vert.png" alt="KEREK" style="height:80px;width:auto;display:block;margin:0 auto 20px">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:1.5rem;color:var(--teal-dark);letter-spacing:3px">KEREK</div>
+        <div style="font-size:0.62rem;color:var(--teal-mid);letter-spacing:1.5px;text-transform:uppercase">Receptúra modul</div>
+      </div>
+    </div>
+    <div class="form-group mb-16">
+      <label>Jelszó</label>
+      <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Belépés →</button>
+    <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center">Demo: <b>admin</b></p>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="app">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="img/logo_white_horiz.png" alt="KEREK" style="height:38px;width:auto;display:block">
+    <div class="sidebar-tagline">Receptúra modul</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Receptúrák</div>
+    <button class="nav-item active" onclick="nav('recipes')"><span class="icon">📋</span>Receptek</button>
+    <button class="nav-item" onclick="nav('op-select')"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Alapadatok</div>
+    <button class="nav-item" onclick="nav('ingredients')"><span class="icon">🌾</span>Nyersanyag árjegyzék</button>
+    <button class="nav-item" onclick="nav('settings-r')"><span class="icon">⚙️</span>Beállítások</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Gyártás</div>
+    <button class="nav-item" onclick="nav('levain-daily')"><span class="icon">🧫</span>Napi levain igény</button>
+    <button class="nav-item" onclick="nav('production-prep')"><span class="icon">🏭</span>Gyártás előkészítés</button>
+    <button class="nav-item" onclick="nav('stock')"><span class="icon">📦</span>Készletkezelés</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Elemzés</div>
+    <button class="nav-item" onclick="nav('cost-analysis')"><span class="icon">💰</span>Önköltség elemzés</button>
+  </div>
+  <div class="sidebar-footer">
+    <button class="btn-back" onclick="window.location.href='index.html'">← Főmenü</button>
+  </div>
+</aside>
+
+<!-- CONTENT -->
+<div class="content">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Receptek</div>
+      <div class="topbar-sub" id="topbar-sub"></div>
+    </div>
+    <div class="flex gap-10 items-center">
+      <span id="user-badge" style="font-size:0.78rem;color:var(--text-soft)"></span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Kilépés</button>
+    </div>
+  </div>
+  <div class="main-pad">
+
+  <!-- ===== RECIPES ===== -->
+  <div id="view-recipes" class="view active">
+    <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
+      <div class="flex gap-10 flex-wrap" id="recipe-filter-btns"></div>
+      <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
+    </div>
+    <div id="recipes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
+  </div>
+
+  <!-- ===== RECIPE DETAIL ===== -->
+  <div id="view-recipe-detail" class="view">
+    <div class="flex gap-10 items-center mb-20">
+      <button class="btn btn-ghost btn-sm" onclick="nav('recipes')">← Vissza</button>
+      <div style="font-family:'Fraunces',serif;font-size:1.2rem;color:var(--teal-dark)" id="detail-title"></div>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="editCurrentRecipe()">✏️ Szerkesztés</button>
+      <button class="btn btn-gold btn-sm" onclick="openOpView()">👨‍🍳 Üzemi nézet</button>
+    </div>
+    <!-- Scale control -->
+    <div class="scale-control">
+      <div class="scale-label">Sütési mennyiség:</div>
+      <div class="scale-input-wrap">
+        <button class="scale-btn" onclick="changeScale(-1)">−</button>
+        <input type="number" class="scale-input" id="scale-pieces" value="10" min="1" onchange="renderRecipeDetail()">
+        <span class="scale-unit">db</span>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-soft)">
+        Nyers tészta összesen: <b id="scale-raw-weight">—</b> g &nbsp;|&nbsp;
+        Sült termék: <b id="scale-baked-weight">—</b> g &nbsp;|&nbsp;
+        Levain szükséglet: <b id="scale-levain">—</b> g
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <!-- Levain calculator -->
+        <div class="levain-box" id="levain-box"></div>
+        <!-- Ingredients -->
+        <div class="card">
+          <div class="card-head"><div class="card-title">🌾 Összetevők</div><div id="total-pct-badge"></div></div>
+          <div class="card-body" id="ingredients-detail"></div>
+        </div>
+      </div>
+      <div>
+        <!-- Cost -->
+        <div class="card">
+          <div class="card-head"><div class="card-title">💰 Önköltség kalkulátor</div></div>
+          <div class="card-body" id="cost-detail"></div>
+        </div>
+        <!-- Process -->
+        <div class="card">
+          <div class="card-head"><div class="card-title">📋 Folyamat</div></div>
+          <div class="card-body" id="process-detail"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPERATIONAL SELECT ===== -->
+  <div id="view-op-select" class="view">
+    <div class="op-header">
+      <h2>Üzemi nézet</h2>
+      <p>Válaszd ki a sütni kívánt terméket és add meg a mennyiséget</p>
+    </div>
+    <div id="op-recipe-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px"></div>
+  </div>
+
+  <!-- ===== OPERATIONAL DETAIL ===== -->
+  <div id="view-op-detail" class="view">
+    <div class="flex gap-10 items-center mb-16">
+      <button class="btn btn-ghost btn-sm" onclick="nav('op-select')">← Vissza</button>
+      <div style="font-family:'Fraunces',serif;font-size:1.1rem;color:var(--teal-dark)" id="op-title"></div>
+    </div>
+    <div class="scale-control">
+      <div class="scale-label">Sütési mennyiség:</div>
+      <div class="scale-input-wrap">
+        <button class="scale-btn" onclick="changeOpScale(-1)">−</button>
+        <input type="number" class="scale-input" id="op-scale-pieces" value="10" min="1" onchange="renderOpDetail()">
+        <span class="scale-unit">db</span>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-soft)">
+        Nyers: <b id="op-raw-weight">—</b> g &nbsp;|&nbsp; Levain: <b id="op-levain-needed">—</b> g
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="levain-box" id="op-levain-box"></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">🌾 Kimérési lista</div></div>
+          <div class="card-body" id="op-ingredients"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">📋 Sütési lépések</div></div>
+          <div class="card-body" id="op-steps"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== INGREDIENTS (Nyersanyag árjegyzék) ===== -->
+  <div id="view-ingredients" class="view">
+    <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
+      <div class="flex gap-10" id="ing-category-filter"></div>
+      <button class="btn btn-primary" onclick="openIngredientModal()">＋ Új alapanyag</button>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">🌾 Nyersanyag árjegyzék</div>
+        <div style="font-size:0.75rem;color:var(--teal-light)">ÁFA: <b id="vat-display"></b>% &nbsp;|&nbsp; Nyereségkulcs: <b id="margin-display"></b>%</div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl" id="ingredients-table">
+          <thead><tr><th>Megnevezés</th><th>Kategória</th><th>Forrás / Partnerek</th><th class="num">Készlet</th><th class="num">FIFO ár/kg</th><th>Állapot</th><th></th></tr></thead>
+          <tbody id="ingredients-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS ===== -->
+  <div id="view-settings-r" class="view">
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">💰 Pénzügyi beállítások</div></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group"><label>ÁFA kulcs (%)</label><input type="number" id="s-vat" placeholder="19"></div>
+          <div class="form-group"><label>Nyereségkulcs (%)</label><input type="number" id="s-margin" placeholder="50"></div>
+          <div class="form-group"><label>Munkaóra díj (lej/h)</label><input type="number" id="s-labor" placeholder="55"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Áram (lej/kWh)</label><input type="number" id="s-electricity" placeholder="1.5"></div>
+          <div class="form-group"><label>Eszközkopás (lej/sütés)</label><input type="number" id="s-tool-wear" placeholder="5"></div>
+          <div class="form-group"><label>Fogyóeszköz (lej/sütés)</label><input type="number" id="s-consumables" placeholder="0.5"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveFinancialSettings()">Mentés</button>
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">🍞 Sütési alapbeállítások</div></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group"><label>Sütési veszteség (%)</label><input type="number" id="s-bake-loss" placeholder="16" step="0.1"></div>
+          <div class="form-group"><label>Alapadag (g sült)</label><input type="number" id="s-base-portion" placeholder="1000"></div>
+        </div>
+        <div class="sep"></div>
+        <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Levain képlet (egységes)</div>
+        <div class="form-row">
+          <div class="form-group"><label>Kovász aránya (%)</label><input type="number" id="s-levain-starter" value="33" step="0.1"></div>
+          <div class="form-group"><label>Víz aránya (%)</label><input type="number" id="s-levain-water" value="30" step="0.1"></div>
+          <div class="form-group"><label>Barnarizs liszt (%)</label><input type="number" id="s-levain-flour" value="37" step="0.1"></div>
+        </div>
+        <div class="sep"></div>
+        <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Visszatöltés az üvegbe</div>
+        <div class="form-row">
+          <div class="form-group"><label>Barnarizs liszt (%)</label><input type="number" id="s-refill-flour" value="52" step="0.1"></div>
+          <div class="form-group"><label>Víz (%)</label><input type="number" id="s-refill-water" value="48" step="0.1"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveBakingSettings()">Mentés</button>
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">🤖 Claude AI integráció</div></div>
+      <div class="card-body">
+        <p class="text-sm text-soft mb-16">API kulcs megadásával a szöveges recept feldolgozás sokkal pontosabb lesz.</p>
+        <div class="form-row">
+          <div class="form-group"><label>Anthropic API kulcs</label>
+            <input type="password" id="s-api-key" placeholder="sk-ant-...">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Mentés</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">🏷 Termék kategóriák</div></div>
+      <div class="card-body">
+        <div id="recipe-cats-list" class="mb-16"></div>
+        <div class="flex gap-10">
+          <input type="text" id="new-recipe-cat" placeholder="Új kategória..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none">
+          <button class="btn btn-primary btn-sm" onclick="addRecipeCat()">＋</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LEVAIN DAILY ===== -->
+  <div id="view-levain-daily" class="view">
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">📅 Sütési nap kiválasztása</div></div>
+      <div class="card-body">
+        <p class="text-sm text-soft mb-16">Válassz napokat amelyekre előre kalkulálni szeretnéd a levain igényt. Az adatokat a rendelési rendszerből hozza.</p>
+        <div id="levain-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
+        <button class="btn btn-primary btn-sm" onclick="calcLevainDaily()">🧮 Levain igény kiszámítása</button>
+      </div>
+    </div>
+    <div id="levain-daily-result"></div>
+  </div>
+
+  <!-- ===== PRODUCTION PREP ===== -->
+  <div id="view-production-prep" class="view">
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">📅 Sütési nap</div></div>
+      <div class="card-body">
+        <div id="prod-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
+        <button class="btn btn-primary btn-sm" onclick="calcProductionPrep()">🏭 Előkészítés kiszámítása</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportShoppingListCSV()" style="margin-left:8px">📥 Excel export</button>
+      </div>
+    </div>
+    <div id="prod-prep-result"></div>
+    <div id="stock-alerts" class="mb-16"></div>
+  </div>
+
+  <!-- ===== COST ANALYSIS ===== -->
+  <div id="view-cost-analysis" class="view">
+    <div class="grid-4 mb-20" id="cost-stats"></div>
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">💰 Termékenkénti önköltség és ároptimalizálás</div></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Termék</th><th class="num">Önköltség/db</th><th class="num">Javasolt ár</th><th class="num">Jelenlegi ár</th><th class="num">Különbség</th><th class="num">Optimális (15db)</th><th class="num">Megtakarítás/db</th></tr></thead>
+          <tbody id="cost-analysis-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STOCK ===== -->
+  <div id="view-stock" class="view">
+    <div id="stock-alert-banner"></div>
+    <div class="flex justify-between items-center mb-20">
+      <div class="flex gap-10">
+        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()">📥 Bevásárló lista (CSV)</button>
+      </div>
+    </div>
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">📦 Raktárkészlet</div></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Alapanyag</th><th class="num">Összes készlet</th><th class="num">Min. készlet</th><th>Állapot</th><th></th></tr></thead>
+          <tbody id="stock-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- main-pad -->
+</div><!-- content -->
+</div><!-- app -->
+
+<!-- RECIPE MODAL -->
+<div class="modal-overlay" id="recipe-modal">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="recipe-modal-title">Új recept</h3>
+      <button class="modal-close" onclick="closeModal('recipe-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchModalTab(this,'rtab-basic')">Alapadatok</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-dry')">Száraz összetevők</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-wet')">Nedves összetevők</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-levain')">Levain</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-process')">Folyamat</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-cost')">Önköltség</button>
+      </div>
+
+      <!-- TAB: Basic -->
+      <div id="rtab-basic" class="modal-tab-content">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label>Recept neve *</label><input type="text" id="r-name" placeholder="pl. Kovászos prémium kenyér" oninput="updateRecipeProductCode()"></div>
+          <div class="form-group"><label>Kategória</label><select id="r-category" onchange="updateRecipeProductCode()"></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Termékkód <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(automatikus, felülírható)</span></label>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="r-product-code" placeholder="pl. SUT-KEKS-01" style="flex:1;font-family:monospace">
+              <button class="btn btn-ghost btn-sm" type="button" onclick="updateRecipeProductCode(true)" title="Újragenerálás">🔄</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Termék ár (lej/db) <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(adminban is megjelenik)</span></label>
+            <input type="number" id="r-product-price" placeholder="0" step="0.5">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Alapadag (g sült)</label><input type="number" id="r-base-portion" placeholder="1000"></div>
+          <div class="form-group"><label>Sütési veszteség (%)</label><input type="number" id="r-bake-loss" placeholder="16" step="0.1"></div>
+          <div class="form-group"><label>Termékhez rendelt egység (g)</label><input type="number" id="r-unit-weight" placeholder="pl. 500"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Sütési hőmérséklet 1. fázis (°C)</label><input type="number" id="r-temp1" placeholder="230"></div>
+          <div class="form-group"><label>Idő 1. fázis (perc)</label><input type="number" id="r-time1" placeholder="20"></div>
+          <div class="form-group"><label>Sütési hőmérséklet 2. fázis (°C)</label><input type="number" id="r-temp2" placeholder="180"></div>
+          <div class="form-group"><label>Idő 2. fázis (perc)</label><input type="number" id="r-time2" placeholder="70"></div>
+        </div>
+        <div class="form-group mb-16"><label>Leírás / Megjegyzés</label><textarea id="r-desc" placeholder="Termék rövid leírása..."></textarea></div>
+        <div class="form-group mb-16">
+          <label>Szöveges recept bevitel (AI feldolgozza)</label>
+          <textarea id="r-text-input" rows="5" placeholder="Másold be a receptet szöveges formában és kattints a Feldolgozás gombra..."></textarea>
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="parseTextRecipe()">✨ Szöveges recept feldolgozása</button>
+        <div id="parse-api-note" style="display:none;margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:0.78rem;color:var(--gold-dark)">
+          💡 <b>Claude AI integráció:</b> API kulcs megadásával a szöveges feldolgozás sokkal pontosabb lesz. Beállítások → API kulcs.
+        </div>
+      </div>
+
+      <!-- TAB: Dry ingredients -->
+      <div id="rtab-dry" class="modal-tab-content" style="display:none">
+        <p class="text-sm text-soft mb-16">Száraz összetevők: lisztek, keményítők, magvak, só, sütőpor, stb.</p>
+        <div id="dry-ingredients-list"></div>
+        <button class="btn btn-ghost btn-sm mt-16" onclick="addIngredientRow('dry')">＋ Összetevő hozzáadása</button>
+      </div>
+
+      <!-- TAB: Wet ingredients -->
+      <div id="rtab-wet" class="modal-tab-content" style="display:none">
+        <p class="text-sm text-soft mb-16">Nedves összetevők: víz, olaj, tojás, tej, stb. (a levaint NE ide add meg)</p>
+        <div id="wet-ingredients-list"></div>
+        <button class="btn btn-ghost btn-sm mt-16" onclick="addIngredientRow('wet')">＋ Összetevő hozzáadása</button>
+      </div>
+
+      <!-- TAB: Levain -->
+      <div id="rtab-levain" class="modal-tab-content" style="display:none">
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label>Levain mennyiség az alapadaghoz (g)</label>
+            <input type="number" id="r-levain-amount" placeholder="pl. 260" onchange="updateLevainPreview()">
+          </div>
+        </div>
+        <div id="levain-preview-box" style="background:var(--teal-pale);border-radius:12px;padding:16px;font-size:0.85rem;color:var(--teal-dark)">
+          <p class="text-soft">Add meg a levain mennyiségét a kalkulátor megjelenítéséhez.</p>
+        </div>
+      </div>
+
+      <!-- TAB: Process -->
+      <div id="rtab-process" class="modal-tab-content" style="display:none">
+        <p class="text-sm text-soft mb-16">A sütési folyamat lépései. Ezek jelennek meg az üzemi nézetben.</p>
+        <div id="process-steps-list"></div>
+        <button class="btn btn-ghost btn-sm mt-16" onclick="addProcessStep()">＋ Lépés hozzáadása</button>
+      </div>
+
+      <!-- TAB: Cost -->
+      <div id="rtab-cost" class="modal-tab-content" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>Munkaóra (h/adag)</label><input type="number" id="r-labor-h" placeholder="1" step="0.5"></div>
+          <div class="form-group"><label>Áramfogyasztás (kWh/sütés)</label><input type="number" id="r-electricity" placeholder="5"></div>
+        </div>
+        <div id="cost-preview" style="margin-top:14px"></div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="flex gap-10 justify-between">
+        <button class="btn btn-danger btn-sm" id="recipe-delete-btn" style="display:none" onclick="deleteCurrentRecipe()">🗑 Törlés</button>
+        <div class="flex gap-10">
+          <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Mégse</button>
+          <button class="btn btn-primary" onclick="saveRecipe()">💾 Mentés</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INGREDIENT MODAL -->
+<div class="modal-overlay" id="ingredient-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="ing-modal-title">Új alapanyag</h3>
+      <button class="modal-close" onclick="closeModal('ingredient-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>Megnevezés *</label><input type="text" id="i-name" placeholder="pl. Barnarizs liszt"></div>
+        <div class="form-group"><label>Kategória</label><select id="i-category"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Típus (száraz/egyéb/nedves)</label>
+          <select id="i-subtype">
+            <option value="flour">🌾 Száraz – liszt / korpa</option>
+            <option value="other_dry">🧂 Egyéb száraz – só, cukor, mag egész</option>
+            <option value="wet">💧 Nedves</option>
+            <option value="starter">🧫 Kovász / Levain</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Min. készlet (g)</label><input type="number" id="i-min-stock" placeholder="500"></div>
+        <div class="form-group"><label>Kritikus szint (g)</label><input type="number" id="i-critical-stock" placeholder="700"></div>
+      </div>
+      <div class="sep"></div>
+      <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Beszállítók (FIFO sorrendben – legrégebbi kerül felhasználásra)</div>
+      <div id="suppliers-list"></div>
+      <button class="btn btn-ghost btn-sm mt-16" onclick="addSupplierRow()">＋ Beszállító hozzáadása</button>
+      <div class="flex gap-10 mt-16">
+        <button class="btn btn-ghost" onclick="closeModal('ingredient-modal')">Mégse</button>
+        <button class="btn btn-primary" onclick="saveIngredient()">Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== DATA =====
+const DATA_VERSION = 'kerek_recipe_v1';
+let _s = null;
+try { _s = JSON.parse(localStorage.getItem('kerek_recipe_data')); } catch(e) {}
+if (!_s || _s._v !== DATA_VERSION) _s = null;
+
+let R = _s || {
+  _v: DATA_VERSION,
+  settings: {
+    vat: 19, margin: 50, labor: 55, electricity: 1.5,
+    toolWear: 5, consumables: 0.5, bakeLoss: 16, basePortion: 1000,
+    levain: { starter: 33, water: 30, flour: 37 },
+    refill: { flour: 52, water: 48 }
+  },
+  recipeCategories: ['Kenyér', 'Bagett / zsömle', 'Sütemény', 'Leveles tészta', 'Egyéb'],
+  ingredientCategories: ['Vegyes', 'Lisztek', 'Keményítők', 'Magvak', 'Élelmiszerek', 'Egyéb'],
+  ingredients: [
+    // subType: 'flour'=száraz liszt/korpa, 'other_dry'=só/cukor/élesztő/egész mag, 'wet'=nedves, 'starter'=kovász
+    {id:1,name:'Víz',cat:'Vegyes',subType:'wet',suppliers:[{source:'',priceGross:6,priceNet:4.86,package:1000,stock:10000,date:'2026-01-01'}],pricePerG:0.00486,minStock:5000,criticalStock:8000},
+    {id:2,name:'Olívaolaj',cat:'Vegyes',subType:'wet',suppliers:[{source:'Grizly',priceGross:60,priceNet:48.6,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.0486,minStock:500,criticalStock:800},
+    {id:3,name:'Só',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:8,priceNet:6.48,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.00648,minStock:500,criticalStock:700},
+    {id:4,name:'Kovász',cat:'Vegyes',subType:'starter',suppliers:[{source:'',priceGross:20,priceNet:16.2,package:1000,stock:500,date:'2026-01-01'}],pricePerG:0.0162,minStock:300,criticalStock:400},
+    {id:5,name:'Sütőpor',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:1.65,priceNet:1.34,package:30,stock:120,date:'2026-01-01'}],pricePerG:0.0446,minStock:100,criticalStock:150},
+    {id:6,name:'Guar gumi',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Top Ingrediente',priceGross:29,priceNet:23.49,package:1000,stock:800,date:'2026-01-01'}],pricePerG:0.0235,minStock:200,criticalStock:300},
+    {id:7,name:'Édesrizs liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'asianfood.ro',priceGross:15,priceNet:12.15,package:1000,stock:3000,date:'2026-01-01'}],pricePerG:0.01215,minStock:1000,criticalStock:1500},
+    {id:8,name:'Zabliszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:15,priceNet:12.15,package:1000,stock:2500,date:'2026-01-01'},{source:'Naturking',priceGross:14,priceNet:11.34,package:500,stock:1000,date:'2026-02-01'}],pricePerG:0.01215,minStock:1000,criticalStock:1500},
+    {id:9,name:'Barnarizs liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'naturking.ro',priceGross:12,priceNet:9.72,package:1000,stock:4000,date:'2026-01-01'}],pricePerG:0.00972,minStock:2000,criticalStock:3000},
+    {id:10,name:'Kukorica liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:10,priceNet:8.1,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.0081,minStock:500,criticalStock:700},
+    {id:11,name:'Világos hajdina liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:12,priceNet:9.72,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.00972,minStock:1000,criticalStock:1500},
+    {id:12,name:'Kukorica keményítő',cat:'Keményítők',subType:'flour',suppliers:[{source:'Paprica.ro',priceGross:13,priceNet:10.53,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.01053,minStock:500,criticalStock:700},
+    {id:13,name:'Tápióka liszt',cat:'Keményítők',subType:'flour',suppliers:[{source:'Bioshi',priceGross:75,priceNet:60.75,package:5000,stock:8000,date:'2026-01-01'}],pricePerG:0.01215,minStock:2000,criticalStock:3000},
+    {id:14,name:'Lenmag (darált)',cat:'Magvak',subType:'flour',suppliers:[{source:'Grizly',priceGross:14,priceNet:11.34,package:1000,stock:1000,date:'2026-01-01'}],pricePerG:0.01134,minStock:500,criticalStock:700},
+    {id:15,name:'Chia mag',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:22.99,priceNet:18.62,package:1000,stock:800,date:'2026-01-01'}],pricePerG:0.01862,minStock:500,criticalStock:700},
+    {id:16,name:'Psyllium / Útifű',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:51.19,priceNet:41.46,package:500,stock:600,date:'2026-01-01'}],pricePerG:0.08293,minStock:300,criticalStock:400},
+    {id:17,name:'Növényi vaj',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'Kaufland',priceGross:17,priceNet:13.77,package:200,stock:400,date:'2026-01-01'}],pricePerG:0.06885,minStock:200,criticalStock:300},
+    {id:18,name:'Növényi tej',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'DM',priceGross:7,priceNet:5.67,package:1000,stock:3000,date:'2026-01-01'}],pricePerG:0.00567,minStock:1000,criticalStock:1500},
+    {id:19,name:'Ecet',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'Kaufland',priceGross:4,priceNet:3.24,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.00324,minStock:500,criticalStock:700},
+    {id:20,name:'Cukor',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:5,priceNet:4.05,package:1000,stock:500,date:'2026-01-01'}],pricePerG:0.00405,minStock:200,criticalStock:300},
+    {id:21,name:'Száraz élesztő',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:3,priceNet:2.43,package:100,stock:200,date:'2026-01-01'}],pricePerG:0.0243,minStock:100,criticalStock:150},
+    {id:22,name:'Szezámmag (egész)',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:18,priceNet:14.58,package:500,stock:400,date:'2026-01-01'}],pricePerG:0.02916,minStock:200,criticalStock:300},
+    {id:23,name:'Napraforgó olaj',cat:'Vegyes',subType:'wet',suppliers:[{source:'Kaufland',priceGross:12,priceNet:9.72,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.00972,minStock:500,criticalStock:700},
+  ],
+  recipes: [
+    {
+      id:1, name:'Kovászos prémium kenyér', category:'Kenyér', basePortion:1000,
+      bakeLoss:16, unitWeight:1000, temp1:230, time1:20, temp2:180, time2:70,
+      desc:'Kovászos gluténmentes prémium kenyér – a pékség alaptermékei',
+      levainAmount:260,
+      dryIngredients:[
+        {name:'Zabliszt', amount:110, ingredientId:8},
+        {name:'Világos hajdina liszt', amount:130, ingredientId:11},
+        {name:'Édesrizs liszt', amount:55, ingredientId:7},
+        {name:'Tápióka liszt', amount:75, ingredientId:13},
+        {name:'Psyllium / Útifű', amount:18, ingredientId:16},
+        {name:'Só', amount:16, ingredientId:3},
+      ],
+      wetIngredients:[
+        {name:'Víz', amount:410, ingredientId:1},
+        {name:'Olívaolaj', amount:30, ingredientId:2},
+        {name:'Ecet', amount:14, ingredientId:19},
+      ],
+      steps:[
+        {title:'Áztatás', desc:'A psylliumot, a vizet és az ecetet összeöntjük, csomómentesre kavarjuk és felmelegítjük 40 fokra. 10 percet állni hagyjuk.', timer:10},
+        {title:'Száraz összetevők', desc:'A száraz összetevőket kimérjük a dagasztó tálba és 2 percen keresztül összekeverjük amíg homogén nem lesz.', timer:2},
+        {title:'Dagasztás', desc:'A dagasztó tálba a lisztekre ráöntjük a levaint, az olíva olajat és az áztatott psylliumot, majd 1-es fokozaton 10 percet dagasztjuk.', timer:10},
+        {title:'Kelesztés', desc:'Kimérjük a sütni kívánt mennyiségeket és elhelyezzük a sütő tálakba. 2 óra kelesztés, vagy gyors: 30 perc 50°C-on. Kelesztés után bevágjuk és megnedvesítjük.', timer:120},
+        {title:'Sütés 1. fázis', desc:'Előmelegített 230°C sütőbe vetjük. 10 perc után bőven megnedvesítjük a kenyerek tetejét.', timer:20},
+        {title:'Sütés 2. fázis', desc:'180°C-on sütjük további 70 percet. 10 percenként megnedvesítjük.', timer:70},
+        {title:'Szárítás', desc:'A kikapcsolt sütőben hagyjuk 3 órán keresztül a tálcából kivéve, majd papírba csomagoljuk.', timer:180},
+      ],
+      laborH:1, electricity:5,
+    },
+    {
+      id:2, name:'Diabétesz kenyér', category:'Kenyér', basePortion:1000,
+      bakeLoss:16, unitWeight:1000, temp1:230, time1:20, temp2:180, time2:70,
+      desc:'Alacsony glikémiás indexű gluténmentes kenyér',
+      levainAmount:320,
+      dryIngredients:[
+        {name:'Quinoa liszt', amount:100, ingredientId:null},
+        {name:'Világos hajdina liszt', amount:130, ingredientId:11},
+        {name:'Cirok liszt', amount:80, ingredientId:null},
+        {name:'Tápióka liszt', amount:70, ingredientId:13},
+        {name:'Psyllium / Útifű', amount:20, ingredientId:16},
+        {name:'Só', amount:15, ingredientId:3},
+        {name:'Chia/lenmag', amount:60, ingredientId:15},
+      ],
+      wetIngredients:[
+        {name:'Víz', amount:350, ingredientId:1},
+        {name:'Olívaolaj', amount:20, ingredientId:2},
+        {name:'Ecet', amount:15, ingredientId:19},
+      ],
+      steps:[
+        {title:'Áztatás', desc:'A psylliumot, a vizet és az ecetet összeöntjük, felmelegítjük 40 fokra. 10 percet állni hagyjuk.', timer:10},
+        {title:'Száraz összetevők', desc:'Kimérjük és összekeverjük a száraz összetevőket 2 percig.', timer:2},
+        {title:'Dagasztás', desc:'Hozzáadjuk a levaint, olíva olajat és áztatott psylliumot. 1-es fokozaton 10 perc.', timer:10},
+        {title:'Kelesztés', desc:'500g sülthoz 590g nyers, 1000g sülthoz 1180g nyers tészta. 2 óra kelesztés.', timer:120},
+        {title:'Sütés 1. fázis', desc:'230°C, 20 perc. Megnedvesítjük.', timer:20},
+        {title:'Sütés 2. fázis', desc:'180°C, 70 perc.', timer:70},
+        {title:'Szárítás', desc:'3 óra kikapcsolt sütőben.', timer:180},
+      ],
+      laborH:1, electricity:5,
+    },
+    {
+      id:3, name:'Kovászos bagett', category:'Bagett / zsömle', basePortion:1000,
+      bakeLoss:16, unitWeight:360, temp1:230, time1:20, temp2:180, time2:70,
+      desc:'Ropogós héjú gluténmentes kovászos bagett',
+      levainAmount:200,
+      dryIngredients:[
+        {name:'Zabliszt', amount:95, ingredientId:8},
+        {name:'Világos hajdina liszt', amount:95, ingredientId:11},
+        {name:'Tápióka liszt', amount:120, ingredientId:13},
+        {name:'Csicseriborsó liszt', amount:65, ingredientId:null},
+        {name:'Sushi rizs', amount:60, ingredientId:null},
+        {name:'Psyllium / Útifű', amount:24, ingredientId:16},
+        {name:'Só', amount:15, ingredientId:3},
+        {name:'Cukor', amount:15, ingredientId:null},
+        {name:'Száraz élesztő', amount:4, ingredientId:null},
+      ],
+      wetIngredients:[
+        {name:'Víz', amount:430, ingredientId:1},
+        {name:'Napraforgó olaj', amount:25, ingredientId:null},
+        {name:'Ecet', amount:15, ingredientId:19},
+      ],
+      steps:[
+        {title:'Áztatás', desc:'Psyllium + víz + ecet, 40 fokra melegítve, 10 perc állás.', timer:10},
+        {title:'Száraz összetevők', desc:'Száraz összetevők homogenizálása 2 perc.', timer:2},
+        {title:'Dagasztás', desc:'Levain + olaj + áztatott psyllium hozzáadása. 10 perc, 1-es fokozat.', timer:10},
+        {title:'Kelesztés', desc:'Formázás, 2 óra kelesztés vagy gyors módszer.', timer:120},
+        {title:'Sütés 1. fázis', desc:'230°C, 20 perc.', timer:20},
+        {title:'Sütés 2. fázis', desc:'180°C, 70 perc.', timer:70},
+        {title:'Szárítás', desc:'3 óra kikapcsolt sütőben.', timer:180},
+      ],
+      laborH:1, electricity:5,
+    },
+  ],
+  stock: {},
+};
+
+function save() { R._v = DATA_VERSION; localStorage.setItem('kerek_recipe_data', JSON.stringify(R)); }
+
+// ===== AUTH =====
+let loggedIn = false;
+async function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  // Share password with main app
+  const mainData = JSON.parse(localStorage.getItem('kerek_data')||'{}');
+  const adminPw = mainData?.settings?.adminPw || 'admin';
+  if (pw === adminPw) {
+    loggedIn = true;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
+    initApp();
+  } else { toast('Hibás jelszó!'); }
+}
+function logout() { loggedIn = false; document.getElementById('login-screen').style.display = 'flex'; }
+async function loadRecipeData() {
+  try {
+    const [recipesRaw, ingredientsRaw, suppliersRaw, stepsRaw, ingListRaw, stockRaw] = await Promise.all([
+      sb.query('recipes', {order:'id'}),
+      sb.query('recipe_ingredients', {order:'recipe_id'}),
+      sb.query('ingredient_suppliers', {order:'ingredient_id'}),
+      sb.query('recipe_steps', {order:'recipe_id'}),
+      sb.query('ingredients', {order:'id'}),
+      sb.query('stock'),
+    ]);
+
+    // Build recipes
+    if(recipesRaw.length > 0) {
+      R.recipes = recipesRaw.map(rec => {
+        const dryIngs = ingredientsRaw
+          .filter(i => i.recipe_id === rec.id && ['flour','other_dry'].includes(i.sub_type))
+          .map(i => ({name:i.name, amount:i.amount, ingredientId:i.ingredient_id}));
+        const wetIngs = ingredientsRaw
+          .filter(i => i.recipe_id === rec.id && i.sub_type === 'wet')
+          .map(i => ({name:i.name, amount:i.amount, ingredientId:i.ingredient_id}));
+        const steps = stepsRaw
+          .filter(s => s.recipe_id === rec.id)
+          .sort((a,b) => a.sort_order - b.sort_order)
+          .map(s => ({title:s.title, desc:s.description, timer:s.timer_minutes}));
+        return {
+          id: rec.id, name: rec.name, category: rec.category,
+          basePortion: rec.base_portion, bakeLoss: rec.bake_loss,
+          unitWeight: rec.unit_weight, temp1: rec.temp1, time1: rec.time1,
+          temp2: rec.temp2, time2: rec.time2, desc: rec.description,
+          levainAmount: rec.levain_amount, laborH: rec.labor_h,
+          electricity: rec.electricity, dryIngredients: dryIngs,
+          wetIngredients: wetIngs, steps: steps,
+        };
+      });
+      console.log(`✅ ${R.recipes.length} recept betöltve Supabase-ből`);
+    }
+
+    // Build ingredients with suppliers
+    if(ingListRaw.length > 0) {
+      R.ingredients = ingListRaw.map(ing => {
+        const suppliers = suppliersRaw
+          .filter(s => s.ingredient_id === ing.id)
+          .sort((a,b) => a.sort_order - b.sort_order)
+          .map(s => ({
+            source: s.source, priceGross: s.price_gross, priceNet: s.price_net,
+            package: s.package_g, stock: s.stock_g, date: s.purchase_date,
+          }));
+        const stockEntry = stockRaw.find(s => s.ingredient_id === ing.id);
+        if(suppliers.length === 0) {
+          suppliers.push({source:'',priceGross:0,priceNet:0,package:1000,
+            stock: stockEntry?.total_stock || 0, date: new Date().toISOString().slice(0,10)});
+        }
+        return {
+          id: ing.id, name: ing.name, cat: ing.category, subType: ing.sub_type,
+          suppliers: suppliers, pricePerG: ing.price_per_g,
+          minStock: ing.min_stock, criticalStock: ing.critical_stock,
+        };
+      });
+      console.log(`✅ ${R.ingredients.length} alapanyag betöltve`);
+    }
+
+    // Save to localStorage cache
+    localStorage.setItem('kerek_recipe_data', JSON.stringify(R));
+  } catch(e) {
+    console.warn('⚠️ Supabase hiba, lokális adat használva:', e.message);
+  }
+}
+
+function initApp() {
+  document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
+  nav('recipes');
+}
+
+// ===== NAVIGATION =====
+const VIEW_TITLES = {
+  recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
+  'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
+  'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés'
+};
+function nav(id) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el = document.getElementById('view-'+id);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')?.includes(`'${id}'`)) n.classList.add('active');
+  });
+  document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
+  const renders = {
+    recipes: renderRecipes, 'op-select': renderOpSelect,
+    ingredients: renderIngredients, 'settings-r': renderSettings,
+    'cost-analysis': renderCostAnalysis, stock: renderStock,
+    'levain-daily': () => { initLevainDaily(); },
+    'production-prep': () => { initLevainDaily(); initProductionPrep(); },
+  };
+  renders[id]?.();
+}
+
+// ===== HELPERS =====
+function getIng(id) { return R.ingredients.find(i=>i.id===id); }
+
+// FIFO price: use oldest batch first
+function getFifoPrice(ing) {
+  if (!ing) return 0;
+  if (!ing.suppliers || ing.suppliers.length === 0) return ing.pricePerG || 0;
+  // Sort by date ascending (oldest first = FIFO)
+  const sorted = [...ing.suppliers].sort((a,b) => new Date(a.date) - new Date(b.date));
+  // Use first batch with stock > 0, else use latest
+  const active = sorted.find(s => (s.stock||0) > 0) || sorted[sorted.length-1];
+  return active.priceNet / active.package;
+}
+
+// Get current effective price per gram (FIFO)
+function getIngPricePerG(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return 0;
+  return getFifoPrice(ing);
+}
+
+// Determine ingredient display category
+function getIngSubType(ing) {
+  if (!ing) return 'other_dry';
+  return ing.subType || 'other_dry';
+}
+
+// Category labels for display
+function subTypeLabel(subType) {
+  return {
+    flour: '🌾 Száraz (liszt/korpa)',
+    other_dry: '🧂 Egyéb száraz',
+    wet: '💧 Nedves',
+    starter: '🧫 Levain',
+  }[subType] || '🧂 Egyéb';
+}
+
+function subTypeHeadClass(subType) {
+  return {flour:'dry', other_dry:'other-dry', wet:'wet', starter:'levain'}[subType] || 'other-dry';
+}
+
+function calcRawWeight(recipe, pieces) {
+  const unitWeight = recipe.unitWeight || recipe.basePortion;
+  const totalBaked = pieces * unitWeight;
+  return Math.round(totalBaked / (1 - (recipe.bakeLoss||R.settings.bakeLoss) / 100));
+}
+function calcLevain(levainAmount) {
+  const s = R.settings.levain;
+  const starter = Math.round(levainAmount * s.starter / 100);
+  const water = Math.round(levainAmount * s.water / 100);
+  const flour = levainAmount - starter - water;
+  return { starter, water, flour, total: starter + water + flour };
+}
+function calcRefill(starterTaken) {
+  const s = R.settings.refill;
+  return {
+    flour: Math.round(starterTaken * s.flour / 100),
+    water: Math.round(starterTaken * s.water / 100),
+  };
+}
+function scaleIngredient(baseAmount, basePortion, targetRaw) {
+  return Math.round(baseAmount * targetRaw / basePortion * 10) / 10;
+}
+function calcIngCost(ingId, amount) {
+  const ing = getIng(ingId);
+  if (!ing) return 0;
+  return Math.round(getFifoPrice(ing) * amount * 1000) / 1000;
+}
+
+// Get total stock across all suppliers
+function getTotalStock(ing) {
+  if (!ing.suppliers) return ing.stock || 0;
+  return ing.suppliers.reduce((a, s) => a + (s.stock || 0), 0);
+}
+function calcRecipeCost(recipe, pieces) {
+  const s = R.settings;
+  const unitWeight = recipe.unitWeight || recipe.basePortion;
+  const totalBaked = pieces * unitWeight;
+  const rawWeight = calcRawWeight(recipe, pieces);
+  const scale = rawWeight / recipe.basePortion;
+
+  // Raw material cost
+  let rawCost = 0;
+  const levain = calcLevain(recipe.levainAmount * scale);
+  rawCost += calcIngCost(4, levain.starter); // kovász
+  rawCost += calcIngCost(9, levain.flour);   // barnarizs
+  rawCost += calcIngCost(1, levain.water);   // víz
+
+  [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])].forEach(ing=>{
+    rawCost += calcIngCost(ing.ingredientId, ing.amount * scale);
+  });
+
+  // Other costs
+  const laborCost = (recipe.laborH||1) * s.labor;
+  const electricityCost = (recipe.electricity||5) * s.electricity;
+  const toolCost = s.toolWear;
+  const consumablesCost = s.consumables;
+  const totalCost = rawCost + laborCost + electricityCost + toolCost + consumablesCost;
+  const costPerUnit = totalCost / pieces;
+  const priceNet = costPerUnit / (1 - s.margin/100);
+  const priceGross = priceNet * (1 + s.vat/100);
+
+  return { rawCost, laborCost, electricityCost, toolCost, consumablesCost,
+    totalCost, costPerUnit, priceNet, priceGross };
+}
+
+// ===== RENDER RECIPES =====
+function renderRecipes() {
+  // Filter buttons
+  const cats = ['Mind', ...R.recipeCategories];
+  let activeCat = 'Mind';
+  document.getElementById('recipe-filter-btns').innerHTML = cats.map(c=>
+    `<button class="btn ${c==='Mind'?'btn-primary':'btn-ghost'} btn-sm" onclick="filterRecipes('${c}',this)">${c}</button>`
+  ).join('');
+
+  renderRecipeGrid('Mind');
+}
+
+function filterRecipes(cat, btn) {
+  document.querySelectorAll('#recipe-filter-btns .btn').forEach(b=>{
+    b.className = b===btn ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+  renderRecipeGrid(cat);
+}
+
+function renderRecipeGrid(cat) {
+  const filtered = cat==='Mind' ? R.recipes : R.recipes.filter(r=>r.category===cat);
+  document.getElementById('recipes-grid').innerHTML = filtered.map(r => {
+    const cost = calcRecipeCost(r, 10);
+    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
+      <div class="recipe-card-img">🍞</div>
+      <div class="recipe-card-body">
+        <div class="recipe-card-name">${r.name}</div>
+        <div class="recipe-card-meta">
+          <span class="badge badge-teal">${r.category}</span>
+          <span>${r.unitWeight||r.basePortion}g/db</span>
+          ${r.productCode ? `<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${r.productCode}</span>` : ''}
+        </div>
+        <div class="recipe-card-price">${cost.priceGross.toFixed(2)} lej <span style="font-size:0.75rem;color:var(--text-soft)">/db bruttó</span></div>
+      </div>
+    </div>`;
+  }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
+}
+
+// ===== RECIPE DETAIL =====
+let currentRecipeId = null;
+function openRecipeDetail(id) {
+  currentRecipeId = id;
+  document.getElementById('scale-pieces').value = 10;
+  nav('recipe-detail');
+  renderRecipeDetail();
+}
+
+function renderRecipeDetail() {
+  const r = R.recipes.find(r=>r.id===currentRecipeId);
+  if (!r) return;
+  const pieces = parseInt(document.getElementById('scale-pieces').value)||10;
+  document.getElementById('detail-title').textContent = r.name;
+
+  // Scale info
+  const rawWeight = calcRawWeight(r, pieces);
+  const bakedWeight = pieces * (r.unitWeight||r.basePortion);
+  const levainNeeded = Math.round(r.levainAmount * rawWeight / r.basePortion);
+  document.getElementById('scale-raw-weight').textContent = rawWeight.toLocaleString();
+  document.getElementById('scale-baked-weight').textContent = bakedWeight.toLocaleString();
+  document.getElementById('scale-levain').textContent = levainNeeded;
+
+  // Levain box
+  renderLevainBox('levain-box', levainNeeded, r.levainAmount * rawWeight / r.basePortion);
+
+  // Ingredients
+  renderIngredientsDetail(r, pieces, rawWeight);
+
+  // Cost
+  renderCostDetail(r, pieces);
+
+  // Process
+  renderProcessDetail(r);
+}
+
+function renderLevainBox(containerId, levainTotal, levainBase) {
+  const lev = calcLevain(levainTotal);
+  const refill = calcRefill(lev.starter);
+  document.getElementById(containerId).innerHTML = `
+    <h3>🧫 Levain & Kovász kalkulátor</h3>
+    <div class="levain-grid">
+      <div>
+        <div class="levain-col-title">Levain elkészítése</div>
+        <div class="levain-line"><span>Kovász (33%)</span><div><span class="levain-val">${lev.starter} g</span></div></div>
+        <div class="levain-line"><span>Víz (30%)</span><div><span class="levain-val">${lev.water} g</span></div></div>
+        <div class="levain-line"><span>Barnarizs liszt (37%)</span><div><span class="levain-val">${lev.flour} g</span></div></div>
+        <div class="levain-line" style="border-top:1px solid rgba(255,255,255,0.2);margin-top:4px;padding-top:6px">
+          <span style="font-weight:700">Levain összesen</span>
+          <span class="levain-val" style="font-size:1.1rem">${lev.total} g</span>
+        </div>
+      </div>
+      <div>
+        <div class="levain-col-title">Visszatöltés az üvegbe</div>
+        <div class="levain-line"><span>Kivett kovász</span><span class="levain-val">${lev.starter} g</span></div>
+        <div class="levain-line"><span>Barnarizs liszt (52%)</span><span class="levain-val">${refill.flour} g</span></div>
+        <div class="levain-line"><span>Víz (48%)</span><span class="levain-val">${refill.water} g</span></div>
+        <div class="levain-line" style="border-top:1px solid rgba(255,255,255,0.2);margin-top:4px;padding-top:6px">
+          <span style="font-weight:700">Visszatölt összesen</span>
+          <span class="levain-val">${refill.flour+refill.water} g</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderIngredientsDetail(recipe, pieces, rawWeight) {
+  const scale = rawWeight / recipe.basePortion;
+  const allIngs = [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])];
+  const totalBase = allIngs.reduce((a,i)=>a+i.amount, 0) + recipe.levainAmount;
+
+  // Group by subType
+  const groups = {};
+  allIngs.forEach(ing => {
+    const baseIng = getIng(ing.ingredientId);
+    const subType = baseIng ? getIngSubType(baseIng) : (recipe.dryIngredients?.includes(ing) ? 'flour' : 'wet');
+    if (!groups[subType]) groups[subType] = {items:[], total:0};
+    groups[subType].items.push(ing);
+    groups[subType].total += ing.amount;
+  });
+
+  // Display order
+  const order = ['flour', 'other_dry', 'wet'];
+  let html = '';
+  let grandIngCost = 0;
+
+  order.forEach(subType => {
+    const grp = groups[subType];
+    if (!grp || grp.items.length === 0) return;
+    const grpPct = ((grp.total / totalBase) * 100).toFixed(1);
+    const headClass = subTypeHeadClass(subType);
+    html += `<div class="ing-section">
+      <div class="ing-section-head ${headClass}">${subTypeLabel(subType)} <span>${grpPct}%</span></div>`;
+
+    let sectionCost = 0;
+    grp.items.forEach(ing => {
+      const scaled = Math.round(ing.amount * scale * 10) / 10;
+      const pct = ((ing.amount / totalBase) * 100).toFixed(1);
+      const cost = calcIngCost(ing.ingredientId, scaled);
+      sectionCost += cost;
+      grandIngCost += cost;
+      const baseIng = getIng(ing.ingredientId);
+      const supplier = baseIng?.suppliers?.[0]?.source || '—';
+      const fifoPrice = baseIng ? (getFifoPrice(baseIng) * 1000).toFixed(3) : '—';
+
+      html += `<div class="ing-row">
+        <span class="ing-name">${ing.name}
+          ${baseIng ? `<span class="ing-source" onclick="showIngDetail(${ing.ingredientId})" title="Kattints az árjegyzék tételre">🔍 ${supplier}</span>` : ''}
+        </span>
+        <span class="ing-pct">${pct}%</span>
+        <span class="ing-amount">${scaled} g</span>
+        <span class="ing-cost" title="${fifoPrice} lej/kg">${cost > 0 ? cost.toFixed(3)+' lej' : '—'}</span>
+      </div>`;
+    });
+
+    // Section cost total
+    html += `<div class="ing-row" style="background:#f7f5f0;font-weight:600;font-size:0.78rem">
+      <span class="ing-name" style="color:var(--text-soft)">Szekció összesen</span>
+      <span class="ing-pct"></span>
+      <span class="ing-amount" style="color:var(--text-soft)">${Math.round(grp.items.reduce((a,i)=>a+i.amount*scale,0)*10)/10} g</span>
+      <span class="ing-cost" style="color:var(--gold-dark)">${sectionCost.toFixed(3)} lej</span>
+    </div>`;
+    html += `</div>`;
+  });
+
+  // Levain row
+  const levainScaled = Math.round(recipe.levainAmount * scale);
+  const levainPct = ((recipe.levainAmount / totalBase) * 100).toFixed(1);
+  const levainCost = calcIngCost(4, calcLevain(levainScaled).starter) +
+    calcIngCost(9, calcLevain(levainScaled).flour) +
+    calcIngCost(1, calcLevain(levainScaled).water);
+  grandIngCost += levainCost;
+
+  html += `<div class="ing-section">
+    <div class="ing-section-head levain">🧫 Levain <span>${levainPct}%</span></div>
+    <div class="ing-row">
+      <span class="ing-name">Levain összesen</span>
+      <span class="ing-pct">${levainPct}%</span>
+      <span class="ing-amount">${levainScaled} g</span>
+      <span class="ing-cost">${levainCost.toFixed(3)} lej</span>
+    </div>
+  </div>`;
+
+  // Grand total row
+  html += `<div style="background:var(--teal-pale);border-radius:10px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:700;color:var(--teal-dark)">🧾 Nyersanyag összköltség</span>
+    <span style="font-family:'Fraunces',serif;font-size:1.2rem;color:var(--gold-dark);font-weight:700">${grandIngCost.toFixed(2)} lej</span>
+  </div>`;
+
+  document.getElementById('ingredients-detail').innerHTML = html;
+  document.getElementById('total-pct-badge').innerHTML = `<span class="badge badge-green">✓ Ellenőrzött</span>`;
+}
+
+// Show ingredient detail popup
+function showIngDetail(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const suppliers = ing.suppliers || [];
+  const totalStock = getTotalStock(ing);
+  let msg = `📦 ${ing.name}
+
+`;
+  msg += `Kategória: ${ing.cat} (${subTypeLabel(ing.subType)})
+`;
+  msg += `Teljes készlet: ${totalStock.toLocaleString()} g
+
+`;
+  msg += `Beszállítók (FIFO sorrendben):
+`;
+  const sorted = [...suppliers].sort((a,b) => new Date(a.date)-new Date(b.date));
+  sorted.forEach((s,i) => {
+    const ppg = (s.priceNet/s.package*1000).toFixed(3);
+    msg += `${i+1}. ${s.source||'—'}: ${s.priceGross} lej/${s.package}g | ${ppg} lej/kg | Készlet: ${(s.stock||0)}g | ${s.date}
+`;
+  });
+  alert(msg);
+}
+
+function renderCostDetail(r, pieces) {
+  const c = calcRecipeCost(r, pieces);
+  const c15 = calcRecipeCost(r, 15);
+
+  let html = `<div class="cost-box">
+    <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Jelenlegi: ${pieces} db</div>
+    <div class="cost-row"><span>Nyersanyag</span><span>${c.rawCost.toFixed(2)} lej</span></div>
+    <div class="cost-row"><span>Munkaóra (${r.laborH||1}h × ${R.settings.labor} lej)</span><span>${c.laborCost.toFixed(2)} lej</span></div>
+    <div class="cost-row"><span>Áram (${r.electricity||5} kWh × ${R.settings.electricity} lej)</span><span>${c.electricityCost.toFixed(2)} lej</span></div>
+    <div class="cost-row"><span>Eszközkopás + fogyóeszköz</span><span>${(c.toolCost+c.consumablesCost).toFixed(2)} lej</span></div>
+  </div>
+  <div class="cost-total">
+    <div class="cost-total-row"><span class="lbl">Önköltség összesen</span><span class="val">${c.totalCost.toFixed(2)} lej</span></div>
+    <div class="cost-total-row main"><span class="lbl">Egységköltség / db</span><span class="val">${c.costPerUnit.toFixed(2)} lej</span></div>
+    <div class="cost-total-row"><span class="lbl">Javasolt ár (nettó, ${R.settings.margin}% haszon)</span><span class="val">${c.priceNet.toFixed(2)} lej</span></div>
+    <div class="cost-total-row"><span class="lbl">Javasolt ár (bruttó, ${R.settings.vat}% ÁFA)</span><span class="val" style="font-size:1.4rem">${c.priceGross.toFixed(2)} lej</span></div>
+  </div>`;
+
+  if (pieces !== 15) {
+    const saving = (c.costPerUnit - c15.costPerUnit).toFixed(2);
+    html += `<div style="background:var(--green-pale);border-radius:10px;padding:12px 14px;margin-top:10px;font-size:0.82rem;">
+      <div style="font-weight:700;color:var(--green);margin-bottom:4px">📈 Optimalizálási lehetőség</div>
+      <div style="color:#065f46">15 db sütésnél: <b>${c15.costPerUnit.toFixed(2)} lej/db</b> önköltség</div>
+      <div style="color:#065f46">Megtakarítás: <b>${saving} lej/db</b> (${((saving/c.costPerUnit)*100).toFixed(1)}%)</div>
+    </div>`;
+  }
+
+  document.getElementById('cost-detail').innerHTML = html;
+}
+
+function renderProcessDetail(r) {
+  document.getElementById('process-detail').innerHTML = (r.steps||[]).map((s,i)=>`
+    <div class="step-item">
+      <div class="step-num">${i+1}</div>
+      <div class="step-content">
+        <div class="step-title">${s.title}</div>
+        <div class="step-desc">${s.desc}</div>
+        ${s.timer?`<div class="step-timer">⏱ ${s.timer} perc</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function changeScale(delta) {
+  const input = document.getElementById('scale-pieces');
+  input.value = Math.max(1, (parseInt(input.value)||10) + delta);
+  renderRecipeDetail();
+}
+
+// ===== OPERATIONAL VIEW =====
+function renderOpSelect() {
+  document.getElementById('op-recipe-list').innerHTML = R.recipes.map(r=>`
+    <div class="recipe-card" onclick="openOpDetail(${r.id})">
+      <div class="recipe-card-img">🍞</div>
+      <div class="recipe-card-body">
+        <div class="recipe-card-name">${r.name}</div>
+        <div class="recipe-card-meta"><span class="badge badge-teal">${r.category}</span></div>
+        <div style="margin-top:8px"><button class="btn btn-gold btn-sm">👨‍🍳 Elkezdés</button></div>
+      </div>
+    </div>`).join('');
+}
+
+let currentOpRecipeId = null;
+function openOpDetail(id) {
+  currentOpRecipeId = id;
+  document.getElementById('op-scale-pieces').value = 10;
+  nav('op-detail');
+  renderOpDetail();
+}
+function openOpView() { openOpDetail(currentRecipeId); }
+
+function renderOpDetail() {
+  const r = R.recipes.find(r=>r.id===currentOpRecipeId);
+  if (!r) return;
+  const pieces = parseInt(document.getElementById('op-scale-pieces').value)||10;
+  document.getElementById('op-title').textContent = r.name;
+
+  const rawWeight = calcRawWeight(r, pieces);
+  const levainNeeded = Math.round(r.levainAmount * rawWeight / r.basePortion);
+  document.getElementById('op-raw-weight').textContent = rawWeight.toLocaleString();
+  document.getElementById('op-levain-needed').textContent = levainNeeded;
+
+  renderLevainBox('op-levain-box', levainNeeded, r.levainAmount);
+
+  // Ingredients list
+  const scale = rawWeight / r.basePortion;
+  let html = `<div class="ing-section">
+    <div class="ing-section-head dry">🌾 Száraz összetevők</div>`;
+  r.dryIngredients.forEach(ing=>{
+    const scaled = Math.round(ing.amount*scale*10)/10;
+    html+=`<div class="op-ing-item"><span>${ing.name}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+  });
+  html += `</div><div class="ing-section" style="margin-top:12px">
+    <div class="ing-section-head wet">💧 Nedves összetevők</div>`;
+  r.wetIngredients.forEach(ing=>{
+    const scaled = Math.round(ing.amount*scale*10)/10;
+    html+=`<div class="op-ing-item"><span>${ing.name}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('op-ingredients').innerHTML = html;
+
+  // Steps
+  document.getElementById('op-steps').innerHTML = (r.steps||[]).map((s,i)=>`
+    <div class="op-step">
+      <div class="op-step-head" onclick="toggleOpStep(this)">
+        <div class="op-step-num" id="opstep-num-${i}">${i+1}</div>
+        <div class="op-step-title">${s.title}</div>
+        ${s.timer?`<div class="op-step-timer">⏱ ${s.timer} perc</div>`:''}
+        <span style="color:var(--text-soft);margin-left:8px">▾</span>
+      </div>
+      <div class="op-step-body ${i===0?'open':''}">
+        <div class="op-step-desc">${s.desc}</div>
+        ${s.timer?`<button class="btn btn-gold btn-sm" onclick="startTimer(${s.timer},'${s.title}',${i})">▶ Időzítő indítása</button>`:''}
+        <br><br>
+        <button class="btn btn-primary btn-sm" onclick="markStepDone(${i},${(r.steps||[]).length})">✓ Kész</button>
+      </div>
+    </div>`).join('');
+}
+
+function changeOpScale(delta) {
+  const input = document.getElementById('op-scale-pieces');
+  input.value = Math.max(1, (parseInt(input.value)||10) + delta);
+  renderOpDetail();
+}
+
+function toggleOpStep(el) { el.nextElementSibling.classList.toggle('open'); }
+
+function markStepDone(idx, total) {
+  const num = document.getElementById('opstep-num-'+idx);
+  if (num) { num.textContent = '✓'; num.classList.add('done'); }
+  if (idx < total-1) {
+    const nextStep = document.querySelectorAll('.op-step')[idx+1];
+    if (nextStep) nextStep.querySelector('.op-step-body').classList.add('open');
+  } else { toast('🎉 Minden lépés kész!'); }
+}
+
+let timerInterval = null;
+function startTimer(minutes, title, stepIdx) {
+  if (timerInterval) { clearInterval(timerInterval); }
+  let secs = minutes * 60;
+  const btn = event.target;
+  timerInterval = setInterval(()=>{
+    secs--;
+    const m = Math.floor(secs/60), s = secs%60;
+    btn.textContent = `⏱ ${title}: ${m}:${String(s).padStart(2,'0')}`;
+    if (secs <= 0) {
+      clearInterval(timerInterval);
+      btn.textContent = '✅ Időzítő lejárt!';
+      toast('⏰ '+title+' kész!');
+    }
+  }, 1000);
+  btn.textContent = `⏱ ${minutes}:00`;
+}
+
+// ===== INGREDIENTS VIEW =====
+let ingCatFilter = 'Mind';
+function renderIngredients() {
+  document.getElementById('vat-display').textContent = R.settings.vat;
+  document.getElementById('margin-display').textContent = R.settings.margin;
+
+  const cats = ['Mind', ...R.ingredientCategories];
+  document.getElementById('ing-category-filter').innerHTML = cats.map(c=>
+    `<button class="btn ${c===ingCatFilter?'btn-primary':'btn-ghost'} btn-sm" onclick="filterIngredients('${c}',this)">${c}</button>`
+  ).join('');
+
+  const filtered = ingCatFilter==='Mind' ? R.ingredients : R.ingredients.filter(i=>i.cat===ingCatFilter);
+  document.getElementById('ingredients-tbody').innerHTML = filtered.map(i=>{
+    const stock = getTotalStock(i);
+    const min = i.minStock||0;
+    const critical = i.criticalStock||min*1.3;
+    const statusClass = stock===0?'badge-red':stock<critical?'badge-gold':'badge-green';
+    const fifoPrice = (getFifoPrice(i)*1000).toFixed(3);
+    const suppCount = i.suppliers?.length||1;
+    return `<tr>
+      <td><b>${i.name}</b><br><span style="font-size:0.7rem;color:var(--text-soft)">${subTypeLabel(i.subType)}</span></td>
+      <td><span class="badge badge-teal">${i.cat}</span></td>
+      <td class="text-soft text-xs">${i.suppliers?.map(s=>s.source).filter(Boolean).join(', ')||'—'} ${suppCount>1?`<span class="badge badge-blue" style="font-size:0.65rem">${suppCount} partner</span>`:''}</td>
+      <td class="num">${stock.toLocaleString()} g</td>
+      <td class="num gold">${fifoPrice} lej/kg</td>
+      <td><span class="badge ${statusClass}">${stock===0?'Elfogyott':stock<critical?'Kritikus':'OK'}</span></td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openIngredientModal(${i.id})">✏️</button></td>
+    </tr>`;}).join('');
+}
+
+function filterIngredients(cat, btn) {
+  ingCatFilter = cat;
+  document.querySelectorAll('#ing-category-filter .btn').forEach(b=>{
+    b.className = b===btn ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+  renderIngredients();
+}
+
+let editingIngId = null;
+let modalSuppliers = [];
+
+function openIngredientModal(id=null) {
+  editingIngId = id;
+  document.getElementById('i-category').innerHTML = R.ingredientCategories.map(c=>`<option>${c}</option>`).join('');
+  if (id) {
+    const i = R.ingredients.find(ing=>ing.id===id);
+    document.getElementById('i-name').value = i.name;
+    document.getElementById('i-category').value = i.cat;
+    document.getElementById('i-subtype').value = i.subType || 'flour';
+    document.getElementById('i-min-stock').value = i.minStock||0;
+    document.getElementById('i-critical-stock').value = i.criticalStock||0;
+    modalSuppliers = JSON.parse(JSON.stringify(i.suppliers||[]));
+    document.getElementById('ing-modal-title').textContent = 'Alapanyag szerkesztése';
+  } else {
+    ['i-name','i-min-stock','i-critical-stock'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('i-subtype').value = 'flour';
+    modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:new Date().toISOString().slice(0,10)}];
+    document.getElementById('ing-modal-title').textContent = 'Új alapanyag';
+  }
+  renderSupplierRows();
+  document.getElementById('ingredient-modal').classList.add('open');
+}
+
+function renderSupplierRows() {
+  document.getElementById('suppliers-list').innerHTML = modalSuppliers.map((s,i) => `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:${i===0?'var(--teal-pale)':'white'}">
+      <div style="font-size:0.72rem;font-weight:600;color:var(--teal-mid);margin-bottom:8px">${i===0?'🔵 Aktív (FIFO 1.)':'🔘 Következő (FIFO '+(i+1)+')'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="flex:2;min-width:120px"><label>Forrás / Bolt</label>
+          <input type="text" value="${s.source||''}" placeholder="pl. Grizly" onchange="updateSupplier(${i},'source',this.value)"></div>
+        <div class="form-group" style="min-width:80px"><label>Bruttó ár (lej)</label>
+          <input type="number" value="${s.priceGross||''}" placeholder="12" onchange="updateSupplier(${i},'priceGross',parseFloat(this.value)||0);updateSupplierNet(${i})"></div>
+        <div class="form-group" style="min-width:80px"><label>Nettó ár</label>
+          <input type="number" value="${s.priceNet||''}" id="sup-net-${i}" placeholder="9.72" onchange="updateSupplier(${i},'priceNet',parseFloat(this.value)||0)"></div>
+        <div class="form-group" style="min-width:80px"><label>Kiszerelés (g)</label>
+          <input type="number" value="${s.package||1000}" onchange="updateSupplier(${i},'package',parseFloat(this.value)||1000)"></div>
+        <div class="form-group" style="min-width:80px"><label>Készlet (g)</label>
+          <input type="number" value="${s.stock||0}" onchange="updateSupplier(${i},'stock',parseFloat(this.value)||0)"></div>
+        <div class="form-group" style="min-width:100px"><label>Dátum (FIFO)</label>
+          <input type="date" value="${s.date||new Date().toISOString().slice(0,10)}" onchange="updateSupplier(${i},'date',this.value)"></div>
+        ${i>0?`<button class="btn btn-danger btn-xs" style="align-self:flex-end;margin-bottom:4px" onclick="removeSupplier(${i})">✕</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function updateSupplier(i, field, val) { modalSuppliers[i][field] = val; }
+function updateSupplierNet(i) {
+  const s = modalSuppliers[i];
+  s.priceNet = s.priceGross / (1 + R.settings.vat/100);
+  const el = document.getElementById(`sup-net-${i}`);
+  if(el) el.value = s.priceNet.toFixed(2);
+}
+function addSupplierRow() {
+  modalSuppliers.push({source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:new Date().toISOString().slice(0,10)});
+  renderSupplierRows();
+}
+function removeSupplier(i) { modalSuppliers.splice(i,1); renderSupplierRows(); }
+
+function calcIngPriceNet() {} // kept for compatibility
+
+function saveIngredient() {
+  const name = document.getElementById('i-name').value.trim();
+  if (!name) { toast('Megnevezés kötelező!'); return; }
+  if (modalSuppliers.length === 0) { toast('Legalább egy beszállító szükséges!'); return; }
+  // Sort suppliers by date for FIFO
+  const sortedSuppliers = [...modalSuppliers].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const firstSupplier = sortedSuppliers[0];
+  const data = {
+    name,
+    cat: document.getElementById('i-category').value,
+    subType: document.getElementById('i-subtype').value,
+    suppliers: sortedSuppliers,
+    pricePerG: firstSupplier.priceNet / firstSupplier.package,
+    minStock: parseFloat(document.getElementById('i-min-stock').value)||0,
+    criticalStock: parseFloat(document.getElementById('i-critical-stock').value)||0,
+  };
+  if (editingIngId) {
+    Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
+    toast('Alapanyag frissítve!');
+  } else {
+    data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
+    R.ingredients.push(data);
+    toast('Alapanyag hozzáadva!');
+  }
+  save(); closeModal('ingredient-modal'); renderIngredients();
+}
+
+// ===== SETTINGS =====
+function renderSettings() {
+  if(document.getElementById('s-api-key') && R.settings?.apiKey) {
+    document.getElementById('s-api-key').value = R.settings.apiKey;
+  }
+  const s = R.settings;
+  document.getElementById('s-vat').value = s.vat;
+  document.getElementById('s-margin').value = s.margin;
+  document.getElementById('s-labor').value = s.labor;
+  document.getElementById('s-electricity').value = s.electricity;
+  document.getElementById('s-tool-wear').value = s.toolWear;
+  document.getElementById('s-consumables').value = s.consumables;
+  document.getElementById('s-bake-loss').value = s.bakeLoss;
+  document.getElementById('s-base-portion').value = s.basePortion;
+  document.getElementById('s-levain-starter').value = s.levain.starter;
+  document.getElementById('s-levain-water').value = s.levain.water;
+  document.getElementById('s-levain-flour').value = s.levain.flour;
+  document.getElementById('s-refill-flour').value = s.refill.flour;
+  document.getElementById('s-refill-water').value = s.refill.water;
+  renderRecipeCatsList();
+}
+
+function saveFinancialSettings() {
+  Object.assign(R.settings, {
+    vat: parseFloat(document.getElementById('s-vat').value)||19,
+    margin: parseFloat(document.getElementById('s-margin').value)||50,
+    labor: parseFloat(document.getElementById('s-labor').value)||55,
+    electricity: parseFloat(document.getElementById('s-electricity').value)||1.5,
+    toolWear: parseFloat(document.getElementById('s-tool-wear').value)||5,
+    consumables: parseFloat(document.getElementById('s-consumables').value)||0.5,
+  });
+  save(); toast('Pénzügyi beállítások mentve!');
+}
+
+function saveBakingSettings() {
+  R.settings.bakeLoss = parseFloat(document.getElementById('s-bake-loss').value)||16;
+  R.settings.basePortion = parseFloat(document.getElementById('s-base-portion').value)||1000;
+  R.settings.levain = {
+    starter: parseFloat(document.getElementById('s-levain-starter').value)||33,
+    water: parseFloat(document.getElementById('s-levain-water').value)||30,
+    flour: parseFloat(document.getElementById('s-levain-flour').value)||37,
+  };
+  R.settings.refill = {
+    flour: parseFloat(document.getElementById('s-refill-flour').value)||52,
+    water: parseFloat(document.getElementById('s-refill-water').value)||48,
+  };
+  save(); toast('Sütési beállítások mentve!');
+}
+
+async function syncRecipeToSupabase(data, existingId) {
+  try {
+    const recId = existingId || data.id;
+    
+    // Upsert recipe
+    await sb.upsert('recipes', {
+      id: recId, name: data.name, category: data.category,
+      base_portion: data.basePortion, bake_loss: data.bakeLoss,
+      unit_weight: data.unitWeight, temp1: data.temp1, time1: data.time1,
+      temp2: data.temp2, time2: data.time2, description: data.desc||'',
+      levain_amount: data.levainAmount, labor_h: data.laborH||1,
+      electricity: data.electricity||5,
+    });
+
+    // Delete old ingredients and steps, re-insert
+    await sb.delete('recipe_ingredients', `recipe_id=eq.${recId}`);
+    await sb.delete('recipe_steps', `recipe_id=eq.${recId}`);
+
+    // Insert dry ingredients
+    const dryRows = (data.dryIngredients||[]).map((ing,i) => ({
+      recipe_id: recId, name: ing.name, amount: ing.amount,
+      ingredient_id: ing.ingredientId||null, sub_type: 'flour', sort_order: i,
+    }));
+    const wetRows = (data.wetIngredients||[]).map((ing,i) => ({
+      recipe_id: recId, name: ing.name, amount: ing.amount,
+      ingredient_id: ing.ingredientId||null, sub_type: 'wet', sort_order: i,
+    }));
+    if(dryRows.length + wetRows.length > 0) {
+      await sb.insert('recipe_ingredients', [...dryRows, ...wetRows]);
+    }
+
+    // Insert steps
+    const stepRows = (data.steps||[]).map((s,i) => ({
+      recipe_id: recId, title: s.title, description: s.desc||'',
+      timer_minutes: s.timer||0, sort_order: i,
+    }));
+    if(stepRows.length > 0) await sb.insert('recipe_steps', stepRows);
+
+    // Sync to products table - use productCode from modal if set
+    const productCode = data.productCode || (() => {
+      const catCodes = {'Kenyér':'KEN','Bagett / zsömle':'BAG','Sütemény':'SUT','Leveles tészta':'LEV','Egyéb':'EGY'};
+      const prefix = catCodes[data.category] || 'EGY';
+      const namePart = (data.name||'').toUpperCase()
+        .replace(/[ÁÉÍÓÖŐÚÜŰ]/g, c => ({Á:'A',É:'E',Í:'I',Ó:'O',Ö:'O',Ő:'O',Ú:'U',Ü:'U',Ű:'U'}[c]||c))
+        .replace(/[^A-Z]/g,'').slice(0,4)||'XXX';
+      return `${prefix}-${namePart}-R${String(recId).padStart(2,'0')}`;
+    })();
+    await sb.upsert('products', {
+      id: 1000 + recId, name: data.name,
+      weight: `${data.unitWeight||data.basePortion} g`,
+      price: data.productPrice||0, category: data.category||'Kenyér',
+      description: data.desc||'', code: productCode,
+    });
+
+    console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
+  } catch(e) {
+    console.error('syncRecipeToSupabase error:', e);
+    toast('⚠️ Supabase mentés sikertelen: '+e.message);
+  }
+}
+
+function saveApiKey() {
+  R.settings.apiKey = document.getElementById('s-api-key').value.trim();
+  save(); toast('API kulcs mentve!');
+}
+
+function renderRecipeCatsList() {
+  document.getElementById('recipe-cats-list').innerHTML = R.recipeCategories.map((c,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:white;margin-bottom:6px">
+      <span style="font-weight:600;font-size:0.85rem">${c}</span>
+      <button class="btn btn-danger btn-xs" onclick="deleteRecipeCat(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addRecipeCat() {
+  const val = document.getElementById('new-recipe-cat').value.trim();
+  if (!val) return;
+  R.recipeCategories.push(val); save(); renderRecipeCatsList();
+  document.getElementById('new-recipe-cat').value='';
+  toast('Kategória hozzáadva!');
+}
+function deleteRecipeCat(i) {
+  R.recipeCategories.splice(i,1); save(); renderRecipeCatsList(); toast('Kategória törölve.');
+}
+
+// ===== LEVAIN DAILY =====
+function getBakingDaysRange(fromDate, numDays) {
+  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  const bakingDef = mainData.bakingDaysDefault || [2,5];
+  const result = [];
+  const d = new Date(fromDate);
+  d.setHours(0,0,0,0);
+  for(let i = 0; i < numDays; i++) {
+    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+    // Build date string using LOCAL date parts (no UTC conversion)
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const cal = mainData.bakingCalendar?.[`${y}-${m}`] || {extra:[],removed:[]};
+    const isDefault = bakingDef.includes(d.getDay());
+    const isExtra = cal.extra?.includes(ds);
+    const isRemoved = cal.removed?.includes(ds);
+    if((isDefault || isExtra) && !isRemoved) result.push(new Date(d));
+    d.setDate(d.getDate()+1);
+  }
+  return result;
+}
+
+function initLevainDaily() {
+  const now = new Date();
+  const days = getBakingDaysRange(now, 30);
+  const DAYS_HU = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
+  const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
+  document.getElementById('levain-day-selector').innerHTML = days.map(d =>
+    `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
+      <input type="checkbox" value="${d.toISOString().slice(0,10)}" style="accent-color:var(--teal)">
+      ${DAYS_HU[d.getDay()]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}
+    </label>`
+  ).join('') || '<p class="text-soft text-sm">Nincs sütési nap beállítva (alap: kedd + péntek).</p>';
+}
+
+async function calcLevainDaily() {
+  const selected = [...document.querySelectorAll('#levain-day-selector input:checked')].map(i=>i.value);
+  if(selected.length === 0) { alert('Válassz legalább egy napot!'); return; }
+
+  // Show loading
+  document.getElementById('levain-daily-result').innerHTML = '<p style="color:var(--teal);padding:20px">⏳ Adatok betöltése...</p>';
+
+  // Load from Supabase
+  let mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  try {
+    const [clients, products, ordersRaw] = await Promise.all([
+      sb.query('clients'),
+      sb.query('products'),
+      sb.query('orders'),
+    ]);
+    mainData.clients = clients;
+    mainData.products = products;
+    mainData.orders = {};
+    ordersRaw.forEach(o => {
+      const key = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+      if(!mainData.orders[key]) mainData.orders[key] = {};
+      mainData.orders[key][o.product_id] = o.quantity;
+    });
+  } catch(e) { console.warn('Supabase hiba:', e.message); }
+
+  const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+  const MONTHS_HU = ['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
+
+  let html = '';
+  let grandTotal = {levain:0, starter:0, flour:0, water:0, refillFlour:0, refillWater:0};
+
+  selected.forEach(dateStr => {
+    // Parse date without timezone issues: "2026-04-30" -> local date
+    const [dy, dm, dd] = dateStr.split('-').map(Number);
+    const d = new Date(dy, dm-1, dd);
+    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+
+    // Sum all orders for this day
+    let totalLevainNeeded = 0;
+    R.recipes.forEach(recipe => {
+      // Check all clients' orders for this recipe on this day
+      (mainData.clients||[]).forEach(c => {
+        // Order key format: clientId-year-monthIndex(0-based)-day
+        const key = `${c.id}-${y}-${m}-${day}`;
+        const order = mainData.orders?.[key];
+        if(!order) return;
+        // Find product matching recipe
+        (mainData.products||[]).forEach(p => {
+          if(!order[p.id]) return;
+          // Match recipe to product by name (approximate)
+          const recipeMatch = R.recipes.find(rec =>
+            rec.name.toLowerCase().includes(p.name.toLowerCase().slice(0,8)) ||
+            p.name.toLowerCase().includes(rec.name.toLowerCase().slice(0,8))
+          );
+          if(!recipeMatch) return;
+          const qty = order[p.id];
+          const rawWeight = calcRawWeight(recipeMatch, qty);
+          const scale = rawWeight / recipeMatch.basePortion;
+          totalLevainNeeded += recipeMatch.levainAmount * scale;
+        });
+      });
+    });
+
+    if(totalLevainNeeded === 0) {
+      const dateDisplayEmpty = `${DAYS_HU[d.getDay()]}, ${dy}. ${MONTHS_HU[dm-1]} ${dd}.`;
+    html += `<div class="card mb-16"><div class="card-head"><div class="card-title">🧫 ${dateDisplayEmpty}</div></div><div class="card-body"><p class="text-soft text-sm">Nincs rendelés erre a napra.</p></div></div>`;
+      return;
+    }
+
+    totalLevainNeeded = Math.round(totalLevainNeeded);
+    const lev = calcLevain(totalLevainNeeded);
+    const refill = calcRefill(lev.starter);
+
+    grandTotal.levain += totalLevainNeeded;
+    grandTotal.starter += lev.starter;
+    grandTotal.flour += lev.flour;
+    grandTotal.water += lev.water;
+    grandTotal.refillFlour += refill.flour;
+    grandTotal.refillWater += refill.water;
+
+    const dateDisplay = `${DAYS_HU[d.getDay()]}, ${dy}. ${MONTHS_HU[dm-1]} ${dd}.`;
+    html += `<div class="card mb-16">
+      <div class="card-head"><div class="card-title">🧫 ${dateDisplay}</div><span class="badge badge-gold">${totalLevainNeeded}g levain</span></div>
+      <div class="card-body">
+        <div class="levain-box" style="margin:0">
+          <h3>Levain elkészítése</h3>
+          <div class="levain-grid">
+            <div>
+              <div class="levain-col-title">Levain (${totalLevainNeeded}g)</div>
+              <div class="levain-line"><span>Kovász (33%)</span><span class="levain-val">${lev.starter}g</span></div>
+              <div class="levain-line"><span>Víz (30%)</span><span class="levain-val">${lev.water}g</span></div>
+              <div class="levain-line"><span>Barnarizs liszt (37%)</span><span class="levain-val">${lev.flour}g</span></div>
+            </div>
+            <div>
+              <div class="levain-col-title">Visszatöltés üvegbe</div>
+              <div class="levain-line"><span>Barnarizs liszt (52%)</span><span class="levain-val">${refill.flour}g</span></div>
+              <div class="levain-line"><span>Víz (48%)</span><span class="levain-val">${refill.water}g</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Grand total if multiple days
+  if(selected.length > 1) {
+    html += `<div style="background:var(--teal-dark);border-radius:14px;padding:20px;color:var(--cream)">
+      <div style="font-family:'Fraunces',serif;color:var(--gold-light);font-size:1rem;margin-bottom:14px;font-style:italic">📊 Összesített levain igény (${selected.length} nap)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:0.85rem">
+        <div>
+          <div style="color:var(--teal-mid);font-size:0.7rem;text-transform:uppercase;margin-bottom:6px">Levain összesen</div>
+          <div>Kovász: <b style="color:var(--gold)">${grandTotal.starter}g</b></div>
+          <div>Víz: <b style="color:var(--gold)">${grandTotal.water}g</b></div>
+          <div>Barnarizs liszt: <b style="color:var(--gold)">${grandTotal.flour}g</b></div>
+        </div>
+        <div>
+          <div style="color:var(--teal-mid);font-size:0.7rem;text-transform:uppercase;margin-bottom:6px">Visszatöltés összesen</div>
+          <div>Barnarizs liszt: <b style="color:var(--gold)">${grandTotal.refillFlour}g</b></div>
+          <div>Víz: <b style="color:var(--gold)">${grandTotal.refillWater}g</b></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('levain-daily-result').innerHTML = html;
+}
+
+// ===== PRODUCTION PREP =====
+function initProductionPrep() {
+  const now = new Date();
+  const days = getBakingDaysRange(now, 30);
+  const DAYS_HU = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
+  const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
+  document.getElementById('prod-day-selector').innerHTML = days.map(d =>
+    `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
+      <input type="checkbox" value="${d.toISOString().slice(0,10)}" style="accent-color:var(--teal)">
+      ${DAYS_HU[d.getDay()]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}
+    </label>`
+  ).join('') || '<p class="text-soft text-sm">Nincs sütési nap a következő 30 napban.</p>';
+  renderStockAlerts();
+}
+
+function calcProductionPrep() {
+  const selected = [...document.querySelectorAll('#prod-day-selector input:checked')].map(i=>i.value);
+  if(selected.length === 0) {
+    // Use all checked in levain selector
+    const levSel = [...document.querySelectorAll('#levain-day-selector input:checked')].map(i=>i.value);
+    if(levSel.length > 0) {
+      selected.push(...levSel);
+    } else {
+      alert('Válassz legalább egy napot!'); return;
+    }
+  }
+
+  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+
+  // Aggregate all ingredient needs across selected days
+  const needs = {}; // ingId -> {name, needed, unit, cost}
+
+  selected.forEach(dateStr => {
+    // Parse date without timezone issues: "2026-04-30" -> local date
+    const [dy, dm, dd] = dateStr.split('-').map(Number);
+    const d = new Date(dy, dm-1, dd);
+    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+
+    R.recipes.forEach(recipe => {
+      let totalPieces = 0;
+      (mainData.clients||[]).forEach(c => {
+        // Order key format: clientId-year-monthIndex(0-based)-day
+        const key = `${c.id}-${y}-${m}-${day}`;
+        const order = mainData.orders?.[key];
+        if(!order) return;
+        (mainData.products||[]).forEach(p => {
+          if(!order[p.id]) return;
+          const nameMatch = recipe.name.toLowerCase().includes(p.name.toLowerCase().slice(0,8)) ||
+            p.name.toLowerCase().includes(recipe.name.toLowerCase().slice(0,8));
+          if(nameMatch) totalPieces += order[p.id];
+        });
+      });
+
+      if(totalPieces === 0) return;
+
+      const rawWeight = calcRawWeight(recipe, totalPieces);
+      const scale = rawWeight / recipe.basePortion;
+
+      // Levain ingredients
+      const lev = calcLevain(recipe.levainAmount * scale);
+      addNeed(needs, 4, lev.starter); // kovász
+      addNeed(needs, 9, lev.flour);   // barnarizs liszt
+      addNeed(needs, 1, lev.water);   // víz
+
+      // Recipe ingredients
+      [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])].forEach(ing => {
+        if(ing.ingredientId) addNeed(needs, ing.ingredientId, ing.amount * scale);
+      });
+    });
+  });
+
+  function addNeed(needs, ingId, amount) {
+    if(!needs[ingId]) {
+      const ing = getIng(ingId);
+      needs[ingId] = {name: ing?.name||'?', ingId, total:0, cost:0, subType: ing?.subType||'other_dry'};
+    }
+    needs[ingId].total += amount;
+    needs[ingId].cost += calcIngCost(ingId, amount);
+  }
+
+  if(Object.keys(needs).length === 0) {
+    document.getElementById('prod-prep-result').innerHTML = '<p class="text-soft text-sm">Nincs rendelés a kiválasztott napokra.</p>';
+    return;
+  }
+
+  // Group by subType
+  const groups = {flour:[], other_dry:[], wet:[], starter:[]};
+  Object.values(needs).forEach(n => {
+    const st = n.subType || 'other_dry';
+    if(!groups[st]) groups[st] = [];
+    groups[st].push(n);
+  });
+
+  let html = `<div class="card mb-16"><div class="card-head"><div class="card-title">🏭 Szükséges alapanyagok – ${selected.length} sütési napra</div></div><div class="card-body-np">`;
+  const order = ['flour','other_dry','wet','starter'];
+  let grandCost = 0;
+
+  order.forEach(st => {
+    if(!groups[st] || groups[st].length === 0) return;
+    html += `<div style="padding:10px 16px;background:${st==='flour'?'#fffbf0':st==='wet'?'#eff8ff':st==='starter'?'var(--teal-pale)':'#f5f0fb'};border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;font-size:0.82rem;color:var(--teal-dark);margin-bottom:6px">${subTypeLabel(st)}</div>`;
+    groups[st].sort((a,b)=>b.total-a.total).forEach(n => {
+      const ing = getIng(n.ingId);
+      const stock = getTotalStock(ing);
+      const enough = stock >= Math.round(n.total);
+      const critical = !enough && stock > ing?.criticalStock;
+      grandCost += n.cost;
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.04)">
+        <span style="font-size:0.82rem">${n.name}</span>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-weight:700;color:var(--teal-dark)">${Math.round(n.total).toLocaleString()} g</span>
+          <span style="font-size:0.75rem;color:var(--gold-dark)">${n.cost.toFixed(2)} lej</span>
+          <span class="badge ${enough?'badge-green':critical?'badge-gold':'badge-red'}" style="font-size:0.68rem">
+            ${enough?'✓ Elegendő':critical?'⚠ Kritikus':'✗ Hiány'}
+          </span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div style="padding:14px 16px;background:var(--teal-pale);display:flex;justify-content:space-between;font-weight:700">
+    <span>Összes nyersanyagköltség</span>
+    <span style="color:var(--gold-dark);font-family:'Fraunces',serif">${grandCost.toFixed(2)} lej</span>
+  </div>`;
+  html += `</div></div>`;
+
+  document.getElementById('prod-prep-result').innerHTML = html;
+
+  // Save current needs for shopping list export
+  window._lastProductionNeeds = needs;
+  window._lastProductionDays = selected;
+}
+
+// ===== STOCK ALERTS =====
+function renderStockAlerts() {
+  const now = new Date();
+  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+
+  // Calculate daily consumption from recent orders
+  const criticalIngs = [];
+  const emptyIngs = [];
+
+  R.ingredients.forEach(ing => {
+    const stock = getTotalStock(ing);
+    const min = ing.minStock || 0;
+    const critical = ing.criticalStock || min * 1.3;
+
+    if(stock === 0) {
+      emptyIngs.push(ing);
+    } else if(stock < critical) {
+      criticalIngs.push({ing, stock, deficit: Math.round(critical - stock)});
+    }
+  });
+
+  if(criticalIngs.length === 0 && emptyIngs.length === 0) {
+    document.getElementById('stock-alerts').innerHTML = `
+      <div style="background:var(--green-pale);border:1px solid #86efac;border-radius:12px;padding:14px 18px;color:var(--green);font-weight:600;margin-bottom:16px">
+        ✅ Minden alapanyag készlete megfelelő szinten van.
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  if(emptyIngs.length > 0) {
+    html += `<div style="background:var(--red-pale);border:1.5px solid #fca5a5;border-radius:12px;padding:14px 18px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--red);margin-bottom:8px">🔴 Elfogyott alapanyagok (${emptyIngs.length})</div>`;
+    emptyIngs.forEach(ing => {
+      html += `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0">
+        <span>${ing.name}</span><span style="color:var(--red);font-weight:700">0 g – ELFOGYOTT</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  if(criticalIngs.length > 0) {
+    html += `<div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--gold-dark);margin-bottom:8px">⚠️ Kritikus szint alatt (${criticalIngs.length}) – 5 napon belül rendelj!</div>`;
+    criticalIngs.forEach(({ing, stock, deficit}) => {
+      html += `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0">
+        <span>${ing.name}</span>
+        <span><b style="color:var(--gold-dark)">${stock.toLocaleString()}g</b> <span style="color:var(--text-soft)">(min: ${(ing.minStock||0).toLocaleString()}g, hiány: ${deficit.toLocaleString()}g)</span></span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  document.getElementById('stock-alerts').innerHTML = html;
+}
+
+// ===== SHOPPING LIST CSV EXPORT =====
+function exportShoppingListCSV() {
+  const needs = window._lastProductionNeeds;
+  if(!needs) { alert('Először számold ki a gyártás előkészítést!'); return; }
+
+  const BOM = '﻿';
+  const SEP = ';';
+  const rows = [
+    ['KEREK – Bevásárló lista', '', '', '', ''],
+    ['Generálva:', new Date().toLocaleDateString('hu-HU'), '', '', ''],
+    ['', '', '', '', ''],
+    ['Alapanyag','Kategória','Szükséges (g)','Készlet (g)','Hiány (g)','Egységár (lej/kg)','Becsült költség (lej)','Forrás / Beszállító'],
+  ];
+
+  Object.values(needs).sort((a,b)=>a.subType?.localeCompare(b.subType)||0).forEach(n => {
+    const ing = getIng(n.ingId);
+    const stock = getTotalStock(ing);
+    const deficit = Math.max(0, Math.round(n.total) - stock);
+    const ppkg = ing ? (getFifoPrice(ing)*1000).toFixed(2) : '';
+    const supplier = ing?.suppliers?.[0]?.source || '';
+    rows.push([
+      n.name,
+      subTypeLabel(n.subType || 'other_dry'),
+      Math.round(n.total),
+      stock,
+      deficit > 0 ? deficit : '',
+      ppkg,
+      n.cost.toFixed(2),
+      supplier,
+    ]);
+  });
+
+  const csv = BOM + rows.map(r => r.map(c => {
+    const s = String(c==null?'':c);
+    return s.includes(SEP)||s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(SEP)).join('\n');
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`kerek_bevasarlo_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== COST ANALYSIS =====
+function renderCostAnalysis() {
+  const costs = R.recipes.map(r=>({r, c10:calcRecipeCost(r,10), c15:calcRecipeCost(r,15)}));
+  document.getElementById('cost-stats').innerHTML = [
+    {val:R.recipes.length+' recept',label:'Összesen',icon:'📋'},
+    {val:costs.reduce((a,x)=>a+x.c10.costPerUnit,0).toFixed(2)+' lej',label:'Átl. önköltség/db (10db)',icon:'💰',gold:true},
+    {val:costs.reduce((a,x)=>a+x.c10.priceGross,0).toFixed(2)+' lej',label:'Átl. bruttó ár (10db)',icon:'🏷'},
+    {val:costs.reduce((a,x)=>a+(x.c10.costPerUnit-x.c15.costPerUnit),0).toFixed(2)+' lej',label:'Potenciális megtakarítás (15db)',icon:'📈',green:true},
+  ].map(s=>`<div class="stat-box"><div class="stat-val sm ${s.gold?'gold':''}" style="${s.green?'color:var(--green)':''}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
+
+  document.getElementById('cost-analysis-tbody').innerHTML = costs.map(({r,c10,c15})=>`
+    <tr>
+      <td><b>${r.name}</b><br><small class="text-soft">${r.category} · ${r.unitWeight||r.basePortion}g</small></td>
+      <td class="num">${c10.costPerUnit.toFixed(2)} lej</td>
+      <td class="num">${c10.priceNet.toFixed(2)} lej</td>
+      <td class="num gold">${c10.priceGross.toFixed(2)} lej</td>
+      <td class="num" style="color:${c10.priceGross>c10.priceNet?'var(--green)':'var(--red)'}">
+        ${(c10.priceGross-c10.priceNet).toFixed(2)} lej
+      </td>
+      <td class="num">${c15.priceGross.toFixed(2)} lej</td>
+      <td class="num" style="color:var(--green)">${(c10.costPerUnit-c15.costPerUnit).toFixed(2)} lej</td>
+    </tr>`).join('');
+}
+
+// ===== STOCK =====
+function renderStock() {
+  document.getElementById('stock-tbody').innerHTML = R.ingredients.map(ing=>{
+    const stock = R.stock[ing.id]||0;
+    const min = ing.minStock||0;
+    const ok = stock >= min;
+    return `<tr>
+      <td><b>${ing.name}</b></td>
+      <td class="num">
+        <input type="number" value="${stock}" min="0" style="width:90px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none"
+          onchange="updateStock(${ing.id},this.value)">
+      </td>
+      <td class="num text-soft">${min.toLocaleString()} g</td>
+      <td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'✓ Rendben':'⚠ Alacsony'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStock(id, val) {
+  R.stock[id] = parseFloat(val)||0;
+  save();
+}
+
+function generateShoppingList() {
+  const needed = R.ingredients.filter(i=>(R.stock[i.id]||0) < (i.minStock||0));
+  if (needed.length===0) { toast('✅ Minden alapanyag elegendő!'); return; }
+  const list = needed.map(i=>`${i.name}: ${(i.minStock-(R.stock[i.id]||0)).toLocaleString()}g hiány`).join('\n');
+  alert('🛒 Bevásárló lista:\n\n'+list);
+}
+
+// ===== RECIPE MODAL =====
+let editingRecipeId = null;
+let modalDryIngs = [], modalWetIngs = [], modalSteps = [];
+
+function openRecipeModal(id=null) {
+  editingRecipeId = id;
+  document.getElementById('r-category').innerHTML = R.recipeCategories.map(c=>`<option>${c}</option>`).join('');
+
+  if (id) {
+    const r = R.recipes.find(r=>r.id===id);
+    document.getElementById('r-name').value = r.name;
+    document.getElementById('r-category').value = r.category;
+    document.getElementById('r-base-portion').value = r.basePortion;
+    document.getElementById('r-bake-loss').value = r.bakeLoss||R.settings.bakeLoss;
+    document.getElementById('r-unit-weight').value = r.unitWeight||r.basePortion;
+    document.getElementById('r-temp1').value = r.temp1||230;
+    document.getElementById('r-time1').value = r.time1||20;
+    document.getElementById('r-temp2').value = r.temp2||180;
+    document.getElementById('r-time2').value = r.time2||70;
+    document.getElementById('r-desc').value = r.desc||'';
+    document.getElementById('r-levain-amount').value = r.levainAmount||260;
+    document.getElementById('r-labor-h').value = r.laborH||1;
+    document.getElementById('r-electricity').value = r.electricity||5;
+    if(document.getElementById('r-product-code')) document.getElementById('r-product-code').value = r.productCode||'';
+    if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;   if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;
+    modalDryIngs = JSON.parse(JSON.stringify(r.dryIngredients||[]));
+    modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
+    modalSteps = JSON.parse(JSON.stringify(r.steps||[]));
+    document.getElementById('recipe-modal-title').textContent = 'Recept szerkesztése';
+    document.getElementById('recipe-delete-btn').style.display = 'inline-flex';
+  } else {
+    ['r-name','r-base-portion','r-bake-loss','r-unit-weight','r-temp1','r-time1',
+     'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input'].forEach(x=>{
+      document.getElementById(x).value='';
+    });
+    modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];
+    document.getElementById('recipe-modal-title').textContent = 'Új recept';
+    document.getElementById('recipe-delete-btn').style.display = 'none';
+  }
+  renderModalIngredients(); renderModalSteps(); updateLevainPreview();
+  document.getElementById('recipe-modal').classList.add('open');
+}
+
+function renderModalIngredients() {
+  const ingOptions = R.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
+  ['dry','wet'].forEach(type=>{
+    const list = type==='dry' ? modalDryIngs : modalWetIngs;
+    document.getElementById(type+'-ingredients-list').innerHTML = list.map((ing,i)=>`
+      <div class="ing-row" style="background:white;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;padding:8px 10px">
+        <div style="flex:2;display:flex;flex-direction:column;gap:4px">
+          <input type="text" value="${ing.name}" placeholder="Összetevő neve" style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
+            onchange="updateModalIng('${type}',${i},'name',this.value)">
+          <select style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;outline:none;color:var(--text-soft)"
+            onchange="updateModalIng('${type}',${i},'ingredientId',parseInt(this.value))">
+            <option value="">— Árjegyzékből —</option>
+            ${ingOptions}
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <input type="number" value="${ing.amount}" placeholder="g" style="width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:700;outline:none"
+            onchange="updateModalIng('${type}',${i},'amount',parseFloat(this.value))">
+          <span style="font-size:0.75rem;color:var(--text-soft)">g</span>
+          <button class="btn btn-danger btn-xs" onclick="removeModalIng('${type}',${i})">✕</button>
+        </div>
+      </div>`).join('');
+
+    // Set ingredient select values
+    const rows = document.getElementById(type+'-ingredients-list').querySelectorAll('select');
+    list.forEach((ing,i)=>{ if(ing.ingredientId) rows[i].value = ing.ingredientId; });
+  });
+}
+
+function addIngredientRow(type) {
+  const list = type==='dry' ? modalDryIngs : modalWetIngs;
+  list.push({name:'', amount:0, ingredientId:null});
+  renderModalIngredients();
+}
+function removeModalIng(type, i) {
+  const list = type==='dry' ? modalDryIngs : modalWetIngs;
+  list.splice(i,1); renderModalIngredients();
+}
+function updateModalIng(type, i, field, val) {
+  const list = type==='dry' ? modalDryIngs : modalWetIngs;
+  list[i][field] = val;
+}
+
+function renderModalSteps() {
+  document.getElementById('process-steps-list').innerHTML = modalSteps.map((s,i)=>`
+    <div style="border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:8px;background:white">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <div class="step-num" style="flex-shrink:0">${i+1}</div>
+        <input type="text" value="${s.title}" placeholder="Lépés neve" style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:600;outline:none"
+          onchange="updateModalStep(${i},'title',this.value)">
+        <input type="number" value="${s.timer||''}" placeholder="perc" style="width:65px;padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;text-align:center;outline:none"
+          onchange="updateModalStep(${i},'timer',parseInt(this.value)||0)">
+        <button class="btn btn-danger btn-xs" onclick="removeModalStep(${i})">✕</button>
+      </div>
+      <textarea placeholder="Lépés leírása..." style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none;resize:vertical;min-height:50px" onchange="updateModalStep(${i},'desc',this.value)">${s.desc||''}</textarea>
+    </div>`).join('');
+}
+
+function addProcessStep() {
+  modalSteps.push({title:'', desc:'', timer:0}); renderModalSteps();
+}
+function removeModalStep(i) { modalSteps.splice(i,1); renderModalSteps(); }
+function updateModalStep(i, field, val) { modalSteps[i][field] = val; }
+
+const RECIPE_CAT_CODES = {
+  'Kenyér':'KEN','Bagett / zsömle':'BAG','Sütemény':'SUT',
+  'Leveles tészta':'LEV','Egyéb':'EGY'
+};
+
+function updateRecipeProductCode(force=false) {
+  const codeEl = document.getElementById('r-product-code');
+  if(!codeEl) return;
+  if(codeEl.value && !force) return;
+  
+  const name = document.getElementById('r-name')?.value || '';
+  const catEl = document.getElementById('r-category');
+  const cat = catEl?.options[catEl?.selectedIndex]?.text || 'Egyéb';
+  const prefix = RECIPE_CAT_CODES[cat] || 'EGY';
+  
+  const namePart = name.toUpperCase()
+    .replace(/[ÁÀÂÄ]/g,'A').replace(/[ÉÈÊË]/g,'E')
+    .replace(/[ÍÌÎÏ]/g,'I').replace(/[ÓÒÔÖŐ]/g,'O')
+    .replace(/[ÚÙÛÜŰ]/g,'U').replace(/[^A-Z]/g,'')
+    .slice(0,4) || 'XXX';
+  
+  const existing = R.recipes.filter(rec => rec.category === cat).length;
+  const seq = String(existing + 1).padStart(2,'0');
+  codeEl.value = `${prefix}-${namePart}-${seq}`;
+}
+
+function updateLevainPreview() {
+  const amount = parseFloat(document.getElementById('r-levain-amount').value)||0;
+  if (!amount) return;
+  const lev = calcLevain(amount);
+  const refill = calcRefill(lev.starter);
+  document.getElementById('levain-preview-box').innerHTML = `
+    <div style="font-weight:700;color:var(--teal-dark);margin-bottom:10px">Levain kalkulátor – ${amount}g alapadaghoz</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.82rem">
+      <div>
+        <div style="font-weight:600;color:var(--teal);margin-bottom:5px">Levain elkészítése:</div>
+        <div>Kovász: <b>${lev.starter}g</b> (33%)</div>
+        <div>Víz: <b>${lev.water}g</b> (30%)</div>
+        <div>Barnarizs liszt: <b>${lev.flour}g</b> (37%)</div>
+      </div>
+      <div>
+        <div style="font-weight:600;color:var(--teal);margin-bottom:5px">Visszatöltés üvegbe:</div>
+        <div>Barnarizs liszt: <b>${refill.flour}g</b> (52%)</div>
+        <div>Víz: <b>${refill.water}g</b> (48%)</div>
+      </div>
+    </div>`;
+}
+
+function parseTextRecipe() {
+  const text = document.getElementById('r-text-input').value.trim();
+  if (!text) { toast('Add meg a szöveges receptet!'); return; }
+
+  // Smart local parser for common Hungarian/Romanian recipe formats
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  let dryIngs = [], wetIngs = [], steps = [];
+  let currentSection = null;
+  let foundAnything = false;
+
+  // Keyword detection
+  const DRY_KEYWORDS = ['liszt','keményítő','por','só','cukor','sütőpor','élesztő','mag','psyllium','gumi','korpa','zabpehely'];
+  const WET_KEYWORDS = ['víz','olaj','tej','tojás','ecet','joghurt','szósz','folyadék','ml','dl'];
+  const STEP_KEYWORDS = ['dagaszt','kever','süt','kelesi','kelesztés','pihentet','sütési','hőfokon','perc','óra','tegyük','vegyük','adjuk'];
+
+  lines.forEach(line => {
+    const low = line.toLowerCase();
+
+    // Section headers
+    if(low.includes('száraz') || low.includes('liszt') && low.length < 20) { currentSection='dry'; return; }
+    if(low.includes('nedves') || low.includes('folyékony')) { currentSection='wet'; return; }
+    if(low.includes('folyamat') || low.includes('elkészítés') || low.includes('lépés')) { currentSection='steps'; return; }
+
+    // Try to parse ingredient line: "Name: Amount g" or "Amount g Name"
+    const ingMatch = line.match(/^(.+?)[\s:–-]+(\d+[\.,]?\d*)\s*(g|kg|ml|dl|db|ek|tk|csipet)?(.*)$/i) ||
+                     line.match(/^(\d+[\.,]?\d*)\s*(g|kg|ml|dl|db|ek|tk|csipet)?\s+(.+)$/i);
+
+    if (ingMatch) {
+      let name, amount, unit;
+      if(ingMatch[0].match(/^\d/)) {
+        amount = parseFloat(ingMatch[1].replace(',','.'));
+        unit = ingMatch[2]||'g';
+        name = ingMatch[3];
+      } else {
+        name = ingMatch[1].trim();
+        amount = parseFloat(ingMatch[2].replace(',','.'));
+        unit = ingMatch[3]||'g';
+      }
+
+      // Convert units to grams
+      if(unit==='kg') amount *= 1000;
+      if(unit==='dl') amount *= 100;
+      if(unit==='ml') amount *= 1;
+
+      // Match to existing ingredient
+      const matchedIng = R.ingredients.find(i =>
+        i.name.toLowerCase().includes(name.toLowerCase().slice(0,6)) ||
+        name.toLowerCase().includes(i.name.toLowerCase().slice(0,6))
+      );
+
+      const ingObj = {name: name.trim(), amount: Math.round(amount), ingredientId: matchedIng?.id || null};
+
+      // Determine dry/wet from name or current section
+      const isDry = currentSection==='dry' || (!currentSection && DRY_KEYWORDS.some(k=>low.includes(k)));
+      const isWet = currentSection==='wet' || (!currentSection && WET_KEYWORDS.some(k=>low.includes(k)));
+
+      if(isDry) { dryIngs.push(ingObj); foundAnything=true; }
+      else if(isWet) { wetIngs.push(ingObj); foundAnything=true; }
+      else { dryIngs.push(ingObj); foundAnything=true; } // default to dry
+      return;
+    }
+
+    // Try to parse as step
+    if(currentSection==='steps' || STEP_KEYWORDS.some(k=>low.includes(k))) {
+      if(line.length > 15) {
+        const timerMatch = line.match(/(\d+)\s*(perc|óra|h)/i);
+        const timer = timerMatch ? (timerMatch[2].startsWith('ó')||timerMatch[2]==='h' ? parseInt(timerMatch[1])*60 : parseInt(timerMatch[1])) : 0;
+        const stepNum = steps.length+1;
+        steps.push({
+          title: line.slice(0,40) + (line.length>40?'…':''),
+          desc: line,
+          timer
+        });
+        foundAnything = true;
+      }
+    }
+  });
+
+  if (!foundAnything) {
+    toast('⚠️ Nem sikerült összetevőket felismerni. Ellenőrizd a formátumot: "Liszt: 200 g" vagy "200 g liszt"');
+    return;
+  }
+
+  // Fill in the form
+  if(dryIngs.length > 0) {
+    modalDryIngs = dryIngs;
+    toast(`✨ Felismert ${dryIngs.length} száraz + ${wetIngs.length} nedves összetevő, ${steps.length} lépés. Ellenőrizd a Száraz/Nedves/Folyamat füleken!`);
+  }
+  if(wetIngs.length > 0) modalWetIngs = wetIngs;
+  if(steps.length > 0) modalSteps = steps;
+
+  renderModalIngredients();
+  renderModalSteps();
+
+  // Note about API
+  if(!R.settings?.apiKey) {
+    const note = document.getElementById('parse-api-note');
+    if(note) note.style.display='block';
+  }
+}
+
+async function saveRecipe() {
+  const name = document.getElementById('r-name').value.trim();
+  if (!name) { toast('Recept neve kötelező!'); return; }
+  const data = {
+    name, category: document.getElementById('r-category').value,
+    basePortion: parseFloat(document.getElementById('r-base-portion').value)||1000,
+    bakeLoss: parseFloat(document.getElementById('r-bake-loss').value)||R.settings.bakeLoss,
+    unitWeight: parseFloat(document.getElementById('r-unit-weight').value)||1000,
+    temp1: parseFloat(document.getElementById('r-temp1').value)||230,
+    time1: parseFloat(document.getElementById('r-time1').value)||20,
+    temp2: parseFloat(document.getElementById('r-temp2').value)||180,
+    time2: parseFloat(document.getElementById('r-time2').value)||70,
+    desc: document.getElementById('r-desc').value,
+    levainAmount: parseFloat(document.getElementById('r-levain-amount').value)||260,
+    dryIngredients: modalDryIngs,
+    wetIngredients: modalWetIngs,
+    steps: modalSteps,
+    laborH: parseFloat(document.getElementById('r-labor-h').value)||1,
+    electricity: parseFloat(document.getElementById('r-electricity').value)||5,
+  };
+  if (editingRecipeId) {
+    Object.assign(R.recipes.find(r=>r.id===editingRecipeId), data);
+    await syncRecipeToSupabase(data, editingRecipeId);
+    toast('✅ Recept frissítve!');
+  } else {
+    data.id = Math.max(...R.recipes.map(r=>r.id),0)+1;
+    R.recipes.push(data);
+    await syncRecipeToSupabase(data, null);
+    toast('✅ Recept mentve!');
+  }
+  save(); closeModal('recipe-modal'); renderRecipes();
+}
+
+function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
+function deleteCurrentRecipe() {
+  if (!confirm('Biztosan törlöd ezt a receptet?')) return;
+  R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
+  save(); closeModal('recipe-modal'); nav('recipes'); toast('Recept törölve.');
+}
+
+// ===== MODAL TABS =====
+function switchModalTab(btn, tabId) {
+  document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-content').forEach(t=>t.style.display='none');
+  btn.classList.add('active');
+  document.getElementById(tabId).style.display='block';
+  if (tabId==='rtab-cost') renderCostPreview();
+}
+
+function renderCostPreview() {
+  const laborH = parseFloat(document.getElementById('r-labor-h').value)||1;
+  const elec = parseFloat(document.getElementById('r-electricity').value)||5;
+  const s = R.settings;
+  const laborCost = laborH * s.labor;
+  const elecCost = elec * s.electricity;
+  const fixedCost = laborCost + elecCost + s.toolWear + s.consumables;
+  document.getElementById('cost-preview').innerHTML = `
+    <div class="cost-box">
+      <div class="cost-row"><span>Munkaóra (${laborH}h × ${s.labor} lej)</span><span>${laborCost.toFixed(2)} lej</span></div>
+      <div class="cost-row"><span>Áram (${elec}kWh × ${s.electricity} lej)</span><span>${elecCost.toFixed(2)} lej</span></div>
+      <div class="cost-row"><span>Eszközkopás + fogyóeszköz</span><span>${(s.toolWear+s.consumables).toFixed(2)} lej</span></div>
+      <div style="font-weight:700;color:var(--teal-dark);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Fix költség összesen: ${fixedCost.toFixed(2)} lej/sütés</div>
+    </div>
+    <p class="text-xs text-soft mt-16">A nyersanyagköltség a receptben megadott összetevők és az árjegyzék alapján kerül kiszámításra.</p>`;
+}
+
+// ===== MODAL UTILS =====
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ===== TOAST =====
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent=msg; el.style.display='block'; el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},3000);
+}
+</script>
+</body>
+</html>

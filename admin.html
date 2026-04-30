@@ -1,0 +1,2396 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEREK – Admin</title>
+<link rel="stylesheet" href="fonts.css">
+<script src="supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal-dark:  #064C48;
+  --teal:       #129990;
+  --teal-mid:   #43AAA0;
+  --teal-light: #A3D1C6;
+  --teal-pale:  #E0F2EF;
+  --gold-dark:  #B78029;
+  --gold:       #EFB036;
+  --gold-light: #EBCF9E;
+  --sand:       #EABD6C;
+  --slate:      #395A63;
+  --cream:      #FAF7F0;
+  --white:      #FFFFFF;
+  --text:       #1A2E31;
+  --text-soft:  #5A7A80;
+  --border:     #C8DDD9;
+  --shadow:     rgba(6,76,72,0.12);
+  --sidebar-w:  220px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Kodchasan',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* LAYOUT */
+.app-shell{display:flex;flex:1;min-height:0;}
+.sidebar{width:var(--sidebar-w);background:var(--teal-dark);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:40;overflow-y:auto;}
+.content{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo svg{height:38px;width:auto;}
+.sidebar-tagline{font-size:0.65rem;color:var(--teal-mid);letter-spacing:1.5px;text-transform:uppercase;margin-top:5px;}
+
+.nav-section{padding:12px 0 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.nav-section-label{padding:6px 20px;font-size:0.65rem;color:rgba(163,209,198,0.5);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;color:rgba(163,209,198,0.8);font-size:0.83rem;font-weight:500;cursor:pointer;transition:all 0.18s;border:none;background:none;width:100%;text-align:left;font-family:'Kodchasan',sans-serif;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:var(--gold-light);}
+.nav-item.active{background:rgba(239,176,54,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item .icon{font-size:1rem;width:20px;text-align:center;}
+
+.sidebar-footer{margin-top:auto;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08);}
+.admin-badge{font-size:0.75rem;color:var(--teal-mid);margin-bottom:8px;}
+.btn-logout{background:transparent;border:1px solid rgba(163,209,198,0.25);color:rgba(163,209,198,0.7);padding:7px 14px;border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.btn-logout:hover{border-color:var(--gold-light);color:var(--gold-light);}
+
+/* TOP BAR */
+.topbar{background:white;border-bottom:1px solid var(--border);padding:0 28px;height:56px;min-height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;box-shadow:0 1px 8px var(--shadow);overflow:hidden;}
+.topbar-title{font-family:'Fraunces',serif;font-size:1.15rem;color:var(--teal-dark);font-weight:400;}
+.topbar-sub{font-size:0.78rem;color:var(--text-soft);margin-top:1px;}
+
+/* MAIN CONTENT */
+.main-pad{padding:24px 28px 28px;}
+
+/* VIEWS */
+.view{display:none;}
+.view.active{display:block;}
+
+/* CARDS */
+.card{background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px var(--shadow);margin-bottom:20px;}
+.card-head{background:var(--teal-dark);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-family:'Fraunces',serif;color:var(--gold-light);font-size:0.95rem;font-weight:400;display:flex;align-items:center;gap:8px;}
+.card-body{padding:20px;}
+.card-body-np{padding:0;}
+
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+
+/* STAT BOX */
+.stat-box{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:0 2px 8px var(--shadow);}
+.stat-val{font-family:'Fraunces',serif;font-size:2rem;color:var(--teal-dark);line-height:1;}
+.stat-val.gold{color:var(--gold-dark);}
+.stat-label{font-size:0.72rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.8px;margin-top:5px;}
+.stat-change{font-size:0.75rem;margin-top:6px;}
+.stat-change.up{color:#059669;}
+.stat-change.down{color:#dc2626;}
+
+/* BUTTONS */
+.btn{padding:9px 18px;border-radius:10px;border:none;font-family:'Kodchasan',sans-serif;font-size:0.83rem;font-weight:600;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--teal);color:white;}
+.btn-primary:hover{background:var(--teal-dark);transform:translateY(-1px);box-shadow:0 4px 12px var(--shadow);}
+.btn-gold{background:var(--gold);color:var(--teal-dark);font-weight:700;}
+.btn-gold:hover{background:var(--gold-dark);color:white;}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text-soft);}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal);}
+.btn-danger{background:#fee2e2;color:#b91c1c;}
+.btn-danger:hover{background:#b91c1c;color:white;}
+.btn-sm{padding:6px 13px;font-size:0.78rem;}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto;border-radius:0 0 12px 12px;}
+table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.tbl thead{background:var(--slate);}
+.tbl th{padding:11px 14px;text-align:left;color:var(--cream);font-weight:500;font-size:0.75rem;letter-spacing:0.3px;white-space:nowrap;}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.tbl tbody tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover{background:#f5faf9;}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
+.tbl .highlight{font-weight:700;color:var(--teal-dark);}
+.tbl .gold-text{color:var(--gold-dark);font-weight:700;}
+
+/* BADGE */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;}
+.badge-green{background:#d1fae5;color:#065f46;}
+.badge-teal{background:var(--teal-pale);color:var(--teal-dark);}
+.badge-gold{background:#fef3c7;color:#92400e;}
+.badge-gray{background:#f3f4f6;color:#6b7280;}
+.badge-red{background:#fee2e2;color:#b91c1c;}
+
+/* MONTH SELECTOR */
+.month-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px;}
+.month-btn{padding:6px 15px;border-radius:20px;border:1.5px solid var(--border);background:white;font-family:'Kodchasan',sans-serif;font-size:0.78rem;font-weight:500;cursor:pointer;color:var(--text-soft);transition:all 0.18s;}
+.month-btn:hover{border-color:var(--teal);color:var(--teal);}
+.month-btn.active{background:var(--teal);color:white;border-color:var(--teal);font-weight:600;}
+
+/* FORMS */
+.form-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
+.form-group label{font-size:0.72rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px;}
+.form-group input,.form-group select,.form-group textarea{padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.88rem;background:white;color:var(--text);outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--teal);}
+.form-group textarea{resize:vertical;min-height:80px;}
+
+/* BAR CHART */
+.bar-chart-wrap{display:flex;align-items:flex-end;gap:6px;height:100px;padding-bottom:0;}
+.bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+.bar{width:100%;border-radius:5px 5px 0 0;transition:height 0.4s ease;min-height:3px;}
+.bar-lbl{font-size:0.65rem;color:var(--text-soft);}
+.bar-v{font-size:0.68rem;font-weight:700;color:var(--teal-dark);}
+
+/* PROGRESS BARS */
+.prog-row{margin-bottom:10px;}
+.prog-label{display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px;}
+.prog-label span:first-child{font-weight:600;color:var(--text);}
+.prog-label span:last-child{font-weight:700;color:var(--gold-dark);}
+.prog-bar-bg{background:var(--teal-pale);border-radius:6px;height:8px;overflow:hidden;}
+.prog-bar{height:100%;border-radius:6px;transition:width 0.5s ease;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(6,76,72,0.55);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:20px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(6,76,72,0.25);animation:slideUp 0.22s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-head{background:var(--teal-dark);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;}
+.modal-head h3{font-family:'Fraunces',serif;color:var(--gold-light);font-size:1.05rem;font-weight:400;font-style:italic;}
+.modal-close{background:none;border:none;color:var(--teal-light);font-size:1.2rem;cursor:pointer;}
+.modal-close:hover{color:var(--gold);}
+.modal-body{padding:24px;}
+
+/* CLIENT CARD */
+.client-card{border:1px solid var(--border);border-radius:14px;background:white;overflow:hidden;transition:box-shadow 0.2s;cursor:pointer;}
+.client-card:hover{box-shadow:0 4px 18px var(--shadow);}
+.client-card-head{background:var(--teal-pale);padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.client-avatar{width:40px;height:40px;border-radius:50%;background:var(--teal);color:white;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;flex-shrink:0;}
+.client-name{font-weight:700;font-size:0.9rem;color:var(--teal-dark);}
+.client-meta{font-size:0.75rem;color:var(--text-soft);}
+.client-card-body{padding:14px 16px;font-size:0.82rem;}
+.client-stat{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);}
+.client-stat:last-child{border-bottom:none;}
+
+/* BAKING DETAIL */
+.baking-day-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+.baking-day-head{background:var(--teal);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.baking-day-head h4{font-family:'Fraunces',serif;color:white;font-size:0.95rem;font-weight:400;}
+.baking-day-body{padding:0;display:none;}
+.baking-day-body.open{display:block;}
+.baking-line{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid var(--border);font-size:0.83rem;}
+.baking-line:last-child{border-bottom:none;}
+.baking-line.client-sub{background:#f5faf9;padding-left:32px;font-size:0.78rem;color:var(--text-soft);}
+.baking-qty{font-family:'Fraunces',serif;font-size:1rem;font-weight:700;color:var(--teal-dark);}
+
+/* SETTINGS */
+.settings-section{background:white;border:1px solid var(--border);border-radius:14px;margin-bottom:16px;overflow:hidden;}
+.settings-head{background:var(--teal-pale);padding:13px 20px;font-weight:600;font-size:0.88rem;color:var(--teal-dark);display:flex;align-items:center;gap:8px;cursor:pointer;}
+.settings-body{padding:20px;display:none;}
+.settings-body.open{display:block;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-label{font-size:0.85rem;font-weight:500;}
+.toggle-desc{font-size:0.75rem;color:var(--text-soft);margin-top:2px;}
+.toggle{position:relative;width:44px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;transition:background 0.2s;flex-shrink:0;}
+.toggle.on{background:var(--teal);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+.toggle.on::after{left:23px;}
+
+/* MESSAGES */
+.message-item{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:white;}
+.message-meta{font-size:0.72rem;color:var(--text-soft);margin-bottom:6px;display:flex;justify-content:space-between;}
+.message-text{font-size:0.85rem;color:var(--text);line-height:1.5;}
+
+/* DIVIDER / UTILS */
+.sep{height:1px;background:var(--border);margin:18px 0;}
+.mt-16{margin-top:16px;}
+.mb-16{margin-bottom:16px;}
+.mb-20{margin-bottom:20px;}
+.flex{display:flex;}
+.gap-10{gap:10px;}
+.gap-12{gap:12px;}
+.items-center{align-items:center;}
+.justify-between{justify-content:space-between;}
+.flex-wrap{flex-wrap:wrap;}
+.text-soft{color:var(--text-soft);}
+.text-sm{font-size:0.82rem;}
+.text-xs{font-size:0.72rem;}
+.bold{font-weight:700;}
+.font-serif{font-family:'Fraunces',serif;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--teal-dark);color:var(--gold-light);padding:12px 20px;border-radius:12px;font-size:0.84rem;box-shadow:0 6px 24px rgba(6,76,72,0.35);display:none;z-index:500;border-left:4px solid var(--gold);max-width:320px;}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;}
+.login-card{background:white;border-radius:24px;padding:44px 40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
+.login-card h2{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--teal-dark);margin-bottom:4px;}
+.login-card p{font-size:0.8rem;color:var(--text-soft);margin-bottom:24px;}
+.login-hint{text-align:center;font-size:0.7rem;color:var(--text-soft);margin-top:12px;}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);}.content{margin-left:0;}
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <img src="img/logo_teal_vert.png" alt="KEREK" style="height:80px;width:auto;display:block;margin:0 auto 20px">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--teal-dark);letter-spacing:4px;">KEREK</div>
+        <div style="font-size:0.65rem;color:var(--teal-mid);letter-spacing:1.5px;text-transform:uppercase;">Admin felület</div>
+      </div>
+    </div>
+    <h2>Belépés</h2>
+    <p>Admin hozzáférés szükséges a folytatáshoz.</p>
+    <div class="form-group mb-16">
+      <label>Admin jelszó</label>
+      <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
+    <div class="login-hint"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="img/logo_white_horiz.png" alt="KEREK" style="height:38px;width:auto;display:block">
+    <div class="sidebar-tagline">Admin felület</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Áttekintő</div>
+    <button class="nav-item active" onclick="nav('dashboard')"><span class="icon">📊</span>Dashboard</button>
+    <button class="nav-item" onclick="nav('messages')"><span class="icon">💬</span>Üzenetek <span id="msg-badge" style="margin-left:auto;background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:700;display:none"></span></button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Rendelések</div>
+    <button class="nav-item" onclick="nav('baking')"><span class="icon">🔥</span>Sütési lista</button>
+    <button class="nav-item" onclick="nav('orders')"><span class="icon">📋</span>Összesítő</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Törzsadatok</div>
+    <button class="nav-item" onclick="nav('catalog')"><span class="icon">📦</span>Termékkatalógus</button>
+    <button class="nav-item" onclick="nav('clients')"><span class="icon">👥</span>Kliensek</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Elemzések</div>
+    <button class="nav-item" onclick="nav('reports')"><span class="icon">📈</span>Kimutatások</button>
+    <button class="nav-item" onclick="nav('export')"><span class="icon">📤</span>Export</button>
+    <button class="nav-item" onclick="nav('categories')"><span class="icon">🏷</span>Kategória bontás</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Modulok</div>
+    <a class="nav-item" href="receptura.html" target="_blank"><span class="icon">📋</span>Receptúra modul</a>
+    <button class="nav-item" onclick="openVevoPreview()"><span class="icon">👤</span>Vevői nézet</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Rendszer</div>
+    <button class="nav-item" onclick="nav('settings')"><span class="icon">⚙️</span>Beállítások</button>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-badge">👩‍💼 Admin belépve</div>
+    <button class="btn-logout" onclick="logout()">Kilépés</button>
+  </div>
+</aside>
+
+<!-- CONTENT -->
+<div class="content">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-sub" id="topbar-sub"></div>
+    </div>
+    <div class="flex gap-10 items-center">
+      <span id="user-badge" style="font-size:0.78rem;color:var(--text-soft)"></span>
+    </div>
+  </div>
+  <!-- Month selector bar - below topbar -->
+  <div id="month-bar" style="background:white;border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:56px;z-index:29;box-shadow:0 1px 4px var(--shadow)">
+    <div class="month-row" id="topbar-month" style="margin:0;flex-wrap:wrap"></div>
+  </div>
+
+  <div class="main-pad">
+
+  <!-- ===== DASHBOARD ===== -->
+  <div id="view-dashboard" class="view active">
+    <div class="grid-4 mb-20" id="dash-stats"></div>
+    <div class="grid-2 mb-20">
+      <div class="card">
+        <div class="card-head"><div class="card-title">💰 Heti pénzügyi összesítő</div></div>
+        <div class="card-body" id="weekly-finance"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📅 Havi forgalom (utolsó 6 hónap)</div></div>
+        <div class="card-body">
+          <div class="bar-chart-wrap" id="monthly-chart"></div>
+          <div id="monthly-chart-labels" style="display:flex;gap:6px;margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🔥 Következő sütési napok</div></div>
+        <div class="card-body" id="next-baking"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">💬 Legutóbbi üzenetek</div></div>
+        <div class="card-body" id="recent-messages"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MESSAGES ===== -->
+  <div id="view-messages" class="view">
+    <div class="month-row" id="msg-month-sel"></div>
+    <div id="messages-list"></div>
+  </div>
+
+  <!-- ===== BAKING ===== -->
+  <div id="view-baking" class="view">
+    <div class="month-row" id="baking-month-sel"></div>
+    <div id="baking-content"></div>
+  </div>
+
+  <!-- ===== ORDERS ===== -->
+  <div id="view-orders" class="view">
+    <div class="month-row" id="orders-month-sel"></div>
+    <div class="card mb-20">
+      <div class="card-head"><div class="card-title">📋 Termék × Sütési nap mátrix</div></div>
+      <div class="card-body-np tbl-wrap" id="orders-matrix"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">👥 Kliens bontás</div></div>
+      <div class="card-body-np tbl-wrap" id="orders-clients"></div>
+    </div>
+  </div>
+
+  <!-- ===== CATALOG ===== -->
+  <div id="view-catalog" class="view">
+    <div class="flex gap-12 items-center mb-20 flex-wrap">
+      <div class="month-row" id="catalog-month-sel" style="margin:0"></div>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary" onclick="openProductModal()">＋ Új termék</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📦 Összes termék</div></div>
+        <div class="card-body" id="all-products"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">✅ Aktív ezen a hónapon</div></div>
+        <div class="card-body">
+          <p class="text-sm text-soft mb-16">Kattints egy termékre a bal oldalon az aktiváláshoz.</p>
+          <div id="active-products"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CLIENTS ===== -->
+  <div id="view-clients" class="view">
+    <div class="flex gap-12 mb-20">
+      <button class="btn btn-primary" onclick="openClientModal()">＋ Új kliens</button>
+    </div>
+    <div id="clients-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
+  </div>
+
+  <!-- CLIENT DETAIL (sub-view) -->
+  <div id="view-client-detail" class="view">
+    <div class="flex gap-12 items-center mb-20">
+      <button class="btn btn-ghost btn-sm" onclick="nav('clients')">← Vissza</button>
+      <div style="font-family:'Fraunces',serif;font-size:1.2rem;color:var(--teal-dark)" id="client-detail-name"></div>
+    </div>
+    <div class="grid-3 mb-20" id="client-detail-stats"></div>
+    <div class="flex gap-10 mb-16 flex-wrap" id="client-detail-period-btns">
+      <button class="btn btn-sm btn-primary" onclick="setClientPeriod('monthly')">Havi</button>
+      <button class="btn btn-sm btn-ghost" onclick="setClientPeriod('weekly')">Heti</button>
+      <button class="btn btn-sm btn-ghost" onclick="setClientPeriod('yearly')">Éves</button>
+    </div>
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🏷 Kategória bontás (havi)</div></div>
+        <div class="card-body" id="client-cat-breakdown"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📋 Kliens adatok</div></div>
+        <div class="card-body" id="client-info-box"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title" id="client-detail-period-label">Havi rendelések</div></div>
+      <div class="card-body-np tbl-wrap" id="client-detail-table"></div>
+    </div>
+  </div>
+
+  <!-- ===== REPORTS ===== -->
+  <div id="view-reports" class="view">
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn btn-ghost btn-sm" onclick="toggleAnnualSummary()" id="annual-toggle-btn">📊 Éves összesítő</button>
+  </div>
+  <div id="annual-summary" style="display:none" class="mb-20"></div>
+    <div class="month-row" id="reports-month-sel"></div>
+    <div class="grid-3 mb-20" id="report-stats"></div>
+    <div class="grid-2 mb-20">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🏆 Legtöbbet rendelt termékek</div></div>
+        <div class="card-body" id="top-products"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">⭐ Legtöbbet rendelő vevők</div></div>
+        <div class="card-body" id="top-clients"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">📅 Sütési napok forgalma</div></div>
+      <div class="card-body-np tbl-wrap" id="baking-day-revenue"></div>
+    </div>
+  </div>
+
+  <!-- ===== CATEGORIES ===== -->
+  <div id="view-categories" class="view">
+    <div class="month-row" id="cat-month-sel"></div>
+    <div class="grid-4 mb-20" id="cat-stats"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🏷 Kategóriánkénti forgalom</div></div>
+        <div class="card-body" id="cat-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📊 Kategória részletezés</div></div>
+        <div class="card-body-np tbl-wrap" id="cat-table"></div>
+      </div>
+    </div>
+    <div class="card mt-16">
+      <div class="card-head"><div class="card-title">👤 Kliens × Kategória</div></div>
+      <div class="card-body-np tbl-wrap" id="cat-client-table"></div>
+    </div>
+  </div>
+
+  <!-- ===== EXPORT ===== -->
+  <div id="view-export" class="view">
+    <div class="grid-2 mb-20">
+      <div class="card">
+        <div class="card-head"><div class="card-title">👥 Vevők exportálása</div></div>
+        <div class="card-body">
+          <p class="text-sm text-soft mb-16">Az összes regisztrált vevő neve, elérhetősége, csatlakozás dátuma és összesített rendelési adatai.</p>
+          <button class="btn btn-primary" onclick="exportClients()">⬇ Vevők letöltése (CSV)</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📦 Sütési lista exportálása</div></div>
+        <div class="card-body">
+          <p class="text-sm text-soft mb-16">A kiválasztott hónap összes sütési napjának terméklista összesítője.</p>
+          <div class="month-row" id="export-baking-month-sel" style="margin-bottom:14px"></div>
+          <button class="btn btn-primary" onclick="exportBakingList()">⬇ Sütési lista letöltése (CSV)</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2 mb-20">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📋 Rendelések exportálása</div></div>
+        <div class="card-body">
+          <p class="text-sm text-soft mb-16">A kiválasztott hónap összes rendelése vevőnként és naponként bontva.</p>
+          <div class="month-row" id="export-orders-month-sel" style="margin-bottom:14px"></div>
+          <div class="flex gap-10 flex-wrap">
+            <button class="btn btn-primary" onclick="exportOrders()">⬇ Rendelések letöltése (CSV)</button>
+            <button class="btn btn-ghost" onclick="exportOrdersDetailed()">⬇ Részletes export (CSV)</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📈 Kimutatás exportálása</div></div>
+        <div class="card-body">
+          <p class="text-sm text-soft mb-16">Havi összesítő: forgalom, top termékek, kategória bontás.</p>
+          <div class="month-row" id="export-report-month-sel" style="margin-bottom:14px"></div>
+          <button class="btn btn-primary" onclick="exportReport()">⬇ Kimutatás letöltése (CSV)</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">📊 Teljes adatbázis export</div></div>
+      <div class="card-body">
+        <p class="text-sm text-soft mb-16">Az összes adat egy ZIP fájlban – termékek, vevők, rendelések, beállítások. Biztonsági mentéshez is használható.</p>
+        <button class="btn btn-gold" onclick="exportAll()">⬇ Teljes export (JSON – biztonsági mentés)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS ===== -->
+  <div id="view-settings" class="view">
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">🌍 Nyelv beállítás <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Felület nyelve</label>
+            <select id="s-lang" onchange="saveSetting('lang',this.value)">
+              <option value="hu">Magyar</option>
+              <option value="ro">Română</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Pénznem</label>
+            <select id="s-currency" onchange="saveSetting('currency',this.value)">
+              <option value="lej">Lej (RON)</option>
+              <option value="eur">Euro (EUR)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">🔐 Admin jelszó módosítása <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Jelenlegi jelszó</label>
+            <input type="password" id="s-old-pw" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label>Új jelszó</label>
+            <input type="password" id="s-new-pw" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label>Megerősítés</label>
+            <input type="password" id="s-new-pw2" placeholder="••••••••">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="changePassword()">Jelszó módosítása</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">📦 Termékkategóriák <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <div id="categories-list" class="mb-16"></div>
+        <div class="flex gap-10">
+          <input type="text" id="new-cat-input" placeholder="Új kategória neve..." style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none;flex:1">
+          <button class="btn btn-primary btn-sm" onclick="addCategory()">＋ Hozzáadás</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">📋 Rendelési feltételek (vevői súgó) <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <div class="form-group mb-16">
+          <label>Rendelési feltételek szövege</label>
+          <textarea id="s-conditions" rows="5" placeholder="Pl. Rendelési határidő, minimális mennyiség, stb."></textarea>
+        </div>
+        <div class="form-group mb-16">
+          <label>Szállítás / Átvétel infók</label>
+          <textarea id="s-delivery" rows="4" placeholder="Pl. Átvételi pont, kiszállítás feltételei, stb."></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveHelpTexts()">Mentés</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">📅 Sütési naptár <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body open" id="baking-calendar-body">
+        <div class="form-row" style="margin-bottom:16px">
+          <div class="form-group">
+            <label>Alapértelmezett sütési napok</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="default-baking-days"></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <div class="form-group" style="flex:0 0 auto">
+            <label>Hónap</label>
+            <select id="cal-month-sel" onchange="renderBakingCalendar()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none"></select>
+          </div>
+          <div style="flex:1;font-size:0.82rem;color:var(--text-soft);padding-top:18px">
+            Kattints egy napra a hónapban: <span class="badge badge-green">hozzáad</span> extra sütési napot, <span class="badge badge-red">kivesz</span> egy alap sütési napot.
+          </div>
+        </div>
+        <div id="baking-calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px"></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.78rem;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--teal)"></div> Alap sütési nap</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--gold)"></div> Extra sütési nap</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:#fee2e2;border:1px solid #fca5a5"></div> Kihagyott nap</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:#f3f4f6;border:1px solid #e5e7eb"></div> Normál nap</div>
+        </div>
+        <div id="baking-cal-summary" style="font-size:0.82rem;color:var(--text-soft)"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">🔔 Értesítések <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Rendelés beérkező értesítés</div><div class="toggle-desc">Amikor egy vevő új rendelést ad le</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">24 órás emlékeztető</div><div class="toggle-desc">Sütési nap előtt 24 órával emlékeztető</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Havi összesítő email</div><div class="toggle-desc">Hónap végén összesítő jelentés</div></div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- main-pad -->
+</div><!-- content -->
+</div><!-- app-shell -->
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="pm-title">Új termék</h3>
+      <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Termék neve *</label>
+          <input type="text" id="p-name" placeholder="pl. Kovászos prémium kenyér" oninput="updateProductCode()">
+        </div>
+        <div class="form-group">
+          <label>Méret / Súly</label>
+          <div style="display:flex;gap:6px;align-items:center">
+              <input type="number" id="p-weight-num" placeholder="500" style="flex:1" onchange="updateWeightField()">
+              <select id="p-weight-unit" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none" onchange="updateWeightField()">
+                <option value="g">g</option>
+                <option value="kg">kg</option>
+                <option value="db">db</option>
+                <option value="ml">ml</option>
+                <option value="dl">dl</option>
+              </select>
+              <input type="hidden" id="p-weight">
+            </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Termékkód <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(automatikus)</span></label>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="p-code" placeholder="pl. KEN-PREM-01" style="flex:1;font-family:monospace">
+            <button class="btn btn-ghost btn-sm" type="button" onclick="updateProductCode(true)" title="Újragenerálás">🔄</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ár (lej/db) *</label>
+          <input type="number" id="p-price" placeholder="pl. 25">
+        </div>
+        <div class="form-group">
+          <label>Kategória</label>
+          <select id="p-category"></select>
+        </div>
+      </div>
+      <div class="form-group mb-16">
+        <label>Leírás / Összetevők / Allergének</label>
+        <textarea id="p-desc" rows="4" placeholder="Összetevők, allergének, tárolási infók..."></textarea>
+      </div>
+      <div class="form-group mb-16">
+        <label>Termék képe (opcionális)</label>
+        <div id="p-image-preview" style="display:none;position:relative;margin-bottom:10px">
+          <img id="p-image-preview-img" src="" alt="Előnézet"
+            style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border)">
+          <button onclick="clearProductImage()" type="button"
+            style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.78rem">✕ Törlés</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--teal);color:white;border-radius:10px;cursor:pointer;font-size:0.83rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:background 0.2s" onmouseover="this.style.background='var(--teal-dark)'" onmouseout="this.style.background='var(--teal)'">
+            📁 Fájl feltöltése
+            <input type="file" id="p-image-file" accept="image/*" onchange="handleProductImageUpload(this)" style="display:none">
+          </label>
+          <span style="font-size:0.78rem;color:var(--text-soft)">vagy</span>
+          <input type="url" id="p-image" placeholder="https://... (URL)" style="flex:1;min-width:160px;padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none" oninput="handleProductImageUrl(this.value)">
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">Támogatott formátumok: JPG, PNG, WebP, GIF</div>
+      </div>
+      <div class="flex gap-10">
+        <button class="btn btn-ghost" onclick="closeModal('product-modal')">Mégse</button>
+        <button class="btn btn-primary" onclick="saveProduct()">Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENT MODAL -->
+<div class="modal-overlay" id="client-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h3>Új kliens</h3>
+      <button class="modal-close" onclick="closeModal('client-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Teljes név *</label>
+          <input type="text" id="c-name" placeholder="Kovács Anna">
+        </div>
+        <div class="form-group">
+          <label>Belépési kód *</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="c-id" placeholder="KR-A7X2-9M4P" style="flex:1;font-family:monospace;font-size:0.88rem">
+            <button class="btn btn-gold btn-sm" type="button" onclick="generateClientCode()" title="Generálás">🔄</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="copyClientCode()" title="Másolás">📋</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="c-email" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label>Telefon</label>
+          <input type="text" id="c-phone" placeholder="+40 7...">
+        </div>
+      </div>
+      <div class="form-group mb-16">
+        <label>Megjegyzés</label>
+        <input type="text" id="c-note" placeholder="pl. Gyergyószentmiklós, minden kedden vesz át">
+      </div>
+      <div class="flex gap-10">
+        <button class="btn btn-ghost" onclick="closeModal('client-modal')">Mégse</button>
+        <button class="btn btn-primary" onclick="saveClient()">Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VEVO PREVIEW MODAL -->
+<div class="modal-overlay" id="vevo-preview-modal" style="padding:0">
+  <div style="background:white;width:420px;height:90vh;border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(6,76,72,0.35);display:flex;flex-direction:column;animation:slideUp 0.22s ease;position:relative">
+    <div style="background:var(--teal-dark);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-family:'Fraunces',serif;color:var(--gold-light);font-size:0.95rem;font-weight:400;font-style:italic">Vevői felület – előnézet</div>
+        <div style="font-size:0.72rem;color:var(--teal-light);margin-top:2px">Válassz egy vevőt az előnézethez</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('vevo-preview-modal')">✕</button>
+    </div>
+    <div style="background:var(--teal-pale);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--border)">
+      <label style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);white-space:nowrap">Vevő:</label>
+      <select id="preview-client-sel" onchange="switchPreviewClient(this.value)"
+        style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none;background:white"></select>
+      <div style="font-size:0.72rem;color:var(--text-soft)" id="preview-client-code"></div>
+    </div>
+    <div style="flex:1;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center;padding:12px">
+      <div style="width:375px;height:100%;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;flex-direction:column">
+        <div style="background:var(--teal-dark);height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex-shrink:0">
+          <span style="font-size:0.6rem;color:rgba(255,255,255,0.7)">9:41</span>
+          <span style="font-size:0.6rem;color:rgba(255,255,255,0.7)">● ● ●</span>
+        </div>
+        <iframe id="vevo-preview-frame" src="" style="flex:1;border:none;width:100%" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0">
+      <button class="btn btn-ghost btn-sm" onclick="openVevoFullscreen()" style="flex:1;justify-content:center">🔗 Külön ablakban</button>
+      <button class="btn btn-primary btn-sm" onclick="closeModal('vevo-preview-modal')" style="flex:1;justify-content:center">Bezárás</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div></div>
+
+<script>
+// ===== DATA =====
+const MONTHS=['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+const MONTHS_SHORT=['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
+const DAYS_HU=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+const BAKING_DAYS=[2,5];
+
+// ===== SUPABASE DATA LAYER =====
+let D = { _v: 'supabase',
+  products:[
+    {id:1,name:'Kovászos prémium kenyér',weight:'500 g',price:23,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
+    {id:2,name:'Kovászos prémium kenyér',weight:'1000 g',price:35,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
+    {id:3,name:'„Diabétesz" kenyér',weight:'1000 g',price:38,category:'Kenyér',desc:'Alacsony glikémiás indexű. GLUTÉNMENTES.',image:null},
+    {id:4,name:'Fehér kenyér',weight:'1000 g',price:32,category:'Kenyér',desc:'Gluténmentes fehér kenyér.',image:null},
+    {id:5,name:'Kovászos bagett',weight:'360 g',price:16,category:'Bagett / zsömle',desc:'Ropogós héjú bagett. GLUTÉNMENTES.',image:null},
+    {id:6,name:'Kovászos zsömle',weight:'100 g',price:6,category:'Bagett / zsömle',desc:'Kis méretű zsömle. GLUTÉNMENTES.',image:null},
+    {id:7,name:'Guilt free kuglóf',weight:'260 g',price:29,category:'Sütemény',desc:'Cukor- és gluténmentes kuglóf.',image:null},
+    {id:8,name:'Sós sütemény',weight:'100 g',price:12,category:'Sütemény',desc:'Ropogós sós sütemény. GLUTÉNMENTES.',image:null},
+    {id:9,name:'Mákos/diós kifli',weight:'100 g',price:12,category:'Sütemény',desc:'Gluténmentes kifli.',image:null},
+    {id:10,name:'Szilvás gombóc',weight:'60 g',price:6,category:'Sütemény',desc:'Gluténmentes gombóc.',image:null},
+  ],
+  monthlyActiveProducts:{'2026-3':[1,2,3,4,5,6,7,8,9,10],'2026-4':[1,2,3,5,6,7,8,9],'2026-5':[1,2,4,5,7,8,10]},
+  clients:[
+    {id:'anna',name:'Kovács Anna',email:'anna@example.com',phone:'+40 740 111 222',note:'',joinDate:'2025-09-01'},
+    {id:'bela',name:'Nagy Béla',email:'bela@example.com',phone:'+40 750 333 444',note:'',joinDate:'2025-11-15'},
+    {id:'cica',name:'Fekete Cica',email:'cica@example.com',phone:'+40 760 555 666',note:'',joinDate:'2026-01-10'},
+  ],
+  orders:{
+    'anna-2026-3-4':{1:2,2:1,7:1},'anna-2026-3-11':{1:2,5:4,7:1},'anna-2026-3-18':{2:1,6:6,8:2},'anna-2026-3-25':{1:1,2:1,7:1},
+    'bela-2026-3-4':{2:2,5:2,8:3},'bela-2026-3-11':{2:1,3:1,9:4},'bela-2026-3-18':{2:2,5:2,8:2},
+    'cica-2026-3-7':{1:1,7:2,9:3},'cica-2026-3-14':{1:2,5:3,8:2},'cica-2026-3-21':{2:1,7:1,10:5},
+    'anna-2026-4-1':{1:2,5:3,7:1},'anna-2026-4-8':{2:1,6:4,8:2},
+    'bela-2026-4-4':{2:2,5:2,9:3},'bela-2026-4-11':{1:1,2:1,7:1},
+    'cica-2026-4-4':{1:2,7:2},'cica-2026-4-11':{5:3,8:2,9:1},
+  },
+  messages:{
+    'anna-2026-4':[{text:'Kedden inkább délután tudok átvenni, jó?',ts:'2026-04-01T09:12:00'}],
+    'bela-2026-4':[{text:'A bagettből 2-t kérek extra ha van.',ts:'2026-04-04T11:30:00'}],
+  },
+  categories:['Kenyér','Bagett / zsömle','Sütemény','Egyéb'],
+  settings:{lang:'hu',currency:'lej',adminPw:'admin'},
+  bakingDaysDefault:[2,5],
+  bakingCalendar:{
+    '2026-3': {extra:[], removed:[]},
+    '2026-4': {extra:[], removed:[]},
+  },
+  helpConditions:'',
+  helpDelivery:'',
+};
+
+let selMonth = 3; // April - where demo data lives
+let selYear = new Date().getFullYear();
+let catalogMonth = selMonth;
+let currentView = 'dashboard';
+let clientDetailId = null;
+let clientDetailPeriod = 'monthly';
+let editingProductId = null;
+
+async function save() {
+  // Save to Supabase - handled by individual save functions
+  // Also keep local cache for offline
+  localStorage.setItem('kerek_data', JSON.stringify(D));
+}
+
+// ===== AUTH =====
+async function doLogin(){
+  const pw = document.getElementById('login-pw').value;
+  if(!pw){ toast('Add meg a jelszót!'); return; }
+  try {
+    const storedPw = await sb.getSetting('admin_password');
+    const correctPw = storedPw || 'admin';
+    if(pw === correctPw){
+      document.getElementById('login-screen').style.display='none';
+      await loadAllData();
+      initApp();
+    } else { toast('Hibás jelszó!'); }
+  } catch(e) {
+    // Fallback to local
+    if(pw === (D.settings?.adminPw||'admin')){
+      document.getElementById('login-screen').style.display='none';
+      initApp();
+    } else { toast('Hibás jelszó! (offline mód)'); }
+  }
+}
+function logout(){ document.getElementById('login-screen').style.display='flex'; document.getElementById('login-pw').value=''; }
+
+async function loadAllData(){
+  try {
+    // Load all data from Supabase into D
+    const [clients, products, map, orders, messages, calRows, settingsRows] = await Promise.all([
+      sb.query('clients', {order: 'name'}),
+      sb.query('products', {order: 'id'}),
+      sb.query('monthly_active_products'),
+      sb.query('orders'),
+      sb.query('messages', {order: 'created_at.desc'}),
+      sb.query('baking_calendar'),
+      sb.query('settings'),
+    ]);
+
+    D.clients = clients.map(c => ({
+      id: c.id, name: c.name, email: c.email||'',
+      phone: c.phone||'', note: c.note||'',
+      joinDate: c.join_date
+    }));
+
+    D.products = products.map(p => ({
+      id: p.id, name: p.name, weight: p.weight,
+      price: p.price, category: p.category,
+      desc: p.description, image: p.image
+    }));
+
+    // Build monthlyActiveProducts
+    D.monthlyActiveProducts = {};
+    map.forEach(r => {
+      const key = `${r.year}-${r.month}`;
+      if(!D.monthlyActiveProducts[key]) D.monthlyActiveProducts[key] = [];
+      D.monthlyActiveProducts[key].push(r.product_id);
+    });
+
+    // Build orders {clientId-year-month-day: {productId: qty}}
+    D.orders = {};
+    orders.forEach(o => {
+      const key = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+      if(!D.orders[key]) D.orders[key] = {};
+      D.orders[key][o.product_id] = o.quantity;
+    });
+
+    // Build messages
+    D.messages = {};
+    messages.forEach(m => {
+      const key = `${m.client_id}-${m.year}-${m.month}`;
+      if(!D.messages[key]) D.messages[key] = [];
+      D.messages[key].push({text: m.text, ts: m.created_at});
+    });
+
+    // Build baking calendar
+    D.bakingCalendar = {};
+    calRows.forEach(r => {
+      D.bakingCalendar[`${r.year}-${r.month}`] = {
+        extra: r.extra_dates||[], removed: r.removed_dates||[]
+      };
+    });
+
+    // Settings
+    D.settings = {};
+    settingsRows.forEach(s => {
+      try { D.settings[s.key] = JSON.parse(s.value); } catch(e) {}
+    });
+    D.settings.adminPw = D.settings.admin_password || 'admin';
+    D.bakingDaysDefault = D.settings.baking_days_default || [2,5];
+    D.helpConditions = D.settings.help_conditions || '';
+    D.helpDelivery = D.settings.help_delivery || '';
+    D.categories = D.settings.categories || ['Kenyér','Bagett / zsömle','Sütemény','Egyéb'];
+
+    // Cache locally
+    localStorage.setItem('kerek_data', JSON.stringify(D));
+    console.log('✅ Adatok betöltve a Supabase-ből');
+  } catch(e) {
+    console.warn('⚠️ Supabase hiba, lokális adatok használata:', e.message);
+    // Load from localStorage fallback
+    const cached = JSON.parse(localStorage.getItem('kerek_data')||'{}');
+    if(cached._v) Object.assign(D, cached);
+  }
+}
+
+function initApp(){
+  buildTopbarMonths();
+  // Auto-refresh every 60 seconds
+  setInterval(async () => {
+    try {
+      await loadAllData();
+      updateMsgBadge();
+      // Re-render current view if it shows live data
+      const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+      if(['dashboard','messages','baking'].includes(activeView)) {
+        const renders = {dashboard:renderDashboard, messages:renderMessages, baking:renderBaking};
+        renders[activeView]?.();
+      }
+    } catch(e) {}
+  }, 60000);
+  renderDashboard();
+  updateMsgBadge();
+  loadSettings();
+}
+
+// ===== NAVIGATION =====
+const VIEW_TITLES = {
+  dashboard:'Dashboard', messages:'Üzenetek', baking:'Sütési lista',
+  orders:'Rendelések összesítő', catalog:'Termékkatalógus', clients:'Kliensek',
+  'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások',
+  export:'Adatok exportálása'
+};
+function nav(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes(`'${id}'`)) n.classList.add('active'); });
+  document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
+  document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
+  currentView = id;
+  const renders = {
+    dashboard:renderDashboard, messages:renderMessages, baking:renderBaking,
+    orders:renderOrders, catalog:renderCatalog, clients:renderClients,
+    reports:renderReports, categories:renderCategories, settings:renderSettings,
+    export:initExportView
+  };
+  renders[id]?.();
+}
+
+// ===== HELPERS =====
+function mk(y,m){return `${y}-${m}`;}
+function ok(cid,y,m,d){return `${cid}-${y}-${m}-${d}`;}
+function getActiveProds(y,m){ const ids=D.monthlyActiveProducts[mk(y,m)]||[]; return D.products.filter(p=>ids.includes(p.id)); }
+function getDays(y,m){ const days=[]; const d=new Date(y,m,1); while(d.getMonth()===m){days.push(new Date(d));d.setDate(d.getDate()+1);} return days; }
+function getBakingDays(y,m){
+  const key=`${y}-${m}`;
+  const cal=D.bakingCalendar?.[key]||{extra:[],removed:[]};
+  const defaultDays=D.bakingDaysDefault||[2,5];
+  const days=getDays(y,m);
+  const result=[];
+  days.forEach(d=>{
+    const dateStr=d.toISOString().slice(0,10);
+    const isDefault=defaultDays.includes(d.getDay());
+    const isExtra=cal.extra.includes(dateStr);
+    const isRemoved=cal.removed.includes(dateStr);
+    if((isDefault||isExtra)&&!isRemoved) result.push(d);
+  });
+  return result;
+}
+function getMonthOrders(y,m){
+  const res={};
+  D.clients.forEach(c=>{
+    getDays(y,m).forEach(d=>{
+      const day=d.getDate(), key=ok(c.id,y,m,day);
+      if(D.orders[key]){ if(!res[day])res[day]={}; Object.entries(D.orders[key]).forEach(([pid,qty])=>{ res[day][pid]=(res[day][pid]||0)+qty; }); }
+    });
+  });
+  return res;
+}
+function getRevenue(orders,y,m){
+  let r=0;
+  Object.entries(orders).forEach(([day,prods])=>{ Object.entries(prods).forEach(([pid,qty])=>{ const p=D.products.find(p=>p.id==pid); if(p)r+=p.price*qty; }); });
+  return r;
+}
+function getTotalQty(orders){ let q=0; Object.values(orders).forEach(day=>Object.values(day).forEach(v=>q+=v)); return q; }
+
+function buildTopbarMonths(){
+  const el=document.getElementById('topbar-month');
+  el.innerHTML = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+}
+function selectMonth(m){ selMonth=m; buildTopbarMonths(); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
+
+function updateMsgBadge(){
+  let count=0;
+  Object.values(D.messages).forEach(arr=>count+=arr.length);
+  const b=document.getElementById('msg-badge');
+  if(count>0){b.style.display='inline';b.textContent=count;}else{b.style.display='none';}
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+  const rev=getRevenue(mo,y,m);
+  const qty=getTotalQty(mo);
+  const bdays=getBakingDays(y,m);
+  let msgCount=0; Object.values(D.messages).forEach(a=>msgCount+=a.length);
+
+  document.getElementById('dash-stats').innerHTML=[
+    {val:D.clients.length,label:'Aktív vevő',icon:'👥',sub:''},
+    {val:qty+' db',label:`Rendelés (${MONTHS[m]})`,icon:'📦',gold:false},
+    {val:rev+' lej',label:'Becsült forgalom',icon:'💰',gold:true},
+    {val:msgCount,label:'Olvasatlan üzenet',icon:'💬',gold:false},
+  ].map(s=>`<div class="stat-box"><div class="stat-val ${s.gold?'gold':''}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
+
+  // Weekly finance
+  const now=new Date(); const weekStart=new Date(now); weekStart.setDate(now.getDate()-now.getDay()+1);
+  let weekRev=0, weekQty=0;
+  for(let i=0;i<7;i++){
+    const d=new Date(weekStart); d.setDate(weekStart.getDate()+i);
+    if(d.getMonth()!==m) continue;
+    const dayOrders=mo[d.getDate()]||{};
+    weekQty+=Object.values(dayOrders).reduce((a,b)=>a+b,0);
+    Object.entries(dayOrders).forEach(([pid,qty])=>{ const p=D.products.find(p=>p.id==pid); if(p)weekRev+=p.price*qty; });
+  }
+  document.getElementById('weekly-finance').innerHTML=`
+    <div class="flex justify-between" style="margin-bottom:14px">
+      <div class="stat-box" style="flex:1;margin-right:12px"><div class="stat-val">${weekQty} db</div><div class="stat-label">🛒 Heti rendelés</div></div>
+      <div class="stat-box" style="flex:1"><div class="stat-val gold">${weekRev} lej</div><div class="stat-label">💰 Heti forgalom</div></div>
+    </div>
+    <div style="font-size:0.8rem;color:var(--text-soft)">Hét: ${weekStart.toLocaleDateString('hu-HU',{month:'short',day:'numeric'})} – ${new Date(weekStart.getTime()+6*864e5).toLocaleDateString('hu-HU',{month:'short',day:'numeric'})}</div>`;
+
+  // Monthly chart
+  const months=[]; for(let i=5;i>=0;i--){ const d=new Date(y,m-i,1); months.push({m:d.getMonth(),y:d.getFullYear()}); }
+  const vals=months.map(x=>getRevenue(getMonthOrders(x.y,x.m),x.y,x.m));
+  const maxV=Math.max(...vals,1);
+  document.getElementById('monthly-chart').innerHTML=vals.map((v,i)=>`<div class="bar-col"><div class="bar-v">${v>0?v:''}</div><div class="bar" style="height:${Math.max(v/maxV*90,3)}px;background:${i===5?'var(--gold)':'var(--teal-light)'}"></div></div>`).join('');
+  document.getElementById('monthly-chart-labels').innerHTML=months.map((x,i)=>`<div style="flex:1;text-align:center;font-size:0.68rem;color:var(--text-soft);font-weight:${i===5?700:400}">${MONTHS_SHORT[x.m]}</div>`).join('');
+
+  // Next baking
+  const upcoming=bdays.filter(d=>d>=now).slice(0,4);
+  document.getElementById('next-baking').innerHTML=upcoming.map(d=>{
+    const day=d.getDate(); const dayO=mo[day]||{}; const q=Object.values(dayO).reduce((a,b)=>a+b,0);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:600;font-size:0.88rem">${DAYS_HU[d.getDay()]}, ${MONTHS[m]} ${day}.</div><div class="text-xs text-soft">${q>0?q+' db rendelés':'Még nincs rendelés'}</div></div>
+      <span class="badge ${q>0?'badge-green':'badge-gray'}">${q>0?q+' db':'üres'}</span></div>`;
+  }).join('')||'<p class="text-sm text-soft">Nincs több sütési nap ebben a hónapban.</p>';
+
+  // Recent messages
+  const recentMsgs=[];
+  Object.entries(D.messages).forEach(([key,msgs])=>{
+    const [cid,...rest]=key.split('-'); const client=D.clients.find(c=>c.id===cid);
+    msgs.forEach(msg=>recentMsgs.push({client:client?.name||cid,text:msg.text,ts:msg.ts}));
+  });
+  recentMsgs.sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  document.getElementById('recent-messages').innerHTML=recentMsgs.slice(0,4).map(m=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:0.72rem;color:var(--teal-mid);font-weight:600">${m.client}</div>
+      <div style="font-size:0.82rem;color:var(--text);margin-top:2px">${m.text.slice(0,80)}${m.text.length>80?'…':''}</div>
+    </div>`).join('')||'<p class="text-sm text-soft">Nincsenek üzenetek.</p>';
+}
+
+// ===== MESSAGES =====
+async function sendAdminReply(clientId, month, inputId) {
+  const input = document.getElementById(inputId);
+  if(!input?.value.trim()) return;
+  const text = input.value.trim();
+  const key = `${clientId}-${selYear}-${month}`;
+  
+  // Save to admin messages in memory
+  if(!D.adminMessages) D.adminMessages = {};
+  if(!D.adminMessages[key]) D.adminMessages[key] = [];
+  const msg = {text, ts: new Date().toISOString(), fromAdmin: true};
+  D.adminMessages[key].push(msg);
+  
+  // Save to Supabase - use messages table with a flag
+  try {
+    await sb.insert('messages', {
+      client_id: clientId,
+      year: selYear,
+      month: month,
+      text: '📨 Admin: ' + text,
+    });
+    input.value = '';
+    save();
+    renderMessages();
+    toast('✅ Üzenet elküldve!');
+  } catch(e) {
+    toast('⚠️ Küldés sikertelen: '+e.message);
+    console.error(e);
+  }
+}
+
+function renderMessages(){
+  const sel=document.getElementById('msg-month-sel');
+  // Build month buttons with message count badges
+  sel.innerHTML=MONTHS.map((mo,i)=>{
+    let count=0;
+    D.clients.forEach(c=>{
+      const key=`${c.id}-${selYear}-${i}`;
+      count+=(D.messages[key]||[]).length;
+    });
+    const badge = count>0 ? `<span style="display:inline-block;background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:0px 6px;font-size:0.65rem;font-weight:700;margin-left:4px;line-height:1.6">${count}</span>` : '';
+    return `<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}${badge}</button>`;
+  }).join('');
+
+  // Reload messages from Supabase cache
+  let html=''; let found=false;
+  D.clients.forEach(c=>{
+    const key=`${c.id}-${selYear}-${selMonth}`;
+    const msgs=D.messages[key]||[];
+    if(msgs.length===0) return;
+    found=true;
+    html+=`<div class="card mb-16">
+      <div class="card-head">
+        <div class="card-title">💬 ${c.name}</div>
+        <span class="badge badge-gold">${MONTHS[selMonth]} ${selYear}</span>
+      </div>
+      <div class="card-body">`;
+    msgs.forEach((msg,i)=>{
+      const dt=new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const isAdmin = msg.text?.startsWith('📨 Admin:');
+      const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
+      html+=`<div class="message-item" style="${bg}">
+        <div class="message-meta">
+          <span>${isAdmin ? '👩‍💼 Admin válasz' : '👤 '+c.name+' &nbsp;·&nbsp; '+(c.email||'')} </span>
+          <span>📅 ${dt}</span>
+        </div>
+        <div class="message-text">${msg.text}</div>
+      </div>`;
+    });
+    // Reply box
+    html+=`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <input type="text" id="reply-${key}" placeholder="Válasz ${c.name} részére..." 
+        style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
+        onkeydown="if(event.key==='Enter')sendAdminReply('${c.id}',${selMonth},'reply-${key}')">
+      <button class="btn btn-primary btn-sm" onclick="sendAdminReply('${c.id}',${selMonth},'reply-${key}')">📨 Küld</button>
+    </div>`;
+    html+='</div></div>';
+  });
+  document.getElementById('messages-list').innerHTML=found?html:`<p class="text-soft text-sm">Nincsenek üzenetek ${MONTHS[selMonth]} hónapban.</p>`;
+}
+
+// ===== BAKING =====
+function renderBaking(){
+  const sel=document.getElementById('baking-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const bdays=getBakingDays(y,m);
+  const activeP=getActiveProds(y,m);
+  let html='';
+
+  bdays.forEach(d=>{
+    const day=d.getDate(); const dayName=DAYS_HU[d.getDay()];
+    let totalQty=0, totalRev=0;
+    // Aggregated across all clients
+    const aggr={};
+    D.clients.forEach(c=>{
+      const key=ok(c.id,y,m,day); const o=D.orders[key];
+      if(!o) return;
+      Object.entries(o).forEach(([pid,qty])=>{ aggr[pid]=(aggr[pid]||0)+qty; totalQty+=qty; const p=D.products.find(p=>p.id==pid); if(p)totalRev+=p.price*qty; });
+    });
+
+    html+=`<div class="baking-day-card">
+      <div class="baking-day-head" onclick="toggleBakingDay(this)">
+        <h4>🔥 ${dayName}, ${MONTHS[m]} ${day}.</h4>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="badge badge-teal">${totalQty} db</span>
+          <span class="badge badge-gold">${totalRev} lej</span>
+          <span style="color:white;font-size:0.8rem">▾</span>
+        </div>
+      </div>
+      <div class="baking-day-body">`;
+
+    // Product lines with client breakdown
+    activeP.forEach(p=>{
+      const totalForP=aggr[p.id]||0;
+      if(!totalForP) return;
+      html+=`<div class="baking-line"><span style="font-weight:600">${p.name} <span class="text-xs text-soft">${p.weight}</span></span><span class="baking-qty">${totalForP} db</span></div>`;
+      // Per client
+      D.clients.forEach(c=>{
+        const key=ok(c.id,y,m,day); const qty=(D.orders[key]||{})[p.id]||0;
+        if(!qty) return;
+        html+=`<div class="baking-line client-sub"><span>↳ ${c.name}</span><span>${qty} db</span></div>`;
+      });
+    });
+
+    if(totalQty===0) html+=`<div class="baking-line text-soft">Nincs rendelés erre a napra.</div>`;
+    else html+=`<div class="baking-line" style="background:var(--teal-pale);font-weight:700"><span>ÖSSZESEN</span><span style="color:var(--teal-dark)">${totalQty} db · ${totalRev} lej</span></div>`;
+
+    html+=`</div></div>`;
+  });
+
+  document.getElementById('baking-content').innerHTML=html||'<p class="text-soft">Nincsenek sütési napok.</p>';
+}
+function toggleBakingDay(el){ el.nextElementSibling.classList.toggle('open'); }
+
+// ===== ORDERS =====
+function renderOrders(){
+  const sel=document.getElementById('orders-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+  const bdays=getBakingDays(y,m);
+  const activeP=getActiveProds(y,m);
+
+  // Matrix
+  let html='<table class="tbl"><thead><tr><th>Termék</th>';
+  bdays.forEach(d=>html+=`<th>${MONTHS[m].slice(0,3)} ${d.getDate()}.<br><small>${DAYS_HU[d.getDay()].slice(0,3)}</small></th>`);
+  html+='<th>Összesen</th><th>Érték</th></tr></thead><tbody>';
+  activeP.forEach(p=>{
+    const qties=bdays.map(d=>(mo[d.getDate()]||{})[p.id]||0);
+    const tot=qties.reduce((a,b)=>a+b,0); if(!tot) return;
+    html+=`<tr><td><b>${p.name}</b><br><small class="text-soft">${p.weight}</small></td>`;
+    qties.forEach(q=>html+=`<td class="num">${q||'—'}</td>`);
+    html+=`<td class="num highlight">${tot}</td><td class="num gold-text">${tot*p.price} lej</td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('orders-matrix').innerHTML=html;
+
+  // Client breakdown
+  let chtml='<table class="tbl"><thead><tr><th>Vevő</th><th>Rendelési napok</th><th>Összesen (db)</th><th>Becsült érték</th><th></th></tr></thead><tbody>';
+  D.clients.forEach(c=>{
+    let tot=0,rev=0,days=0;
+    getDays(y,m).forEach(d=>{
+      const key=ok(c.id,y,m,d.getDate());
+      if(D.orders[key]){days++;Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});}
+    });
+    chtml+=`<tr><td><b>${c.name}</b><br><small class="text-soft">${c.email}</small></td>
+      <td><span class="badge badge-teal">${days} nap</span></td>
+      <td class="num highlight">${tot} db</td>
+      <td class="num gold-text">${rev} lej</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openClientDetail('${c.id}')">Adatlap</button></td></tr>`;
+  });
+  chtml+='</tbody></table>';
+  document.getElementById('orders-clients').innerHTML=chtml;
+}
+
+// ===== CATALOG =====
+function renderCatalog(){
+  const sel=document.getElementById('catalog-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===catalogMonth?'active':''}" onclick="selectCatalogMonth(${i})">${mo}</button>`).join('');
+  const activeIds=D.monthlyActiveProducts[mk(selYear,catalogMonth)]||[];
+  // All products
+  const catSel=document.getElementById('p-category');
+  catSel.innerHTML=D.categories.map(c=>`<option>${c}</option>`).join('');
+
+  document.getElementById('all-products').innerHTML=D.products.map(p=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1.5px solid ${activeIds.includes(p.id)?'var(--teal)':'var(--border)'};border-radius:12px;background:${activeIds.includes(p.id)?'var(--teal-pale)':'white'};margin-bottom:8px;cursor:pointer;transition:all 0.2s" onclick="toggleProduct(${p.id})">
+      <div>
+        <div style="font-weight:600;font-size:0.88rem">${p.name} <span class="text-xs text-soft">${p.weight}</span></div>
+        <div style="font-size:0.75rem;color:var(--gold-dark)">${p.price} lej · ${p.category}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${activeIds.includes(p.id)?'<span class="badge badge-green">✓ Aktív</span>':''}
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProductModal(${p.id})">✏️</button>
+      </div>
+    </div>`).join('');
+
+  const activeProds=D.products.filter(p=>activeIds.includes(p.id));
+  document.getElementById('active-products').innerHTML=activeProds.length===0
+    ?'<p class="text-soft text-sm">Kattints a bal oldali termékekre az aktiváláshoz.</p>'
+    :activeProds.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:white;margin-bottom:7px">
+      <div style="font-size:0.85rem;font-weight:600">${p.name} <span class="text-xs text-soft">${p.weight}</span></div>
+      <button class="btn btn-danger btn-sm" onclick="toggleProduct(${p.id})">✕</button></div>`).join('');
+}
+function selectCatalogMonth(m){ catalogMonth=m; renderCatalog(); }
+function toggleProduct(id){
+  const key=mk(selYear,catalogMonth);
+  if(!D.monthlyActiveProducts[key]) D.monthlyActiveProducts[key]=[];
+  const idx=D.monthlyActiveProducts[key].indexOf(id);
+  if(idx>-1) D.monthlyActiveProducts[key].splice(idx,1);
+  else D.monthlyActiveProducts[key].push(id);
+  // Sync to Supabase
+  const [ky, km] = key.split('-').map(Number);
+  if(idx>-1) {
+    sb.delete('monthly_active_products', `year=eq.${ky}&month=eq.${km}&product_id=eq.${id}`).catch(e=>console.warn(e));
+  } else {
+    sb.upsert('monthly_active_products', {year:ky, month:km, product_id:id}).catch(e=>console.warn(e));
+  }
+  save(); renderCatalog();
+  toast(idx>-1?'Termék eltávolítva a hónapból':'Termék aktiválva');
+}
+
+function openProductModal(id=null){
+  editingProductId=id;
+  const catSel=document.getElementById('p-category');
+  catSel.innerHTML=D.categories.map(c=>`<option>${c}</option>`).join('');
+  if(id){
+    const p=D.products.find(p=>p.id===id);
+    document.getElementById('p-name').value=p.name;
+    document.getElementById('p-weight').value=p.weight;
+    document.getElementById('p-price').value=p.price;
+    document.getElementById('p-category').value=p.category;
+    document.getElementById('p-desc').value=p.desc||'';
+    const imgVal = p.image||'';
+    document.getElementById('p-image').value = imgVal.startsWith('data:') ? '' : imgVal;
+    document.getElementById('p-image-file')._base64 = imgVal.startsWith('data:') ? imgVal : null;
+    if(imgVal){ showProductImagePreview(imgVal); }
+    else { document.getElementById('p-image-preview').style.display='none'; }
+    document.getElementById('pm-title').textContent='Termék szerkesztése';
+  } else {
+    ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
+    clearProductImage();
+    document.getElementById('pm-title').textContent='Új termék';
+  }
+  document.getElementById('product-modal').classList.add('open');
+}
+function handleProductImageUpload(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){
+    toast('A kép mérete max 2 MB lehet!');
+    input.value='';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const base64 = e.target.result;
+    document.getElementById('p-image').value = '';
+    showProductImagePreview(base64);
+    // Store temporarily
+    document.getElementById('p-image-file')._base64 = base64;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleProductImageUrl(url){
+  if(!url) { clearProductImage(); return; }
+  showProductImagePreview(url);
+  document.getElementById('p-image-file')._base64 = null;
+}
+
+function showProductImagePreview(src){
+  const preview = document.getElementById('p-image-preview');
+  const img = document.getElementById('p-image-preview-img');
+  img.src = src;
+  preview.style.display = 'block';
+}
+
+function clearProductImage(){
+  document.getElementById('p-image-preview').style.display = 'none';
+  document.getElementById('p-image-preview-img').src = '';
+  document.getElementById('p-image').value = '';
+  document.getElementById('p-image-file').value = '';
+  document.getElementById('p-image-file')._base64 = null;
+}
+
+function getProductImageValue(){
+  const fileInput = document.getElementById('p-image-file');
+  if(fileInput._base64) return fileInput._base64;
+  const url = document.getElementById('p-image').value.trim();
+  return url || null;
+}
+
+// ===== CODE GENERATION =====
+const CAT_CODES = {
+  'Kenyér':'KEN', 'Bagett / zsömle':'BAG', 'Sütemény':'SUT',
+  'Leveles tészta':'LEV', 'Egyéb':'EGY'
+};
+
+function updateWeightField() {
+  const num = document.getElementById('p-weight-num')?.value;
+  const unit = document.getElementById('p-weight-unit')?.value || 'g';
+  const hidden = document.getElementById('p-weight');
+  if(hidden && num) hidden.value = `${num} ${unit}`;
+}
+
+function updateProductCode(force=false) {
+  const codeEl = document.getElementById('p-code');
+  if(!codeEl) return;
+  // Only auto-generate if empty or force
+  if(codeEl.value && !force) return;
+  const name = document.getElementById('p-name')?.value || '';
+  const catEl = document.getElementById('p-category');
+  const cat = catEl?.options[catEl.selectedIndex]?.text || 'Egyéb';
+  const prefix = CAT_CODES[cat] || 'EGY';
+  // Take first 4 chars of name, uppercase, remove special chars
+  const namePart = name.toUpperCase()
+    .replace(/[ÁÀÂÄ]/g,'A').replace(/[ÉÈÊË]/g,'E')
+    .replace(/[ÍÌÎÏ]/g,'I').replace(/[ÓÒÔÖ]/g,'O')
+    .replace(/[ÚÙÛÜ]/g,'U').replace(/[^A-Z]/g,'')
+    .slice(0,4) || 'XXX';
+  // Count existing products in this category for sequence
+  const existing = D.products.filter(p=>p.category===cat).length;
+  const seq = String(existing+1).padStart(2,'0');
+  codeEl.value = `${prefix}-${namePart}-${seq}`;
+}
+
+function generateClientCode() {
+  const nameEl = document.getElementById('c-name');
+  const name = nameEl?.value || '';
+  const firstLetter = name.trim().charAt(0).toUpperCase() || 'X';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = `KR-${firstLetter}`;
+  for(let i=0;i<3;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  code += '-';
+  for(let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('c-id').value = code;
+}
+
+function copyClientCode() {
+  copyToClipboard(document.getElementById('c-id')?.value);
+}
+
+function copyToClipboard(text) {
+  if(!text) { toast('Nincs mit másolni!'); return; }
+  // Modern API with fallback
+  if(navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text)
+      .then(()=>toast('📋 Kód másolva: '+text))
+      .catch(()=>copyFallback(text));
+  } else {
+    copyFallback(text);
+  }
+}
+
+function copyFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try {
+    document.execCommand('copy');
+    toast('📋 Kód másolva: '+text);
+  } catch(e) {
+    toast('Másolás sikertelen – jelöld ki manuálisan: '+text);
+  }
+  document.body.removeChild(ta);
+}
+
+// Auto-generate code when name is typed
+document.addEventListener('DOMContentLoaded', () => {
+  const nameEl = document.getElementById('c-name');
+  if(nameEl) nameEl.addEventListener('input', () => {
+    const codeEl = document.getElementById('c-id');
+    if(codeEl && !codeEl.value) generateClientCode();
+  });
+});
+
+function saveProduct(){
+  const name=document.getElementById('p-name').value.trim();
+  const price=parseFloat(document.getElementById('p-price').value);
+  if(!name||!price){toast('Név és ár kötelező!');return;}
+  if(editingProductId){
+    const p=D.products.find(p=>p.id===editingProductId);
+    Object.assign(p,{name,weight:document.getElementById('p-weight').value,price,category:document.getElementById('p-category').value,desc:document.getElementById('p-desc').value,image:getProductImageValue()});
+    toast('Termék frissítve!');
+  } else {
+    D.products.push({id:Math.max(...D.products.map(p=>p.id),0)+1,name,weight:document.getElementById('p-weight').value,price,category:document.getElementById('p-category').value,desc:document.getElementById('p-desc').value,image:getProductImageValue()});
+    toast('Új termék hozzáadva!');
+  }
+  save(); closeModal('product-modal'); renderCatalog();
+}
+
+// ===== CLIENTS =====
+function renderClients(){
+  document.getElementById('clients-grid').innerHTML=D.clients.map(c=>{
+    const initials=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    let totalQty=0,totalRev=0;
+    Object.entries(D.orders).forEach(([key,o])=>{
+      if(!key.startsWith(c.id+'-')) return;
+      Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
+    });
+    return `<div class="client-card" onclick="openClientDetail('${c.id}')">
+      <div class="client-card-head">
+        <div class="client-avatar">${initials}</div>
+        <div>
+          <div class="client-name">${c.name}</div>
+          <div class="client-meta">Kód: <b>${c.id}</b></div>
+          <div class="client-meta" style="margin-top:2px">📅 Kliens: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
+        </div>
+      </div>
+      <div class="client-card-body">
+        <div class="client-stat"><span>📧 Email</span><span>${c.email||'—'}</span></div>
+        <div class="client-stat"><span>📱 Telefon</span><span>${c.phone||'—'}</span></div>
+        <div class="client-stat"><span>📦 Összes rendelés</span><span class="bold">${totalQty} db</span></div>
+        <div class="client-stat"><span>💰 Összes forgalom</span><span style="color:var(--gold-dark);font-weight:700">${totalRev} lej</span></div>
+      </div>
+      <div style="padding:10px 16px;display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${c.id}')">Adatlap</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openClientModal(){
+  ['c-name','c-id','c-email','c-phone','c-note'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('client-modal').classList.add('open');
+}
+async function saveClient(){
+  const name=document.getElementById('c-name').value.trim();
+  const rawId = document.getElementById('c-id').value.trim();
+  const id = rawId.startsWith('KR-') ? rawId : rawId.toLowerCase().replace(/\s+/g,'');
+  if(!name||!id){toast('Név és kód kötelező!');return;}
+  // Check duplicate - both in memory and Supabase
+  if(D.clients.find(c=>c.id===id || c.id.toLowerCase()===id.toLowerCase())){
+    toast('Ez a kód már foglalt!');return;
+  }
+  const newClient = {
+    id, name,
+    email: document.getElementById('c-email').value,
+    phone: document.getElementById('c-phone').value,
+    note: document.getElementById('c-note').value,
+    joinDate: new Date().toISOString().slice(0,10)
+  };
+  try {
+    await sb.upsert('clients', {
+      id, name,
+      email: newClient.email,
+      phone: newClient.phone,
+      note: newClient.note,
+      join_date: newClient.joinDate
+    });
+    D.clients.push(newClient);
+    save(); closeModal('client-modal'); renderClients();
+    toast('✅ Kliens hozzáadva! Kód: '+id);
+  } catch(e) {
+    toast('⚠️ Mentés sikertelen: '+e.message);
+    console.error('saveClient error:', e);
+  }
+}
+function deleteClient(id){
+  if(!confirm('Biztosan törlöd? Az összes rendelése is törlődik!')) return;
+  D.clients=D.clients.filter(c=>c.id!==id);
+  Object.keys(D.orders).forEach(k=>{if(k.startsWith(id+'-'))delete D.orders[k];});
+  save(); renderClients(); toast('Kliens törölve.');
+}
+
+// ===== CLIENT DETAIL =====
+function openClientDetail(id){
+  clientDetailId=id; clientDetailPeriod='monthly';
+  const c=D.clients.find(c=>c.id===id);
+  document.getElementById('client-detail-name').textContent=c.name;
+  renderClientDetail();
+  nav('client-detail');
+}
+function setClientPeriod(p){
+  clientDetailPeriod=p;
+  document.querySelectorAll('#client-detail-period-btns .btn').forEach(b=>b.className='btn btn-sm btn-ghost');
+  event.target.className='btn btn-sm btn-primary';
+  renderClientDetail();
+}
+function renderClientDetail(){
+  const c=D.clients.find(c=>c.id===clientDetailId);
+  const y=selYear,m=selMonth;
+  const label={monthly:'Havi rendelések',weekly:'Heti rendelések',yearly:'Éves rendelések'};
+  document.getElementById('client-detail-period-label').textContent=label[clientDetailPeriod];
+
+  // Stats
+  let totalQty=0,totalRev=0,monthQty=0,monthRev=0;
+  Object.entries(D.orders).forEach(([key,o])=>{
+    if(!key.startsWith(c.id+'-')) return;
+    Object.entries(o).forEach(([pid,qty])=>{
+      totalQty+=qty; const p=D.products.find(p=>p.id==pid); if(p)totalRev+=p.price*qty;
+      const [,ky,km]=key.split('-');
+      if(parseInt(ky)===y&&parseInt(km)===m){monthQty+=qty;if(p)monthRev+=p.price*qty;}
+    });
+  });
+  // Tenure
+  let tenureStr = 'ismeretlen';
+  if(c.joinDate){
+    const jd = new Date(c.joinDate);
+    const now2 = new Date();
+    const months = (now2.getFullYear()-jd.getFullYear())*12 + (now2.getMonth()-jd.getMonth());
+    tenureStr = months < 1 ? 'Új kliens' : months < 12 ? months+' hónap' : Math.floor(months/12)+' év '+months%12+' hónap';
+  }
+  const joinStr = c.joinDate ? new Date(c.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'}) : '—';
+
+  document.getElementById('client-detail-stats').innerHTML=[
+    {val:totalQty+' db',label:'Összes rendelés',icon:'📦'},
+    {val:totalRev+' lej',label:'Összes forgalom',icon:'💰',gold:true},
+    {val:monthQty+' db · '+monthRev+' lej',label:`${MONTHS[m]} rendelés`,icon:'📅'},
+    {val:tenureStr,label:'Kliens óta: '+joinStr,icon:'🗓'},
+  ].map(s=>`<div class="stat-box"><div class="stat-val ${s.gold?'gold':''}" style="font-size:${s.val.length>8?'1.2rem':'2rem'}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
+
+  // Client info box
+  const infoEl = document.getElementById('client-info-box');
+  if(infoEl){
+    infoEl.innerHTML=`
+      <div class="client-stat"><span>👤 Teljes név</span><span style="font-weight:600">${c.name}</span></div>
+      <div class="client-stat"><span>🔑 Belépési kód</span><span style="display:flex;align-items:center;gap:8px"><b>${c.id}</b><button class="btn btn-ghost btn-xs" onclick="copyToClipboard('${c.id}')" title="Kód másolása">📋</button></span></div>
+      <div class="client-stat"><span>📧 Email</span><span>${c.email||'—'}</span></div>
+      <div class="client-stat"><span>📱 Telefon</span><span>${c.phone||'—'}</span></div>
+      <div class="client-stat"><span>📅 Kliens óta</span><span>${joinStr}</span></div>
+      <div class="client-stat"><span>⏱ Időtartam</span><span style="font-weight:600;color:var(--teal-dark)">${tenureStr}</span></div>
+      ${c.note?`<div class="client-stat"><span>📝 Megjegyzés</span><span>${c.note}</span></div>`:''}
+    `;
+  }
+
+  // Table
+  let html='<table class="tbl"><thead><tr><th>Dátum</th><th>Nap</th><th>Termék</th><th class="num">Mennyiség</th><th class="num">Érték</th></tr></thead><tbody>';
+  const days=getDays(y,m); let found=false;
+  days.forEach(d=>{
+    const key=ok(c.id,y,m,d.getDate()); const o=D.orders[key]; if(!o) return;
+    found=true;
+    Object.entries(o).forEach(([pid,qty])=>{
+      const p=D.products.find(p=>p.id==pid);
+      html+=`<tr><td>${d.getDate()}.</td><td>${DAYS_HU[d.getDay()]}</td><td>${p?p.name:'?'} <small class="text-soft">${p?.weight||''}</small></td><td class="num">${qty} db</td><td class="num gold-text">${p?p.price*qty:0} lej</td></tr>`;
+    });
+  });
+  if(!found) html+=`<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-soft)">Nincs rendelés ebben az időszakban.</td></tr>`;
+  html+='</tbody></table>';
+  document.getElementById('client-detail-table').innerHTML=html;
+
+  // Category breakdown for this client
+  renderClientCategoryBreakdown(c, y, m);
+}
+
+function renderClientCategoryBreakdown(c, y, m){
+  const catEl = document.getElementById('client-cat-breakdown');
+  if(!catEl) return;
+
+  // Collect all orders for this client this month
+  const catData = {};
+  D.categories.forEach(cat => catData[cat] = {qty:0, rev:0});
+
+  getDays(y,m).forEach(d=>{
+    const key=ok(c.id,y,m,d.getDate());
+    if(!D.orders[key]) return;
+    Object.entries(D.orders[key]).forEach(([pid,qty])=>{
+      const p=D.products.find(p=>p.id==pid); if(!p) return;
+      if(!catData[p.category]) catData[p.category]={qty:0,rev:0};
+      catData[p.category].qty+=qty;
+      catData[p.category].rev+=qty*p.price;
+    });
+  });
+
+  const cats = Object.entries(catData).filter(([,v])=>v.qty>0).sort((a,b)=>b[1].rev-a[1].rev);
+  if(cats.length===0){
+    catEl.innerHTML='<p class="text-soft text-sm">Nincs kategória adat erre a hónapra.</p>';
+    return;
+  }
+  const maxRev = Math.max(...cats.map(([,v])=>v.rev),1);
+  const colors=['var(--teal)','var(--gold)','var(--teal-mid)','var(--sand)'];
+  catEl.innerHTML = cats.map(([cat,v],i)=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;margin-bottom:4px">
+        <span style="font-weight:600">${cat}</span>
+        <span style="color:var(--gold-dark);font-weight:700">${v.qty} db &nbsp;·&nbsp; ${v.rev} lej</span>
+      </div>
+      <div style="background:var(--teal-pale);border-radius:6px;height:9px;overflow:hidden">
+        <div style="background:${colors[i%colors.length]};height:100%;width:${v.rev/maxRev*100}%;border-radius:6px;transition:width 0.5s"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ===== REPORTS =====
+function toggleAnnualSummary() {
+  const el = document.getElementById('annual-summary');
+  const btn = document.getElementById('annual-toggle-btn');
+  if(el.style.display === 'none') {
+    renderAnnualSummary();
+    el.style.display = 'block';
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-ghost');
+  } else {
+    el.style.display = 'none';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-ghost');
+  }
+}
+
+function renderAnnualSummary() {
+  const year = selYear;
+  let totalRevenue = 0, totalOrders = 0;
+  const monthlyData = [];
+  const clientTotals = {};
+
+  MONTHS.forEach((mo, m) => {
+    let monthRev = 0, monthOrders = 0;
+    D.clients.forEach(c => {
+      D.products.forEach(p => {
+        getDaysForMonth(year, m).forEach(d => {
+          const key = `${c.id}-${year}-${m}-${d}`;
+          const qty = D.orders[key]?.[p.id] || 0;
+          if(qty > 0) {
+            const rev = qty * p.price;
+            monthRev += rev;
+            monthOrders += qty;
+            totalRevenue += rev;
+            totalOrders += qty;
+            if(!clientTotals[c.id]) clientTotals[c.id] = {name:c.name, revenue:0, orders:0};
+            clientTotals[c.id].revenue += rev;
+            clientTotals[c.id].orders += qty;
+          }
+        });
+      });
+    });
+    monthlyData.push({mo, m, monthRev, monthOrders});
+  });
+
+  // Helper to get days array
+  function getDaysForMonth(y, m) {
+    const days = [];
+    const d = new Date(y, m, 1);
+    while(d.getMonth() === m) { days.push(d.getDate()); d.setDate(d.getDate()+1); }
+    return days;
+  }
+
+  // Max for chart scaling
+  const maxRev = Math.max(...monthlyData.map(d => d.monthRev), 1);
+
+  let html = `<div class="card">
+    <div class="card-head"><div class="card-title">📊 ${year}. évi összesítő</div>
+    <span class="badge badge-gold">${totalOrders} db · ${totalRevenue.toFixed(0)} lej</span></div>
+    <div class="card-body">
+      <!-- Monthly chart bars -->
+      <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin-bottom:8px;padding:0 4px">
+        ${monthlyData.map(({mo,monthRev}) => {
+          const h = Math.round((monthRev/maxRev)*90)+2;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="width:100%;height:${h}px;background:var(--teal);border-radius:4px 4px 0 0;min-height:2px" title="${mo}: ${monthRev.toFixed(0)} lej"></div>
+            <div style="font-size:0.55rem;color:var(--text-soft)">${mo.slice(0,3)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="sep"></div>
+      <div class="grid-4" style="margin-top:12px">
+        <div class="stat-box"><div class="stat-val">${totalOrders}</div><div class="stat-label">Összes rendelés</div></div>
+        <div class="stat-box"><div class="stat-val sm gold">${totalRevenue.toFixed(0)} lej</div><div class="stat-label">Éves forgalom</div></div>
+        <div class="stat-box"><div class="stat-val sm">${(totalRevenue/12).toFixed(0)} lej</div><div class="stat-label">Havi átlag</div></div>
+        <div class="stat-box"><div class="stat-val sm">${D.clients.length}</div><div class="stat-label">Aktív vevő</div></div>
+      </div>
+      <div class="sep"></div>
+      <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Vevőnkénti bontás</div>
+      <table class="tbl">
+        <thead><tr><th>Vevő</th><th class="num">Rendelés (db)</th><th class="num">Forgalom (lej)</th><th class="num">Arány</th></tr></thead>
+        <tbody>
+          ${Object.values(clientTotals).sort((a,b)=>b.revenue-a.revenue).map(c => `
+            <tr>
+              <td><b>${c.name}</b></td>
+              <td class="num">${c.orders}</td>
+              <td class="num gold">${c.revenue.toFixed(0)}</td>
+              <td class="num">${totalRevenue>0?((c.revenue/totalRevenue)*100).toFixed(1):0}%</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  document.getElementById('annual-summary').innerHTML = html;
+}
+
+function renderReports(){
+  const sel=document.getElementById('reports-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+  const rev=getRevenue(mo,y,m);
+  const qty=getTotalQty(mo);
+  const bdays=getBakingDays(y,m);
+
+  document.getElementById('report-stats').innerHTML=[
+    {val:qty+' db',label:'Összes rendelés',icon:'📦'},
+    {val:rev+' lej',label:'Becsült forgalom',icon:'💰',gold:true},
+    {val:bdays.length+' nap',label:'Sütési napok',icon:'🔥'},
+  ].map(s=>`<div class="stat-box"><div class="stat-val ${s.gold?'gold':''}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
+
+  // Top products
+  const prodTotals={}; Object.values(mo).forEach(day=>Object.entries(day).forEach(([pid,q])=>prodTotals[pid]=(prodTotals[pid]||0)+q));
+  const sorted=Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxP=sorted[0]?.[1]||1;
+  document.getElementById('top-products').innerHTML=sorted.map(([pid,q])=>{
+    const p=D.products.find(p=>p.id==pid); if(!p) return '';
+    return `<div class="prog-row"><div class="prog-label"><span>${p.name} <small class="text-soft">${p.weight}</small></span><span>${q} db · ${q*p.price} lej</span></div><div class="prog-bar-bg"><div class="prog-bar" style="width:${q/maxP*100}%;background:var(--teal)"></div></div></div>`;
+  }).join('')||'<p class="text-soft text-sm">Nincs adat.</p>';
+
+  // Top clients
+  const clientTotals=D.clients.map(c=>{
+    let tot=0,rev=0;
+    getDays(y,m).forEach(d=>{
+      const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+      Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});
+    });
+    return{...c,tot,rev};
+  }).sort((a,b)=>b.tot-a.tot);
+  const maxC=clientTotals[0]?.tot||1;
+  document.getElementById('top-clients').innerHTML=clientTotals.map(c=>`
+    <div class="prog-row"><div class="prog-label"><span>${c.name}</span><span>${c.tot} db · ${c.rev} lej</span></div>
+    <div class="prog-bar-bg"><div class="prog-bar" style="width:${c.tot/maxC*100}%;background:var(--gold)"></div></div></div>`).join('');
+
+  // Baking day revenue
+  let bdhtml='<table class="tbl"><thead><tr><th>Dátum</th><th>Nap</th><th>Rendelés (db)</th><th class="num">Forgalom</th></tr></thead><tbody>';
+  bdays.forEach(d=>{
+    const day=d.getDate(); const dayO=mo[day]||{};
+    const q=Object.values(dayO).reduce((a,b)=>a+b,0);
+    const r=Object.entries(dayO).reduce((acc,[pid,qty])=>{const p=D.products.find(p=>p.id==pid);return acc+(p?p.price*qty:0);},0);
+    bdhtml+=`<tr><td>${MONTHS[m]} ${day}.</td><td><span class="badge ${d.getDay()===2?'badge-gold':'badge-teal'}">${DAYS_HU[d.getDay()]}</span></td><td class="num">${q||'—'}</td><td class="num gold-text">${r>0?r+' lej':'—'}</td></tr>`;
+  });
+  bdhtml+='</tbody></table>';
+  document.getElementById('baking-day-revenue').innerHTML=bdhtml;
+}
+
+// ===== CATEGORIES =====
+function renderCategories(){
+  const sel=document.getElementById('cat-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+
+  const cats={}; D.categories.forEach(c=>cats[c]={qty:0,rev:0});
+  Object.values(mo).forEach(day=>{
+    Object.entries(day).forEach(([pid,qty])=>{
+      const p=D.products.find(p=>p.id==pid); if(!p) return;
+      if(!cats[p.category]) cats[p.category]={qty:0,rev:0};
+      cats[p.category].qty+=qty; cats[p.category].rev+=qty*p.price;
+    });
+  });
+  const catArr=Object.entries(cats).filter(([,v])=>v.qty>0).sort((a,b)=>b[1].rev-a[1].rev);
+  const totalRev=catArr.reduce((a,[,v])=>a+v.rev,0)||1;
+  const totalQty=catArr.reduce((a,[,v])=>a+v.qty,0)||1;
+
+  document.getElementById('cat-stats').innerHTML=catArr.slice(0,4).map(([cat,v])=>`
+    <div class="stat-box"><div class="stat-val">${v.qty} db</div><div class="stat-label">🏷 ${cat}</div><div style="font-size:0.75rem;color:var(--gold-dark);margin-top:4px">${v.rev} lej</div></div>`).join('');
+
+  // Bar chart
+  const maxRev=Math.max(...catArr.map(([,v])=>v.rev),1);
+  const colors=['var(--teal)','var(--gold)','var(--teal-mid)','var(--sand)','var(--slate)'];
+  document.getElementById('cat-chart').innerHTML=`
+    <div class="bar-chart-wrap" style="height:120px">${catArr.map(([cat,v],i)=>`
+      <div class="bar-col"><div class="bar-v">${v.rev} lej</div>
+      <div class="bar" style="height:${v.rev/maxRev*110}px;background:${colors[i%colors.length]}"></div>
+      <div class="bar-lbl">${cat.split('/')[0].trim()}</div></div>`).join('')}
+    </div>`;
+
+  // Table
+  let html='<table class="tbl"><thead><tr><th>Kategória</th><th class="num">db</th><th class="num">Forgalom</th><th class="num">% (db)</th><th class="num">% (érték)</th></tr></thead><tbody>';
+  catArr.forEach(([cat,v])=>{
+    html+=`<tr><td><b>${cat}</b></td><td class="num highlight">${v.qty}</td><td class="num gold-text">${v.rev} lej</td>
+      <td class="num">${(v.qty/totalQty*100).toFixed(1)}%</td><td class="num">${(v.rev/totalRev*100).toFixed(1)}%</td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('cat-table').innerHTML=html;
+
+  // Client × Category
+  let chtml='<table class="tbl"><thead><tr><th>Vevő</th>'+catArr.map(([cat])=>`<th>${cat.split('/')[0]}</th>`).join('')+'<th class="num">Összesen</th></tr></thead><tbody>';
+  D.clients.forEach(c=>{
+    let rowTotal=0;
+    const catVals=catArr.map(([cat])=>{
+      let q=0;
+      getDays(y,m).forEach(d=>{
+        const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+        Object.entries(D.orders[key]).forEach(([pid,qty])=>{ const p=D.products.find(p=>p.id==pid); if(p&&p.category===cat){q+=qty;rowTotal+=qty;} });
+      });
+      return q;
+    });
+    chtml+=`<tr><td><b>${c.name}</b></td>${catVals.map(q=>`<td class="num">${q||'—'}</td>`).join('')}<td class="num highlight">${rowTotal||'—'}</td></tr>`;
+  });
+  chtml+='</tbody></table>';
+  document.getElementById('cat-client-table').innerHTML=chtml;
+}
+
+// ===== SETTINGS =====
+function renderSettings(){
+  document.getElementById('s-lang').value=D.settings?.lang||'hu';
+  initBakingCalendar();
+  document.getElementById('s-currency').value=D.settings?.currency||'lej';
+  document.getElementById('s-conditions').value=D.helpConditions||'';
+  document.getElementById('s-delivery').value=D.helpDelivery||'';
+  renderCategoriesList();
+}
+function renderCategoriesList(){
+  document.getElementById('categories-list').innerHTML=D.categories.map((cat,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:white;margin-bottom:6px">
+      <span style="font-weight:600;font-size:0.88rem">${cat}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteCategory(${i})">✕</button>
+    </div>`).join('');
+}
+function addCategory(){
+  const val=document.getElementById('new-cat-input').value.trim();
+  if(!val){toast('Add meg a kategória nevét!');return;}
+  if(D.categories.includes(val)){toast('Ez a kategória már létezik!');return;}
+  D.categories.push(val); save(); renderCategoriesList();
+  document.getElementById('new-cat-input').value='';
+  toast('Kategória hozzáadva!');
+}
+function deleteCategory(i){
+  if(!confirm('Törlöd ezt a kategóriát?')) return;
+  D.categories.splice(i,1); save(); renderCategoriesList(); toast('Kategória törölve.');
+}
+function saveSetting(key,val){
+  if(!D.settings) D.settings={};
+  D.settings[key]=val; save(); toast('Beállítás mentve!');
+}
+function saveHelpTexts(){
+  D.helpConditions=document.getElementById('s-conditions').value;
+  D.helpDelivery=document.getElementById('s-delivery').value;
+  save(); toast('Szövegek mentve! A vevői súgóban megjelennek.');
+}
+function changePassword(){
+  const old=document.getElementById('s-old-pw').value;
+  const n1=document.getElementById('s-new-pw').value;
+  const n2=document.getElementById('s-new-pw2').value;
+  if(old!==(D.settings?.adminPw||'admin')){toast('Hibás jelenlegi jelszó!');return;}
+  if(!n1||n1!==n2){toast('Az új jelszavak nem egyeznek!');return;}
+  if(!D.settings) D.settings={};
+  D.settings.adminPw=n1; save();
+  ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
+  toast('Jelszó sikeresen módosítva!');
+}
+function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
+function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang; }
+
+// ===== MODAL =====
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ===== BAKING CALENDAR =====
+function initBakingCalendar(){
+  const sel=document.getElementById('cal-month-sel');
+  if(!sel) return;
+  const now=new Date();
+  sel.innerHTML='';
+  // Show current month ±3 months
+  for(let i=-1;i<=4;i++){
+    const d=new Date(now.getFullYear(), now.getMonth()+i, 1);
+    const val=`${d.getFullYear()}-${d.getMonth()}`;
+    const opt=document.createElement('option');
+    opt.value=val;
+    opt.textContent=MONTHS[d.getMonth()]+' '+d.getFullYear();
+    if(i===0) opt.selected=true;
+    sel.appendChild(opt);
+  }
+  renderDefaultDayToggles();
+  renderBakingCalendar();
+}
+
+function renderDefaultDayToggles(){
+  const days=['V','H','K','Sze','Cs','P','Szo'];
+  const defaults=D.bakingDaysDefault||[2,5];
+  document.getElementById('default-baking-days').innerHTML=days.map((d,i)=>`
+    <div onclick="toggleDefaultDay(${i})" style="width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.82rem;cursor:pointer;border:2px solid ${defaults.includes(i)?'var(--teal)':'var(--border)'};background:${defaults.includes(i)?'var(--teal)':'white'};color:${defaults.includes(i)?'white':'var(--text-soft)'};transition:all 0.2s">${d}</div>
+  `).join('');
+}
+
+function toggleDefaultDay(dow){
+  if(!D.bakingDaysDefault) D.bakingDaysDefault=[2,5];
+  const idx=D.bakingDaysDefault.indexOf(dow);
+  if(idx>-1) D.bakingDaysDefault.splice(idx,1);
+  else D.bakingDaysDefault.push(dow);
+  save(); renderDefaultDayToggles(); renderBakingCalendar();
+  toast('Alapértelmezett sütési napok frissítve!');
+}
+
+function renderBakingCalendar(){
+  const sel=document.getElementById('cal-month-sel');
+  if(!sel) return;
+  const [y,m]=sel.value.split('-').map(Number);
+  const key=`${y}-${m}`;
+  if(!D.bakingCalendar) D.bakingCalendar={};
+  if(!D.bakingCalendar[key]) D.bakingCalendar[key]={extra:[],removed:[]};
+  const cal=D.bakingCalendar[key];
+  const defaults=D.bakingDaysDefault||[2,5];
+  const days=getDays(y,m);
+  const grid=document.getElementById('baking-calendar-grid');
+  if(!grid) return;
+
+  // Day headers
+  const dayHeaders=['H','K','Sze','Cs','P','Szo','V'];
+  let html=dayHeaders.map(d=>`<div style="text-align:center;font-size:0.72rem;font-weight:600;color:var(--text-soft);padding:4px 0">${d}</div>`).join('');
+
+  // Empty cells before first day (Monday=0 based)
+  const firstDay=days[0].getDay(); // 0=Sun
+  const offset=firstDay===0?6:firstDay-1; // Monday-based offset
+  for(let i=0;i<offset;i++) html+=`<div></div>`;
+
+  days.forEach(d=>{
+    const dateStr=d.toISOString().slice(0,10);
+    const dow=d.getDay();
+    const isDefault=defaults.includes(dow);
+    const isExtra=cal.extra.includes(dateStr);
+    const isRemoved=cal.removed.includes(dateStr);
+    const isToday=d.toDateString()===new Date().toDateString();
+
+    let bg='#f9fafb', border='#e5e7eb', color='var(--text)', icon='';
+    if(isRemoved){ bg='#fee2e2'; border='#fca5a5'; color='#b91c1c'; icon='✕'; }
+    else if(isExtra){ bg='var(--gold)'; border='var(--gold-dark)'; color='var(--teal-dark)'; icon='★'; }
+    else if(isDefault){ bg='var(--teal)'; border='var(--teal-dark)'; color='white'; icon='🔥'; }
+
+    const todayRing=isToday?'box-shadow:0 0 0 2px var(--gold-dark);':'' ;
+
+    html+=`<div onclick="toggleCalDay('${dateStr}',${isDefault},${isExtra},${isRemoved},'${key}')"
+      style="border-radius:8px;border:1.5px solid ${border};background:${bg};color:${color};
+      padding:6px 4px;text-align:center;cursor:pointer;transition:all 0.15s;${todayRing}
+      min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div style="font-size:0.78rem;font-weight:600">${d.getDate()}</div>
+      <div style="font-size:0.65rem">${icon}</div>
+    </div>`;
+  });
+
+  grid.innerHTML=html;
+
+  // Summary
+  const activeDays=getBakingDays(y,m);
+  const extraCount=cal.extra.length;
+  const removedCount=cal.removed.length;
+  document.getElementById('baking-cal-summary').innerHTML=
+    `<b>${activeDays.length} sütési nap</b> ebben a hónapban` +
+    (extraCount>0?` · <span style="color:var(--gold-dark)">+${extraCount} extra</span>`:'') +
+    (removedCount>0?` · <span style="color:#b91c1c">${removedCount} kihagyva</span>`:'');
+}
+
+function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
+  if(!D.bakingCalendar[key]) D.bakingCalendar[key]={extra:[],removed:[]};
+  const cal=D.bakingCalendar[key];
+
+  if(isDefault && !isRemoved){
+    // Default baking day → remove it
+    cal.removed.push(dateStr);
+    toast('Nap kihagyva – nem lesz sütés ezen a napon.');
+  } else if(isDefault && isRemoved){
+    // Removed default → restore
+    cal.removed=cal.removed.filter(d=>d!==dateStr);
+    toast('Nap visszaállítva – ismét sütési nap.');
+  } else if(isExtra){
+    // Extra → remove extra
+    cal.extra=cal.extra.filter(d=>d!==dateStr);
+    toast('Extra sütési nap eltávolítva.');
+  } else {
+    // Normal day → add as extra
+    cal.extra.push(dateStr);
+    toast('Extra sütési nap hozzáadva! 🎉');
+  }
+  save(); renderBakingCalendar();
+}
+
+// ===== CLIENT TREND =====
+function renderClientTrend(clientId) {
+  const c = D.clients.find(c=>c.id===clientId);
+  if(!c) return '';
+  
+  const months = [];
+  for(let m=0; m<12; m++) {
+    let rev = 0, orders = 0;
+    D.products.forEach(p => {
+      const days = [];
+      const d = new Date(selYear, m, 1);
+      while(d.getMonth()===m) { days.push(d.getDate()); d.setDate(d.getDate()+1); }
+      days.forEach(day => {
+        const key = `${c.id}-${selYear}-${m}-${day}`;
+        const qty = D.orders[key]?.[p.id]||0;
+        if(qty>0) { rev += qty*p.price; orders += qty; }
+      });
+    });
+    months.push({m, rev, orders});
+  }
+  
+  const maxRev = Math.max(...months.map(d=>d.rev), 1);
+  return `<div class="card mt-16">
+    <div class="card-head"><div class="card-title">📈 ${selYear}. évi trend</div></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:6px">
+        ${months.map(({m,rev}) => {
+          const h = Math.round((rev/maxRev)*75)+2;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="width:100%;height:${h}px;background:${rev>0?'var(--teal)':'var(--border)'};border-radius:3px 3px 0 0;min-height:2px" title="${MONTHS[m]}: ${rev.toFixed(0)} lej"></div>
+            <div style="font-size:0.5rem;color:var(--text-soft)">${MONTHS[m].slice(0,3)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== EXPORT =====
+function initExportView(){
+  const months = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectExportMonth(this,${i})">${mo}</button>`).join('');
+  ['export-baking-month-sel','export-orders-month-sel','export-report-month-sel'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.innerHTML=months;
+  });
+}
+function selectExportMonth(btn, m){
+  btn.closest('.month-row').querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('.month-row')._selMonth = m;
+}
+function getExportMonth(selId){
+  const el=document.getElementById(selId);
+  return el?._selMonth ?? selMonth;
+}
+
+function downloadCSV(filename, rows){
+  const BOM = '\uFEFF'; // UTF-8 BOM for Excel
+  const SEP = ';'; // Semicolon for Romanian/Hungarian Excel locale
+  const csv = BOM + rows.map(r=>r.map(cell=>{
+    const s = String(cell==null?'':cell);
+    return s.includes(SEP) || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(SEP)).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Letöltés elindítva: '+filename);
+}
+
+function exportClients(){
+  const rows = [['Név','Belépési kód','Email','Telefon','Kliens óta','Összes rendelés (db)','Összes forgalom (lej)','Megjegyzés']];
+  D.clients.forEach(c=>{
+    let totalQty=0, totalRev=0;
+    Object.entries(D.orders).forEach(([key,o])=>{
+      if(!key.startsWith(c.id+'-')) return;
+      Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
+    });
+    rows.push([c.name, c.id, c.email||'', c.phone||'', c.joinDate||'', totalQty, totalRev, c.note||'']);
+  });
+  downloadCSV('kerek_vevok_'+new Date().toISOString().slice(0,10)+'.csv', rows);
+}
+
+function exportBakingList(){
+  const m = getExportMonth('export-baking-month-sel');
+  const y = selYear;
+  const bdays = getBakingDays(y,m);
+  const activeP = getActiveProds(y,m);
+
+  // Header: Dátum | Nap | Termék | Méret | Ár | [Kliens1] | [Kliens2] | ... | ÖSSZESEN | Érték
+  const header = ['Dátum','Nap','Termék','Méret','Egységár (lej)',
+    ...D.clients.map(c=>c.name),
+    'ÖSSZESEN (db)','Érték (lej)'];
+  const rows = [header];
+
+  bdays.forEach(d=>{
+    const day=d.getDate();
+    const dayName=DAYS_HU[d.getDay()];
+    const dateStr=`${y}.${String(m+1).padStart(2,'0')}.${String(day).padStart(2,'0')}`;
+
+    // Per-client quantities
+    const clientQtys = {}; // pid -> {clientId: qty}
+    D.clients.forEach(c=>{
+      const key=ok(c.id,y,m,day);
+      if(!D.orders[key]) return;
+      Object.entries(D.orders[key]).forEach(([pid,qty])=>{
+        if(!clientQtys[pid]) clientQtys[pid]={};
+        clientQtys[pid][c.id]=qty;
+      });
+    });
+
+    let dayHasData = false;
+    activeP.forEach(p=>{
+      const perClient = D.clients.map(c=>(clientQtys[p.id]||{})[c.id]||0);
+      const total = perClient.reduce((a,b)=>a+b,0);
+      if(total===0) return;
+      dayHasData = true;
+      rows.push([
+        dateStr, dayName, p.name, p.weight, p.price,
+        ...perClient,
+        total, total*p.price
+      ]);
+    });
+
+    if(!dayHasData){
+      rows.push([dateStr, dayName, '(nincs rendelés)', '', '', ...D.clients.map(()=>''), 0, 0]);
+    }
+
+    // Day total row
+    const totPerClient = D.clients.map(c=>{
+      let t=0;
+      activeP.forEach(p=>t+=((clientQtys[p.id]||{})[c.id]||0));
+      return t;
+    });
+    const grandTotal = totPerClient.reduce((a,b)=>a+b,0);
+    const grandRev = activeP.reduce((acc,p)=>{
+      const t=D.clients.reduce((a,c)=>a+((clientQtys[p.id]||{})[c.id]||0),0);
+      return acc+t*p.price;
+    },0);
+    if(grandTotal>0){
+      rows.push(['','','--- NAPI ÖSSZESEN ---','','',
+        ...totPerClient, grandTotal, grandRev]);
+    }
+  });
+  downloadCSV(`kerek_sutesi_lista_${MONTHS[m]}_${y}.csv`, rows);
+}
+
+
+function exportOrders(){
+  const m = getExportMonth('export-orders-month-sel');
+  const y = selYear;
+  const bdays = getBakingDays(y,m);
+  const activeP = getActiveProds(y,m);
+
+  // Header: Termék | Méret | Kategória | Ár | [date1] | [date2] | ... | Összesen | Érték
+  const dateHeaders = bdays.map(d=>`${String(m+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${DAYS_HU[d.getDay()].slice(0,3)}`);
+  const header = ['Termék','Méret','Kategória','Egységár (lej)', ...dateHeaders, 'Összesen (db)','Érték (lej)'];
+  const rows = [header];
+
+  activeP.forEach(p=>{
+    const qties = bdays.map(d=>{
+      return D.clients.reduce((acc,c)=>{
+        const key=ok(c.id,y,m,d.getDate());
+        return acc+((D.orders[key]||{})[p.id]||0);
+      },0);
+    });
+    const total = qties.reduce((a,b)=>a+b,0);
+    if(total>0) rows.push([p.name, p.weight, p.category, p.price, ...qties, total, total*p.price]);
+  });
+
+  // Totals row
+  const totals = bdays.map(d=>{
+    return activeP.reduce((acc,p)=>{
+      return acc+D.clients.reduce((a,c)=>{
+        const key=ok(c.id,y,m,d.getDate());
+        return a+((D.orders[key]||{})[p.id]||0);
+      },0);
+    },0);
+  });
+  const grandQty = totals.reduce((a,b)=>a+b,0);
+  const grandRev = activeP.reduce((acc,p)=>{
+    const t=bdays.reduce((a,d)=>a+D.clients.reduce((b,c)=>{
+      const key=ok(c.id,y,m,d.getDate());
+      return b+((D.orders[key]||{})[p.id]||0);
+    },0),0);
+    return acc+t*p.price;
+  },0);
+  rows.push(['ÖSSZESEN','','','', ...totals, grandQty, grandRev]);
+
+  downloadCSV(`kerek_rendeles_${MONTHS[m]}_${y}.csv`, rows);
+}
+
+
+function exportOrdersDetailed(){
+  const m = getExportMonth('export-orders-month-sel');
+  const y = selYear;
+  const rows = [['Vevő','Dátum','Nap','Termék','Méret','Kategória','Mennyiség','Egységár','Érték']];
+  D.clients.forEach(c=>{
+    getDays(y,m).forEach(d=>{
+      const key=ok(c.id,y,m,d.getDate());
+      if(!D.orders[key]) return;
+      const dateStr=`${y}.${String(m+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      Object.entries(D.orders[key]).forEach(([pid,qty])=>{
+        const p=D.products.find(p=>p.id==pid);
+        if(p) rows.push([c.name,dateStr,DAYS_HU[d.getDay()],p.name,p.weight,p.category,qty,p.price,qty*p.price]);
+      });
+    });
+  });
+  downloadCSV(`kerek_rendeles_reszletes_${MONTHS[m]}_${y}.csv`, rows);
+}
+
+function exportReport(){
+  const m = getExportMonth('export-report-month-sel');
+  const y = selYear;
+  const mo = getMonthOrders(y,m);
+  const rows = [['KEREK – Havi kimutatás: '+MONTHS[m]+' '+y,'','','']];
+  rows.push(['','','','']);
+  rows.push(['ÖSSZESÍTŐ','','','']);
+  rows.push(['Összes rendelés (db)', getTotalQty(mo), '', '']);
+  rows.push(['Becsült forgalom (lej)', getRevenue(mo,y,m), '', '']);
+  rows.push(['Sütési napok száma', getBakingDays(y,m).length, '', '']);
+  rows.push(['','','','']);
+  rows.push(['TERMÉKEK','db','Egységár','Érték (lej)']);
+  const prodTotals={};
+  Object.values(mo).forEach(day=>Object.entries(day).forEach(([pid,q])=>prodTotals[pid]=(prodTotals[pid]||0)+q));
+  Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]).forEach(([pid,q])=>{
+    const p=D.products.find(p=>p.id==pid);
+    if(p) rows.push([p.name+' '+p.weight, q, p.price, q*p.price]);
+  });
+  rows.push(['','','','']);
+  rows.push(['KATEGÓRIÁK','db','','Érték (lej)']);
+  const catData={};
+  Object.values(mo).forEach(day=>Object.entries(day).forEach(([pid,q])=>{
+    const p=D.products.find(p=>p.id==pid); if(!p) return;
+    if(!catData[p.category]) catData[p.category]={qty:0,rev:0};
+    catData[p.category].qty+=q; catData[p.category].rev+=q*p.price;
+  }));
+  Object.entries(catData).sort((a,b)=>b[1].rev-a[1].rev).forEach(([cat,v])=>rows.push([cat,v.qty,'',v.rev]));
+  rows.push(['','','','']);
+  rows.push(['VEVŐK','db','','Érték (lej)']);
+  D.clients.forEach(c=>{
+    let tot=0,rev=0;
+    getDays(y,m).forEach(d=>{
+      const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+      Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});
+    });
+    if(tot>0) rows.push([c.name,tot,'',rev]);
+  });
+  downloadCSV(`kerek_kimutatas_${MONTHS[m]}_${y}.csv`, rows);
+}
+
+function exportAll(){
+  const data = JSON.stringify(D, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='kerek_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Biztonsági mentés letöltve!');
+}
+
+// ===== VEVO PREVIEW =====
+function openVevoPreview() {
+  // Populate client selector
+  const sel = document.getElementById('preview-client-sel');
+  sel.innerHTML = D.clients.map(c =>
+    `<option value="${c.id}">${c.name}</option>`
+  ).join('');
+
+  // Set first client
+  if (D.clients.length > 0) {
+    switchPreviewClient(D.clients[0].id);
+  }
+
+  document.getElementById('vevo-preview-modal').classList.add('open');
+}
+
+function switchPreviewClient(clientId) {
+  const client = D.clients.find(c => c.id === clientId);
+  if (!client) return;
+
+  // Show client code
+  document.getElementById('preview-client-code').textContent = 'Kód: ' + clientId;
+
+  // Load vevo.html in iframe with auto-login via URL param
+  const frame = document.getElementById('vevo-preview-frame');
+  frame.src = 'vevo.html?preview=' + clientId;
+}
+
+function openVevoFullscreen() {
+  const sel = document.getElementById('preview-client-sel');
+  const clientId = sel.value;
+  window.open('vevo.html?preview=' + clientId, '_blank', 'width=420,height=800');
+}
+
+// ===== TOAST =====
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.display='block'; el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},3000);
+}
+</script>
+</body>
+</html>
