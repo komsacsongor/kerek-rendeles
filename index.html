@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEREK – Rendeléskezelő</title>
+<link rel="stylesheet" href="fonts.css">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root { --teal-dark:#064C48; --teal:#129990; --gold:#EFB036; --gold-light:#EBCF9E; --cream:#FAF7F0; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Kodchasan',sans-serif; background:var(--teal-dark); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.wrap { text-align:center; }
+.logo { font-family:'Fraunces',serif; font-size:3rem; color:var(--gold-light); letter-spacing:8px; margin-bottom:8px; }
+.tagline { color:var(--teal); font-size:0.85rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:48px; }
+.cards { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+.card { background:white; border-radius:20px; padding:36px 40px; width:220px; cursor:pointer; transition:all 0.25s; text-decoration:none; display:block; }
+.card:hover { transform:translateY(-6px); box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+.card .icon { font-size:2.5rem; margin-bottom:14px; }
+.card h2 { font-family:'Fraunces',serif; font-size:1.2rem; color:var(--teal-dark); margin-bottom:6px; }
+.card p { font-size:0.78rem; color:#5A7A80; line-height:1.5; }
+.card.admin { border-top:4px solid var(--teal); }
+.card.vevo { border-top:4px solid var(--gold); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img src="img/logo_teal_vert.png" alt="KEREK" style="height:64px;width:auto;display:block;margin:0 auto 10px">
+  <div style="text-align:center;color:var(--teal);font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:48px;font-family:Kodchasan,sans-serif">My health. My value!</div>
+  <div style="font-size:0.72rem;color:var(--teal-mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;text-align:center">Admin hozzáférés</div>
+    <div class="cards">
+    <a href="vevo.html" class="card vevo">
+      <div class="icon">🛒</div>
+      <h2>Vevői felület</h2>
+      <p>Megrendelő lap, összesítő, súgó</p>
+    </a>
+    <a href="admin.html" class="card admin">
+      <div class="icon">👩‍💼</div>
+      <h2>Admin felület</h2>
+      <p>Sütési lista, kimutatások, beállítások</p>
+    </a>
+    <a href="receptura.html" class="card admin" style="border-top-color:var(--gold)">
+      <div class="icon">📋</div>
+      <h2>Receptúra modul</h2>
+      <p>Receptek, önköltség, készletkezelés</p>
+    </a>
+  </div>
+</div>
+</body>
+</html>

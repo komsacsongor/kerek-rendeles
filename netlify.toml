@@ -1,0 +1,21 @@
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Content-Type = "text/css"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Content-Type = "text/html; charset=UTF-8"
+
+[[headers]]
+  for = "/fonts/*.ttf"
+  [headers.values]
+    Content-Type = "font/truetype"
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "/img/*.png"
+  [headers.values]
+    Content-Type = "image/png"
+    Cache-Control = "public, max-age=31536000"

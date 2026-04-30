@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEREK – Megrendelő</title>
+
+<link rel="stylesheet" href="fonts.css">
+<script src="supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --teal-dark:  #064C48;
+  --teal:       #129990;
+  --teal-mid:   #43AAA0;
+  --teal-light: #A3D1C6;
+  --teal-pale:  #E0F2EF;
+  --gold-dark:  #B78029;
+  --gold:       #EFB036;
+  --gold-light: #EBCF9E;
+  --sand:       #EABD6C;
+  --slate:      #395A63;
+  --cream:      #FAF7F0;
+  --white:      #FFFFFF;
+  --text:       #1A2E31;
+  --text-soft:  #5A7A80;
+  --border:     #C8DDD9;
+  --shadow:     rgba(6,76,72,0.12);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Kodchasan', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ===== DOTS PATTERN (brand element) ===== */
+.dots-pattern {
+  position: fixed;
+  top: -60px; right: -60px;
+  width: 280px; height: 280px;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+.dots-circle {
+  position: fixed;
+  bottom: -80px; left: -80px;
+  width: 320px; height: 320px;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== HEADER ===== */
+.header {
+  background: var(--teal-dark);
+  padding: 0 28px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 20px rgba(6,76,72,0.3);
+}
+.logo {
+  font-family: 'Fraunces', serif;
+  color: var(--gold-light);
+  font-size: 1.25rem;
+  letter-spacing: 3px;
+  font-weight: 600;
+}
+.logo-dot { color: var(--teal-mid); }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.user-name {
+  font-size: 0.82rem;
+  color: var(--teal-light);
+  font-weight: 500;
+}
+
+/* ===== TABS ===== */
+.tab-bar {
+  background: var(--slate);
+  display: flex;
+  padding: 0 28px;
+  gap: 0;
+  overflow-x: auto;
+}
+.tab {
+  padding: 13px 22px;
+  color: var(--teal-light);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-family: 'Kodchasan', sans-serif;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  letter-spacing: 0.3px;
+}
+.tab:hover { color: var(--gold-light); }
+.tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  font-weight: 600;
+}
+
+/* ===== MAIN ===== */
+main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; position: relative; z-index: 1; }
+
+/* ===== VIEWS ===== */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ===== CLIENT HERO ===== */
+.client-hero {
+  background: linear-gradient(135deg, var(--teal-dark) 0%, var(--slate) 100%);
+  border-radius: 20px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.client-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(239,176,54,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.client-hero h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  color: var(--gold-light);
+  font-weight: 400;
+  font-style: italic;
+}
+.client-hero p {
+  color: var(--teal-light);
+  font-size: 0.85rem;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.hero-total {
+  text-align: right;
+  flex-shrink: 0;
+}
+.hero-total .label {
+  font-size: 0.72rem;
+  color: var(--teal-mid);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.hero-total .amount {
+  font-family: 'Fraunces', serif;
+  font-size: 2.4rem;
+  color: var(--gold);
+  line-height: 1;
+  margin-top: 4px;
+}
+.hero-total .currency {
+  font-size: 1rem;
+  color: var(--gold-light);
+  margin-left: 4px;
+}
+
+/* ===== MONTH SELECTOR ===== */
+.month-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.month-btn {
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: white;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-soft);
+  transition: all 0.2s;
+}
+.month-btn:hover { border-color: var(--teal); color: var(--teal); }
+.month-btn.active { background: var(--teal); color: white; border-color: var(--teal); font-weight: 600; }
+
+/* ===== DEADLINE NOTICE ===== */
+.deadline-notice {
+  background: linear-gradient(135deg, #fff8e6, #fef3cc);
+  border: 1.5px solid var(--sand);
+  border-left: 4px solid var(--gold);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  font-size: 0.84rem;
+  color: var(--gold-dark);
+  display: none;
+}
+.deadline-notice.show { display: flex; align-items: flex-start; gap: 10px; }
+.deadline-notice .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* ===== ORDER TABLE CARD ===== */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px var(--shadow);
+  margin-bottom: 20px;
+}
+.card-header {
+  background: var(--teal-dark);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-title {
+  font-family: 'Fraunces', serif;
+  color: var(--gold-light);
+  font-size: 1rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ===== ORDER TABLE ===== */
+.table-scroll { overflow-x: auto; }
+table.order-tbl {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8rem;
+}
+.order-tbl th {
+  background: var(--slate);
+  color: var(--cream);
+  padding: 10px 8px;
+  font-family: 'Kodchasan', sans-serif;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.08);
+  white-space: nowrap;
+}
+.order-tbl th.col-date { text-align: left; min-width: 110px; padding-left: 14px; }
+.order-tbl th.col-product {
+  min-width: 70px;
+  max-width: 90px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.order-tbl th.col-product:hover { background: var(--teal); }
+.order-tbl th.col-product .prod-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+  margin: 0 auto;
+}
+.order-tbl th.col-product .prod-weight {
+  font-size: 0.65rem;
+  opacity: 0.7;
+  display: block;
+  margin-top: 1px;
+}
+.order-tbl th.col-product .prod-price {
+  font-size: 0.72rem;
+  color: var(--gold);
+  display: block;
+  margin-top: 2px;
+  font-weight: 600;
+}
+.order-tbl td {
+  border: 1px solid #e8f0ee;
+  padding: 6px 6px;
+  vertical-align: middle;
+  text-align: center;
+}
+.order-tbl td.col-date {
+  text-align: left;
+  padding-left: 14px;
+  background: #f5fbfa;
+  font-weight: 600;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.order-tbl tr.baking-row td.col-date {
+  background: #e8f8f6;
+  color: var(--teal-dark);
+}
+.baking-label {
+  font-size: 0.65rem;
+  color: var(--teal);
+  font-weight: 600;
+  display: block;
+  letter-spacing: 0.3px;
+}
+.order-tbl tr.no-bake td {
+  background: #fafafa;
+  color: #bbb;
+  font-size: 0.72rem;
+}
+.order-tbl tr.no-bake td.col-date { background: #f5f5f5; color: #bbb; font-weight: 400; }
+
+.order-tbl input[type=number] {
+  width: 52px;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.85rem;
+  background: white;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -moz-appearance: textfield;
+}
+.order-tbl input[type=number]::-webkit-outer-spin-button,
+.order-tbl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.order-tbl input[type=number]:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(18,153,144,0.15);
+}
+.order-tbl input[type=number].has-value {
+  border-color: var(--teal-mid);
+  background: var(--teal-pale);
+  font-weight: 600;
+  color: var(--teal-dark);
+}
+.order-tbl input[type=number]:disabled {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
+}
+
+/* Total row */
+.order-tbl tr.total-row td {
+  background: var(--teal-pale);
+  font-weight: 700;
+  color: var(--teal-dark);
+  padding: 9px 6px;
+}
+.order-tbl tr.total-row td.col-date { background: var(--teal-pale); font-size: 0.8rem; }
+.order-tbl tr.total-row td.grand-total {
+  background: var(--teal);
+  color: white;
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+}
+
+/* ===== SUMMARY TABLE ===== */
+.summary-tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.summary-tbl th {
+  background: var(--slate);
+  color: var(--cream);
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.summary-tbl td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.summary-tbl tr:last-child td { border-bottom: none; }
+.summary-tbl tr:nth-child(even) td { background: var(--teal-pale); }
+.summary-tbl .total-row td {
+  background: var(--teal-dark);
+  color: var(--gold-light);
+  font-weight: 700;
+  font-family: 'Fraunces', serif;
+}
+
+/* ===== ACTION BAR ===== */
+.action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: 0.2px;
+}
+.btn-primary { background: var(--teal); color: white; }
+.btn-primary:hover { background: var(--teal-dark); transform: translateY(-1px); box-shadow: 0 4px 14px var(--shadow); }
+.btn-gold { background: var(--gold); color: var(--teal-dark); font-weight: 700; }
+.btn-gold:hover { background: var(--gold-dark); color: white; }
+.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--text-soft); }
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+.btn-logout { background: transparent; border: 1.5px solid rgba(163,209,198,0.3); color: var(--teal-light); font-size: 0.78rem; padding: 6px 14px; }
+.btn-logout:hover { border-color: var(--gold-light); color: var(--gold-light); }
+
+/* ===== PRODUCT MODAL ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(6,76,72,0.55);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: white;
+  border-radius: 20px;
+  max-width: 480px;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(6,76,72,0.25);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+
+.modal-head {
+  background: var(--teal-dark);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-head h3 {
+  font-family: 'Fraunces', serif;
+  color: var(--gold-light);
+  font-size: 1.15rem;
+  font-weight: 400;
+  font-style: italic;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--teal-light);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: var(--gold); }
+.modal-body { padding: 24px; }
+
+.prod-thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.prod-thumb:hover { transform: scale(1.02); }
+.prod-thumb-placeholder {
+  width: 100%;
+  height: 120px;
+  background: var(--teal-pale);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--teal-mid);
+  font-size: 2.5rem;
+}
+.prod-modal-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1.2rem;
+  color: var(--teal-dark);
+  margin-bottom: 4px;
+}
+.prod-modal-weight {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  margin-bottom: 12px;
+}
+.prod-modal-price {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--teal-dark);
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.prod-modal-desc {
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  line-height: 1.65;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  white-space: pre-line;
+}
+
+/* Image lightbox */
+.lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
+.lightbox-close { position: absolute; top: 20px; right: 24px; font-size: 2rem; color: white; cursor: pointer; background: none; border: none; }
+
+/* ===== MESSAGE BOX ===== */
+.msg-box {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.msg-box label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+.msg-box textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.88rem;
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.msg-box textarea:focus { border-color: var(--teal); }
+
+/* ===== HELP VIEW ===== */
+.help-section {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.help-section-head {
+  background: var(--teal-dark);
+  padding: 14px 20px;
+  color: var(--gold-light);
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.help-body { padding: 20px; font-size: 0.88rem; line-height: 1.7; color: var(--text-soft); }
+.help-body h4 { font-size: 0.9rem; color: var(--teal-dark); font-weight: 600; margin: 14px 0 6px; }
+.help-body p { margin-bottom: 10px; }
+.help-body ul { padding-left: 18px; margin-bottom: 10px; }
+.help-body li { margin-bottom: 5px; }
+.help-badge {
+  display: inline-block;
+  background: var(--teal-pale);
+  color: var(--teal-dark);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 2px;
+}
+.help-badge.gold { background: #fef8e7; color: var(--gold-dark); }
+
+/* ===== TOAST ===== */
+#toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--teal-dark);
+  color: var(--gold-light);
+  padding: 13px 22px;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  font-family: 'Kodchasan', sans-serif;
+  box-shadow: 0 6px 24px rgba(6,76,72,0.35);
+  display: none;
+  z-index: 500;
+  border-left: 4px solid var(--gold);
+  max-width: 320px;
+}
+
+/* ===== LOGIN ===== */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--teal-dark);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.login-bg-dots {
+  position: absolute;
+  top: -100px; right: -100px;
+  width: 500px; height: 500px;
+  opacity: 0.06;
+  pointer-events: none;
+}
+.login-card {
+  background: white;
+  border-radius: 24px;
+  padding: 44px 40px;
+  width: 380px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 32px 100px rgba(0,0,0,0.3);
+}
+.login-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 2rem;
+  color: var(--teal-dark);
+  letter-spacing: 5px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.login-tagline {
+  text-align: center;
+  color: var(--teal-mid);
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+.login-field { margin-bottom: 16px; }
+.login-field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 7px;
+}
+.login-field input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+  color: var(--text);
+}
+.login-field input:focus { border-color: var(--teal); }
+.login-hint {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  margin-top: 14px;
+}
+
+/* ===== MISC ===== */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.text-teal { color: var(--teal); }
+.text-gold { color: var(--gold-dark); }
+.text-soft { color: var(--text-soft); }
+.font-serif { font-family: 'Fraunces', serif; }
+
+/* ===== SUMMARY MOBILE ===== */
+@media (max-width: 640px) {
+  .summary-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .summary-tbl { font-size: 0.75rem; min-width: 400px; }
+  .summary-tbl th, .summary-tbl td { padding: 8px 10px; }
+  #view-summary .client-hero { display: none; }
+  #view-summary .month-row { margin-top: 8px; }
+}
+
+/* ===== MOBILE STYLES ===== */
+@media (max-width: 640px) {
+  /* Layout */
+  .client-hero { flex-direction: column; align-items: flex-start; gap:12px; padding:20px; }
+  .hero-total { text-align: left; width:100%; display:flex; justify-content:space-between; align-items:center; }
+  .hero-total .label { font-size:0.7rem; }
+  .hero-total .amount { font-size:1.8rem; }
+  main { padding: 12px 10px; }
+  .login-card { width: 100%; max-width: 380px; padding: 28px 20px; }
+
+  /* Tabs */
+  .tab-bar { padding: 0 10px; }
+  .tab { padding: 11px 14px; font-size: 0.78rem; }
+
+  /* Month selector */
+  .month-row { gap: 5px; }
+  .month-btn { padding: 5px 11px; font-size: 0.74rem; }
+
+  /* Card */
+  .card { border-radius: 12px; }
+  .card-header { padding: 12px 14px; }
+  .card-title { font-size: 0.88rem; }
+
+  /* Hide desktop table, show mobile cards */
+  .table-scroll { display: none; }
+  .mobile-order-cards { display: block !important; }
+
+  /* Action bar */
+  .action-bar { flex-direction: column; gap: 10px; }
+  .action-bar .btn { width: 100%; justify-content: center; }
+
+  /* Summary table scroll */
+  .card .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Message box */
+  .msg-box { padding: 14px; }
+  .msg-box textarea { min-height: 70px; font-size: 0.85rem; }
+
+  /* Deadline notice */
+  .deadline-notice { font-size: 0.8rem; }
+
+  /* Dots background - hide on mobile */
+  .dots-pattern, .dots-circle { display: none; }
+}
+
+/* Mobile order cards - hidden on desktop */
+.mobile-order-cards { display: none; }
+
+.mob-day-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.mob-day-head {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.mob-day-head.baking { background: var(--teal-pale); border-bottom: 1px solid var(--border); }
+.mob-day-head.no-bake { background: #f9fafb; }
+.mob-day-name { font-weight: 700; font-size: 0.88rem; color: var(--teal-dark); }
+.mob-day-date { font-size: 0.75rem; color: var(--text-soft); margin-top: 1px; }
+.mob-baking-badge { font-size: 0.7rem; color: var(--teal); font-weight: 600; background: white; padding: 3px 9px; border-radius: 10px; border: 1px solid var(--teal-light); }
+.mob-day-body { padding: 12px 14px; display: none; }
+.mob-day-body.open { display: block; }
+.mob-product-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f5f4;
+  gap: 10px;
+}
+.mob-product-row:last-child { border-bottom: none; }
+.mob-prod-info { flex: 1; cursor: pointer; }
+.mob-prod-name { font-size: 0.83rem; font-weight: 600; color: var(--teal-dark); line-height: 1.3; }
+.mob-prod-weight { font-size: 0.72rem; color: var(--text-soft); }
+.mob-prod-price { font-size: 0.75rem; color: var(--gold-dark); font-weight: 600; margin-top: 2px; }
+.mob-qty-control { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.mob-qty-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--teal-dark);
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mob-qty-btn:hover, .mob-qty-btn:active { background: var(--teal); color: white; border-color: var(--teal); }
+.mob-qty-display {
+  min-width: 36px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--teal-dark);
+}
+.mob-qty-display.has-value { color: var(--teal); }
+.mob-day-total {
+  background: var(--teal-pale);
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--teal-dark);
+  display: flex;
+  justify-content: space-between;
+}
+.mob-no-bake-label { font-size: 0.78rem; color: #bbb; padding: 6px 0; text-align: center; }
+
+/* Locked/past day */
+.mob-locked { opacity: 0.5; pointer-events: none; }
+.mob-lock-notice { font-size: 0.75rem; color: var(--gold-dark); background: #fef3c7; border-radius: 6px; padding: 5px 10px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- BG ELEMENTS -->
+<svg class="dots-pattern" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <g fill="var(--teal)">
+    <circle cx="100" cy="30" r="3"/><circle cx="85" cy="38" r="4"/><circle cx="115" cy="38" r="4"/>
+    <circle cx="70" cy="50" r="5"/><circle cx="100" cy="48" r="4"/><circle cx="130" cy="50" r="5"/>
+    <circle cx="58" cy="65" r="6"/><circle cx="82" cy="62" r="4"/><circle cx="100" cy="60" r="5"/><circle cx="118" cy="62" r="4"/><circle cx="142" cy="65" r="6"/>
+    <circle cx="50" cy="82" r="5"/><circle cx="70" cy="78" r="4"/><circle cx="90" cy="76" r="3"/><circle cx="100" cy="75" r="8"/><circle cx="110" cy="76" r="3"/><circle cx="130" cy="78" r="4"/><circle cx="150" cy="82" r="5"/>
+    <circle cx="55" cy="100" r="4"/><circle cx="72" cy="96" r="5"/><circle cx="88" cy="94" r="3"/><circle cx="100" cy="100" r="12"/><circle cx="112" cy="94" r="3"/><circle cx="128" cy="96" r="5"/><circle cx="145" cy="100" r="4"/>
+    <circle cx="58" cy="118" r="5"/><circle cx="75" cy="114" r="4"/><circle cx="90" cy="118" r="3"/><circle cx="110" cy="118" r="3"/><circle cx="125" cy="114" r="4"/><circle cx="142" cy="118" r="5"/>
+    <circle cx="65" cy="135" r="6"/><circle cx="82" cy="132" r="4"/><circle cx="100" cy="136" r="5"/><circle cx="118" cy="132" r="4"/><circle cx="135" cy="135" r="6"/>
+    <circle cx="75" cy="150" r="5"/><circle cx="100" cy="152" r="4"/><circle cx="125" cy="150" r="5"/>
+    <circle cx="85" cy="163" r="4"/><circle cx="115" cy="163" r="4"/>
+    <circle cx="100" cy="172" r="3"/>
+  </g>
+</svg>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <svg class="login-bg-dots" viewBox="0 0 300 300">
+    <g fill="white">
+      <circle cx="150" cy="50" r="4"/><circle cx="125" cy="65" r="6"/><circle cx="175" cy="65" r="6"/>
+      <circle cx="100" cy="85" r="8"/><circle cx="150" cy="80" r="5"/><circle cx="200" cy="85" r="8"/>
+      <circle cx="80" cy="110" r="9"/><circle cx="120" cy="105" r="6"/><circle cx="150" cy="100" r="7"/><circle cx="180" cy="105" r="6"/><circle cx="220" cy="110" r="9"/>
+      <circle cx="70" cy="140" r="7"/><circle cx="105" cy="134" r="5"/><circle cx="135" cy="130" r="4"/><circle cx="150" cy="135" r="14"/><circle cx="165" cy="130" r="4"/><circle cx="195" cy="134" r="5"/><circle cx="230" cy="140" r="7"/>
+      <circle cx="80" cy="170" r="7"/><circle cx="112" cy="165" r="6"/><circle cx="135" cy="168" r="4"/><circle cx="165" cy="168" r="4"/><circle cx="188" cy="165" r="6"/><circle cx="220" cy="170" r="7"/>
+    </g>
+  </svg>
+  <div class="login-card">
+    <div style="display:flex;justify-content:center;margin-bottom:16px"><img src="img/logo_teal_vert.png" alt="KEREK" style="height:90px;width:auto"></div>
+    <div class="login-tagline">My health. My value!</div>
+    <div class="login-field">
+      <label>Belépési kód</label>
+      <input type="text" id="login-input" placeholder="pl. KR-A7X2-9M4P" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doLogin()">Belépés →</button>
+    <div class="login-hint">A belépési kódot a KEREK péksègtől kaptad.</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <img src="img/logo_white_horiz.png" alt="KEREK" style="height:30px;width:auto">
+  <div class="user-info">
+    <span class="user-name" id="user-badge"></span>
+    <button class="btn btn-logout" onclick="logout()">Kilépés</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tab-bar" id="tab-bar">
+  <button class="tab active" onclick="showView('order','order-tab')">🛒 Megrendelő</button>
+  <button class="tab" onclick="showView('summary','summary-tab')">📊 Összesítő & PDF</button>
+  <button class="tab" onclick="showView('help','help-tab')">❓ Súgó</button>
+</div>
+
+<main>
+  <!-- ===== ORDER VIEW ===== -->
+  <div id="view-order" class="view active">
+    <div class="client-hero">
+      <div>
+        <h2 id="hero-greeting">Szia!</h2>
+        <p id="hero-subtitle">Töltsd ki a havi megrendelődet a sütési napokra (🔥 Kedd & Péntek).<br>Mentés előtt hagyhatsz üzenetet is.</p>
+      </div>
+      <div class="hero-total">
+        <div class="label">Havi összérték</div>
+        <div class="amount" id="hero-amount">0<span class="currency">lej</span></div>
+      </div>
+    </div>
+
+    <div class="month-row" id="month-selector"></div>
+    <div id="deadline-notice" class="deadline-notice">
+      <span class="icon">⏰</span>
+      <span id="deadline-text"></span>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📝 Megrendelő lap – <span id="order-month-label" style="color:var(--gold-light);margin-left:6px"></span></div>
+        <div style="font-size:0.75rem;color:var(--teal-light)">Kattints egy termékre az oszlopfejlécben az adatlapjáért</div>
+      </div>
+      <div class="table-scroll">
+        <table class="order-tbl" id="order-table"></table>
+      </div>
+    </div>
+
+    <!-- MOBILE ORDER CARDS -->
+    <div class="mobile-order-cards" id="mobile-order-cards"></div>
+
+    <div class="msg-box">
+      <label>💬 Üzenet / megjegyzés (opcionális)</label>
+      <textarea id="order-message" placeholder="Írj ide bármit – pl. szállítási kérés, allergén, visszajelzés..."></textarea>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-ghost" onclick="clearOrder()">🗑 Törlés</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-gold" onclick="saveOrder()">💾 Mentés &amp; Elküldés</button>
+    </div>
+  </div>
+
+  <!-- ===== SUMMARY VIEW ===== -->
+  <div id="view-summary" class="view">
+    <div style="display:flex;justify-content:flex-end;padding:0 0 12px">
+      <button class="btn btn-primary btn-sm" onclick="generateOrderPDF()" style="display:flex;align-items:center;gap:6px">📄 Rendelés PDF</button>
+    </div>
+    <div class="client-hero" style="margin-bottom:20px">
+      <div>
+        <h2 style="font-style:normal">Összesítő</h2>
+        <p>Havi bontásban láthatod az összes megrendelésedet és azok értékét.</p>
+      </div>
+    </div>
+    <div class="month-row" id="summary-month-sel"></div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📋 Havi összesítő</div>
+      </div>
+      <div class="summary-scroll">
+        <table class="summary-tbl" id="summary-table"></table>
+      </div>
+    </div>
+    <div id="mob-summary-total"></div>
+  </div>
+
+  <!-- ===== HELP VIEW ===== -->
+  <div id="view-help" class="view">
+    <div class="help-section">
+      <div class="help-section-head">📖 Hogyan kell megrendelni?</div>
+      <div class="help-body">
+        <h4>1. Válaszd ki a hónapot</h4>
+        <p>A <span class="help-badge">Megrendelő</span> fülön a hónapválasztóban kattints a kívánt hónapra. Minden hónapban friss terméklista elérhető.</p>
+        <h4>2. Töltsd ki a mennyiségeket</h4>
+        <p>A táblázatban csak a <span class="help-badge" style="background:#e8f8f6;color:var(--teal-dark)">🔥 sütési napokon</span> (Kedd és Péntek) lehet megrendelni – ezeken a sorokon van beviteli mező. A többi nap szürke.</p>
+        <h4>3. Termék adatlap</h4>
+        <p>Ha rákattintasz egy <span class="help-badge">termékre az oszlopfejlécben</span>, megjelenik az összetevők, allergének és egyéb infók. A képre kattintva megnövelheted.</p>
+        <h4>4. Mentés</h4>
+        <p>A kitöltés után nyomd meg a <span class="help-badge gold">💾 Mentés & Elküldés</span> gombot. Opcionálisan üzenetet is hagyhatsz nekünk.</p>
+        <h4>5. Módosítás</h4>
+        <p>A rendelésedet bármikor módosíthatod. Ha a <b>sütési nap előtt kevesebb mint 24 óra</b> van, a módosítás csak a következő sütéskor lép érvénybe – erről a rendszer tájékoztat.</p>
+        <h4>6. Összesítő</h4>
+        <p>Az <span class="help-badge">Összesítő</span> fülön termékenkénti és dátumonkénti bontásban láthatod a rendeléseidet.</p>
+      </div>
+    </div>
+    <div class="help-section">
+      <div class="help-section-head">📦 Rendelési feltételek</div>
+      <div class="help-body" id="help-conditions">
+        <p style="color:var(--teal-mid);font-style:italic">Az admin által megadott rendelési feltételek itt jelennek meg.</p>
+      </div>
+    </div>
+    <div class="help-section">
+      <div class="help-section-head">🚚 Szállítás & Átvétel</div>
+      <div class="help-body" id="help-delivery">
+        <p style="color:var(--teal-mid);font-style:italic">Az admin által megadott szállítási/átvételi infók itt jelennek meg.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Product Info Modal -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="pm-name">Termék neve</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pm-img-wrap"></div>
+      <div class="prod-modal-price" id="pm-price"></div>
+      <div style="font-size:0.8rem;color:var(--text-soft);margin-bottom:12px" id="pm-weight"></div>
+      <div class="prod-modal-desc" id="pm-desc"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')">
+  <button class="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== CONSTANTS =====
+const MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+// BAKING_DAYS now dynamic - loaded from shared data
+
+// ===== DATA =====
+let appData = JSON.parse(localStorage.getItem('kerek_data') || '{}') || {
+  products: [
+    { id:1, name:'Kovászos prémium kenyér', weight:'500 g', price:23, category:'Kenyér', desc:'Összetevők: rizsliszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
+    { id:2, name:'Kovászos prémium kenyér', weight:'1000 g', price:35, category:'Kenyér', desc:'Összetevők: rizsiszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
+    { id:3, name:'„Diabétesz" kenyér', weight:'1000 g', price:38, category:'Kenyér', desc:'Alacsony glikémiás indexű kenyér. Összetevők: mandulaliszt, hajdinaliszt, len, psyllium, kovász, só.\n\nAllergenek: GLUTÉNMENTES, tojásmentes.\n\nDiabéteszeseknek ajánlott.', image:null },
+    { id:4, name:'Fehér kenyér', weight:'1000 g', price:32, category:'Kenyér', desc:'Ízletes gluténmentes fehér kenyér. Összetevők: rizsiszt, tapioka, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.', image:null },
+    { id:5, name:'Kovászos bagett', weight:'360 g', price:16, category:'Bagett / zsömle', desc:'Ropogós héjú kovászos bagett. Összetevők: rizsiszt, hajdina, víz, kovász, só.\n\nAllergenek: GLUTÉNMENTES.\n\nTárolás: 2 nap szobahőn, fagyasztható.', image:null },
+    { id:6, name:'Kovászos zsömle', weight:'100 g', price:6, category:'Bagett / zsömle', desc:'Kis méretű kovászos zsömle szendvicsekhez ideális.\n\nAllergenek: GLUTÉNMENTES, tojásmentes.', image:null },
+    { id:7, name:'Guilt free kuglóf', weight:'260 g', price:29, category:'Sütemény', desc:'Cukor- és gluténmentes kuglóf. Összetevők: mandulaliszt, kókuszliszt, tojás, kókuszolaj, eritrit, vanília.\n\nAllergenek: tojást tartalmaz, GLUTÉNMENTES.', image:null },
+    { id:8, name:'Sós sütemény', weight:'100 g', price:12, category:'Sütemény', desc:'Ropogós gluténmentes sós sütemény köménymaggal vagy szezámmaggal.\n\nAllergenek: GLUTÉNMENTES.', image:null },
+    { id:9, name:'Mákos/diós kifli', weight:'100 g', price:12, category:'Sütemény', desc:'Hagyományos ízek gluténmentes változatban. Mákos vagy diós töltelékkel.\n\nAllergenek: diót tartalmaz, GLUTÉNMENTES.', image:null },
+    { id:10, name:'Szilvás gombóc', weight:'60 g', price:6, category:'Sütemény', desc:'Szilvás töltelékű gombóc, gluténmentes tésztával.\n\nAllergenek: GLUTÉNMENTES, tejtermékmentes.\n\nFrissen a legjobb, fagyasztható.', image:null },
+  ],
+  monthlyActiveProducts: {
+    '2026-3': [1,2,3,4,5,6,7,8,9,10],
+    '2026-4': [1,2,3,5,6,7,8,9],
+    '2026-5': [1,2,4,5,7,8,10],
+  },
+  clients: [
+    { id:'anna', name:'Kovács Anna', email:'anna@example.com' },
+    { id:'bela', name:'Nagy Béla', email:'bela@example.com' },
+    { id:'cica', name:'Fekete Cica', email:'cica@example.com' },
+  ],
+  orders: {
+    'anna-2026-3-4': { 1:2, 2:1, 7:1 },
+    'anna-2026-3-11': { 1:2, 5:4, 7:1 },
+    'anna-2026-4-1': { 1:2, 5:3, 7:1 },
+    'anna-2026-4-8': { 2:1, 6:4, 8:2 },
+    'bela-2026-3-4': { 2:2, 5:2, 8:3 },
+    'bela-2026-4-4': { 2:2, 5:2, 9:3 },
+    'cica-2026-3-7': { 1:1, 7:2, 9:3 },
+  },
+  messages: {},
+  helpConditions: '',
+  helpDelivery: '',
+  bakingDaysDefault: [2,5],
+  bakingCalendar: {},
+};
+
+let currentUser = null;
+let selectedMonth = new Date().getMonth();
+let selectedYear = new Date().getFullYear();
+let summaryMonth = selectedMonth;
+
+// ===== AUTH =====
+function doLogin() {
+  const val = document.getElementById('login-input').value.trim().toLowerCase();
+  if (!val) { toast('Add meg a belépési kódot!'); return; }
+  if (val === 'admin') { window.location.href = 'admin.html'; return; }
+  // Accept code in various formats: with/without dashes, upper/lower
+  const normalizedVal = val.replace(/-/g,'').toLowerCase();
+  const client = appData.clients.find(c => 
+    c.id === val || 
+    c.id.toLowerCase() === val ||
+    c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
+    c.name.toLowerCase() === val
+  );
+  if (client) {
+    currentUser = client;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('user-badge').textContent = '👤 ' + client.name;
+    document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ')[1] + '! 👋';
+    buildMonthSelectors();
+    renderOrderTable();
+    updateHeroTotal();
+    loadMessage();
+    renderHelpConditions();
+  } else {
+    toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
+  }
+}
+function logout() { currentUser = null; document.getElementById('login-screen').style.display = 'flex'; document.getElementById('login-input').value = ''; }
+
+// ===== NAVIGATION =====
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'summary') renderSummary();
+}
+
+// ===== HELPERS =====
+function getKey(month, year) { return `${year}-${month}`; }
+function getOrderKey(cid, y, m, d) { return `${cid}-${y}-${m}-${d}`; }
+function getActiveProds(year, month) {
+  const ids = appData.monthlyActiveProducts[getKey(month, year)] || [];
+  return appData.products.filter(p => ids.includes(p.id));
+}
+function getDays(year, month) {
+  const days = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate()+1); }
+  return days;
+}
+function isBakingDay(d) {
+  const y=d.getFullYear(), m=d.getMonth();
+  const key=`${y}-${m}`;
+  const defaults=appData.bakingDaysDefault||[2,5];
+  const cal=appData.bakingCalendar?.[key]||{extra:[],removed:[]};
+  const dateStr=d.toISOString().slice(0,10);
+  const isDefault=defaults.includes(d.getDay());
+  const isExtra=cal.extra&&cal.extra.includes(dateStr);
+  const isRemoved=cal.removed&&cal.removed.includes(dateStr);
+  return (isDefault||isExtra)&&!isRemoved;
+}
+function hoursUntil(date) { return (date - new Date()) / 36e5; }
+
+// ===== MONTH SELECTORS =====
+function buildMonthSelectors() {
+  ['month-selector','summary-month-sel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isSummary = id.includes('summary');
+    el.innerHTML = MONTHS.map((m,i) =>
+      `<button class="month-btn ${i===(isSummary?summaryMonth:selectedMonth)?'active':''}" onclick="${isSummary?'selectSummaryMonth':'selectMonth'}(${i})">${m}</button>`
+    ).join('');
+  });
+}
+function selectMonth(m) {
+  selectedMonth = m;
+  buildMonthSelectors();
+  renderOrderTable();
+  updateHeroTotal();
+}
+function selectSummaryMonth(m) {
+  summaryMonth = m;
+  buildMonthSelectors();
+  renderSummary();
+}
+
+// ===== DEADLINE CHECK =====
+function checkDeadline(day) {
+  const bakingDate = new Date(selectedYear, selectedMonth, day, 8, 0); // assume 8am baking
+  const hours = hoursUntil(bakingDate);
+  const noticeEl = document.getElementById('deadline-notice');
+  const textEl = document.getElementById('deadline-text');
+
+  // Find next valid baking day after this one
+  const allBakingDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
+  const nextBaking = allBakingDays.find(d => d.getDate() > day);
+
+  if (hours >= 0 && hours < 24) {
+    noticeEl.classList.add('show');
+    const nextStr = nextBaking
+      ? `A következő sütési nap: ${MONTHS[selectedMonth]} ${nextBaking.getDate()}. (${DAYS_HU[nextBaking.getDay()]})`
+      : 'Nincs több sütési nap ebben a hónapban.';
+    textEl.textContent = `⚠️ A ${MONTHS[selectedMonth]} ${day}. (${DAYS_HU[new Date(selectedYear,selectedMonth,day).getDay()]}) sütési nap már kevesebb mint 24 óra múlva kezdődik. A módosításaid csak a következő sütésnél érvényesek. ${nextStr}`;
+  } else {
+    noticeEl.classList.remove('show');
+  }
+}
+
+// ===== ORDER TABLE =====
+function isMobile() { return window.innerWidth <= 640; }
+
+function renderOrderTable() {
+  if(isMobile()) { renderMobileOrderCards(); return; }
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  const now = new Date();
+
+  document.getElementById('order-month-label').textContent = MONTHS[selectedMonth] + ' ' + selectedYear;
+
+  // Check if any baking day is within 24h
+  const urgentDay = days.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
+  if (urgentDay) checkDeadline(urgentDay.getDate());
+  else document.getElementById('deadline-notice').classList.remove('show');
+
+  if (prods.length === 0) {
+    document.getElementById('order-table').innerHTML = '<tr><td style="padding:20px;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</td></tr>';
+    return;
+  }
+
+  // Header
+  let html = '<thead><tr><th class="col-date">Dátum</th>';
+  prods.forEach(p => {
+    html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
+      <span class="prod-name">${p.name}</span>
+      <span class="prod-weight">${p.weight}</span>
+      <span class="prod-price">${p.price} lej</span>
+    </th>`;
+  });
+  html += '<th style="min-width:70px">Összesen</th></tr></thead><tbody>';
+
+  // Rows
+  let grandTotal = 0;
+  const colTotals = {};
+  prods.forEach(p => colTotals[p.id] = 0);
+
+  days.forEach(d => {
+    const day = d.getDate();
+    const dow = d.getDay();
+    const baking = isBakingDay(d);
+    const dayName = DAYS_HU[dow];
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    const isPast = d < now && !isSameDay(d, now);
+
+    if (!baking) {
+      html += `<tr class="no-bake">
+        <td class="col-date">${day}. ${dayName}</td>
+        ${prods.map(() => '<td>—</td>').join('')}
+        <td>—</td>
+      </tr>`;
+    } else {
+      const rowOrders = appData.orders[key] || {};
+      let rowTotal = 0;
+      prods.forEach(p => rowTotal += (rowOrders[p.id]||0));
+      grandTotal += rowTotal;
+
+      // Is this baking day locked (< 24h)?
+      const hoursLeft = hoursUntil(d);
+      const isLocked = hoursLeft >= 0 && hoursLeft < 24;
+      const isOver = d < now;
+
+      html += `<tr class="baking-row" id="row-${day}">
+        <td class="col-date">
+          ${day}. <b>${dayName}</b>
+          <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
+        </td>`;
+      prods.forEach(p => {
+        const val = rowOrders[p.id] || '';
+        const disabled = isOver || isLocked ? 'disabled' : '';
+        const cls = val ? 'has-value' : '';
+        colTotals[p.id] += (rowOrders[p.id]||0);
+        html += `<td><input type="number" min="0" max="99" value="${val}" placeholder="0"
+          class="${cls}" ${disabled}
+          data-day="${day}" data-pid="${p.id}"
+          onchange="handleOrderChange(${day},${p.id},this)"
+          oninput="handleOrderChange(${day},${p.id},this)"></td>`;
+      });
+      html += `<td style="font-weight:700;color:var(--teal-dark)">${rowTotal||'—'}</td></tr>`;
+    }
+  });
+
+  // Column totals row
+  html += `<tr class="total-row">
+    <td class="col-date">Havi összesen</td>`;
+  prods.forEach(p => html += `<td>${colTotals[p.id]||'—'}</td>`);
+  html += `<td class="grand-total">${grandTotal} db</td></tr>`;
+
+  // Value row
+  let totalValue = 0;
+  prods.forEach(p => totalValue += colTotals[p.id] * p.price);
+  html += `<tr class="total-row" style="background:#f0faf8">
+    <td class="col-date" style="color:var(--teal-dark)">Érték összesen</td>`;
+  prods.forEach(p => {
+    const val = colTotals[p.id] * p.price;
+    html += `<td style="color:var(--gold-dark);font-weight:700">${val > 0 ? val + ' lej' : '—'}</td>`;
+  });
+  html += `<td style="background:var(--gold);color:var(--teal-dark);font-weight:800;font-family:'Fraunces',serif">${totalValue} lej</td></tr>`;
+
+  html += '</tbody>';
+  document.getElementById('order-table').innerHTML = html;
+}
+
+function isSameDay(a, b) {
+  return a.getDate()===b.getDate() && a.getMonth()===b.getMonth() && a.getFullYear()===b.getFullYear();
+}
+
+function handleOrderChange(day, pid, input) {
+  const qty = parseInt(input.value) || 0;
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  if (!appData.orders[key]) appData.orders[key] = {};
+  if (qty > 0) { appData.orders[key][pid] = qty; input.classList.add('has-value'); }
+  else { delete appData.orders[key][pid]; input.classList.remove('has-value'); }
+  if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+  updateHeroTotal();
+  updateRowTotal(day);
+  checkDeadlineForDay(day);
+}
+
+function updateRowTotal(day) {
+  const row = document.getElementById('row-' + day);
+  if (!row) return;
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  const rowOrders = appData.orders[key] || {};
+  const total = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+  const lastTd = row.querySelector('td:last-child');
+  if (lastTd) lastTd.textContent = total || '—';
+}
+
+function checkDeadlineForDay(day) {
+  const d = new Date(selectedYear, selectedMonth, day);
+  const hours = hoursUntil(d);
+  if (hours >= 0 && hours < 24) checkDeadline(day);
+}
+
+function updateHeroTotal() {
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  let total = 0;
+  days.forEach(d => {
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
+    if (appData.orders[key]) {
+      Object.entries(appData.orders[key]).forEach(([pid,qty]) => {
+        const p = appData.products.find(p=>p.id==pid);
+        if (p) total += p.price * qty;
+      });
+    }
+  });
+  document.getElementById('hero-amount').innerHTML = `${total}<span class="currency">lej</span>`;
+}
+
+async function saveOrder() {
+  // Save orders to Supabase
+  const upserts = [];
+  getDays(selectedYear, selectedMonth).forEach(d => {
+    const day = d.getDate();
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    if(appData.orders[key]) {
+      Object.entries(appData.orders[key]).forEach(([pid, qty]) => {
+        upserts.push({
+          client_id: currentUser.id,
+          year: selectedYear,
+          month: selectedMonth,
+          day: day,
+          product_id: parseInt(pid),
+          quantity: qty
+        });
+      });
+    }
+  });
+
+  // Save message
+  const msg = document.getElementById('order-message').value.trim();
+  
+  try {
+    if(upserts.length > 0) await sb.upsert('orders', upserts);
+    if(msg) {
+      await sb.insert('messages', {
+        client_id: currentUser.id,
+        year: selectedYear,
+        month: selectedMonth,
+        text: msg
+      });
+    }
+    localStorage.setItem('kerek_data', JSON.stringify(appData));
+    toast('✅ Rendelés elmentve! Köszönjük a megrendelést. 🌾');
+    // Show order confirmation summary  
+    const confirmEl = document.getElementById('order-confirm-msg');
+    if(confirmEl) {
+      confirmEl.style.display = 'block';
+      setTimeout(() => confirmEl.style.display = 'none', 5000);
+    }
+  } catch(e) {
+    localStorage.setItem('kerek_data', JSON.stringify(appData));
+    toast('✅ Rendelés mentve (offline mód)');
+    console.warn('Supabase save error:', e);
+  }
+  document.getElementById('order-message').value = '';
+}
+
+function clearOrder() {
+  if (!confirm('Biztosan törlöd az összes rendelést ebben a hónapban?')) return;
+  const days = getDays(selectedYear, selectedMonth);
+  days.forEach(d => { delete appData.orders[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]; });
+  localStorage.setItem('kerek_data', JSON.stringify(appData));
+  renderOrderTable();
+  updateHeroTotal();
+  toast('Rendelések törölve.');
+}
+
+function loadMessage() {
+  // Messages persist per session
+}
+
+// ===== SUMMARY =====
+function generateOrderPDF() {
+  const months = ['Január','Február','Március','Április','Május','Június',
+    'Július','Augusztus','Szeptember','Október','November','December'];
+  
+  // Build print content
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>KEREK Rendelés – ${currentUser.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#1A2E31}
+    h1{color:#064C48;font-size:1.4rem;margin-bottom:4px}
+    h2{color:#064C48;font-size:1rem;margin:16px 0 8px;border-bottom:2px solid #EFB036;padding-bottom:4px}
+    .meta{color:#666;font-size:0.85rem;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:16px}
+    th{background:#064C48;color:white;padding:8px 10px;text-align:left}
+    td{padding:7px 10px;border-bottom:1px solid #e0f2ef}
+    tr:nth-child(even) td{background:#f5faf9}
+    .total{font-weight:bold;background:#e0f2ef!important}
+    .footer{margin-top:30px;font-size:0.75rem;color:#999;text-align:center;border-top:1px solid #eee;padding-top:10px}
+    @media print{body{padding:10px}}
+  </style></head><body>`;
+
+  html += `<h1>🌾 KEREK Rendelés összesítő</h1>`;
+  html += `<div class="meta">Vevő: <b>${currentUser.name}</b> &nbsp;|&nbsp; Generálva: ${new Date().toLocaleDateString('hu-HU')}</div>`;
+
+  // Get all months with orders
+  let grandTotal = 0;
+  const months_with_orders = [];
+  
+  for(let m = 0; m <= 11; m++) {
+    const days = getDays(selectedYear, m);
+    const activePids = getActiveProducts(selectedYear, m).map(p=>p.id);
+    let hasOrders = false;
+    let monthTotal = 0;
+    let rows = '';
+
+    days.forEach(d => {
+      const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
+      const dayOrders = appData.orders[key];
+      if(!dayOrders) return;
+      const dayTotal = activePids.reduce((s,pid)=>s+(dayOrders[pid]||0)*getPrice(pid),0);
+      if(dayTotal === 0) return;
+      hasOrders = true;
+      monthTotal += dayTotal;
+      const items = activePids.filter(pid=>(dayOrders[pid]||0)>0)
+        .map(pid=>{
+          const p = appData.products.find(x=>x.id==pid);
+          return `${p?.name||pid} × ${dayOrders[pid]}`;
+        }).join(', ');
+      rows += `<tr><td>${d.getDate()}. ${['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'][d.getDay()]}</td><td>${items}</td><td style="text-align:right">${dayTotal} lej</td></tr>`;
+    });
+
+    if(hasOrders) {
+      html += `<h2>${months[m]} ${selectedYear}</h2>`;
+      html += `<table><thead><tr><th>Nap</th><th>Termékek</th><th style="text-align:right">Összeg</th></tr></thead><tbody>`;
+      html += rows;
+      html += `<tr class="total"><td colspan="2">Havi összesen</td><td style="text-align:right">${monthTotal} lej</td></tr>`;
+      html += `</tbody></table>`;
+      grandTotal += monthTotal;
+      months_with_orders.push(m);
+    }
+  }
+
+  if(months_with_orders.length === 0) {
+    alert('Nincs rendelés a megjelenítéshez!');
+    return;
+  }
+
+  html += `<h2>Éves összesítő ${selectedYear}</h2>`;
+  html += `<table><tbody><tr class="total"><td>Teljes összeg</td><td style="text-align:right"><b>${grandTotal} lej</b></td></tr></tbody></table>`;
+  html += `<div class="footer">KEREK Gluténmentes Pékség – kerek-rendeles.netlify.app – ${new Date().toLocaleDateString('hu-HU')}</div>`;
+  html += `</body></html>`;
+
+  // Create blob and download as PDF-ready HTML
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  // Try popup first, fallback to same-tab
+  const win = window.open(url, '_blank');
+  if(!win) {
+    // Popup blocked - use iframe print
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:800px;height:600px';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe), 2000); };
+    toast('📄 Nyomtatás / PDF mentés...');
+  } else {
+    setTimeout(()=>win.print(), 800);
+    toast('📄 PDF megnyílt – Nyomtatás/Mentés gombbal mentheted!');
+  }
+}
+
+function renderSummary() {
+  const prods = getActiveProds(selectedYear, summaryMonth);
+  const days = getDays(selectedYear, summaryMonth);
+  const bakingDays = days.filter(d => isBakingDay(d));
+
+  let html = '<thead><tr><th>Termék</th><th>Kategória</th>';
+  bakingDays.forEach(d => html += `<th>${MONTHS[summaryMonth].slice(0,3)} ${d.getDate()}.<br><small>${DAYS_HU[d.getDay()].slice(0,3)}</small></th>`);
+  html += '<th>Összesen</th><th>Érték</th></tr></thead><tbody>';
+
+  let grandQty = 0, grandVal = 0;
+  let hasData = false;
+  prods.forEach(p => {
+    const qties = bakingDays.map(d => (appData.orders[getOrderKey(currentUser.id, selectedYear, summaryMonth, d.getDate())]||{})[p.id]||0);
+    const total = qties.reduce((a,b)=>a+b,0);
+    if (total === 0) return;
+    hasData = true;
+    const val = total * p.price;
+    grandQty += total; grandVal += val;
+    html += `<tr><td><b>${p.name}</b> <small style="color:var(--text-soft)">${p.weight}</small></td><td>${p.category}</td>`;
+    qties.forEach(q => html += `<td>${q||'—'}</td>`);
+    html += `<td style="font-weight:700">${total}</td><td style="color:var(--gold-dark);font-weight:700">${val} lej</td></tr>`;
+  });
+
+  if (!hasData) {
+    html += `<tr><td colspan="20" style="padding:20px;text-align:center;color:var(--text-soft)">Nincs megrendelés erre a hónapra.</td></tr>`;
+  } else {
+    html += `<tr class="total-row"><td colspan="2">ÖSSZESEN</td>`;
+    bakingDays.forEach(() => html += '<td></td>');
+    html += `<td>${grandQty} db</td><td>${grandVal} lej</td></tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('summary-table').innerHTML = html;
+}
+
+// ===== PRODUCT MODAL =====
+function showProductModal(pid) {
+  const p = appData.products.find(p=>p.id===pid);
+  if (!p) return;
+  document.getElementById('pm-name').textContent = p.name;
+  document.getElementById('pm-price').textContent = p.price + ' lej / db';
+  document.getElementById('pm-weight').textContent = p.weight + ' · ' + p.category;
+  document.getElementById('pm-desc').textContent = p.desc || 'Nincs leírás megadva.';
+
+  const imgWrap = document.getElementById('pm-img-wrap');
+  if (p.image) {
+    imgWrap.innerHTML = `<img class="prod-thumb" src="${p.image}" alt="${p.name}" onclick="openLightbox('${p.image}')">`;
+  } else {
+    imgWrap.innerHTML = `<div class="prod-thumb-placeholder">🍞</div>`;
+  }
+
+  document.getElementById('product-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('product-modal').classList.remove('open'); }
+document.getElementById('product-modal').addEventListener('click', e => { if (e.target === document.getElementById('product-modal')) closeModal(); });
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ===== HELP =====
+function renderHelpConditions() {
+  if (appData.helpConditions) document.getElementById('help-conditions').innerHTML = appData.helpConditions.replace(/\n/g,'<br>');
+  if (appData.helpDelivery) document.getElementById('help-delivery').innerHTML = appData.helpDelivery.replace(/\n/g,'<br>');
+}
+
+// ===== MOBILE ORDER CARDS =====
+function renderMobileOrderCards() {
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  const now = new Date();
+  const container = document.getElementById('mobile-order-cards');
+  const desktopCard = document.querySelector('.card');
+  if(desktopCard) desktopCard.style.display = 'none';
+  if(!container) return;
+
+  if(prods.length === 0) {
+    container.innerHTML = '<div class="mob-day-card" style="padding:20px;text-align:center;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</div>';
+    return;
+  }
+
+  let html = '';
+  days.forEach(d => {
+    const day = d.getDate();
+    const dow = d.getDay();
+    const baking = isBakingDay(d);
+    const dayName = DAYS_HU[dow];
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    const isOver = d < now && !isSameDay(d, now);
+    const hoursLeft = hoursUntil(d);
+    const isLocked = baking && hoursLeft >= 0 && hoursLeft < 24;
+    const rowOrders = appData.orders[key] || {};
+    const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+    const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
+
+    if(!baking) {
+      html += `<div class="mob-day-card">
+        <div class="mob-day-head no-bake">
+          <div><div class="mob-day-name" style="color:#bbb;font-weight:400">${day}. ${dayName}</div></div>
+          <span style="font-size:0.7rem;color:#ccc">Nincs sütés</span>
+        </div>
+      </div>`;
+    } else {
+      const lockedClass = (isOver || isLocked) ? 'mob-locked' : '';
+      html += `<div class="mob-day-card" id="mob-card-${day}">
+        <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
+          <div>
+            <div class="mob-day-name">🔥 ${dayName}, ${day}.</div>
+            ${isLocked ? '<div style="font-size:0.7rem;color:var(--gold-dark)">⏰ 24h határidő – következő sütésnél érvényes</div>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${rowTotal > 0 ? `<span class="mob-baking-badge">${rowTotal} db</span>` : ''}
+            <span style="color:var(--teal-mid);font-size:0.85rem" id="mob-arrow-${day}">▾</span>
+          </div>
+        </div>
+        <div class="mob-day-body ${rowTotal > 0 ? 'open' : ''}" id="mob-body-${day}">
+          ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
+          <div class="${lockedClass}">
+            ${prods.map(p => {
+              const qty = rowOrders[p.id] || 0;
+              return `<div class="mob-product-row">
+                <div class="mob-prod-info" onclick="showProductModal(${p.id})">
+                  <div class="mob-prod-name">${p.name}</div>
+                  <div class="mob-prod-weight">${p.weight}</div>
+                  <div class="mob-prod-price">${p.price} lej/db ℹ️</div>
+                </div>
+                <div class="mob-qty-control">
+                  <button class="mob-qty-btn" onclick="mobChangeQty(${day},${p.id},-1)">−</button>
+                  <div class="mob-qty-display ${qty>0?'has-value':''}" id="mob-qty-${day}-${p.id}">${qty||0}</div>
+                  <button class="mob-qty-btn" onclick="mobChangeQty(${day},${p.id},1)">＋</button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          ${rowTotal > 0 ? `<div class="mob-day-total"><span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span></div>` : ''}
+        </div>
+      </div>`;
+    }
+  });
+
+  container.innerHTML = html;
+  updateHeroTotal();
+}
+
+function toggleMobCard(day) {
+  const body = document.getElementById('mob-body-' + day);
+  const arrow = document.getElementById('mob-arrow-' + day);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(arrow) arrow.textContent = body.classList.contains('open') ? '▴' : '▾';
+}
+
+function mobChangeQty(day, pid, delta) {
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  if(!appData.orders[key]) appData.orders[key] = {};
+  const current = appData.orders[key][pid] || 0;
+  const newVal = Math.max(0, current + delta);
+  if(newVal > 0) appData.orders[key][pid] = newVal;
+  else delete appData.orders[key][pid];
+  if(Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+
+  // Update display
+  const display = document.getElementById(`mob-qty-${day}-${pid}`);
+  if(display) {
+    display.textContent = newVal;
+    display.className = 'mob-qty-display' + (newVal > 0 ? ' has-value' : '');
+  }
+
+  // Update day total
+  const rowOrders = appData.orders[key] || {};
+  const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+  const rowVal = Object.entries(rowOrders).reduce((acc,[p,q])=>{
+    const prod=appData.products.find(x=>x.id==p); return acc+(prod?prod.price*q:0);
+  },0);
+
+  // Update badge in header
+  const card = document.getElementById('mob-card-' + day);
+  if(card) {
+    const badge = card.querySelector('.mob-baking-badge');
+    const head = card.querySelector('.mob-day-head');
+    if(rowTotal > 0) {
+      if(badge) badge.textContent = rowTotal + ' db';
+      else if(head) {
+        const badgeDiv = document.createElement('span');
+        badgeDiv.className = 'mob-baking-badge';
+        badgeDiv.textContent = rowTotal + ' db';
+        head.querySelector('div:last-child').prepend(badgeDiv);
+      }
+    } else if(badge) badge.remove();
+
+    // Update total row
+    let totalRow = card.querySelector('.mob-day-total');
+    const body = document.getElementById('mob-body-' + day);
+    if(rowTotal > 0) {
+      if(totalRow) { totalRow.innerHTML = `<span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span>`; }
+      else if(body) {
+        const div = document.createElement('div');
+        div.className = 'mob-day-total';
+        div.innerHTML = `<span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span>`;
+        body.appendChild(div);
+      }
+    } else if(totalRow) totalRow.remove();
+  }
+
+  updateHeroTotal();
+}
+
+// Handle resize
+window.addEventListener('resize', () => {
+  const mob = document.getElementById('mobile-order-cards');
+  const desktopCard = document.querySelector('.card');
+  if(isMobile()) {
+    if(mob) mob.style.display = 'block';
+    if(desktopCard) desktopCard.style.display = 'none';
+    renderMobileOrderCards();
+  } else {
+    if(mob) mob.style.display = 'none';
+    if(desktopCard) desktopCard.style.display = '';
+    renderOrderTable();
+  }
+});
+
+// ===== AUTO-LOGIN FROM PREVIEW =====
+function checkAutoLogin() {
+  const params = new URLSearchParams(window.location.search);
+  const previewId = params.get('preview');
+  if (previewId) {
+    const client = appData.clients.find(c => c.id === previewId);
+    if (client) {
+      currentUser = client;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('user-badge').textContent = '👤 ' + client.name;
+      document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ').slice(-1)[0] + '! 👋';
+      // Show preview banner
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:var(--gold);color:var(--teal-dark);text-align:center;padding:6px;font-size:0.78rem;font-weight:700;z-index:999;font-family:Kodchasan,sans-serif';
+      banner.textContent = '👁 ADMIN ELŐNÉZET – ' + client.name + ' nézetében';
+      document.body.prepend(banner);
+      buildMonthSelectors();
+      renderOrderTable();
+      updateHeroTotal();
+      renderHelpConditions();
+    }
+  }
+}
+
+// ===== TOAST =====
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 3200);
+}
+
+// Auto-login check runs after everything is loaded
+window.addEventListener('load', checkAutoLogin);
+</script>
+</body>
+</html>
