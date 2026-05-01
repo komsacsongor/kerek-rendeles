@@ -912,7 +912,9 @@ async function loadAllData() {
     if (messages?.length) {
       D.messages = {};
       messages.forEach(r => {
-        const k = `${r.client_id}-${r.year}-${r.month}`;
+        // Supabase-ben month 1-indexed (jan=1), selMonth 0-indexed (jan=0)
+        const m = r.month - 1;
+        const k = `${r.client_id}-${r.year}-${m}`;
         if (!D.messages[k]) D.messages[k] = [];
         D.messages[k].push({ text: r.text, ts: r.created_at });
       });
@@ -1181,7 +1183,7 @@ async function sendAdminReply(clientId, month, inputId) {
     await sb.insert('messages', {
       client_id: clientId,
       year: selYear,
-      month: month,
+      month: month + 1,  // Supabase-ben 1-indexed
       text: fullText,
     });
     // Lokális cache frissítése hogy azonnal látsszon

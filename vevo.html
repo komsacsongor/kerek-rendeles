@@ -1394,7 +1394,7 @@ async function saveOrder() {
       await sb.insert('messages', {
         client_id: currentUser.id,
         year: selectedYear,
-        month: selectedMonth,
+        month: selectedMonth + 1,  // Supabase-ben 1-indexed
         text: msg
       });
     }
@@ -1767,7 +1767,7 @@ async function loadMessage() {
   const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
   try {
     const msgs = await sb.query('messages', {
-      filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`,
+      filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth + 1}`,
       order: 'created_at'
     });
     if(!appData.messages) appData.messages = {};
@@ -2088,7 +2088,7 @@ async function saveOrder() {
       await sb.insert('messages', {
         client_id: currentUser.id,
         year: selectedYear,
-        month: selectedMonth,
+        month: selectedMonth + 1,  // Supabase-ben 1-indexed
         text: msg
       });
     }
