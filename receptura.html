@@ -216,7 +216,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 #toast{position:fixed;bottom:22px;right:22px;background:var(--teal-dark);color:var(--gold-light);padding:11px 18px;border-radius:11px;font-size:0.83rem;box-shadow:0 6px 24px rgba(6,76,72,0.35);display:none;z-index:500;border-left:4px solid var(--gold);}
 
 /* ===== LOGIN ===== */
-#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;}
+#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#login-screen::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px);background-size:28px 28px;pointer-events:none;}
+.login-card{position:relative;z-index:1;}
 .login-card{background:white;border-radius:22px;padding:40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
 </style>
 </head>
@@ -243,8 +245,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <!-- SIDEBAR -->
 <div class="app">
 <aside class="sidebar">
-  <div class="sidebar-logo">
-    <img src="img/logo_white_horiz.png" alt="KEREK" style="height:38px;width:auto;display:block">
+  <div class="sidebar-logo"><img onclick="location.reload()" style="cursor:pointer" title="Frissítés" src="img/logo_white_horiz.png" alt="KEREK" style="height:38px;width:auto;display:block">
     <div class="sidebar-tagline">Receptúra modul</div>
   </div>
   <div class="nav-section">

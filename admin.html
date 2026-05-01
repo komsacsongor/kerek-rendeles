@@ -219,7 +219,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 #toast{position:fixed;bottom:24px;right:24px;background:var(--teal-dark);color:var(--gold-light);padding:12px 20px;border-radius:12px;font-size:0.84rem;box-shadow:0 6px 24px rgba(6,76,72,0.35);display:none;z-index:500;border-left:4px solid var(--gold);max-width:320px;}
 
 /* LOGIN */
-#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;}
+#login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#login-screen::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px);background-size:28px 28px;pointer-events:none;}
+.login-card{position:relative;z-index:1;}
 .login-card{background:white;border-radius:24px;padding:44px 40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
 .login-card h2{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--teal-dark);margin-bottom:4px;}
 .login-card p{font-size:0.8rem;color:var(--text-soft);margin-bottom:24px;}
@@ -998,6 +1000,11 @@ function nav(id){
   document.getElementById('view-'+id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes(`'${id}'`)) n.classList.add('active'); });
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
+  // Hide month bar for views with own selector or no months needed
+  const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export'];
+  const HIDE_MONTHS = ['clients','client-detail','settings'];
+  const monthBar = document.getElementById('month-bar');
+  if(monthBar) monthBar.style.display = (HAS_OWN_MONTHS.includes(id)||HIDE_MONTHS.includes(id)) ? 'none' : 'flex';
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
   currentView = id;
   const renders = {
@@ -1053,10 +1060,14 @@ function buildTopbarMonths(){
 function selectMonth(m){ selMonth=m; buildTopbarMonths(); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
 
 function updateMsgBadge(){
-  let count=0;
-  Object.values(D.messages).forEach(arr=>count+=arr.length);
+  let unanswered=0;
+  Object.entries(D.messages).forEach(([key,arr])=>{
+    const clientMsgs=(arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:'));
+    const adminReplies=(arr||[]).filter(m=>(m.text||'').startsWith('📨 Admin:'));
+    if(clientMsgs.length > adminReplies.length) unanswered += clientMsgs.length - adminReplies.length;
+  });
   const b=document.getElementById('msg-badge');
-  if(count>0){b.style.display='inline';b.textContent=count;}else{b.style.display='none';}
+  if(b){if(unanswered>0){b.style.display='inline';b.textContent=unanswered;}else{b.style.display='none';}}
 }
 
 // ===== DASHBOARD =====
@@ -1299,33 +1310,26 @@ function renderOrders(){
 }
 
 // ===== CATALOG =====
-function renderCatalog(){
-  const sel=document.getElementById('catalog-month-sel');
-  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===catalogMonth?'active':''}" onclick="selectCatalogMonth(${i})">${mo}</button>`).join('');
-  const activeIds=D.monthlyActiveProducts[mk(selYear,catalogMonth)]||[];
-  // All products
-  const catSel=document.getElementById('p-category');
-  catSel.innerHTML=D.categories.map(c=>`<option>${c}</option>`).join('');
-
-  document.getElementById('all-products').innerHTML=D.products.map(p=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1.5px solid ${activeIds.includes(p.id)?'var(--teal)':'var(--border)'};border-radius:12px;background:${activeIds.includes(p.id)?'var(--teal-pale)':'white'};margin-bottom:8px;cursor:pointer;transition:all 0.2s" onclick="toggleProduct(${p.id})">
-      <div>
-        <div style="font-weight:600;font-size:0.88rem">${p.name} <span class="text-xs text-soft">${p.weight}</span></div>
-        <div style="font-size:0.75rem;color:var(--gold-dark)">${p.price} lej · ${p.category}</div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        ${activeIds.includes(p.id)?'<span class="badge badge-green">✓ Aktív</span>':''}
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProductModal(${p.id})">✏️</button>
-      </div>
-    </div>`).join('');
-
-  const activeProds=D.products.filter(p=>activeIds.includes(p.id));
-  document.getElementById('active-products').innerHTML=activeProds.length===0
-    ?'<p class="text-soft text-sm">Kattints a bal oldali termékekre az aktiváláshoz.</p>'
-    :activeProds.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:white;margin-bottom:7px">
-      <div style="font-size:0.85rem;font-weight:600">${p.name} <span class="text-xs text-soft">${p.weight}</span></div>
-      <button class="btn btn-danger btn-sm" onclick="toggleProduct(${p.id})">✕</button></div>`).join('');
+function setCatalogFilter(cat) {
+  window._catalogFilter = cat;
+  renderCatalog();
 }
+
+function renderCatalog(){
+  const y=selYear, m=selMonth;
+  // Category filter
+  const allCats = [...new Set(D.products.map(p=>p.category||'Egyéb'))].sort();
+  const activeCat = window._catalogFilter || 'all';
+  
+  // Filter bar
+  const filterHtml = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <span style="font-size:0.78rem;color:var(--text-soft);font-weight:600">Szűrés:</span>
+    <button class="btn ${activeCat==='all'?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('all')">Összes</button>
+    ${allCats.map(cat=>`<button class="btn ${activeCat===cat?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('${cat}')">${cat}</button>`).join('')}
+  </div>`;
+  
+  const filtered = activeCat==='all' ? D.products : D.products.filter(p=>(p.category||'Egyéb')===activeCat);
+  const active=D.monthlyActiveProducts[`${y}-${m}`]||[];}
 function selectCatalogMonth(m){ catalogMonth=m; renderCatalog(); }
 function toggleProduct(id){
   const key=mk(selYear,catalogMonth);
