@@ -888,7 +888,7 @@ table.order-tbl {
 
 <!-- HEADER -->
 <header class="header">
-  <img src="img/logo_white_horiz.png" alt="KEREK" style="height:30px;width:auto">
+  <img src="img/logo_white_horiz.png" alt="KEREK" style="height:30px;width:auto;cursor:pointer" onclick="location.href='index.html'" title="Főmenü">
   <div class="user-info">
     <span class="user-name" id="user-badge"></span>
     <button class="btn btn-logout" onclick="logout()">Kilépés</button>
@@ -955,7 +955,7 @@ table.order-tbl {
     <div class="client-hero" style="margin-bottom:20px">
       <div>
         <h2 style="font-style:normal">Összesítő</h2>
-        <p>Havi bontásban láthatod az összes megrendelésedet. A 📄 Rendelés PDF gombbal le is töltheted és azok értékét.</p>
+        <p>Havi bontásban láthatod az összes megrendelésedet és azok értékét. A <b>📄 Rendelés PDF</b> gombbal nyomtatható összesítőt is generálhatsz!</p>
       </div>
     </div>
     <div class="month-row" id="summary-month-sel"></div>
@@ -1410,13 +1410,13 @@ function generateOrderPDF() {
 
   for(let m=0; m<=11; m++){
     const days = getDays(selectedYear, m);
-    const prods = getActiveProducts(selectedYear, m);
+    const prods = getActiveProds(selectedYear, m); // correct vevo function name
     let monthTotal=0, rows='', hasOrders=false;
     days.forEach(d=>{
       const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
       const ord = appData.orders[key];
       if(!ord) return;
-      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*p.price,0);
+      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*(p.price||0),0);
       if(!dayTotal) return;
       hasOrders=true; monthTotal+=dayTotal;
       const items = prods.filter(p=>(ord[p.id]||0)>0).map(p=>p.name+' × '+ord[p.id]+' db').join(', ');
@@ -2064,13 +2064,13 @@ function generateOrderPDF() {
 
   for(let m=0; m<=11; m++){
     const days = getDays(selectedYear, m);
-    const prods = getActiveProducts(selectedYear, m);
+    const prods = getActiveProds(selectedYear, m); // correct vevo function name
     let monthTotal=0, rows='', hasOrders=false;
     days.forEach(d=>{
       const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
       const ord = appData.orders[key];
       if(!ord) return;
-      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*p.price,0);
+      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*(p.price||0),0);
       if(!dayTotal) return;
       hasOrders=true; monthTotal+=dayTotal;
       const items = prods.filter(p=>(ord[p.id]||0)>0).map(p=>p.name+' × '+ord[p.id]+' db').join(', ');
