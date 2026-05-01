@@ -22,6 +22,7 @@ body{font-family:'Kodchasan',sans-serif;background:var(--cream);color:var(--text
 .app{display:flex;flex:1;}
 .sidebar{width:220px;background:var(--teal-dark);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:40;overflow-y:auto;}
 .sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo img{height:32px!important;width:auto!important;max-width:160px!important;display:block;}
 .sidebar-logo svg{height:32px;width:auto;}
 .sidebar-tagline{font-size:0.62rem;color:var(--teal-mid);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;}
 .nav-section{padding:10px 0 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
@@ -238,7 +239,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Belépés →</button>
-    <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center">Demo: <b>admin</b></p>
+    <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center"></p>
   </div>
 </div>
 
