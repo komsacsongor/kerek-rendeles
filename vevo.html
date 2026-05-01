@@ -1410,7 +1410,7 @@ function generateOrderPDF() {
 
   for(let m=0; m<=11; m++){
     const days = getDays(selectedYear, m);
-    const prods = getActiveProds(selectedYear, m); // correct vevo function name
+    const prods = getActiveProds(selectedYear, m);
     let monthTotal=0, rows='', hasOrders=false;
     days.forEach(d=>{
       const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
@@ -1420,34 +1420,57 @@ function generateOrderPDF() {
       if(!dayTotal) return;
       hasOrders=true; monthTotal+=dayTotal;
       const items = prods.filter(p=>(ord[p.id]||0)>0).map(p=>p.name+' × '+ord[p.id]+' db').join(', ');
-      rows+=`<tr><td>${d.getDate()}. ${DAYS_SHORT[d.getDay()]}</td><td>${items}</td><td style="text-align:right">${dayTotal} lej</td></tr>`;
+      rows+=`<tr><td style="padding:6px 8px;border-bottom:1px solid #e0f2ef">${d.getDate()}. ${DAYS_SHORT[d.getDay()]}</td><td style="padding:6px 8px;border-bottom:1px solid #e0f2ef">${items}</td><td style="padding:6px 8px;border-bottom:1px solid #e0f2ef;text-align:right;font-weight:600">${dayTotal} lej</td></tr>`;
     });
     if(hasOrders){
-      bodyHtml+=`<h3 style="color:#064C48;border-bottom:2px solid #EFB036;padding-bottom:4px">${MONTHS[m]} ${selectedYear}</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
-        <tr style="background:#064C48;color:white"><th style="padding:6px;text-align:left">Nap</th><th style="text-align:left;padding:6px">Termékek</th><th style="text-align:right;padding:6px">Összeg</th></tr>
-        ${rows}<tr style="background:#e0f2ef;font-weight:700"><td colspan="2" style="padding:6px">Havi összesen</td><td style="text-align:right;padding:6px">${monthTotal} lej</td></tr>
+      bodyHtml+=`<h3 style="color:#064C48;margin:20px 0 8px;font-size:14px;border-bottom:2px solid #EFB036;padding-bottom:4px">${MONTHS[m]} ${selectedYear}</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:#064C48;color:white"><th style="padding:6px 8px;text-align:left">Nap</th><th style="padding:6px 8px;text-align:left">Termékek</th><th style="padding:6px 8px;text-align:right">Összeg</th></tr>
+        ${rows}
+        <tr style="background:#e0f2ef"><td colspan="2" style="padding:6px 8px;font-weight:700">Havi összesen</td><td style="padding:6px 8px;text-align:right;font-weight:700">${monthTotal} lej</td></tr>
       </table>`;
       grandTotal+=monthTotal;
     }
   }
-  if(!bodyHtml){alert('Nincs rendelés!');return;}
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>KEREK Rendelés</title>
-  <style>body{font-family:Arial,sans-serif;max-width:750px;margin:30px auto;color:#1A2E31}</style>
-  </head><body>
-  <h2 style="color:#064C48">🌾 KEREK Rendelés összesítő</h2>
-  <p style="color:#666">${currentUser.name} | ${selectedYear}. év | ${new Date().toLocaleDateString('hu-HU')}</p>
+  if(!bodyHtml){ toast('Nincs rendelés a megjelenítéshez!'); return; }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>KEREK Rendeles ${currentUser.name} ${selectedYear}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:720px;margin:30px auto;color:#1A2E31;font-size:13px}
+    @media print{body{margin:10px}.no-print{display:none}}
+  </style></head><body>
+  <div class="no-print" style="background:#064C48;color:white;padding:12px 20px;border-radius:10px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:1rem">📄 PDF mentéshez kattints: <b>Ctrl+P</b> (Windows) vagy <b>Cmd+P</b> (Mac)</span>
+    <span style="background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:20px;font-size:0.85rem">Célnyomtató: <b>PDF mentés</b> vagy <b>Save as PDF</b></span>
+    <button onclick="window.print()" style="background:#EFB036;color:#1A2E31;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem">🖨️ Nyomtatás / PDF</button>
+  </div>
+  <img src="https://kerek-rendeles.netlify.app/img/logo_teal_vert.png" style="height:60px;margin-bottom:8px" alt="KEREK">
+  <h2 style="color:#064C48;margin:0 0 4px">Rendelés összesítő – ${selectedYear}</h2>
+  <p style="color:#666;font-size:12px;margin-bottom:16px">Vevő: <b>${currentUser.name}</b> &nbsp;|&nbsp; Generálva: ${new Date().toLocaleDateString('hu-HU')}</p>
   ${bodyHtml}
-  <table style="width:100%;margin-top:16px"><tr style="background:#064C48;color:white;font-size:14px">
-    <td style="padding:10px;font-weight:700">ÉVES ÖSSZESEN</td>
-    <td style="text-align:right;padding:10px;font-weight:700">${grandTotal} lej</td>
-  </tr></table>
+  <table style="width:100%;margin-top:20px;border-collapse:collapse">
+    <tr style="background:#064C48;color:white">
+      <td style="padding:10px 12px;font-weight:700;font-size:14px">ÉVES ÖSSZESEN</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:14px">${grandTotal} lej</td>
+    </tr>
+  </table>
+  <p style="color:#aaa;font-size:10px;text-align:center;margin-top:24px">KEREK Gluténmentes Pékség – kerek-rendeles.netlify.app</p>
   </body></html>`;
 
-  const w = window.open('','_blank');
-  if(w){ w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),600); }
-  else { toast('⚠️ Engedélyezd a felugró ablakokat a PDF nyomtatáshoz!'); }
+  // Open in new tab - works on all browsers without popup blocker issues
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('📄 Összesítő megnyílt! Nyomj Ctrl+P → Mentés PDF-ként');
 }
 
 
