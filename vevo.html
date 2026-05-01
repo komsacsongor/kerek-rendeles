@@ -647,18 +647,22 @@ table.order-tbl {
   justify-content: center;
   overflow: hidden;
 }
-.login-bg-dots {
+#login-screen::before {
+  content: '';
   position: absolute;
-  top: -100px; right: -100px;
-  width: 500px; height: 500px;
-  opacity: 0.06;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
   pointer-events: none;
+}
+.login-bg-dots {
+  display: none;
 }
 .login-card {
   background: white;
   border-radius: 24px;
-  padding: 44px 40px;
-  width: 380px;
+  padding: 36px 40px;
+  width: 400px;
   position: relative;
   z-index: 1;
   box-shadow: 0 32px 100px rgba(0,0,0,0.3);
@@ -875,8 +879,14 @@ table.order-tbl {
     </g>
   </svg>
   <div class="login-card">
-    <div style="display:flex;justify-content:center;margin-bottom:16px"><img src="img/logo_teal_vert.png" alt="KEREK" style="height:90px;width:auto"></div>
-    <div class="login-tagline">My health. My value!</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px">
+      <img src="img/logo_teal_vert.png" alt="KEREK" style="height:70px;width:auto">
+      <div style="text-align:left">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--teal-dark);letter-spacing:2px">KEREK</div>
+        <div style="font-size:0.65rem;color:var(--text-soft);letter-spacing:2px;text-transform:uppercase">Megrendelő felület</div>
+      </div>
+    </div>
+    <div class="login-tagline">My Health. My Value!</div>
     <div class="login-field">
       <label>Belépési kód</label>
       <input type="text" id="login-input" placeholder="pl. KR-A7X2-9M4P" onkeydown="if(event.key==='Enter')doLogin()">
