@@ -75,5 +75,73 @@ const sb = {
 
   async setSetting(key, value) {
     return this.upsert('settings', { key, value: JSON.stringify(value) });
+  },
+
+  // ===== REALTIME WebSocket =====
+  _ws: null,
+  _channels: {},
+  _reconnectTimer: null,
+  _heartbeatTimer: null,
+  _ref: 1,
+
+  subscribe(tables, callback) {
+    const tableList = Array.isArray(tables) ? tables : [tables];
+    const key = tableList.join(',');
+    if (this._channels[key]) return;
+    this._channels[key] = { tables: tableList, callback };
+    this._connectWS();
+  },
+
+  unsubscribeAll() {
+    this._channels = {};
+    if (this._ws) { try { this._ws.close(); } catch(e){} this._ws = null; }
+    clearTimeout(this._reconnectTimer);
+    clearInterval(this._heartbeatTimer);
+  },
+
+  _connectWS() {
+    if (this._ws && (this._ws.readyState === WebSocket.OPEN || this._ws.readyState === WebSocket.CONNECTING)) return;
+    const wsUrl = `${SUPABASE_URL.replace('https','wss')}/realtime/v1/websocket?apikey=${SUPABASE_KEY}&vsn=1.0.0`;
+    try { this._ws = new WebSocket(wsUrl); } catch(e) { this._scheduleReconnect(); return; }
+
+    this._ws.onopen = () => {
+      clearTimeout(this._reconnectTimer);
+      Object.values(this._channels).forEach(ch => {
+        ch.tables.forEach(table => {
+          this._ws.send(JSON.stringify({
+            topic: `realtime:public:${table}`,
+            event: 'phx_join',
+            payload: { config: { broadcast: { self: false }, presence: { key: '' } } },
+            ref: String(this._ref++)
+          }));
+        });
+      });
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = setInterval(() => {
+        if (this._ws?.readyState === WebSocket.OPEN)
+          this._ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(this._ref++) }));
+      }, 25000);
+    };
+
+    this._ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (!['INSERT','UPDATE','DELETE'].includes(msg.event)) return;
+        const changedTable = (msg.topic || '').replace('realtime:public:','');
+        Object.values(this._channels).forEach(ch => {
+          if (ch.tables.includes(changedTable))
+            ch.callback({ table: changedTable, event: msg.event, record: msg.payload?.record });
+        });
+      } catch(e) {}
+    };
+
+    this._ws.onclose = () => { clearInterval(this._heartbeatTimer); this._scheduleReconnect(); };
+    this._ws.onerror = () => { try { this._ws.close(); } catch(e) {} };
+  },
+
+  _scheduleReconnect() {
+    if (Object.keys(this._channels).length === 0) return;
+    clearTimeout(this._reconnectTimer);
+    this._reconnectTimer = setTimeout(() => this._connectWS(), 5000);
   }
 };
