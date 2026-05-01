@@ -1806,6 +1806,17 @@ function doLogin() {
     renderOrderTable();
     updateHeroTotal();
     loadMessage();
+
+    // ===== REALTIME: azonnali frissítés =====
+    sb.subscribe(['messages', 'monthly_active_products'], async ({ table }) => {
+      if (table === 'messages') {
+        await loadMessage();
+        toast('📨 Új üzenet a péksègtől!');
+      }
+      if (table === 'monthly_active_products') {
+        renderOrderTable();
+      }
+    });
     renderHelpConditions();
   } else {
     toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
