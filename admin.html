@@ -1174,23 +1174,20 @@ async function sendAdminReply(clientId, month, inputId) {
   if(!input?.value.trim()) return;
   const text = input.value.trim();
   const key = `${clientId}-${selYear}-${month}`;
-  
-  // Save to admin messages in memory
-  if(!D.adminMessages) D.adminMessages = {};
-  if(!D.adminMessages[key]) D.adminMessages[key] = [];
-  const msg = {text, ts: new Date().toISOString(), fromAdmin: true};
-  D.adminMessages[key].push(msg);
-  
-  // Save to Supabase - use messages table with a flag
+  const fullText = '📨 Admin: ' + text;
+  const ts = new Date().toISOString();
+
   try {
     await sb.insert('messages', {
       client_id: clientId,
       year: selYear,
       month: month,
-      text: '📨 Admin: ' + text,
+      text: fullText,
     });
+    // Lokális cache frissítése hogy azonnal látsszon
+    if(!D.messages[key]) D.messages[key] = [];
+    D.messages[key].push({ text: fullText, ts });
     input.value = '';
-    save();
     renderMessages();
     toast('✅ Üzenet elküldve!');
   } catch(e) {
@@ -1213,40 +1210,42 @@ function renderMessages(){
   }).join('');
 
   // Reload messages from Supabase cache
-  let html=''; let found=false;
+  let html='';
   D.clients.forEach(c=>{
     const key=`${c.id}-${selYear}-${selMonth}`;
     const msgs=D.messages[key]||[];
-    if(msgs.length===0) return;
-    found=true;
     html+=`<div class="card mb-16">
       <div class="card-head">
         <div class="card-title">💬 ${c.name}</div>
         <span class="badge badge-gold">${MONTHS[selMonth]} ${selYear}</span>
       </div>
       <div class="card-body">`;
-    msgs.forEach((msg,i)=>{
-      const dt=new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      const isAdmin = msg.text?.startsWith('📨 Admin:');
-      const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
-      html+=`<div class="message-item" style="${bg}">
-        <div class="message-meta">
-          <span>${isAdmin ? '👩‍💼 Admin válasz' : '👤 '+c.name+' &nbsp;·&nbsp; '+(c.email||'')} </span>
-          <span>📅 ${dt}</span>
-        </div>
-        <div class="message-text">${msg.text}</div>
-      </div>`;
-    });
-    // Reply box
+    if(msgs.length===0){
+      html+=`<p style="color:var(--text-soft);font-size:0.82rem;margin:0 0 10px">Még nincs üzenet ebben a hónapban.</p>`;
+    } else {
+      msgs.forEach((msg,i)=>{
+        const dt=new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        const isAdmin = msg.text?.startsWith('📨 Admin:');
+        const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
+        html+=`<div class="message-item" style="${bg}">
+          <div class="message-meta">
+            <span>${isAdmin ? '👩‍💼 Admin válasz' : '👤 '+c.name+' &nbsp;·&nbsp; '+(c.email||'')} </span>
+            <span>📅 ${dt}</span>
+          </div>
+          <div class="message-text">${msg.text}</div>
+        </div>`;
+      });
+    }
+    // Reply box – mindig látható
     html+=`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <input type="text" id="reply-${key}" placeholder="Válasz ${c.name} részére..." 
+      <input type="text" id="reply-${key}" placeholder="Üzenet ${c.name} részére..." 
         style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
         onkeydown="if(event.key==='Enter')sendAdminReply('${c.id}',${selMonth},'reply-${key}')">
       <button class="btn btn-primary btn-sm" onclick="sendAdminReply('${c.id}',${selMonth},'reply-${key}')">📨 Küld</button>
     </div>`;
     html+='</div></div>';
   });
-  document.getElementById('messages-list').innerHTML=found?html:`<p class="text-soft text-sm">Nincsenek üzenetek ${MONTHS[selMonth]} hónapban.</p>`;
+  document.getElementById('messages-list').innerHTML=html||`<p class="text-soft text-sm">Nincsenek vevők.</p>`;
 }
 
 // ===== BAKING =====
