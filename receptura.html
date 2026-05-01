@@ -218,7 +218,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 /* ===== LOGIN ===== */
 #login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #login-screen::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px);background-size:28px 28px;pointer-events:none;}
-.login-card{position:relative;z-index:1;}
+#login-screen .login-card{position:relative;z-index:1;}
 .login-card{background:white;border-radius:22px;padding:40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
 </style>
 </head>
@@ -843,73 +843,8 @@ async function doLogin() {
     initApp();
   } else { toast('Hibás jelszó!'); }
 }
-function logout() { loggedIn = false; document.getElementById('login-screen').style.display = 'flex'; }
-async function loadRecipeData() {
-  try {
-    const [recipesRaw, ingredientsRaw, suppliersRaw, stepsRaw, ingListRaw, stockRaw] = await Promise.all([
-      sb.query('recipes', {order:'id'}),
-      sb.query('recipe_ingredients', {order:'recipe_id'}),
-      sb.query('ingredient_suppliers', {order:'ingredient_id'}),
-      sb.query('recipe_steps', {order:'recipe_id'}),
-      sb.query('ingredients', {order:'id'}),
-      sb.query('stock'),
-    ]);
-
-    // Build recipes
-    if(recipesRaw.length > 0) {
-      R.recipes = recipesRaw.map(rec => {
-        const dryIngs = ingredientsRaw
-          .filter(i => i.recipe_id === rec.id && ['flour','other_dry'].includes(i.sub_type))
-          .map(i => ({name:i.name, amount:i.amount, ingredientId:i.ingredient_id}));
-        const wetIngs = ingredientsRaw
-          .filter(i => i.recipe_id === rec.id && i.sub_type === 'wet')
-          .map(i => ({name:i.name, amount:i.amount, ingredientId:i.ingredient_id}));
-        const steps = stepsRaw
-          .filter(s => s.recipe_id === rec.id)
-          .sort((a,b) => a.sort_order - b.sort_order)
-          .map(s => ({title:s.title, desc:s.description, timer:s.timer_minutes}));
-        return {
-          id: rec.id, name: rec.name, category: rec.category,
-          basePortion: rec.base_portion, bakeLoss: rec.bake_loss,
-          unitWeight: rec.unit_weight, temp1: rec.temp1, time1: rec.time1,
-          temp2: rec.temp2, time2: rec.time2, desc: rec.description,
-          levainAmount: rec.levain_amount, laborH: rec.labor_h,
-          electricity: rec.electricity, dryIngredients: dryIngs,
-          wetIngredients: wetIngs, steps: steps,
-        };
-      });
-      console.log(`✅ ${R.recipes.length} recept betöltve Supabase-ből`);
-    }
-
-    // Build ingredients with suppliers
-    if(ingListRaw.length > 0) {
-      R.ingredients = ingListRaw.map(ing => {
-        const suppliers = suppliersRaw
-          .filter(s => s.ingredient_id === ing.id)
-          .sort((a,b) => a.sort_order - b.sort_order)
-          .map(s => ({
-            source: s.source, priceGross: s.price_gross, priceNet: s.price_net,
-            package: s.package_g, stock: s.stock_g, date: s.purchase_date,
-          }));
-        const stockEntry = stockRaw.find(s => s.ingredient_id === ing.id);
-        if(suppliers.length === 0) {
-          suppliers.push({source:'',priceGross:0,priceNet:0,package:1000,
-            stock: stockEntry?.total_stock || 0, date: new Date().toISOString().slice(0,10)});
-        }
-        return {
-          id: ing.id, name: ing.name, cat: ing.category, subType: ing.sub_type,
-          suppliers: suppliers, pricePerG: ing.price_per_g,
-          minStock: ing.min_stock, criticalStock: ing.critical_stock,
-        };
-      });
-      console.log(`✅ ${R.ingredients.length} alapanyag betöltve`);
-    }
-
-    // Save to localStorage cache
-    localStorage.setItem('kerek_recipe_data', JSON.stringify(R));
-  } catch(e) {
-    console.warn('⚠️ Supabase hiba, lokális adat használva:', e.message);
-  }
+function logout() {
+  window.location.href = 'index.html';
 }
 
 function initApp() {

@@ -221,7 +221,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 /* LOGIN */
 #login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #login-screen::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px);background-size:28px 28px;pointer-events:none;}
-.login-card{position:relative;z-index:1;}
+#login-screen .login-card{position:relative;z-index:1;}
 .login-card{background:white;border-radius:24px;padding:44px 40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
 .login-card h2{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--teal-dark);margin-bottom:4px;}
 .login-card p{font-size:0.8rem;color:var(--text-soft);margin-bottom:24px;}
@@ -886,85 +886,8 @@ async function doLogin(){
     } else { toast('Hibás jelszó! (offline mód)'); }
   }
 }
-function logout(){ document.getElementById('login-screen').style.display='flex'; document.getElementById('login-pw').value=''; }
-
-async function loadAllData(){
-  try {
-    // Load all data from Supabase into D
-    const [clients, products, map, orders, messages, calRows, settingsRows] = await Promise.all([
-      sb.query('clients', {order: 'name'}),
-      sb.query('products', {order: 'id'}),
-      sb.query('monthly_active_products'),
-      sb.query('orders'),
-      sb.query('messages', {order: 'created_at.desc'}),
-      sb.query('baking_calendar'),
-      sb.query('settings'),
-    ]);
-
-    D.clients = clients.map(c => ({
-      id: c.id, name: c.name, email: c.email||'',
-      phone: c.phone||'', note: c.note||'',
-      joinDate: c.join_date
-    }));
-
-    D.products = products.map(p => ({
-      id: p.id, name: p.name, weight: p.weight,
-      price: p.price, category: p.category,
-      desc: p.description, image: p.image
-    }));
-
-    // Build monthlyActiveProducts
-    D.monthlyActiveProducts = {};
-    map.forEach(r => {
-      const key = `${r.year}-${r.month}`;
-      if(!D.monthlyActiveProducts[key]) D.monthlyActiveProducts[key] = [];
-      D.monthlyActiveProducts[key].push(r.product_id);
-    });
-
-    // Build orders {clientId-year-month-day: {productId: qty}}
-    D.orders = {};
-    orders.forEach(o => {
-      const key = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
-      if(!D.orders[key]) D.orders[key] = {};
-      D.orders[key][o.product_id] = o.quantity;
-    });
-
-    // Build messages
-    D.messages = {};
-    messages.forEach(m => {
-      const key = `${m.client_id}-${m.year}-${m.month}`;
-      if(!D.messages[key]) D.messages[key] = [];
-      D.messages[key].push({text: m.text, ts: m.created_at});
-    });
-
-    // Build baking calendar
-    D.bakingCalendar = {};
-    calRows.forEach(r => {
-      D.bakingCalendar[`${r.year}-${r.month}`] = {
-        extra: r.extra_dates||[], removed: r.removed_dates||[]
-      };
-    });
-
-    // Settings
-    D.settings = {};
-    settingsRows.forEach(s => {
-      try { D.settings[s.key] = JSON.parse(s.value); } catch(e) {}
-    });
-    D.settings.adminPw = D.settings.admin_password || 'admin';
-    D.bakingDaysDefault = D.settings.baking_days_default || [2,5];
-    D.helpConditions = D.settings.help_conditions || '';
-    D.helpDelivery = D.settings.help_delivery || '';
-    D.categories = D.settings.categories || ['Kenyér','Bagett / zsömle','Sütemény','Egyéb'];
-
-    // Cache locally
-    localStorage.setItem('kerek_data', JSON.stringify(D));
-    console.log('✅ Adatok betöltve a Supabase-ből');
-  } catch(e) {
-    console.warn('⚠️ Supabase hiba, lokális adatok használata:', e.message);
-    // Load from localStorage fallback
-    const cached = JSON.parse(localStorage.getItem('kerek_data')||'{}');
-    if(cached._v) Object.assign(D, cached);
-  }
+function logout() {
+  window.location.href = 'index.html';
 }
 
 function initApp(){
