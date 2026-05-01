@@ -950,7 +950,24 @@ table.order-tbl {
   <!-- ===== SUMMARY VIEW ===== -->
   <div id="view-summary" class="view">
     <div style="display:flex;justify-content:flex-end;padding:0 0 12px">
-      <button class="btn btn-primary btn-sm" onclick="generateOrderPDF()" style="display:flex;align-items:center;gap:6px">📄 Rendelés PDF</button>
+      <button class="btn btn-primary btn-sm" onclick="showPdfModal()" style="display:flex;align-items:center;gap:6px">📄 Rendelés PDF</button>
+    </div>
+    <!-- PDF Modal -->
+    <div id="pdf-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;padding:20px">
+      <div style="background:white;border-radius:20px;padding:32px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+        <h3 style="color:#064C48;margin:0 0 16px;font-size:1.1rem">📄 Rendelés mentése PDF-ként</h3>
+        <div style="background:#f0fff4;border-radius:10px;padding:16px;margin-bottom:20px;font-size:0.85rem;line-height:1.6">
+          <p style="margin:0 0 10px;font-weight:600;color:#064C48">Lépések:</p>
+          <p style="margin:0 0 6px">1️⃣ Kattints az alábbi <b>Összesítő megnyitása</b> gombra</p>
+          <p style="margin:0 0 6px">2️⃣ Megnyílik egy új oldal az összesítőddel</p>
+          <p style="margin:0 0 6px">3️⃣ Nyomd meg: <b>Ctrl+P</b> (Windows) vagy <b>Cmd+P</b> (Mac)</p>
+          <p style="margin:0">4️⃣ Nyomtató helyett válaszd: <b>"Mentés PDF-ként"</b> → Mentés</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button onclick="openPdfSummary()" style="flex:1;background:#064C48;color:white;border:none;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.9rem">📋 Összesítő megnyitása</button>
+          <button onclick="document.getElementById('pdf-modal').style.display='none'" style="background:#f5f5f5;color:#666;border:none;padding:12px 16px;border-radius:10px;cursor:pointer;font-size:0.85rem">Mégse</button>
+        </div>
+      </div>
     </div>
     <div class="client-hero" style="margin-bottom:20px">
       <div>
@@ -1403,7 +1420,12 @@ function loadMessage() {
 }
 
 // ===== SUMMARY =====
-function generateOrderPDF() {
+function showPdfModal() {
+  const modal = document.getElementById('pdf-modal');
+  if(modal) modal.style.display='flex';
+}
+
+function openPdfSummary() {
   const MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
   const DAYS_SHORT = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
   let grandTotal = 0, bodyHtml = '';
@@ -1470,7 +1492,7 @@ function generateOrderPDF() {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  toast('📄 Összesítő megnyílt! Nyomj Ctrl+P → Mentés PDF-ként');
+  document.getElementById('pdf-modal').style.display='none';
 }
 
 
