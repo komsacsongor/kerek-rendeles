@@ -941,8 +941,11 @@ table.order-tbl {
     <!-- MOBILE ORDER CARDS -->
     <div class="mobile-order-cards" id="mobile-order-cards"></div>
 
+    <!-- Admin → Vevő üzenetek megjelenítő -->
+    <div id="order-messages-display" style="margin-bottom:12px"></div>
+
     <div class="msg-box">
-      <label>💬 Üzenet / megjegyzés (opcionális)</label>
+      <label>💬 Üzenet / megjegyzés a pékségnek (opcionális)</label>
       <textarea id="order-message" placeholder="Írj ide bármit – pl. szállítási kérés, allergén, visszajelzés..."></textarea>
     </div>
 
@@ -1774,13 +1777,14 @@ async function loadMessage() {
   const msgs = appData.messages?.[key] || [];
   const el = document.getElementById('order-messages-display');
   if(!el) return;
-  if(msgs.length===0){ el.innerHTML='<p style="color:var(--text-soft);font-size:0.82rem">Nincs üzenet ebben a hónapban.</p>'; return; }
-  el.innerHTML = msgs.map(m=>{
-    const isAdmin = (m.text||'').startsWith('📨 Admin:');
-    const txt = isAdmin ? m.text.replace('📨 Admin:','').trim() : m.text;
-    const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;' : 'padding:8px 0;border-bottom:1px solid var(--border);';
-    const who = isAdmin ? '👩‍💼 <b>KEREK Pékség</b>' : '👤 Te';
-    return `<div style="margin-bottom:8px;font-size:0.82rem;${bg}"><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">${who} · ${new Date(m.ts||Date.now()).toLocaleDateString('hu-HU')}</div><div>${txt}</div></div>`;
+  if(msgs.length===0){ el.innerHTML=''; return; }
+  const adminMsgs = msgs.filter(m => (m.text||'').startsWith('📨 Admin:'));
+  if(adminMsgs.length===0){ el.innerHTML=''; return; }
+  el.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);margin-bottom:6px">📨 Pékség üzenetei</div>' +
+  adminMsgs.map(m=>{
+    const txt = m.text.replace('📨 Admin:','').trim();
+    const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
+    return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;"><div style="font-size:0.7rem;color:#065f46;margin-bottom:3px">👩‍💼 <b>KEREK Pékség</b> · ${dt}</div><div>${txt}</div></div>`;
   }).join('');
 }
 
