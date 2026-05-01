@@ -1,50 +1,81 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KEREK – Rendeléskezelő</title>
-<link rel="stylesheet" href="fonts.css">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<style>
-:root { --teal-dark:#064C48; --teal:#129990; --gold:#EFB036; --gold-light:#EBCF9E; --cream:#FAF7F0; }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Kodchasan',sans-serif; background:var(--teal-dark); min-height:100vh; display:flex; align-items:center; justify-content:center; }
-.wrap { text-align:center; }
-.logo { font-family:'Fraunces',serif; font-size:3rem; color:var(--gold-light); letter-spacing:8px; margin-bottom:8px; }
-.tagline { color:var(--teal); font-size:0.85rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:48px; }
-.cards { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
-.card { background:white; border-radius:20px; padding:36px 40px; width:220px; cursor:pointer; transition:all 0.25s; text-decoration:none; display:block; }
-.card:hover { transform:translateY(-6px); box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-.card .icon { font-size:2.5rem; margin-bottom:14px; }
-.card h2 { font-family:'Fraunces',serif; font-size:1.2rem; color:var(--teal-dark); margin-bottom:6px; }
-.card p { font-size:0.78rem; color:#5A7A80; line-height:1.5; }
-.card.admin { border-top:4px solid var(--teal); }
-.card.vevo { border-top:4px solid var(--gold); }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KEREK – Gluténmentes Pékség</title>
+  <link rel="stylesheet" href="fonts.css">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Kodchasan',sans-serif;
+      min-height:100vh;
+      background:#064C48;
+      display:flex;align-items:center;justify-content:center;
+      position:relative;overflow:hidden;
+    }
+    /* Pöttyes textúra */
+    body::before{
+      content:'';position:fixed;inset:0;
+      background-image:radial-gradient(circle,rgba(255,255,255,0.07) 1.5px,transparent 1.5px);
+      background-size:28px 28px;
+      pointer-events:none;z-index:0;
+    }
+    .container{position:relative;z-index:1;text-align:center;padding:40px 20px;max-width:480px;width:100%}
+    .logo{margin-bottom:12px}
+    .logo img{height:100px;width:auto}
+    .tagline{color:rgba(255,255,255,0.7);font-size:0.85rem;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:48px}
+    .cards{display:flex;flex-direction:column;gap:14px}
+    .card{
+      background:white;border-radius:16px;padding:20px 24px;
+      display:flex;align-items:center;gap:16px;
+      cursor:pointer;text-decoration:none;color:inherit;
+      transition:transform 0.15s,box-shadow 0.15s;
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
+    }
+    .card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.22)}
+    .card-icon{font-size:2rem;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:12px;flex-shrink:0}
+    .card-icon.teal{background:#e0f2ef}
+    .card-icon.gold{background:#fef3cd}
+    .card-icon.purple{background:#f0e8ff}
+    .card-text{text-align:left}
+    .card-title{font-size:1rem;font-weight:700;color:#064C48;margin-bottom:2px}
+    .card-sub{font-size:0.78rem;color:#6b8a88}
+    .footer{margin-top:36px;color:rgba(255,255,255,0.4);font-size:0.72rem}
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <img src="img/logo_teal_vert.png" alt="KEREK" style="height:64px;width:auto;display:block;margin:0 auto 10px">
-  <div style="text-align:center;color:var(--teal);font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:48px;font-family:Kodchasan,sans-serif">My health. My value!</div>
-  <div style="font-size:0.72rem;color:var(--teal-mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;text-align:center">Admin hozzáférés</div>
+  <div class="container">
+    <div class="logo">
+      <img src="img/logo_white_horiz.png" alt="KEREK">
+    </div>
+    <div class="tagline">My Health. My Value!</div>
+    
     <div class="cards">
-    <a href="vevo.html" class="card vevo">
-      <div class="icon">🛒</div>
-      <h2>Vevői felület</h2>
-      <p>Megrendelő lap, összesítő, súgó</p>
-    </a>
-    <a href="admin.html" class="card admin">
-      <div class="icon">👩‍💼</div>
-      <h2>Admin felület</h2>
-      <p>Sütési lista, kimutatások, beállítások</p>
-    </a>
-    <a href="receptura.html" class="card admin" style="border-top-color:var(--gold)">
-      <div class="icon">📋</div>
-      <h2>Receptúra modul</h2>
-      <p>Receptek, önköltség, készletkezelés</p>
-    </a>
+      <a class="card" href="vevo.html">
+        <div class="card-icon teal">🛒</div>
+        <div class="card-text">
+          <div class="card-title">Megrendelő felület</div>
+          <div class="card-sub">Vevőknek – havi rendelés leadása</div>
+        </div>
+      </a>
+      <a class="card" href="admin.html">
+        <div class="card-icon gold">👩‍💼</div>
+        <div class="card-text">
+          <div class="card-title">Admin felület</div>
+          <div class="card-sub">Rendelések, vevők, termékek kezelése</div>
+        </div>
+      </a>
+      <a class="card" href="receptura.html">
+        <div class="card-icon purple">📋</div>
+        <div class="card-text">
+          <div class="card-title">Receptúra modul</div>
+          <div class="card-sub">Receptek, alapanyagok, gyártás tervezés</div>
+        </div>
+      </a>
+    </div>
+    
+    <div class="footer">KEREK Gluténmentes Pékség · kerek-rendeles.netlify.app</div>
   </div>
-</div>
 </body>
 </html>

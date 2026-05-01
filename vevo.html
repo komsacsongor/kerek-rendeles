@@ -955,7 +955,7 @@ table.order-tbl {
     <div class="client-hero" style="margin-bottom:20px">
       <div>
         <h2 style="font-style:normal">Összesítő</h2>
-        <p>Havi bontásban láthatod az összes megrendelésedet és azok értékét.</p>
+        <p>Havi bontásban láthatod az összes megrendelésedet. A 📄 Rendelés PDF gombbal le is töltheted és azok értékét.</p>
       </div>
     </div>
     <div class="month-row" id="summary-month-sel"></div>
@@ -1106,7 +1106,7 @@ function doLogin() {
     toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
   }
 }
-function logout() { currentUser = null; document.getElementById('login-screen').style.display = 'flex'; document.getElementById('login-input').value = ''; }
+function logout() { window.location.href = 'index.html'; }
 
 // ===== NAVIGATION =====
 function showView(id) {
@@ -1404,95 +1404,52 @@ function loadMessage() {
 
 // ===== SUMMARY =====
 function generateOrderPDF() {
-  const months = ['Január','Február','Március','Április','Május','Június',
-    'Július','Augusztus','Szeptember','Október','November','December'];
-  
-  // Build print content
-  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>KEREK Rendelés – ${currentUser.name}</title>
-  <style>
-    body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#1A2E31}
-    h1{color:#064C48;font-size:1.4rem;margin-bottom:4px}
-    h2{color:#064C48;font-size:1rem;margin:16px 0 8px;border-bottom:2px solid #EFB036;padding-bottom:4px}
-    .meta{color:#666;font-size:0.85rem;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:16px}
-    th{background:#064C48;color:white;padding:8px 10px;text-align:left}
-    td{padding:7px 10px;border-bottom:1px solid #e0f2ef}
-    tr:nth-child(even) td{background:#f5faf9}
-    .total{font-weight:bold;background:#e0f2ef!important}
-    .footer{margin-top:30px;font-size:0.75rem;color:#999;text-align:center;border-top:1px solid #eee;padding-top:10px}
-    @media print{body{padding:10px}}
-  </style></head><body>`;
+  const MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+  const DAYS_SHORT = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
+  let grandTotal = 0, bodyHtml = '';
 
-  html += `<h1>🌾 KEREK Rendelés összesítő</h1>`;
-  html += `<div class="meta">Vevő: <b>${currentUser.name}</b> &nbsp;|&nbsp; Generálva: ${new Date().toLocaleDateString('hu-HU')}</div>`;
-
-  // Get all months with orders
-  let grandTotal = 0;
-  const months_with_orders = [];
-  
-  for(let m = 0; m <= 11; m++) {
+  for(let m=0; m<=11; m++){
     const days = getDays(selectedYear, m);
-    const activePids = getActiveProducts(selectedYear, m).map(p=>p.id);
-    let hasOrders = false;
-    let monthTotal = 0;
-    let rows = '';
-
-    days.forEach(d => {
+    const prods = getActiveProducts(selectedYear, m);
+    let monthTotal=0, rows='', hasOrders=false;
+    days.forEach(d=>{
       const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
-      const dayOrders = appData.orders[key];
-      if(!dayOrders) return;
-      const dayTotal = activePids.reduce((s,pid)=>s+(dayOrders[pid]||0)*getPrice(pid),0);
-      if(dayTotal === 0) return;
-      hasOrders = true;
-      monthTotal += dayTotal;
-      const items = activePids.filter(pid=>(dayOrders[pid]||0)>0)
-        .map(pid=>{
-          const p = appData.products.find(x=>x.id==pid);
-          return `${p?.name||pid} × ${dayOrders[pid]}`;
-        }).join(', ');
-      rows += `<tr><td>${d.getDate()}. ${['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'][d.getDay()]}</td><td>${items}</td><td style="text-align:right">${dayTotal} lej</td></tr>`;
+      const ord = appData.orders[key];
+      if(!ord) return;
+      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*p.price,0);
+      if(!dayTotal) return;
+      hasOrders=true; monthTotal+=dayTotal;
+      const items = prods.filter(p=>(ord[p.id]||0)>0).map(p=>p.name+' × '+ord[p.id]+' db').join(', ');
+      rows+=`<tr><td>${d.getDate()}. ${DAYS_SHORT[d.getDay()]}</td><td>${items}</td><td style="text-align:right">${dayTotal} lej</td></tr>`;
     });
-
-    if(hasOrders) {
-      html += `<h2>${months[m]} ${selectedYear}</h2>`;
-      html += `<table><thead><tr><th>Nap</th><th>Termékek</th><th style="text-align:right">Összeg</th></tr></thead><tbody>`;
-      html += rows;
-      html += `<tr class="total"><td colspan="2">Havi összesen</td><td style="text-align:right">${monthTotal} lej</td></tr>`;
-      html += `</tbody></table>`;
-      grandTotal += monthTotal;
-      months_with_orders.push(m);
+    if(hasOrders){
+      bodyHtml+=`<h3 style="color:#064C48;border-bottom:2px solid #EFB036;padding-bottom:4px">${MONTHS[m]} ${selectedYear}</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+        <tr style="background:#064C48;color:white"><th style="padding:6px;text-align:left">Nap</th><th style="text-align:left;padding:6px">Termékek</th><th style="text-align:right;padding:6px">Összeg</th></tr>
+        ${rows}<tr style="background:#e0f2ef;font-weight:700"><td colspan="2" style="padding:6px">Havi összesen</td><td style="text-align:right;padding:6px">${monthTotal} lej</td></tr>
+      </table>`;
+      grandTotal+=monthTotal;
     }
   }
+  if(!bodyHtml){alert('Nincs rendelés!');return;}
 
-  if(months_with_orders.length === 0) {
-    alert('Nincs rendelés a megjelenítéshez!');
-    return;
-  }
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>KEREK Rendelés</title>
+  <style>body{font-family:Arial,sans-serif;max-width:750px;margin:30px auto;color:#1A2E31}</style>
+  </head><body>
+  <h2 style="color:#064C48">🌾 KEREK Rendelés összesítő</h2>
+  <p style="color:#666">${currentUser.name} | ${selectedYear}. év | ${new Date().toLocaleDateString('hu-HU')}</p>
+  ${bodyHtml}
+  <table style="width:100%;margin-top:16px"><tr style="background:#064C48;color:white;font-size:14px">
+    <td style="padding:10px;font-weight:700">ÉVES ÖSSZESEN</td>
+    <td style="text-align:right;padding:10px;font-weight:700">${grandTotal} lej</td>
+  </tr></table>
+  </body></html>`;
 
-  html += `<h2>Éves összesítő ${selectedYear}</h2>`;
-  html += `<table><tbody><tr class="total"><td>Teljes összeg</td><td style="text-align:right"><b>${grandTotal} lej</b></td></tr></tbody></table>`;
-  html += `<div class="footer">KEREK Gluténmentes Pékség – kerek-rendeles.netlify.app – ${new Date().toLocaleDateString('hu-HU')}</div>`;
-  html += `</body></html>`;
-
-  // Create blob and download as PDF-ready HTML
-  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  // Try popup first, fallback to same-tab
-  const win = window.open(url, '_blank');
-  if(!win) {
-    // Popup blocked - use iframe print
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:800px;height:600px';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    iframe.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe), 2000); };
-    toast('📄 Nyomtatás / PDF mentés...');
-  } else {
-    setTimeout(()=>win.print(), 800);
-    toast('📄 PDF megnyílt – Nyomtatás/Mentés gombbal mentheted!');
-  }
+  const w = window.open('','_blank');
+  if(w){ w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),600); }
+  else { toast('⚠️ Engedélyezd a felugró ablakokat a PDF nyomtatáshoz!'); }
 }
+
 
 function renderSummary() {
   const prods = getActiveProds(selectedYear, summaryMonth);
@@ -1752,6 +1709,661 @@ function toast(msg) {
 
 // Auto-login check runs after everything is loaded
 window.addEventListener('load', checkAutoLogin);
+async function loadMessage() {
+  const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
+  try {
+    const msgs = await sb.query('messages', {
+      filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`,
+      order: 'created_at'
+    });
+    if(!appData.messages) appData.messages = {};
+    appData.messages[key] = msgs.map(m => ({text: m.text, ts: m.created_at}));
+  } catch(e) { console.warn('Message load error:', e); }
+  
+  const msgs = appData.messages?.[key] || [];
+  const el = document.getElementById('order-messages-display');
+  if(!el) return;
+  if(msgs.length===0){ el.innerHTML='<p style="color:var(--text-soft);font-size:0.82rem">Nincs üzenet ebben a hónapban.</p>'; return; }
+  el.innerHTML = msgs.map(m=>{
+    const isAdmin = (m.text||'').startsWith('📨 Admin:');
+    const txt = isAdmin ? m.text.replace('📨 Admin:','').trim() : m.text;
+    const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;' : 'padding:8px 0;border-bottom:1px solid var(--border);';
+    const who = isAdmin ? '👩‍💼 <b>KEREK Pékség</b>' : '👤 Te';
+    return `<div style="margin-bottom:8px;font-size:0.82rem;${bg}"><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">${who} · ${new Date(m.ts||Date.now()).toLocaleDateString('hu-HU')}</div><div>${txt}</div></div>`;
+  }).join('');
+}
+
+
+function doLogin() {
+  const val = document.getElementById('login-input').value.trim().toLowerCase();
+  if (!val) { toast('Add meg a belépési kódot!'); return; }
+  if (val === 'admin') { window.location.href = 'admin.html'; return; }
+  // Accept code in various formats: with/without dashes, upper/lower
+  const normalizedVal = val.replace(/-/g,'').toLowerCase();
+  const client = appData.clients.find(c => 
+    c.id === val || 
+    c.id.toLowerCase() === val ||
+    c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
+    c.name.toLowerCase() === val
+  );
+  if (client) {
+    currentUser = client;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('user-badge').textContent = '👤 ' + client.name;
+    document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ')[1] + '! 👋';
+    buildMonthSelectors();
+    renderOrderTable();
+    updateHeroTotal();
+    loadMessage();
+    renderHelpConditions();
+  } else {
+    toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
+  }
+}
+function logout() { window.location.href = 'index.html'; }
+
+// ===== NAVIGATION =====
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'summary') renderSummary();
+}
+
+// ===== HELPERS =====
+function getKey(month, year) { return `${year}-${month}`; }
+function getOrderKey(cid, y, m, d) { return `${cid}-${y}-${m}-${d}`; }
+function getActiveProds(year, month) {
+  const ids = appData.monthlyActiveProducts[getKey(month, year)] || [];
+  return appData.products.filter(p => ids.includes(p.id));
+}
+function getDays(year, month) {
+  const days = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate()+1); }
+  return days;
+}
+function isBakingDay(d) {
+  const y=d.getFullYear(), m=d.getMonth();
+  const key=`${y}-${m}`;
+  const defaults=appData.bakingDaysDefault||[2,5];
+  const cal=appData.bakingCalendar?.[key]||{extra:[],removed:[]};
+  const dateStr=d.toISOString().slice(0,10);
+  const isDefault=defaults.includes(d.getDay());
+  const isExtra=cal.extra&&cal.extra.includes(dateStr);
+  const isRemoved=cal.removed&&cal.removed.includes(dateStr);
+  return (isDefault||isExtra)&&!isRemoved;
+}
+function hoursUntil(date) { return (date - new Date()) / 36e5; }
+
+// ===== MONTH SELECTORS =====
+function buildMonthSelectors() {
+  ['month-selector','summary-month-sel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isSummary = id.includes('summary');
+    el.innerHTML = MONTHS.map((m,i) =>
+      `<button class="month-btn ${i===(isSummary?summaryMonth:selectedMonth)?'active':''}" onclick="${isSummary?'selectSummaryMonth':'selectMonth'}(${i})">${m}</button>`
+    ).join('');
+  });
+}
+function selectMonth(m) {
+  selectedMonth = m;
+  buildMonthSelectors();
+  renderOrderTable();
+  updateHeroTotal();
+}
+function selectSummaryMonth(m) {
+  summaryMonth = m;
+  buildMonthSelectors();
+  renderSummary();
+}
+
+// ===== DEADLINE CHECK =====
+function checkDeadline(day) {
+  const bakingDate = new Date(selectedYear, selectedMonth, day, 8, 0); // assume 8am baking
+  const hours = hoursUntil(bakingDate);
+  const noticeEl = document.getElementById('deadline-notice');
+  const textEl = document.getElementById('deadline-text');
+
+  // Find next valid baking day after this one
+  const allBakingDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
+  const nextBaking = allBakingDays.find(d => d.getDate() > day);
+
+  if (hours >= 0 && hours < 24) {
+    noticeEl.classList.add('show');
+    const nextStr = nextBaking
+      ? `A következő sütési nap: ${MONTHS[selectedMonth]} ${nextBaking.getDate()}. (${DAYS_HU[nextBaking.getDay()]})`
+      : 'Nincs több sütési nap ebben a hónapban.';
+    textEl.textContent = `⚠️ A ${MONTHS[selectedMonth]} ${day}. (${DAYS_HU[new Date(selectedYear,selectedMonth,day).getDay()]}) sütési nap már kevesebb mint 24 óra múlva kezdődik. A módosításaid csak a következő sütésnél érvényesek. ${nextStr}`;
+  } else {
+    noticeEl.classList.remove('show');
+  }
+}
+
+// ===== ORDER TABLE =====
+function isMobile() { return window.innerWidth <= 640; }
+
+function renderOrderTable() {
+  if(isMobile()) { renderMobileOrderCards(); return; }
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  const now = new Date();
+
+  document.getElementById('order-month-label').textContent = MONTHS[selectedMonth] + ' ' + selectedYear;
+
+  // Check if any baking day is within 24h
+  const urgentDay = days.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
+  if (urgentDay) checkDeadline(urgentDay.getDate());
+  else document.getElementById('deadline-notice').classList.remove('show');
+
+  if (prods.length === 0) {
+    document.getElementById('order-table').innerHTML = '<tr><td style="padding:20px;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</td></tr>';
+    return;
+  }
+
+  // Header
+  let html = '<thead><tr><th class="col-date">Dátum</th>';
+  prods.forEach(p => {
+    html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
+      <span class="prod-name">${p.name}</span>
+      <span class="prod-weight">${p.weight}</span>
+      <span class="prod-price">${p.price} lej</span>
+    </th>`;
+  });
+  html += '<th style="min-width:70px">Összesen</th></tr></thead><tbody>';
+
+  // Rows
+  let grandTotal = 0;
+  const colTotals = {};
+  prods.forEach(p => colTotals[p.id] = 0);
+
+  days.forEach(d => {
+    const day = d.getDate();
+    const dow = d.getDay();
+    const baking = isBakingDay(d);
+    const dayName = DAYS_HU[dow];
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    const isPast = d < now && !isSameDay(d, now);
+
+    if (!baking) {
+      html += `<tr class="no-bake">
+        <td class="col-date">${day}. ${dayName}</td>
+        ${prods.map(() => '<td>—</td>').join('')}
+        <td>—</td>
+      </tr>`;
+    } else {
+      const rowOrders = appData.orders[key] || {};
+      let rowTotal = 0;
+      prods.forEach(p => rowTotal += (rowOrders[p.id]||0));
+      grandTotal += rowTotal;
+
+      // Is this baking day locked (< 24h)?
+      const hoursLeft = hoursUntil(d);
+      const isLocked = hoursLeft >= 0 && hoursLeft < 24;
+      const isOver = d < now;
+
+      html += `<tr class="baking-row" id="row-${day}">
+        <td class="col-date">
+          ${day}. <b>${dayName}</b>
+          <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
+        </td>`;
+      prods.forEach(p => {
+        const val = rowOrders[p.id] || '';
+        const disabled = isOver || isLocked ? 'disabled' : '';
+        const cls = val ? 'has-value' : '';
+        colTotals[p.id] += (rowOrders[p.id]||0);
+        html += `<td><input type="number" min="0" max="99" value="${val}" placeholder="0"
+          class="${cls}" ${disabled}
+          data-day="${day}" data-pid="${p.id}"
+          onchange="handleOrderChange(${day},${p.id},this)"
+          oninput="handleOrderChange(${day},${p.id},this)"></td>`;
+      });
+      html += `<td style="font-weight:700;color:var(--teal-dark)">${rowTotal||'—'}</td></tr>`;
+    }
+  });
+
+  // Column totals row
+  html += `<tr class="total-row">
+    <td class="col-date">Havi összesen</td>`;
+  prods.forEach(p => html += `<td>${colTotals[p.id]||'—'}</td>`);
+  html += `<td class="grand-total">${grandTotal} db</td></tr>`;
+
+  // Value row
+  let totalValue = 0;
+  prods.forEach(p => totalValue += colTotals[p.id] * p.price);
+  html += `<tr class="total-row" style="background:#f0faf8">
+    <td class="col-date" style="color:var(--teal-dark)">Érték összesen</td>`;
+  prods.forEach(p => {
+    const val = colTotals[p.id] * p.price;
+    html += `<td style="color:var(--gold-dark);font-weight:700">${val > 0 ? val + ' lej' : '—'}</td>`;
+  });
+  html += `<td style="background:var(--gold);color:var(--teal-dark);font-weight:800;font-family:'Fraunces',serif">${totalValue} lej</td></tr>`;
+
+  html += '</tbody>';
+  document.getElementById('order-table').innerHTML = html;
+}
+
+function isSameDay(a, b) {
+  return a.getDate()===b.getDate() && a.getMonth()===b.getMonth() && a.getFullYear()===b.getFullYear();
+}
+
+function handleOrderChange(day, pid, input) {
+  const qty = parseInt(input.value) || 0;
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  if (!appData.orders[key]) appData.orders[key] = {};
+  if (qty > 0) { appData.orders[key][pid] = qty; input.classList.add('has-value'); }
+  else { delete appData.orders[key][pid]; input.classList.remove('has-value'); }
+  if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+  updateHeroTotal();
+  updateRowTotal(day);
+  checkDeadlineForDay(day);
+}
+
+function updateRowTotal(day) {
+  const row = document.getElementById('row-' + day);
+  if (!row) return;
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  const rowOrders = appData.orders[key] || {};
+  const total = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+  const lastTd = row.querySelector('td:last-child');
+  if (lastTd) lastTd.textContent = total || '—';
+}
+
+function checkDeadlineForDay(day) {
+  const d = new Date(selectedYear, selectedMonth, day);
+  const hours = hoursUntil(d);
+  if (hours >= 0 && hours < 24) checkDeadline(day);
+}
+
+function updateHeroTotal() {
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  let total = 0;
+  days.forEach(d => {
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
+    if (appData.orders[key]) {
+      Object.entries(appData.orders[key]).forEach(([pid,qty]) => {
+        const p = appData.products.find(p=>p.id==pid);
+        if (p) total += p.price * qty;
+      });
+    }
+  });
+  document.getElementById('hero-amount').innerHTML = `${total}<span class="currency">lej</span>`;
+}
+
+async function saveOrder() {
+  // Save orders to Supabase
+  const upserts = [];
+  getDays(selectedYear, selectedMonth).forEach(d => {
+    const day = d.getDate();
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    if(appData.orders[key]) {
+      Object.entries(appData.orders[key]).forEach(([pid, qty]) => {
+        upserts.push({
+          client_id: currentUser.id,
+          year: selectedYear,
+          month: selectedMonth,
+          day: day,
+          product_id: parseInt(pid),
+          quantity: qty
+        });
+      });
+    }
+  });
+
+  // Save message
+  const msg = document.getElementById('order-message').value.trim();
+  
+  try {
+    if(upserts.length > 0) await sb.upsert('orders', upserts);
+    if(msg) {
+      await sb.insert('messages', {
+        client_id: currentUser.id,
+        year: selectedYear,
+        month: selectedMonth,
+        text: msg
+      });
+    }
+    localStorage.setItem('kerek_data', JSON.stringify(appData));
+    toast('✅ Rendelés elmentve! Köszönjük a megrendelést. 🌾');
+    // Show order confirmation summary  
+    const confirmEl = document.getElementById('order-confirm-msg');
+    if(confirmEl) {
+      confirmEl.style.display = 'block';
+      setTimeout(() => confirmEl.style.display = 'none', 5000);
+    }
+  } catch(e) {
+    localStorage.setItem('kerek_data', JSON.stringify(appData));
+    toast('✅ Rendelés mentve (offline mód)');
+    console.warn('Supabase save error:', e);
+  }
+  document.getElementById('order-message').value = '';
+}
+
+function clearOrder() {
+  if (!confirm('Biztosan törlöd az összes rendelést ebben a hónapban?')) return;
+  const days = getDays(selectedYear, selectedMonth);
+  days.forEach(d => { delete appData.orders[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]; });
+  localStorage.setItem('kerek_data', JSON.stringify(appData));
+  renderOrderTable();
+  updateHeroTotal();
+  toast('Rendelések törölve.');
+}
+
+function loadMessage() {
+  // Messages persist per session
+}
+
+// ===== SUMMARY =====
+function generateOrderPDF() {
+  const MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+  const DAYS_SHORT = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
+  let grandTotal = 0, bodyHtml = '';
+
+  for(let m=0; m<=11; m++){
+    const days = getDays(selectedYear, m);
+    const prods = getActiveProducts(selectedYear, m);
+    let monthTotal=0, rows='', hasOrders=false;
+    days.forEach(d=>{
+      const key = getOrderKey(currentUser.id, selectedYear, m, d.getDate());
+      const ord = appData.orders[key];
+      if(!ord) return;
+      const dayTotal = prods.reduce((s,p)=>s+(ord[p.id]||0)*p.price,0);
+      if(!dayTotal) return;
+      hasOrders=true; monthTotal+=dayTotal;
+      const items = prods.filter(p=>(ord[p.id]||0)>0).map(p=>p.name+' × '+ord[p.id]+' db').join(', ');
+      rows+=`<tr><td>${d.getDate()}. ${DAYS_SHORT[d.getDay()]}</td><td>${items}</td><td style="text-align:right">${dayTotal} lej</td></tr>`;
+    });
+    if(hasOrders){
+      bodyHtml+=`<h3 style="color:#064C48;border-bottom:2px solid #EFB036;padding-bottom:4px">${MONTHS[m]} ${selectedYear}</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+        <tr style="background:#064C48;color:white"><th style="padding:6px;text-align:left">Nap</th><th style="text-align:left;padding:6px">Termékek</th><th style="text-align:right;padding:6px">Összeg</th></tr>
+        ${rows}<tr style="background:#e0f2ef;font-weight:700"><td colspan="2" style="padding:6px">Havi összesen</td><td style="text-align:right;padding:6px">${monthTotal} lej</td></tr>
+      </table>`;
+      grandTotal+=monthTotal;
+    }
+  }
+  if(!bodyHtml){alert('Nincs rendelés!');return;}
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>KEREK Rendelés</title>
+  <style>body{font-family:Arial,sans-serif;max-width:750px;margin:30px auto;color:#1A2E31}</style>
+  </head><body>
+  <h2 style="color:#064C48">🌾 KEREK Rendelés összesítő</h2>
+  <p style="color:#666">${currentUser.name} | ${selectedYear}. év | ${new Date().toLocaleDateString('hu-HU')}</p>
+  ${bodyHtml}
+  <table style="width:100%;margin-top:16px"><tr style="background:#064C48;color:white;font-size:14px">
+    <td style="padding:10px;font-weight:700">ÉVES ÖSSZESEN</td>
+    <td style="text-align:right;padding:10px;font-weight:700">${grandTotal} lej</td>
+  </tr></table>
+  </body></html>`;
+
+  const w = window.open('','_blank');
+  if(w){ w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),600); }
+  else { toast('⚠️ Engedélyezd a felugró ablakokat a PDF nyomtatáshoz!'); }
+}
+
+
+function renderSummary() {
+  const prods = getActiveProds(selectedYear, summaryMonth);
+  const days = getDays(selectedYear, summaryMonth);
+  const bakingDays = days.filter(d => isBakingDay(d));
+
+  let html = '<thead><tr><th>Termék</th><th>Kategória</th>';
+  bakingDays.forEach(d => html += `<th>${MONTHS[summaryMonth].slice(0,3)} ${d.getDate()}.<br><small>${DAYS_HU[d.getDay()].slice(0,3)}</small></th>`);
+  html += '<th>Összesen</th><th>Érték</th></tr></thead><tbody>';
+
+  let grandQty = 0, grandVal = 0;
+  let hasData = false;
+  prods.forEach(p => {
+    const qties = bakingDays.map(d => (appData.orders[getOrderKey(currentUser.id, selectedYear, summaryMonth, d.getDate())]||{})[p.id]||0);
+    const total = qties.reduce((a,b)=>a+b,0);
+    if (total === 0) return;
+    hasData = true;
+    const val = total * p.price;
+    grandQty += total; grandVal += val;
+    html += `<tr><td><b>${p.name}</b> <small style="color:var(--text-soft)">${p.weight}</small></td><td>${p.category}</td>`;
+    qties.forEach(q => html += `<td>${q||'—'}</td>`);
+    html += `<td style="font-weight:700">${total}</td><td style="color:var(--gold-dark);font-weight:700">${val} lej</td></tr>`;
+  });
+
+  if (!hasData) {
+    html += `<tr><td colspan="20" style="padding:20px;text-align:center;color:var(--text-soft)">Nincs megrendelés erre a hónapra.</td></tr>`;
+  } else {
+    html += `<tr class="total-row"><td colspan="2">ÖSSZESEN</td>`;
+    bakingDays.forEach(() => html += '<td></td>');
+    html += `<td>${grandQty} db</td><td>${grandVal} lej</td></tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('summary-table').innerHTML = html;
+}
+
+// ===== PRODUCT MODAL =====
+function showProductModal(pid) {
+  const p = appData.products.find(p=>p.id===pid);
+  if (!p) return;
+  document.getElementById('pm-name').textContent = p.name;
+  document.getElementById('pm-price').textContent = p.price + ' lej / db';
+  document.getElementById('pm-weight').textContent = p.weight + ' · ' + p.category;
+  document.getElementById('pm-desc').textContent = p.desc || 'Nincs leírás megadva.';
+
+  const imgWrap = document.getElementById('pm-img-wrap');
+  if (p.image) {
+    imgWrap.innerHTML = `<img class="prod-thumb" src="${p.image}" alt="${p.name}" onclick="openLightbox('${p.image}')">`;
+  } else {
+    imgWrap.innerHTML = `<div class="prod-thumb-placeholder">🍞</div>`;
+  }
+
+  document.getElementById('product-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('product-modal').classList.remove('open'); }
+document.getElementById('product-modal').addEventListener('click', e => { if (e.target === document.getElementById('product-modal')) closeModal(); });
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ===== HELP =====
+function renderHelpConditions() {
+  if (appData.helpConditions) document.getElementById('help-conditions').innerHTML = appData.helpConditions.replace(/\n/g,'<br>');
+  if (appData.helpDelivery) document.getElementById('help-delivery').innerHTML = appData.helpDelivery.replace(/\n/g,'<br>');
+}
+
+// ===== MOBILE ORDER CARDS =====
+function renderMobileOrderCards() {
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const days = getDays(selectedYear, selectedMonth);
+  const now = new Date();
+  const container = document.getElementById('mobile-order-cards');
+  const desktopCard = document.querySelector('.card');
+  if(desktopCard) desktopCard.style.display = 'none';
+  if(!container) return;
+
+  if(prods.length === 0) {
+    container.innerHTML = '<div class="mob-day-card" style="padding:20px;text-align:center;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</div>';
+    return;
+  }
+
+  let html = '';
+  days.forEach(d => {
+    const day = d.getDate();
+    const dow = d.getDay();
+    const baking = isBakingDay(d);
+    const dayName = DAYS_HU[dow];
+    const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    const isOver = d < now && !isSameDay(d, now);
+    const hoursLeft = hoursUntil(d);
+    const isLocked = baking && hoursLeft >= 0 && hoursLeft < 24;
+    const rowOrders = appData.orders[key] || {};
+    const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+    const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
+
+    if(!baking) {
+      html += `<div class="mob-day-card">
+        <div class="mob-day-head no-bake">
+          <div><div class="mob-day-name" style="color:#bbb;font-weight:400">${day}. ${dayName}</div></div>
+          <span style="font-size:0.7rem;color:#ccc">Nincs sütés</span>
+        </div>
+      </div>`;
+    } else {
+      const lockedClass = (isOver || isLocked) ? 'mob-locked' : '';
+      html += `<div class="mob-day-card" id="mob-card-${day}">
+        <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
+          <div>
+            <div class="mob-day-name">🔥 ${dayName}, ${day}.</div>
+            ${isLocked ? '<div style="font-size:0.7rem;color:var(--gold-dark)">⏰ 24h határidő – következő sütésnél érvényes</div>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${rowTotal > 0 ? `<span class="mob-baking-badge">${rowTotal} db</span>` : ''}
+            <span style="color:var(--teal-mid);font-size:0.85rem" id="mob-arrow-${day}">▾</span>
+          </div>
+        </div>
+        <div class="mob-day-body ${rowTotal > 0 ? 'open' : ''}" id="mob-body-${day}">
+          ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
+          <div class="${lockedClass}">
+            ${prods.map(p => {
+              const qty = rowOrders[p.id] || 0;
+              return `<div class="mob-product-row">
+                <div class="mob-prod-info" onclick="showProductModal(${p.id})">
+                  <div class="mob-prod-name">${p.name}</div>
+                  <div class="mob-prod-weight">${p.weight}</div>
+                  <div class="mob-prod-price">${p.price} lej/db ℹ️</div>
+                </div>
+                <div class="mob-qty-control">
+                  <button class="mob-qty-btn" onclick="mobChangeQty(${day},${p.id},-1)">−</button>
+                  <div class="mob-qty-display ${qty>0?'has-value':''}" id="mob-qty-${day}-${p.id}">${qty||0}</div>
+                  <button class="mob-qty-btn" onclick="mobChangeQty(${day},${p.id},1)">＋</button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          ${rowTotal > 0 ? `<div class="mob-day-total"><span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span></div>` : ''}
+        </div>
+      </div>`;
+    }
+  });
+
+  container.innerHTML = html;
+  updateHeroTotal();
+}
+
+function toggleMobCard(day) {
+  const body = document.getElementById('mob-body-' + day);
+  const arrow = document.getElementById('mob-arrow-' + day);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(arrow) arrow.textContent = body.classList.contains('open') ? '▴' : '▾';
+}
+
+function mobChangeQty(day, pid, delta) {
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  if(!appData.orders[key]) appData.orders[key] = {};
+  const current = appData.orders[key][pid] || 0;
+  const newVal = Math.max(0, current + delta);
+  if(newVal > 0) appData.orders[key][pid] = newVal;
+  else delete appData.orders[key][pid];
+  if(Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+
+  // Update display
+  const display = document.getElementById(`mob-qty-${day}-${pid}`);
+  if(display) {
+    display.textContent = newVal;
+    display.className = 'mob-qty-display' + (newVal > 0 ? ' has-value' : '');
+  }
+
+  // Update day total
+  const rowOrders = appData.orders[key] || {};
+  const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+  const rowVal = Object.entries(rowOrders).reduce((acc,[p,q])=>{
+    const prod=appData.products.find(x=>x.id==p); return acc+(prod?prod.price*q:0);
+  },0);
+
+  // Update badge in header
+  const card = document.getElementById('mob-card-' + day);
+  if(card) {
+    const badge = card.querySelector('.mob-baking-badge');
+    const head = card.querySelector('.mob-day-head');
+    if(rowTotal > 0) {
+      if(badge) badge.textContent = rowTotal + ' db';
+      else if(head) {
+        const badgeDiv = document.createElement('span');
+        badgeDiv.className = 'mob-baking-badge';
+        badgeDiv.textContent = rowTotal + ' db';
+        head.querySelector('div:last-child').prepend(badgeDiv);
+      }
+    } else if(badge) badge.remove();
+
+    // Update total row
+    let totalRow = card.querySelector('.mob-day-total');
+    const body = document.getElementById('mob-body-' + day);
+    if(rowTotal > 0) {
+      if(totalRow) { totalRow.innerHTML = `<span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span>`; }
+      else if(body) {
+        const div = document.createElement('div');
+        div.className = 'mob-day-total';
+        div.innerHTML = `<span>Napi összesen</span><span>${rowTotal} db · ${rowVal} lej</span>`;
+        body.appendChild(div);
+      }
+    } else if(totalRow) totalRow.remove();
+  }
+
+  updateHeroTotal();
+}
+
+// Handle resize
+window.addEventListener('resize', () => {
+  const mob = document.getElementById('mobile-order-cards');
+  const desktopCard = document.querySelector('.card');
+  if(isMobile()) {
+    if(mob) mob.style.display = 'block';
+    if(desktopCard) desktopCard.style.display = 'none';
+    renderMobileOrderCards();
+  } else {
+    if(mob) mob.style.display = 'none';
+    if(desktopCard) desktopCard.style.display = '';
+    renderOrderTable();
+  }
+});
+
+// ===== AUTO-LOGIN FROM PREVIEW =====
+function checkAutoLogin() {
+  const params = new URLSearchParams(window.location.search);
+  const previewId = params.get('preview');
+  if (previewId) {
+    const client = appData.clients.find(c => c.id === previewId);
+    if (client) {
+      currentUser = client;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('user-badge').textContent = '👤 ' + client.name;
+      document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ').slice(-1)[0] + '! 👋';
+      // Show preview banner
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:var(--gold);color:var(--teal-dark);text-align:center;padding:6px;font-size:0.78rem;font-weight:700;z-index:999;font-family:Kodchasan,sans-serif';
+      banner.textContent = '👁 ADMIN ELŐNÉZET – ' + client.name + ' nézetében';
+      document.body.prepend(banner);
+      buildMonthSelectors();
+      renderOrderTable();
+      updateHeroTotal();
+      renderHelpConditions();
+    }
+  }
+}
+
+// ===== TOAST =====
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 3200);
+}
+
+// Auto-login check runs after everything is loaded
+window.addEventListener('load', checkAutoLogin);
+
 </script>
 </body>
 </html>
