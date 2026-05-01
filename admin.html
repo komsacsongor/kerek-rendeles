@@ -850,7 +850,7 @@ let D = { _v: 'supabase',
   helpDelivery:'',
 };
 
-let selMonth = 3; // April - where demo data lives
+let selMonth = new Date().getMonth(); // aktuális hónap (0-indexed)
 let selYear = new Date().getFullYear();
 let catalogMonth = selMonth;
 let currentView = 'dashboard';
