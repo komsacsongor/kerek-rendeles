@@ -1282,7 +1282,7 @@ function renderMessages(){
       ? '<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">' + unread + ' új</span>'
       : '';
     html += '<div class="card mb-16">';
-    html += '<div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleMsgCard('' + key + '','' + c.id + '')">';
+    html += '<div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleMsgCard(\'' + key + '\',\'' + c.id + '\')">'; 
     html += '<div class="card-title">💬 ' + c.name + unreadBadge + '</div>';
     html += '<div style="display:flex;align-items:center;gap:8px">';
     html += '<span class="badge badge-gold">' + MONTHS[selMonth] + ' ' + selYear + '</span>';
@@ -1303,8 +1303,8 @@ function renderMessages(){
     html += '<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">';
     html += '<input type="text" id="reply-' + key + '" placeholder="Üzenet ' + c.name + ' részére..." ';
     html += 'style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:Kodchasan,sans-serif;font-size:0.82rem;outline:none" ';
-    html += 'onkeydown="if(event.key==='Enter')sendAdminReply('' + c.id + '',' + selMonth + ','reply-' + key + '')">';
-    html += '<button class="btn btn-primary btn-sm" onclick="sendAdminReply('' + c.id + '',' + selMonth + ','reply-' + key + '')">📨 Küld</button>';
+    html += '<input type="text" id="reply-' + key + '" placeholder="Üzenet ' + c.name + ' részére..." style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:Kodchasan,sans-serif;font-size:0.82rem;outline:none" data-cid="' + c.id + '" data-month="' + selMonth + '" data-key="reply-' + key + '" onkeydown="if(event.key===String.fromCharCode(13)){var t=this;sendAdminReply(t.dataset.cid,parseInt(t.dataset.month),t.dataset.key)}">';
+    html += '<button class="btn btn-primary btn-sm" data-cid="' + c.id + '" data-month="' + selMonth + '" data-key="reply-' + key + '" onclick="sendAdminReply(this.dataset.cid,parseInt(this.dataset.month),this.dataset.key)">📨 Küld</button>';
     html += '</div>'; // reply box vége
     html += '</div></div></div>'; // card-body, msg-body, card vége
   });
