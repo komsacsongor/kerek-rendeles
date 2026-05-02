@@ -905,7 +905,7 @@ async function loadAllData() {
       D.products = products.map(p => ({
         id: p.id, name: p.name, weight: p.weight || '',
         price: p.price, category: p.category || 'Egyéb',
-        desc: p.description || '', image: p.image_url || null, code: p.code || '',
+        desc: p.description || '', image: p.image || null, code: p.code || '',
         marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
         allergens: p.allergens || '', nutrition: p.nutrition || null
       }));
@@ -974,10 +974,8 @@ async function loadAllData() {
 
     localStorage.setItem('kerek_data', JSON.stringify(D));
 
-    // DIAGNOSZTIKA - töröld ha minden rendben
-    const diagMsg = `SUPABASE ADAT: ${D.products.length} termék, ${D.clients.length} kliens, ${Object.keys(D.orders).length} rendelés`;
-    console.log(diagMsg);
-    toast(diagMsg, false);
+    // DIAGNOSZTIKA
+    alert('D BETÖLTVE:\n' + D.products.length + ' termék\n' + D.clients.length + ' kliens\n' + Object.keys(D.orders).length + ' rendelés');
 
   } catch(e) {
     console.error('loadAllData HIBA:', e.message, e);
