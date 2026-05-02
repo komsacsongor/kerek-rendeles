@@ -808,7 +808,7 @@ const DAYS_HU=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','S
 const BAKING_DAYS=[2,5];
 
 // ===== SUPABASE DATA LAYER =====
-let D = { _v: 'supabase',
+let D = { _v: 'supabase', seenMsgs: {},
   products:[
     {id:1,name:'Kovászos prémium kenyér',weight:'500 g',price:23,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
     {id:2,name:'Kovászos prémium kenyér',weight:'1000 g',price:35,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
@@ -872,7 +872,9 @@ async function loadAllData() {
       D.products = products.map(p => ({
         id: p.id, name: p.name, weight: p.weight || '',
         price: p.price, category: p.category || 'Egyéb',
-        desc: p.description || '', image: p.image || null, code: p.code || ''
+        desc: p.description || '', image: p.image_url || null, code: p.code || '',
+        marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
+        allergens: p.allergens || '', nutrition: p.nutrition || null
       }));
     }
 
@@ -941,7 +943,7 @@ async function loadAllData() {
         else if (key === 'currency') D.settings.currency = val;
         else if (key === 'help_conditions') D.helpConditions = val;
         else if (key === 'help_delivery') D.helpDelivery = val;
-        else if (key === 'admin_seen_msgs') D.seenMsgs = val;
+        else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
       }
     }
 
@@ -1255,7 +1257,22 @@ async function sendAdminReply(clientId, month, inputId) {
     if(!D.messages[key]) D.messages[key] = [];
     D.messages[key].push({ text: fullText, ts });
     input.value = '';
-    renderMessages();
+    // Csak az üzenet hozzáadása a már nyitott kártyához - ne csukja be
+    const body = document.getElementById('msg-body-' + key);
+    if(body && body.style.display !== 'none') {
+      const msgArea = body.querySelector('.card-body');
+      if(msgArea) {
+        const dt = new Date(ts).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        const div = document.createElement('div');
+        div.className = 'message-item';
+        div.style.cssText = 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;';
+        div.innerHTML = '<div class="message-meta"><span>👩‍💼 Admin válasz</span><span>📅 ' + dt + '</span></div><div class="message-text">' + fullText + '</div>';
+        const replyBox = msgArea.querySelector('div[style*="display:flex"]');
+        if(replyBox) msgArea.insertBefore(div, replyBox);
+        else msgArea.appendChild(div);
+      }
+    }
+    updateMsgBadge();
     toast('✅ Üzenet elküldve!');
   } catch(e) {
     toast('⚠️ Küldés sikertelen: '+e.message);

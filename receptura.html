@@ -2415,25 +2415,30 @@ async function handleFileImport(input, type) {
 }
 
 async function selectSheet(sheets, wb) {
+  if(sheets.length === 1) return sheets[0];
   return new Promise(resolve => {
-    // Ha csak egy recept lap van, azt választjuk
-    if(sheets.length === 1) { resolve(sheets[0]); return; }
-    // Popup a lapválasztáshoz
-    const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
-    div.innerHTML = '<div style="background:white;border-radius:14px;padding:24px;max-width:320px;width:100%">' +
-      '<div style="font-weight:700;font-size:1rem;margin-bottom:14px;color:var(--teal-dark)">Melyik receptet importálod?</div>' +
-      sheets.map((s,i) => '<button onclick="this.closest('div[style]').dataset.choice=''+s+'';this.closest('div[style]').remove()" style="display:block;width:100%;text-align:left;padding:9px 14px;margin-bottom:6px;border:1.5px solid var(--border);border-radius:9px;background:white;cursor:pointer;font-family:Kodchasan,sans-serif;font-size:0.85rem">📋 '+s+'</button>').join('') +
-      '<button onclick="this.closest('div[style]').dataset.choice='';this.closest('div[style]').remove()" style="width:100%;padding:8px;border:none;background:none;color:var(--text-soft);cursor:pointer;font-size:0.82rem">Mégsem</button>' +
-      '</div>';
-    document.body.appendChild(div);
-    const observer = new MutationObserver(() => {
-      if(!document.body.contains(div)) {
-        observer.disconnect();
-        resolve(div.dataset.choice || null);
-      }
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:white;border-radius:14px;padding:24px;max-width:320px;width:100%';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700;font-size:1rem;margin-bottom:14px;color:var(--teal-dark)';
+    title.textContent = 'Melyik receptet importálod?';
+    box.appendChild(title);
+    sheets.forEach(s => {
+      const btn = document.createElement('button');
+      btn.textContent = '📋 ' + s;
+      btn.style.cssText = 'display:block;width:100%;text-align:left;padding:9px 14px;margin-bottom:6px;border:1.5px solid var(--border);border-radius:9px;background:white;cursor:pointer;font-family:Kodchasan,sans-serif;font-size:0.85rem';
+      btn.onclick = () => { document.body.removeChild(overlay); resolve(s); };
+      box.appendChild(btn);
     });
-    observer.observe(document.body, {childList:true});
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Mégsem';
+    cancel.style.cssText = 'width:100%;padding:8px;border:none;background:none;color:var(--text-soft);cursor:pointer;font-size:0.82rem';
+    cancel.onclick = () => { document.body.removeChild(overlay); resolve(null); };
+    box.appendChild(cancel);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
   });
 }
 
