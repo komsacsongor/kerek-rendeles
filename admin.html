@@ -1048,6 +1048,7 @@ function nav(id){
     reports:renderReports, categories:renderCategories, settings:renderSettings,
     export:initExportView
   };
+  if(id === 'messages') markMonthSeen(selYear, selMonth);
   renders[id]?.();
 }
 
@@ -1090,19 +1091,76 @@ function getTotalQty(orders){ let q=0; Object.values(orders).forEach(day=>Object
 
 function buildTopbarMonths(){
   const el=document.getElementById('topbar-month');
-  el.innerHTML = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  el.innerHTML = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" data-month="${i}" onclick="selectMonth(${i})">${mo}</button>`).join(''); updateMonthBadges();
 }
-function selectMonth(m){ selMonth=m; buildTopbarMonths(); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
+function selectMonth(m){ selMonth=m; buildTopbarMonths(); if(currentView==='messages') markMonthSeen(selYear, selMonth); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
 
-function updateMsgBadge(){
-  let unanswered=0;
-  Object.entries(D.messages).forEach(([key,arr])=>{
-    const clientMsgs=(arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:'));
-    const adminReplies=(arr||[]).filter(m=>(m.text||'').startsWith('📨 Admin:'));
-    if(clientMsgs.length > adminReplies.length) unanswered += clientMsgs.length - adminReplies.length;
+// ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING =====
+function getSeenCounts() {
+  try { return JSON.parse(localStorage.getItem('kerek_seen_msgs') || '{}'); } catch(e) { return {}; }
+}
+function saveSeenCounts(seen) {
+  localStorage.setItem('kerek_seen_msgs', JSON.stringify(seen));
+}
+function markMonthSeen(year, month) {
+  const seen = getSeenCounts();
+  // Az adott hónapban lévő vevői üzenetek számát mentjük
+  const clientMsgCount = Object.entries(D.messages)
+    .filter(([k]) => k.endsWith(`-${year}-${month}`))
+    .reduce((sum, [,arr]) => sum + (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length, 0);
+  seen[`${year}-${month}`] = clientMsgCount;
+  saveSeenCounts(seen);
+  updateMsgBadge();
+}
+function getUnreadCount() {
+  const seen = getSeenCounts();
+  let unread = 0;
+  // Minden hónapban: vevői üzenetek száma - látott üzenetek száma
+  const byMonth = {};
+  Object.entries(D.messages).forEach(([key, arr]) => {
+    const parts = key.split('-'); // clientId-year-month
+    const month = parts[parts.length - 1];
+    const year = parts[parts.length - 2];
+    const mk = `${year}-${month}`;
+    if (!byMonth[mk]) byMonth[mk] = 0;
+    byMonth[mk] += (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
   });
-  const b=document.getElementById('msg-badge');
-  if(b){if(unanswered>0){b.style.display='inline';b.textContent=unanswered;}else{b.style.display='none';}}
+  Object.entries(byMonth).forEach(([mk, count]) => {
+    const seenCount = seen[mk] || 0;
+    if (count > seenCount) unread += count - seenCount;
+  });
+  return unread;
+}
+function updateMsgBadge(){
+  const unread = getUnreadCount();
+  const b = document.getElementById('msg-badge');
+  if(b){ if(unread>0){ b.style.display='inline'; b.textContent=unread; } else { b.style.display='none'; } }
+  // Topbar hónap badge-ek frissítése
+  updateMonthBadges();
+}
+function updateMonthBadges() {
+  const seen = getSeenCounts();
+  // Minden hónaphoz számoljuk az olvasatlan vevői üzeneteket
+  MONTHS.forEach((_, m) => {
+    const mk = `${selYear}-${m}`;
+    let clientCount = 0;
+    Object.entries(D.messages).forEach(([key, arr]) => {
+      if (key.endsWith(`-${selYear}-${m}`)) {
+        clientCount += (arr||[]).filter(msg=>!(msg.text||'').startsWith('📨 Admin:')).length;
+      }
+    });
+    const seenCount = seen[mk] || 0;
+    const unread = Math.max(0, clientCount - seenCount);
+    // Topbar hónap gomb badge
+    const btn = document.querySelector(`#topbar-month button[data-month="${m}"]`);
+    if(btn) {
+      let badge = btn.querySelector('.month-unread-badge');
+      if(unread > 0) {
+        if(!badge) { badge = document.createElement('span'); badge.className='month-unread-badge'; badge.style.cssText='background:var(--gold);color:var(--teal-dark);border-radius:8px;padding:0 5px;font-size:0.65rem;font-weight:700;margin-left:4px'; btn.appendChild(badge); }
+        badge.textContent = unread;
+      } else if(badge) { badge.remove(); }
+    }
+  });
 }
 
 // ===== DASHBOARD =====
