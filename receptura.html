@@ -459,6 +459,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Szolgáltató</label>
             <select id="s-ai-provider">
               <option value="anthropic">Anthropic (Claude)</option>
+              <option value="gemini">Google Gemini (ingyenes)</option>
+              <option value="groq">Groq (ingyenes)</option>
               <option value="openai">OpenAI (GPT)</option>
               <option value="custom">Egyéni URL</option>
             </select>
@@ -2508,6 +2510,15 @@ ${text.substring(0, 6000)}`;
         'anthropic-dangerous-direct-browser-access': 'true'
       };
       body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+    } else if(provider === 'gemini') {
+      const mdl = model || 'gemini-1.5-flash';
+      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${apiKey}`;
+      headers = { 'Content-Type': 'application/json' };
+      body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 2000} });
+    } else if(provider === 'groq') {
+      apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
+      headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
+      body = JSON.stringify({ model: model||'llama3-8b-8192', max_tokens: 2000, messages: [{role:'user', content: prompt}] });
     } else {
       // OpenAI kompatibilis
       apiUrl = 'https://api.openai.com/v1/chat/completions';
@@ -2519,9 +2530,14 @@ ${text.substring(0, 6000)}`;
     if(!res.ok) { throw new Error('API hiba: ' + res.status + ' ' + await res.text()); }
     const data = await res.json();
 
-    let jsonText = provider === 'openai'
-      ? data.choices[0].message.content
-      : data.content[0].text;
+    let jsonText;
+    if(provider === 'gemini') {
+      jsonText = data.candidates[0].content.parts[0].text;
+    } else if(provider === 'openai' || provider === 'groq') {
+      jsonText = data.choices[0].message.content;
+    } else {
+      jsonText = data.content[0].text;
+    }
 
     // JSON tisztítása
     jsonText = jsonText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
