@@ -1664,18 +1664,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function saveProduct(){
+async function saveProduct(){
   const name=document.getElementById('p-name').value.trim();
   const price=parseFloat(document.getElementById('p-price').value);
   if(!name||!price){toast('Név és ár kötelező!');return;}
+  const weight=document.getElementById('p-weight').value;
+  const category=document.getElementById('p-category').value;
+  const desc=document.getElementById('p-desc').value;
+  const image=getProductImageValue();
+  let prodId;
   if(editingProductId){
+    prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight:document.getElementById('p-weight').value,price,category:document.getElementById('p-category').value,desc:document.getElementById('p-desc').value,image:getProductImageValue()});
-    toast('Termék frissítve!');
+    Object.assign(p,{name,weight,price,category,desc,image});
   } else {
-    D.products.push({id:Math.max(...D.products.map(p=>p.id),0)+1,name,weight:document.getElementById('p-weight').value,price,category:document.getElementById('p-category').value,desc:document.getElementById('p-desc').value,image:getProductImageValue()});
-    toast('Új termék hozzáadva!');
+    prodId=Math.max(...D.products.map(p=>p.id),0)+1;
+    D.products.push({id:prodId,name,weight,price,category,desc,image});
   }
+  try {
+    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc,image_url:image||null});
+    toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
+  } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message); }
   save(); closeModal('product-modal'); renderCatalog();
 }
 
@@ -1747,10 +1756,14 @@ async function saveClient(){
     console.error('saveClient error:', e);
   }
 }
-function deleteClient(id){
+async function deleteClient(id){
   if(!confirm('Biztosan törlöd? Az összes rendelése is törlődik!')) return;
   D.clients=D.clients.filter(c=>c.id!==id);
   Object.keys(D.orders).forEach(k=>{if(k.startsWith(id+'-'))delete D.orders[k];});
+  try {
+    await sb.delete('orders',`client_id=eq.${id}`);
+    await sb.delete('clients',`id=eq.${id}`);
+  } catch(e){ console.warn('deleteClient Supabase error:',e); }
   save(); renderClients(); toast('Kliens törölve.');
 }
 
@@ -2104,7 +2117,9 @@ function addCategory(){
 }
 function deleteCategory(i){
   if(!confirm('Törlöd ezt a kategóriát?')) return;
-  D.categories.splice(i,1); save(); renderCategoriesList(); toast('Kategória törölve.');
+  D.categories.splice(i,1);
+  sb.setSetting('categories', D.categories).catch(e=>console.warn(e));
+  save(); renderCategoriesList(); toast('Kategória törölve.');
 }
 function saveSetting(key,val){
   if(!D.settings) D.settings={};
@@ -2113,6 +2128,8 @@ function saveSetting(key,val){
 function saveHelpTexts(){
   D.helpConditions=document.getElementById('s-conditions').value;
   D.helpDelivery=document.getElementById('s-delivery').value;
+  sb.setSetting('help_conditions', D.helpConditions).catch(e=>console.warn(e));
+  sb.setSetting('help_delivery', D.helpDelivery).catch(e=>console.warn(e));
   save(); toast('Szövegek mentve! A vevői súgóban megjelennek.');
 }
 function changePassword(){
@@ -2122,9 +2139,12 @@ function changePassword(){
   if(old!==(D.settings?.adminPw||'admin')){toast('Hibás jelenlegi jelszó!');return;}
   if(!n1||n1!==n2){toast('Az új jelszavak nem egyeznek!');return;}
   if(!D.settings) D.settings={};
-  D.settings.adminPw=n1; save();
+  D.settings.adminPw=n1;
+  sb.setSetting('admin_password', n1).catch(e=>console.warn(e));
+  save();
   ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
   toast('Jelszó sikeresen módosítva!');
+}
 }
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
 function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang; }
@@ -2249,7 +2269,11 @@ function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
     cal.extra.push(dateStr);
     toast('Extra sütési nap hozzáadva! 🎉');
   }
-  save(); renderBakingCalendar();
+  save();
+  // Supabase sync
+  const [calY, calM] = key.split('-').map(Number);
+  sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed}).catch(e=>console.warn('cal save err',e));
+  renderBakingCalendar();
 }
 
 // ===== CLIENT TREND =====
