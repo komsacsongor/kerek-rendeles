@@ -348,7 +348,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== MESSAGES ===== -->
   <div id="view-messages" class="view">
-    <div class="month-row" id="msg-month-sel"></div>
     <div id="messages-list"></div>
   </div>
 
@@ -1049,7 +1048,7 @@ function nav(id){
     reports:renderReports, categories:renderCategories, settings:renderSettings,
     export:initExportView
   };
-  if(id === 'messages') markMonthSeen(selYear, selMonth);
+  // Olvasott jelölés csak kártya kinyitásakor (toggleMsgCard)
   renders[id]?.();
 }
 
@@ -1094,35 +1093,34 @@ function buildTopbarMonths(){
   const el=document.getElementById('topbar-month');
   el.innerHTML = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" data-month="${i}" onclick="selectMonth(${i})">${mo}</button>`).join(''); updateMonthBadges();
 }
-function selectMonth(m){ selMonth=m; buildTopbarMonths(); if(currentView==='messages') markMonthSeen(selYear, selMonth); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
+function selectMonth(m){ selMonth=m; buildTopbarMonths(); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
 
 // ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING (Supabase alapú) =====
 // D.seenMsgs = { "2026-4": 2, "2026-5": 1, ... } - Supabase settings-ből töltve
-async function markMonthSeen(year, month) {
-  // Vevői üzenetek száma ebben a hónapban
-  const clientMsgCount = Object.entries(D.messages)
-    .filter(([k]) => k.endsWith(`-${year}-${month}`))
-    .reduce((sum, [,arr]) => sum + (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length, 0);
-  const mk = `${year}-${month}`;
-  if((D.seenMsgs||{})[mk] === clientMsgCount) return; // nincs változás
+async function markClientSeen(clientId, year, month) {
+  // Per-vevő olvasott tracking: key = "year-month-clientId"
+  const key = `${clientId}-${year}-${month}`;
+  const arr = D.messages[key] || [];
+  const clientMsgCount = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+  const seenKey = `${year}-${month}-${clientId}`;
   if(!D.seenMsgs) D.seenMsgs = {};
-  D.seenMsgs[mk] = clientMsgCount;
-  // Supabase-be mentés
+  if(D.seenMsgs[seenKey] === clientMsgCount) return; // nincs változás
+  D.seenMsgs[seenKey] = clientMsgCount;
   try { await sb.setSetting('admin_seen_msgs', D.seenMsgs); } catch(e) { console.warn('seen save err', e); }
   updateMsgBadge();
 }
 function getUnreadCount() {
   const seen = D.seenMsgs || {};
-  const byMonth = {};
-  Object.entries(D.messages).forEach(([key, arr]) => {
-    const parts = key.split('-');
-    const mk = `${parts[parts.length-2]}-${parts[parts.length-1]}`;
-    if(!byMonth[mk]) byMonth[mk] = 0;
-    byMonth[mk] += (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
-  });
   let unread = 0;
-  Object.entries(byMonth).forEach(([mk, count]) => {
-    unread += Math.max(0, count - (seen[mk]||0));
+  Object.entries(D.messages).forEach(([key, arr]) => {
+    // key: clientId-year-month
+    const parts = key.split('-');
+    const month = parts[parts.length-1];
+    const year = parts[parts.length-2];
+    const clientId = parts.slice(0, parts.length-2).join('-');
+    const seenKey = `${year}-${month}-${clientId}`;
+    const clientMsgs = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+    unread += Math.max(0, clientMsgs - (seen[seenKey]||0));
   });
   return unread;
 }
@@ -1140,7 +1138,16 @@ function updateMonthBadges() {
       if(key.endsWith(`-${selYear}-${m}`))
         clientCount += (arr||[]).filter(msg=>!(msg.text||'').startsWith('📨 Admin:')).length;
     });
-    const unread = Math.max(0, clientCount - (seen[`${selYear}-${m}`]||0));
+    // Per-vevő seen összeszámolás
+    let seenInMonth = 0;
+    Object.entries(D.messages).forEach(([k]) => {
+      if(k.endsWith(`-${selYear}-${m}`)) {
+        const parts = k.split('-');
+        const cid = parts.slice(0, parts.length-2).join('-');
+        seenInMonth += seen[`${selYear}-${m}-${cid}`] || 0;
+      }
+    });
+    const unread = Math.max(0, clientCount - seenInMonth);
     const btn = document.querySelector(`#topbar-month button[data-month="${m}"]`);
     if(btn) {
       let badge = btn.querySelector('.month-unread-badge');
@@ -1256,17 +1263,29 @@ function renderMessages(){
     return `<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}${badge}</button>`;
   }).join('');
 
-  // Reload messages from Supabase cache
+  // Kártyák kinyitva/becsukva alapból - olvasatlan kártyák kiemelve
+  const seen = D.seenMsgs || {};
   let html='';
   D.clients.forEach(c=>{
     const key=`${c.id}-${selYear}-${selMonth}`;
     const msgs=D.messages[key]||[];
+    const clientMsgs = msgs.filter(m=>!(m.text||'').startsWith('📨 Admin:'));
+    const seenCount = seen[`${selYear}-${selMonth}-${c.id}`] || 0;
+    const unread = Math.max(0, clientMsgs.length - seenCount);
+    const hasMsg = msgs.length > 0;
+    // Olvasatlan badge a fejlécen
+    const unreadBadge = unread > 0 ? `<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">${unread} új</span>` : '';
+    // Fejléc - kattintásra nyílik/csukódik, és olvasottnak jelöli
     html+=`<div class="card mb-16">
-      <div class="card-head">
-        <div class="card-title">💬 ${c.name}</div>
-        <span class="badge badge-gold">${MONTHS[selMonth]} ${selYear}</span>
+      <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleMsgCard('${key}','${c.id}')">
+        <div class="card-title">💬 ${c.name}${unreadBadge}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge badge-gold">${MONTHS[selMonth]} ${selYear}</span>
+          <span id="msg-arrow-${key}" style="font-size:1rem;transition:transform 0.2s">${hasMsg && unread > 0 ? '▼' : '▶'}</span>
+        </div>
       </div>
-      <div class="card-body">`;
+      <div id="msg-body-${key}" style="display:${hasMsg && unread > 0 ? 'block' : 'none'}">
+        <div class="card-body">`;
     if(msgs.length===0){
       html+=`<p style="color:var(--text-soft);font-size:0.82rem;margin:0 0 10px">Még nincs üzenet ebben a hónapban.</p>`;
     } else {
@@ -1283,16 +1302,31 @@ function renderMessages(){
         </div>`;
       });
     }
-    // Reply box – mindig látható
     html+=`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <input type="text" id="reply-${key}" placeholder="Üzenet ${c.name} részére..." 
         style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
         onkeydown="if(event.key==='Enter')sendAdminReply('${c.id}',${selMonth},'reply-${key}')">
       <button class="btn btn-primary btn-sm" onclick="sendAdminReply('${c.id}',${selMonth},'reply-${key}')">📨 Küld</button>
     </div>`;
-    html+='</div></div>';
+    html+='</div></div></div>';
   });
   document.getElementById('messages-list').innerHTML=html||`<p class="text-soft text-sm">Nincsenek vevők.</p>`;
+}
+
+async function toggleMsgCard(key, clientId) {
+  const body = document.getElementById('msg-body-'+key);
+  const arrow = document.getElementById('msg-arrow-'+key);
+  if(!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
+  // Ha kinyitjuk → olvasottnak jelöljük ezt a vevőt
+  if(!isOpen) {
+    const parts = key.split('-'); // clientId-year-month
+    const month = parseInt(parts[parts.length-1]);
+    const year = parseInt(parts[parts.length-2]);
+    await markClientSeen(clientId, year, month);
+  }
 }
 
 // ===== BAKING =====
