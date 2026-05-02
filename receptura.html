@@ -938,8 +938,18 @@ function logout() {
   window.location.href = 'index.html';
 }
 
-function initApp() {
+async function initApp() {
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
+  // AI beállítások betöltése Supabase-ből
+  try {
+    const aiCfg = await sb.getSetting('recipe_ai_settings');
+    if(aiCfg && typeof aiCfg === 'object') {
+      R.settings.apiKey = aiCfg.apiKey || R.settings.apiKey;
+      R.settings.aiProvider = aiCfg.aiProvider || 'anthropic';
+      R.settings.aiModel = aiCfg.aiModel || 'claude-sonnet-4-20250514';
+      R.settings.aiUrl = aiCfg.aiUrl || '';
+    }
+  } catch(e) { console.warn('AI beállítások betöltése sikertelen:', e); }
   nav('recipes');
 }
 
