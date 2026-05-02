@@ -449,15 +449,31 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       </div>
     </div>
     <div class="card mb-16">
-      <div class="card-head"><div class="card-title">🤖 Claude AI integráció</div></div>
+      <div class="card-head"><div class="card-title">🤖 AI integráció</div></div>
       <div class="card-body">
-        <p class="text-sm text-soft mb-16">API kulcs megadásával a szöveges recept feldolgozás sokkal pontosabb lesz.</p>
+        <p class="text-sm text-soft mb-16">AI segítségével Word/Excel fájlból automatikusan tölt ki recepteket, generál tápértéket és marketing szöveget. Az API kulcs Supabase-ben tárolódik – bármely eszközről elérhető.</p>
         <div class="form-row">
-          <div class="form-group"><label>Anthropic API kulcs</label>
-            <input type="password" id="s-api-key" placeholder="sk-ant-...">
+          <div class="form-group" style="flex:2"><label>API kulcs</label>
+            <input type="password" id="s-api-key" placeholder="sk-ant-... vagy sk-...">
+          </div>
+          <div class="form-group"><label>Szolgáltató</label>
+            <select id="s-ai-provider">
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="custom">Egyéni URL</option>
+            </select>
           </div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Mentés</button>
+        <div id="s-ai-custom-url-row" style="display:none" class="form-group mb-16">
+          <label>API végpont URL</label>
+          <input type="text" id="s-ai-url" placeholder="https://api.example.com/v1/messages">
+        </div>
+        <div class="form-group mb-16">
+          <label>Modell neve</label>
+          <input type="text" id="s-ai-model" placeholder="claude-sonnet-4-20250514">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">💾 Mentés</button>
+        <span id="ai-test-result" style="font-size:0.78rem;margin-left:10px"></span>
       </div>
     </div>
     <div class="card">
@@ -551,6 +567,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <button class="modal-tab" onclick="switchModalTab(this,'rtab-levain')">Levain</button>
         <button class="modal-tab" onclick="switchModalTab(this,'rtab-process')">Folyamat</button>
         <button class="modal-tab" onclick="switchModalTab(this,'rtab-cost')">Önköltség</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'rtab-consumer')">🌿 Vevői info</button>
       </div>
 
       <!-- TAB: Basic -->
@@ -584,13 +601,29 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Idő 2. fázis (perc)</label><input type="number" id="r-time2" placeholder="70"></div>
         </div>
         <div class="form-group mb-16"><label>Leírás / Megjegyzés</label><textarea id="r-desc" placeholder="Termék rövid leírása..."></textarea></div>
-        <div class="form-group mb-16">
-          <label>Szöveges recept bevitel (AI feldolgozza)</label>
-          <textarea id="r-text-input" rows="5" placeholder="Másold be a receptet szöveges formában és kattints a Feldolgozás gombra..."></textarea>
+        <!-- AI IMPORT SZEKCIÓ -->
+        <div style="background:var(--teal-pale);border:1px solid var(--teal-light);border-radius:10px;padding:14px 16px;margin-bottom:8px">
+          <div style="font-size:0.82rem;font-weight:700;color:var(--teal-dark);margin-bottom:10px">🤖 AI recept import</div>
+          <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:10px">Tölts fel egy Word (.docx) vagy Excel (.xlsx) fájlt és az AI automatikusan kitölti a receptet.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+              📄 Word feltöltés
+              <input type="file" id="import-docx" accept=".docx" style="display:none" onchange="handleFileImport(this,'docx')">
+            </label>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+              📊 Excel feltöltés
+              <input type="file" id="import-xlsx" accept=".xlsx" style="display:none" onchange="handleFileImport(this,'xlsx')">
+            </label>
+            <button class="btn btn-gold btn-sm" onclick="parseTextRecipe()">✨ Szöveges feldolgozás</button>
+          </div>
+          <div id="import-status" style="font-size:0.78rem;color:var(--teal-dark);display:none"></div>
         </div>
-        <button class="btn btn-gold btn-sm" onclick="parseTextRecipe()">✨ Szöveges recept feldolgozása</button>
+        <div class="form-group mb-16">
+          <label>Szöveges recept bevitel (kézi vagy importált)</label>
+          <textarea id="r-text-input" rows="4" placeholder="Másold be a receptet, vagy tölts fel fájlt fent..."></textarea>
+        </div>
         <div id="parse-api-note" style="display:none;margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:0.78rem;color:var(--gold-dark)">
-          💡 <b>Claude AI integráció:</b> API kulcs megadásával a szöveges feldolgozás sokkal pontosabb lesz. Beállítások → API kulcs.
+          💡 AI feldolgozáshoz adj meg API kulcsot a Beállítások menüben.
         </div>
       </div>
 
@@ -635,6 +668,49 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Áramfogyasztás (kWh/sütés)</label><input type="number" id="r-electricity" placeholder="5"></div>
         </div>
         <div id="cost-preview" style="margin-top:14px"></div>
+      </div>
+
+      <!-- TAB: Vevői info -->
+      <div id="rtab-consumer" class="modal-tab-content" style="display:none">
+        <p class="text-sm text-soft mb-16">Ezek az adatok a vevői oldalon a termék infó popupban jelennek meg.</p>
+
+        <div class="form-group mb-16">
+          <label>Marketing leírás <span style="font-weight:400;color:var(--text-soft)">(rövid, max 3 mondat)</span></label>
+          <textarea id="r-marketing" rows="3" placeholder="Pl: Kovászos erjesztéssel készült, természetes alapanyagokból..."></textarea>
+        </div>
+
+        <div class="form-group mb-16">
+          <label>Összetevők cimke <span style="font-weight:400;color:var(--text-soft)">(vesszővel elválasztva, EU sorrendben)</span></label>
+          <input type="text" id="r-ingredient-label" placeholder="Pl: rizsliszt, tápióka, víz, kovász, só, psyllium">
+        </div>
+
+        <div class="form-group mb-16">
+          <label>Allergének</label>
+          <input type="text" id="r-allergens" placeholder="Pl: szója, zab (GLUTÉNMENTES)">
+        </div>
+
+        <fieldset style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+          <legend style="font-size:0.78rem;font-weight:700;color:var(--teal-dark);padding:0 6px">Tápérték / 100 g (EU szabvány)</legend>
+          <div class="form-row">
+            <div class="form-group"><label>Energia (kcal)</label><input type="number" id="r-nut-kcal" placeholder="230"></div>
+            <div class="form-group"><label>Energia (kJ)</label><input type="number" id="r-nut-kj" placeholder="963"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Zsír (g)</label><input type="number" id="r-nut-fat" placeholder="5" step="0.1"></div>
+            <div class="form-group"><label>ebből telített (g)</label><input type="number" id="r-nut-satfat" placeholder="0.8" step="0.1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Szénhidrát (g)</label><input type="number" id="r-nut-carb" placeholder="40" step="0.1"></div>
+            <div class="form-group"><label>ebből cukrok (g)</label><input type="number" id="r-nut-sugar" placeholder="1.5" step="0.1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Rost (g)</label><input type="number" id="r-nut-fiber" placeholder="4" step="0.1"></div>
+            <div class="form-group"><label>Fehérje (g)</label><input type="number" id="r-nut-protein" placeholder="6" step="0.1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Só (g)</label><input type="number" id="r-nut-salt" placeholder="1" step="0.01"></div>
+          </div>
+        </fieldset>
       </div>
 
       <div class="sep"></div>
@@ -1498,6 +1574,7 @@ function renderSettings() {
   if(document.getElementById('s-api-key') && R.settings?.apiKey) {
     document.getElementById('s-api-key').value = R.settings.apiKey;
   }
+  loadAiSettingsUI();
   const s = R.settings;
   document.getElementById('s-vat').value = s.vat;
   document.getElementById('s-margin').value = s.margin;
@@ -1554,6 +1631,10 @@ async function syncRecipeToSupabase(data, existingId) {
       temp2: data.temp2, time2: data.time2, description: data.desc||'',
       levain_amount: data.levainAmount, labor_h: data.laborH||1,
       electricity: data.electricity||5,
+      marketing_desc: data.marketing||'',
+      ingredient_label: data.ingredientLabel||'',
+      allergens: data.allergens||'',
+      nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
     });
 
     // Delete old ingredients and steps, re-insert
@@ -1593,7 +1674,12 @@ async function syncRecipeToSupabase(data, existingId) {
       id: 1000 + recId, name: data.name,
       weight: `${data.unitWeight||data.basePortion} g`,
       price: data.productPrice||0, category: data.category||'Kenyér',
-      description: data.desc||'', code: productCode,
+      description: data.desc||'',
+      code: productCode,
+      marketing_desc: data.marketing||'',
+      ingredient_label: data.ingredientLabel||'',
+      allergens: data.allergens||'',
+      nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
     });
 
     console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
@@ -1603,9 +1689,32 @@ async function syncRecipeToSupabase(data, existingId) {
   }
 }
 
-function saveApiKey() {
+async function saveAiSettings() {
   R.settings.apiKey = document.getElementById('s-api-key').value.trim();
-  save(); toast('API kulcs mentve!');
+  R.settings.aiProvider = document.getElementById('s-ai-provider').value;
+  R.settings.aiModel = document.getElementById('s-ai-model').value.trim() || 'claude-sonnet-4-20250514';
+  R.settings.aiUrl = document.getElementById('s-ai-url')?.value.trim() || '';
+  // Supabase-be mentés
+  try {
+    await sb.setSetting('recipe_ai_settings', {
+      apiKey: R.settings.apiKey,
+      aiProvider: R.settings.aiProvider,
+      aiModel: R.settings.aiModel,
+      aiUrl: R.settings.aiUrl
+    });
+    toast('✅ AI beállítások mentve (Supabase)!');
+  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message); }
+}
+
+function loadAiSettingsUI() {
+  if(document.getElementById('s-api-key')) document.getElementById('s-api-key').value = R.settings.apiKey||'';
+  if(document.getElementById('s-ai-provider')) document.getElementById('s-ai-provider').value = R.settings.aiProvider||'anthropic';
+  if(document.getElementById('s-ai-model')) document.getElementById('s-ai-model').value = R.settings.aiModel||'claude-sonnet-4-20250514';
+  if(document.getElementById('s-ai-url')) document.getElementById('s-ai-url').value = R.settings.aiUrl||'';
+  // Custom URL sor megjelenítése
+  const prov = R.settings.aiProvider||'anthropic';
+  const urlRow = document.getElementById('s-ai-custom-url-row');
+  if(urlRow) urlRow.style.display = prov==='custom' ? 'block' : 'none';
 }
 
 function renderRecipeCatsList() {
@@ -2096,6 +2205,16 @@ function openRecipeModal(id=null) {
     document.getElementById('r-temp2').value = r.temp2||180;
     document.getElementById('r-time2').value = r.time2||70;
     document.getElementById('r-desc').value = r.desc||'';
+  if(document.getElementById('r-marketing')) document.getElementById('r-marketing').value = r.marketing||'';
+  if(document.getElementById('r-ingredient-label')) document.getElementById('r-ingredient-label').value = r.ingredientLabel||'';
+  if(document.getElementById('r-allergens')) document.getElementById('r-allergens').value = r.allergens||'';
+  if(r.nutrition) {
+    const n = r.nutrition;
+    ['kcal','kj','fat','satfat','carb','sugar','fiber','protein','salt'].forEach(k => {
+      const el = document.getElementById('r-nut-'+k);
+      if(el) el.value = n[k==='satfat'?'satFat':k]||'';
+    });
+  }
     document.getElementById('r-levain-amount').value = r.levainAmount||260;
     document.getElementById('r-labor-h').value = r.laborH||1;
     document.getElementById('r-electricity').value = r.electricity||5;
@@ -2231,6 +2350,214 @@ function updateLevainPreview() {
     </div>`;
 }
 
+
+// ===== AI RECEPT IMPORT =====
+// mammoth.js betöltése Word feldolgozáshoz
+function loadMammoth() {
+  return new Promise((resolve) => {
+    if(window.mammoth) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+    s.onload = resolve; document.head.appendChild(s);
+  });
+}
+
+// SheetJS betöltése Excel feldolgozáshoz
+function loadXLSX() {
+  return new Promise((resolve) => {
+    if(window.XLSX) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = resolve; document.head.appendChild(s);
+  });
+}
+
+async function handleFileImport(input, type) {
+  const file = input.files[0];
+  if(!file) return;
+  const status = document.getElementById('import-status');
+  status.style.display='block'; status.textContent='⏳ Fájl olvasása...';
+  try {
+    let text = '';
+    if(type === 'docx') {
+      await loadMammoth();
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({arrayBuffer});
+      text = result.value;
+    } else if(type === 'xlsx') {
+      await loadXLSX();
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(arrayBuffer, {type:'array'});
+      // Kérjük meg a felhasználót melyik lapot importálja
+      const sheetNames = wb.SheetNames.filter(n => !['lisztkeverék','kovász és levain','kovász számolás'].includes(n));
+      const sheetName = await selectSheet(sheetNames, wb);
+      if(!sheetName) { status.textContent='Importálás megszakítva.'; return; }
+      const ws = wb.Sheets[sheetName];
+      text = XLSX.utils.sheet_to_csv(ws, {FS:'\t'});
+      // Lapnév = recept neve
+      if(!document.getElementById('r-name').value) {
+        document.getElementById('r-name').value = sheetName;
+      }
+    }
+    document.getElementById('r-text-input').value = text.substring(0, 8000);
+    status.textContent = '✅ Fájl betöltve! Kattints az AI feldolgozásra.';
+    if(R.settings?.apiKey) {
+      status.textContent = '⏳ AI feldolgozás...';
+      await aiParseRecipe(text);
+    } else {
+      status.textContent = '✅ Szöveg betöltve. AI feldolgozáshoz add meg az API kulcsot a Beállításokban.';
+    }
+  } catch(e) {
+    status.textContent = '❌ Hiba: ' + e.message;
+    console.error(e);
+  }
+  input.value = '';
+}
+
+async function selectSheet(sheets, wb) {
+  return new Promise(resolve => {
+    // Ha csak egy recept lap van, azt választjuk
+    if(sheets.length === 1) { resolve(sheets[0]); return; }
+    // Popup a lapválasztáshoz
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    div.innerHTML = '<div style="background:white;border-radius:14px;padding:24px;max-width:320px;width:100%">' +
+      '<div style="font-weight:700;font-size:1rem;margin-bottom:14px;color:var(--teal-dark)">Melyik receptet importálod?</div>' +
+      sheets.map((s,i) => '<button onclick="this.closest('div[style]').dataset.choice=''+s+'';this.closest('div[style]').remove()" style="display:block;width:100%;text-align:left;padding:9px 14px;margin-bottom:6px;border:1.5px solid var(--border);border-radius:9px;background:white;cursor:pointer;font-family:Kodchasan,sans-serif;font-size:0.85rem">📋 '+s+'</button>').join('') +
+      '<button onclick="this.closest('div[style]').dataset.choice='';this.closest('div[style]').remove()" style="width:100%;padding:8px;border:none;background:none;color:var(--text-soft);cursor:pointer;font-size:0.82rem">Mégsem</button>' +
+      '</div>';
+    document.body.appendChild(div);
+    const observer = new MutationObserver(() => {
+      if(!document.body.contains(div)) {
+        observer.disconnect();
+        resolve(div.dataset.choice || null);
+      }
+    });
+    observer.observe(document.body, {childList:true});
+  });
+}
+
+async function aiParseRecipe(text) {
+  const apiKey = R.settings?.apiKey;
+  const provider = R.settings?.aiProvider || 'anthropic';
+  const model = R.settings?.aiModel || 'claude-sonnet-4-20250514';
+  const status = document.getElementById('import-status');
+
+  if(!apiKey) { toast('⚠️ Adj meg AI API kulcsot a Beállításokban!'); return; }
+
+  status.style.display='block'; status.textContent='🤖 AI feldolgozás folyamatban...';
+
+  const prompt = `Te egy gluténmentes pékség receptjeinek feldolgozója vagy. Az alábbi szövegből olvasd ki a recept adatait és add vissza CSAK JSON formátumban, semmi más szöveg ne legyen a válaszban.
+
+A JSON struktúra:
+{
+  "name": "recept neve",
+  "category": "Kenyér|Bagett / zsömle|Péksütemény|Sütemény",
+  "basePortion": 1000,
+  "desc": "belső megjegyzés a technológiáról",
+  "marketing": "2-3 mondatos marketing szöveg a vevőknek (ha nincs a szövegben, generálj a receptből)",
+  "ingredientLabel": "összetevők vesszővel, EU sorrendben (csökkenő mennyiség szerint)",
+  "allergens": "allergének listája",
+  "nutrition": {
+    "kcal": 230, "kj": 963, "fat": 5.0, "satFat": 0.8,
+    "carb": 40.0, "sugar": 1.5, "fiber": 4.0, "protein": 6.0, "salt": 1.0
+  },
+  "dryIngredients": [{"name": "rizsliszt", "amount": 270}],
+  "wetIngredients": [{"name": "víz", "amount": 440}],
+  "levainAmount": 100,
+  "steps": [{"title": "Keverés", "desc": "4-5 perc keverés", "timer": 5}],
+  "temp1": 200, "time1": 15, "temp2": 185, "time2": 30
+}
+
+FONTOS:
+- A tápértékeket MINDIG 100g sült termékre számold ki az összetevőkből (ha nincs megadva, becsüld az összetevőkből)
+- A kJ értéke kcal × 4.184
+- Az összetevő cimkénél EU szabvány: csökkenő mennyiség, zárójelben az összetett összetevők
+- Ha marketing szöveg nincs, írj egyet a termék jellemzői alapján (max 2-3 mondat, pozitív, természetes)
+- A basePortion a SÜLT kenyér tömege gramban
+- A levainAmount a teljes tészta levain tartalma gramban
+- A dryIngredients: lisztek, keményítők, magvak, só, sütőpor – száraz összetevők
+- A wetIngredients: víz, olaj, tojás, folyadékok + levain is ide kerül
+
+Recept szöveg:
+${text.substring(0, 6000)}`;
+
+  try {
+    let apiUrl, headers, body;
+    if(provider === 'anthropic' || provider === 'custom') {
+      apiUrl = provider === 'custom' ? (R.settings.aiUrl || 'https://api.anthropic.com/v1/messages') : 'https://api.anthropic.com/v1/messages';
+      headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      };
+      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+    } else {
+      // OpenAI kompatibilis
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
+      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+    }
+
+    const res = await fetch(apiUrl, {method:'POST', headers, body});
+    if(!res.ok) { throw new Error('API hiba: ' + res.status + ' ' + await res.text()); }
+    const data = await res.json();
+
+    let jsonText = provider === 'openai'
+      ? data.choices[0].message.content
+      : data.content[0].text;
+
+    // JSON tisztítása
+    jsonText = jsonText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const recipe = JSON.parse(jsonText);
+
+    // Form kitöltése
+    fillRecipeForm(recipe);
+    status.textContent = '✅ AI feldolgozás kész! Ellenőrizd az adatokat és mentsd el.';
+    // Ugrás az első tabra
+    document.querySelector('.modal-tab').click();
+    toast('✅ Recept kész! Ellenőrizd és mentsd.');
+
+  } catch(e) {
+    status.textContent = '❌ AI hiba: ' + e.message;
+    console.error('AI parse error:', e);
+  }
+}
+
+function fillRecipeForm(r) {
+  if(r.name) document.getElementById('r-name').value = r.name;
+  if(r.category) document.getElementById('r-category').value = r.category;
+  if(r.basePortion) document.getElementById('r-base-portion').value = r.basePortion;
+  if(r.desc) document.getElementById('r-desc').value = r.desc;
+  if(r.temp1) document.getElementById('r-temp1').value = r.temp1;
+  if(r.time1) document.getElementById('r-time1').value = r.time1;
+  if(r.temp2) document.getElementById('r-temp2').value = r.temp2;
+  if(r.time2) document.getElementById('r-time2').value = r.time2;
+  if(r.levainAmount) document.getElementById('r-levain-amount').value = r.levainAmount;
+  // Vevői info tab
+  if(r.marketing) document.getElementById('r-marketing').value = r.marketing;
+  if(r.ingredientLabel) document.getElementById('r-ingredient-label').value = r.ingredientLabel;
+  if(r.allergens) document.getElementById('r-allergens').value = r.allergens;
+  if(r.nutrition) {
+    const n = r.nutrition;
+    if(n.kcal) document.getElementById('r-nut-kcal').value = n.kcal;
+    if(n.kj) document.getElementById('r-nut-kj').value = n.kj;
+    if(n.fat !== undefined) document.getElementById('r-nut-fat').value = n.fat;
+    if(n.satFat !== undefined) document.getElementById('r-nut-satfat').value = n.satFat;
+    if(n.carb !== undefined) document.getElementById('r-nut-carb').value = n.carb;
+    if(n.sugar !== undefined) document.getElementById('r-nut-sugar').value = n.sugar;
+    if(n.fiber !== undefined) document.getElementById('r-nut-fiber').value = n.fiber;
+    if(n.protein !== undefined) document.getElementById('r-nut-protein').value = n.protein;
+    if(n.salt !== undefined) document.getElementById('r-nut-salt').value = n.salt;
+  }
+  if(r.dryIngredients) { modalDryIngs = r.dryIngredients; }
+  if(r.wetIngredients) { modalWetIngs = r.wetIngredients; }
+  if(r.steps) { modalSteps = r.steps; }
+  renderModalIngredients();
+  renderModalSteps();
+}
+
 function parseTextRecipe() {
   const text = document.getElementById('r-text-input').value.trim();
   if (!text) { toast('Add meg a szöveges receptet!'); return; }
@@ -2346,6 +2673,20 @@ async function saveRecipe() {
     time2: parseFloat(document.getElementById('r-time2').value)||70,
     desc: document.getElementById('r-desc').value,
     levainAmount: parseFloat(document.getElementById('r-levain-amount').value)||260,
+    marketing: document.getElementById('r-marketing')?.value || '',
+    ingredientLabel: document.getElementById('r-ingredient-label')?.value || '',
+    allergens: document.getElementById('r-allergens')?.value || '',
+    nutrition: {
+      kcal: parseFloat(document.getElementById('r-nut-kcal')?.value)||0,
+      kj: parseFloat(document.getElementById('r-nut-kj')?.value)||0,
+      fat: parseFloat(document.getElementById('r-nut-fat')?.value)||0,
+      satFat: parseFloat(document.getElementById('r-nut-satfat')?.value)||0,
+      carb: parseFloat(document.getElementById('r-nut-carb')?.value)||0,
+      sugar: parseFloat(document.getElementById('r-nut-sugar')?.value)||0,
+      fiber: parseFloat(document.getElementById('r-nut-fiber')?.value)||0,
+      protein: parseFloat(document.getElementById('r-nut-protein')?.value)||0,
+      salt: parseFloat(document.getElementById('r-nut-salt')?.value)||0,
+    },
     dryIngredients: modalDryIngs,
     wetIngredients: modalWetIngs,
     steps: modalSteps,
