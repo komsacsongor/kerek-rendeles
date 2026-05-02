@@ -223,6 +223,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 #login-screen{position:fixed;inset:0;background:var(--teal-dark);z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #login-screen::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px);background-size:28px 28px;pointer-events:none;}
 #login-screen .login-card{position:relative;z-index:1;}
+#login-screen .login-error{color:#fca5a5;font-size:0.82rem;margin-top:10px;text-align:center;min-height:20px;font-weight:600;}
 .login-card{background:white;border-radius:24px;padding:44px 40px;width:360px;box-shadow:0 32px 100px rgba(0,0,0,0.3);}
 .login-card h2{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--teal-dark);margin-bottom:4px;}
 .login-card p{font-size:0.8rem;color:var(--text-soft);margin-bottom:24px;}
@@ -250,7 +251,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
-    <div class="login-hint"></div>
+    <div id="login-error" class="login-error"></div>
   </div>
 </div>
 
@@ -953,9 +954,22 @@ async function loadAllData() {
 }
 
 // ===== AUTH =====
+function loginError(msg) {
+  const el = document.getElementById('login-error');
+  if(el) { el.textContent = msg; el.style.display='block'; }
+  const pw = document.getElementById('login-pw');
+  if(pw) { pw.style.border='1.5px solid #f87171'; pw.focus(); }
+}
+function loginClearError() {
+  const el = document.getElementById('login-error');
+  if(el) { el.textContent=''; }
+  const pw = document.getElementById('login-pw');
+  if(pw) pw.style.border='';
+}
 async function doLogin(){
+  loginClearError();
   const pw = document.getElementById('login-pw').value;
-  if(!pw){ toast('Add meg a jelszót!'); return; }
+  if(!pw){ loginError('⚠️ Add meg a jelszót!'); return; }
   try {
     const storedPw = await sb.getSetting('admin_password');
     const correctPw = storedPw || 'admin';
@@ -963,13 +977,12 @@ async function doLogin(){
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
-    } else { toast('Hibás jelszó!'); }
+    } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
-    // Fallback to local
     if(pw === (D.settings?.adminPw||'admin')){
       document.getElementById('login-screen').style.display='none';
       initApp();
-    } else { toast('Hibás jelszó! (offline mód)'); }
+    } else { loginError('❌ Hibás jelszó!'); }
   }
 }
 function logout() {
