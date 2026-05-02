@@ -895,6 +895,8 @@ async function seedInitialData() {
 }
 
 async function loadAllData() {
+  toast('DEBUG: loadAllData indul...', false);
+  console.log('DEBUG loadAllData START');
   try {
     // Termékek
     const products = await sb.query('products', { order: 'id' });
@@ -1012,9 +1014,12 @@ async function doLogin(){
       updateMsgBadge();
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
+    console.warn('doLogin getSetting hiba:', e.message);
     if(pw === (D.settings?.adminPw||'admin')){
       document.getElementById('login-screen').style.display='none';
+      await loadAllData();
       initApp();
+      updateMsgBadge();
     } else { loginError('❌ Hibás jelszó!'); }
   }
 }
