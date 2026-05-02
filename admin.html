@@ -1263,54 +1263,52 @@ function renderMessages(){
     return `<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}${badge}</button>`;
   }).join('');
 
-  // Kártyák kinyitva/becsukva alapból - olvasatlan kártyák kiemelve
+  // Csak azokat a vevőket mutatjuk akiknek van üzenete
   const seen = D.seenMsgs || {};
-  let html='';
-  D.clients.forEach(c=>{
-    const key=`${c.id}-${selYear}-${selMonth}`;
-    const msgs=D.messages[key]||[];
-    const clientMsgs = msgs.filter(m=>!(m.text||'').startsWith('📨 Admin:'));
-    const seenCount = seen[`${selYear}-${selMonth}-${c.id}`] || 0;
+  let html = '';
+  let count = 0;
+  D.clients.forEach(c => {
+    const key = c.id + '-' + selYear + '-' + selMonth;
+    const msgs = D.messages[key] || [];
+    if(msgs.length === 0) return; // nincs üzenet - kihagyjuk
+    count++;
+    const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));
+    const seenCount = seen[selYear + '-' + selMonth + '-' + c.id] || 0;
     const unread = Math.max(0, clientMsgs.length - seenCount);
-    const hasMsg = msgs.length > 0;
-    // Olvasatlan badge a fejlécen
-    const unreadBadge = unread > 0 ? `<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">${unread} új</span>` : '';
-    // Fejléc - kattintásra nyílik/csukódik, és olvasottnak jelöli
-    html+=`<div class="card mb-16">
-      <div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleMsgCard('${key}','${c.id}')">
-        <div class="card-title">💬 ${c.name}${unreadBadge}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="badge badge-gold">${MONTHS[selMonth]} ${selYear}</span>
-          <span id="msg-arrow-${key}" style="font-size:1rem;transition:transform 0.2s">${hasMsg && unread > 0 ? '▼' : '▶'}</span>
-        </div>
-      </div>
-      <div id="msg-body-${key}" style="display:${hasMsg && unread > 0 ? 'block' : 'none'}">
-        <div class="card-body">`;
-    if(msgs.length===0){
-      html+=`<p style="color:var(--text-soft);font-size:0.82rem;margin:0 0 10px">Még nincs üzenet ebben a hónapban.</p>`;
-    } else {
-      msgs.forEach((msg,i)=>{
-        const dt=new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
-        const isAdmin = msg.text?.startsWith('📨 Admin:');
-        const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
-        html+=`<div class="message-item" style="${bg}">
-          <div class="message-meta">
-            <span>${isAdmin ? '👩‍💼 Admin válasz' : '👤 '+c.name+' &nbsp;·&nbsp; '+(c.email||'')} </span>
-            <span>📅 ${dt}</span>
-          </div>
-          <div class="message-text">${msg.text}</div>
-        </div>`;
-      });
-    }
-    html+=`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <input type="text" id="reply-${key}" placeholder="Üzenet ${c.name} részére..." 
-        style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
-        onkeydown="if(event.key==='Enter')sendAdminReply('${c.id}',${selMonth},'reply-${key}')">
-      <button class="btn btn-primary btn-sm" onclick="sendAdminReply('${c.id}',${selMonth},'reply-${key}')">📨 Küld</button>
-    </div>`;
-    html+='</div></div></div>';
+    // Olvasatlan kártyák nyitva, olvasottak csukva
+    const isOpen = unread > 0;
+    const arrow = isOpen ? '▼' : '▶';
+    const unreadBadge = unread > 0
+      ? '<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">' + unread + ' új</span>'
+      : '';
+    html += '<div class="card mb-16">';
+    html += '<div class="card-head" style="cursor:pointer;user-select:none" onclick="toggleMsgCard('' + key + '','' + c.id + '')">';
+    html += '<div class="card-title">💬 ' + c.name + unreadBadge + '</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px">';
+    html += '<span class="badge badge-gold">' + MONTHS[selMonth] + ' ' + selYear + '</span>';
+    html += '<span id="msg-arrow-' + key + '" style="font-size:1rem">' + arrow + '</span>';
+    html += '</div></div>'; // card-head vége
+    html += '<div id="msg-body-' + key + '" style="display:' + (isOpen ? 'block' : 'none') + '">';
+    html += '<div class="card-body">';
+    msgs.forEach(msg => {
+      const dt = new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const isAdmin = (msg.text||'').startsWith('📨 Admin:');
+      const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
+      const who = isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + c.name + ' &nbsp;·&nbsp; ' + (c.email||'');
+      html += '<div class="message-item" style="' + bg + '">';
+      html += '<div class="message-meta"><span>' + who + '</span><span>📅 ' + dt + '</span></div>';
+      html += '<div class="message-text">' + (msg.text||'') + '</div>';
+      html += '</div>';
+    });
+    html += '<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">';
+    html += '<input type="text" id="reply-' + key + '" placeholder="Üzenet ' + c.name + ' részére..." ';
+    html += 'style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:Kodchasan,sans-serif;font-size:0.82rem;outline:none" ';
+    html += 'onkeydown="if(event.key==='Enter')sendAdminReply('' + c.id + '',' + selMonth + ','reply-' + key + '')">';
+    html += '<button class="btn btn-primary btn-sm" onclick="sendAdminReply('' + c.id + '',' + selMonth + ','reply-' + key + '')">📨 Küld</button>';
+    html += '</div>'; // reply box vége
+    html += '</div></div></div>'; // card-body, msg-body, card vége
   });
-  document.getElementById('messages-list').innerHTML=html||`<p class="text-soft text-sm">Nincsenek vevők.</p>`;
+  document.getElementById('messages-list').innerHTML = count > 0 ? html : '<p class="text-soft text-sm">Ebben a hónapban még senki nem küldött üzenetet.</p>';
 }
 
 async function toggleMsgCard(key, clientId) {
