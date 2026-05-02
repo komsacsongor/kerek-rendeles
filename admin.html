@@ -1319,9 +1319,14 @@ async function toggleMsgCard(key, clientId) {
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
   if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
-  // Ha kinyitjuk → olvasottnak jelöljük ezt a vevőt
+  // Ha kinyitjuk → olvasottnak jelöljük + badge eltávolítása
   if(!isOpen) {
-    const parts = key.split('-'); // clientId-year-month
+    // "X új" badge eltávolítása a kártya fejlécéből
+    const cardHead = body.previousElementSibling;
+    const badge = cardHead?.querySelector('span[style*="gold"]');
+    if(badge) badge.remove();
+    // Supabase-be mentés
+    const parts = key.split('-');
     const month = parseInt(parts[parts.length-1]);
     const year = parseInt(parts[parts.length-2]);
     await markClientSeen(clientId, year, month);
