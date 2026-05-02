@@ -1277,8 +1277,8 @@ function renderMessages(){
     const seenCount = seen[selYear + '-' + selMonth + '-' + c.id] || 0;
     const unread = Math.max(0, clientMsgs.length - seenCount);
     // Olvasatlan kártyák nyitva, olvasottak csukva
-    const isOpen = unread > 0;
-    const arrow = isOpen ? '▼' : '▶';
+    const isOpen = false; // mindig csukva - kézzel kell kinyitni
+    const arrow = '▶';
     const unreadBadge = unread > 0
       ? '<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">' + unread + ' új</span>'
       : '';
