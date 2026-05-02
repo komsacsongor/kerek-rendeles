@@ -69,12 +69,25 @@ const sb = {
   },
 
   async getSetting(key) {
-    const rows = await this.query('settings', { filter: `key=eq.${key}` });
-    return rows[0] ? JSON.parse(rows[0].value) : null;
+    const rows = await this.query('settings', { filter: `key=eq.${key}`, order: 'id.desc', limit: 1 });
+    if (!rows[0]) return null;
+    const val = rows[0].value;
+    if (typeof val === 'string') return JSON.parse(val);
+    return val;
   },
 
   async setSetting(key, value) {
-    return this.upsert('settings', { key, value: JSON.stringify(value) });
+    const strVal = JSON.stringify(value);
+    try {
+      const existing = await this.query('settings', { filter: `key=eq.${key}` });
+      if (existing.length > 0) {
+        return this.update('settings', { value: strVal }, `key=eq.${key}`);
+      } else {
+        return this.insert('settings', { key, value: strVal });
+      }
+    } catch(e) {
+      return this.upsert('settings', { key, value: strVal });
+    }
   },
 
   // ===== REALTIME WebSocket =====
