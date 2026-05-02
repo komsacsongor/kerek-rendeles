@@ -457,7 +457,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
             <input type="password" id="s-api-key" placeholder="sk-ant-... vagy sk-...">
           </div>
           <div class="form-group"><label>Szolgáltató</label>
-            <select id="s-ai-provider">
+            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google Gemini (ingyenes)</option>
               <option value="groq">Groq (ingyenes)</option>
@@ -1721,7 +1721,8 @@ async function saveAiSettings() {
 function loadAiSettingsUI() {
   if(document.getElementById('s-api-key')) document.getElementById('s-api-key').value = R.settings.apiKey||'';
   if(document.getElementById('s-ai-provider')) document.getElementById('s-ai-provider').value = R.settings.aiProvider||'anthropic';
-  if(document.getElementById('s-ai-model')) document.getElementById('s-ai-model').value = R.settings.aiModel||'claude-sonnet-4-20250514';
+  const _provDefaults = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};
+  if(document.getElementById('s-ai-model')) document.getElementById('s-ai-model').value = R.settings.aiModel || _provDefaults[R.settings.aiProvider||'anthropic'] || '';
   if(document.getElementById('s-ai-url')) document.getElementById('s-ai-url').value = R.settings.aiUrl||'';
   // Custom URL sor megjelenítése
   const prov = R.settings.aiProvider||'anthropic';
@@ -2457,7 +2458,8 @@ async function selectSheet(sheets, wb) {
 async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
-  const model = R.settings?.aiModel || 'claude-sonnet-4-20250514';
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};
+  const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
   const status = document.getElementById('import-status');
 
   if(!apiKey) { toast('⚠️ Adj meg AI API kulcsot a Beállításokban!'); return; }
@@ -2511,7 +2513,7 @@ ${text.substring(0, 6000)}`;
       };
       body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
     } else if(provider === 'gemini') {
-      const mdl = model || 'gemini-1.5-flash';
+      const mdl = (model && model.includes('gemini')) ? model : 'gemini-1.5-flash';
       apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
       body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 2000} });
