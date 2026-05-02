@@ -970,8 +970,15 @@ async function loadAllData() {
     }
 
     localStorage.setItem('kerek_data', JSON.stringify(D));
+
+    // DIAGNOSZTIKA - töröld ha minden rendben
+    const diagMsg = `SUPABASE ADAT: ${D.products.length} termék, ${D.clients.length} kliens, ${Object.keys(D.orders).length} rendelés`;
+    console.log(diagMsg);
+    toast(diagMsg, false);
+
   } catch(e) {
-    console.warn('loadAllData hiba, helyi adatokat használ:', e);
+    console.error('loadAllData HIBA:', e.message, e);
+    toast('⚠️ loadAllData hiba: ' + e.message, true);
     const cached = localStorage.getItem('kerek_data');
     if (cached) try { Object.assign(D, JSON.parse(cached)); } catch(e2) {}
   }
