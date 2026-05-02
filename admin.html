@@ -931,7 +931,7 @@ async function loadAllData() {
     }
 
     // Beállítások
-    const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery'];
+    const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery', 'admin_seen_msgs'];
     for (const key of settingKeys) {
       const val = await sb.getSetting(key);
       if (val !== null) {
@@ -941,6 +941,7 @@ async function loadAllData() {
         else if (key === 'currency') D.settings.currency = val;
         else if (key === 'help_conditions') D.helpConditions = val;
         else if (key === 'help_delivery') D.helpDelivery = val;
+        else if (key === 'admin_seen_msgs') D.seenMsgs = val;
       }
     }
 
@@ -1095,39 +1096,33 @@ function buildTopbarMonths(){
 }
 function selectMonth(m){ selMonth=m; buildTopbarMonths(); if(currentView==='messages') markMonthSeen(selYear, selMonth); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
 
-// ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING =====
-function getSeenCounts() {
-  try { return JSON.parse(localStorage.getItem('kerek_seen_msgs') || '{}'); } catch(e) { return {}; }
-}
-function saveSeenCounts(seen) {
-  localStorage.setItem('kerek_seen_msgs', JSON.stringify(seen));
-}
-function markMonthSeen(year, month) {
-  const seen = getSeenCounts();
-  // Az adott hónapban lévő vevői üzenetek számát mentjük
+// ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING (Supabase alapú) =====
+// D.seenMsgs = { "2026-4": 2, "2026-5": 1, ... } - Supabase settings-ből töltve
+async function markMonthSeen(year, month) {
+  // Vevői üzenetek száma ebben a hónapban
   const clientMsgCount = Object.entries(D.messages)
     .filter(([k]) => k.endsWith(`-${year}-${month}`))
     .reduce((sum, [,arr]) => sum + (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length, 0);
-  seen[`${year}-${month}`] = clientMsgCount;
-  saveSeenCounts(seen);
+  const mk = `${year}-${month}`;
+  if((D.seenMsgs||{})[mk] === clientMsgCount) return; // nincs változás
+  if(!D.seenMsgs) D.seenMsgs = {};
+  D.seenMsgs[mk] = clientMsgCount;
+  // Supabase-be mentés
+  try { await sb.setSetting('admin_seen_msgs', D.seenMsgs); } catch(e) { console.warn('seen save err', e); }
   updateMsgBadge();
 }
 function getUnreadCount() {
-  const seen = getSeenCounts();
-  let unread = 0;
-  // Minden hónapban: vevői üzenetek száma - látott üzenetek száma
+  const seen = D.seenMsgs || {};
   const byMonth = {};
   Object.entries(D.messages).forEach(([key, arr]) => {
-    const parts = key.split('-'); // clientId-year-month
-    const month = parts[parts.length - 1];
-    const year = parts[parts.length - 2];
-    const mk = `${year}-${month}`;
-    if (!byMonth[mk]) byMonth[mk] = 0;
+    const parts = key.split('-');
+    const mk = `${parts[parts.length-2]}-${parts[parts.length-1]}`;
+    if(!byMonth[mk]) byMonth[mk] = 0;
     byMonth[mk] += (arr||[]).filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
   });
+  let unread = 0;
   Object.entries(byMonth).forEach(([mk, count]) => {
-    const seenCount = seen[mk] || 0;
-    if (count > seenCount) unread += count - seenCount;
+    unread += Math.max(0, count - (seen[mk]||0));
   });
   return unread;
 }
@@ -1135,23 +1130,17 @@ function updateMsgBadge(){
   const unread = getUnreadCount();
   const b = document.getElementById('msg-badge');
   if(b){ if(unread>0){ b.style.display='inline'; b.textContent=unread; } else { b.style.display='none'; } }
-  // Topbar hónap badge-ek frissítése
   updateMonthBadges();
 }
 function updateMonthBadges() {
-  const seen = getSeenCounts();
-  // Minden hónaphoz számoljuk az olvasatlan vevői üzeneteket
+  const seen = D.seenMsgs || {};
   MONTHS.forEach((_, m) => {
-    const mk = `${selYear}-${m}`;
     let clientCount = 0;
     Object.entries(D.messages).forEach(([key, arr]) => {
-      if (key.endsWith(`-${selYear}-${m}`)) {
+      if(key.endsWith(`-${selYear}-${m}`))
         clientCount += (arr||[]).filter(msg=>!(msg.text||'').startsWith('📨 Admin:')).length;
-      }
     });
-    const seenCount = seen[mk] || 0;
-    const unread = Math.max(0, clientCount - seenCount);
-    // Topbar hónap gomb badge
+    const unread = Math.max(0, clientCount - (seen[`${selYear}-${m}`]||0));
     const btn = document.querySelector(`#topbar-month button[data-month="${m}"]`);
     if(btn) {
       let badge = btn.querySelector('.month-unread-badge');
