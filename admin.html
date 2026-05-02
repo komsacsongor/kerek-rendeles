@@ -1251,18 +1251,6 @@ async function sendAdminReply(clientId, month, inputId) {
 }
 
 function renderMessages(){
-  const sel=document.getElementById('msg-month-sel');
-  // Build month buttons with message count badges
-  sel.innerHTML=MONTHS.map((mo,i)=>{
-    let count=0;
-    D.clients.forEach(c=>{
-      const key=`${c.id}-${selYear}-${i}`;
-      count+=(D.messages[key]||[]).length;
-    });
-    const badge = count>0 ? `<span style="display:inline-block;background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:0px 6px;font-size:0.65rem;font-weight:700;margin-left:4px;line-height:1.6">${count}</span>` : '';
-    return `<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}${badge}</button>`;
-  }).join('');
-
   // Csak azokat a vevőket mutatjuk akiknek van üzenete
   const seen = D.seenMsgs || {};
   let html = '';
