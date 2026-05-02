@@ -1684,7 +1684,7 @@ async function saveProduct(){
   try {
     await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc,image_url:image||null});
     toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
-  } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message); }
+  } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message, true); }
   save(); closeModal('product-modal'); renderCatalog();
 }
 
@@ -1752,7 +1752,7 @@ async function saveClient(){
     save(); closeModal('client-modal'); renderClients();
     toast('✅ Kliens hozzáadva! Kód: '+id);
   } catch(e) {
-    toast('⚠️ Mentés sikertelen: '+e.message);
+    toast('⚠️ Mentés sikertelen: '+e.message, true);
     console.error('saveClient error:', e);
   }
 }
@@ -2571,11 +2571,14 @@ function openVevoFullscreen() {
 }
 
 // ===== TOAST =====
-function toast(msg){
+function toast(msg, isError=false){
   const el=document.getElementById('toast');
   el.textContent=msg; el.style.display='block'; el.style.opacity='1';
+  el.style.background = isError ? '#b91c1c' : '';
+  if(isError) console.error('KEREK ERROR:', msg);
   clearTimeout(el._t);
-  el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},3000);
+  const duration = isError ? 8000 : 3000;
+  el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},duration);
 }
 </script>
 </body>
