@@ -1320,12 +1320,7 @@ function renderMessages(){
       html += '<div class="message-text">' + (msg.text||'') + '</div>';
       html += '</div>';
     });
-    html += '<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">';
-    html += '<input type="text" id="reply-' + key + '" placeholder="Üzenet ' + c.name + ' részére..." ';
-    html += 'style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:Kodchasan,sans-serif;font-size:0.82rem;outline:none" ';
-    html += '<input type="text" id="reply-' + key + '" placeholder="Üzenet ' + c.name + ' részére..." style="flex:1;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:Kodchasan,sans-serif;font-size:0.82rem;outline:none" data-cid="' + c.id + '" data-month="' + selMonth + '" data-key="reply-' + key + '" onkeydown="if(event.key===String.fromCharCode(13)){var t=this;sendAdminReply(t.dataset.cid,parseInt(t.dataset.month),t.dataset.key)}">';
-    html += '<button class="btn btn-primary btn-sm" data-cid="' + c.id + '" data-month="' + selMonth + '" data-key="reply-' + key + '" onclick="sendAdminReply(this.dataset.cid,parseInt(this.dataset.month),this.dataset.key)">📨 Küld</button>';
-    html += '</div>'; // reply box vége
+
     html += '</div></div></div>'; // card-body, msg-body, card vége
   });
   document.getElementById('messages-list').innerHTML = count > 0 ? html : '<p class="text-soft text-sm">Ebben a hónapban még senki nem küldött üzenetet.</p>';
