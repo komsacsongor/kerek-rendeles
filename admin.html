@@ -2145,7 +2145,6 @@ function changePassword(){
   ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
   toast('Jelszó sikeresen módosítva!');
 }
-}
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
 function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang; }
 
