@@ -888,6 +888,7 @@ table.order-tbl {
       <input type="text" id="login-input" placeholder="pl. KR-A7X2-9M4P" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doLogin()">Belépés →</button>
+    <div id="login-error" style="color:#ef4444;font-size:0.82rem;margin-top:10px;text-align:center;min-height:20px;font-weight:600;display:none"></div>
     <div class="login-hint">A belépési kódot a KEREK péksègtől kaptad.</div>
   </div>
 </div>
@@ -1108,7 +1109,12 @@ let summaryMonth = selectedMonth;
 // ===== AUTH =====
 function doLogin() {
   const val = document.getElementById('login-input').value.trim().toLowerCase();
-  if (!val) { toast('Add meg a belépési kódot!'); return; }
+  const errEl2 = document.getElementById('login-error');
+  if (!val) {
+    if(errEl2) { errEl2.textContent = '⚠️ Add meg a belépési kódot!'; errEl2.style.display='block'; }
+    return;
+  }
+  if(errEl2) errEl2.style.display='none';
   if (val === 'admin') { window.location.href = 'admin.html'; return; }
   // Accept code in various formats: with/without dashes, upper/lower
   const normalizedVal = val.replace(/-/g,'').toLowerCase();
@@ -1129,7 +1135,10 @@ function doLogin() {
     loadMessage();
     renderHelpConditions();
   } else {
-    toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
+    const errEl = document.getElementById('login-error');
+    if(errEl) { errEl.textContent = '❌ Ismeretlen kód! Kérj segítséget a pékségtől.'; errEl.style.display='block'; }
+    const inp = document.getElementById('login-input');
+    if(inp) { inp.style.border='1.5px solid #ef4444'; inp.focus(); inp.addEventListener('input', () => { if(errEl) errEl.style.display='none'; inp.style.border=''; }, {once:true}); }
   }
 }
 function logout() { window.location.href = 'index.html'; }
@@ -1791,7 +1800,12 @@ async function loadMessage() {
 
 function doLogin() {
   const val = document.getElementById('login-input').value.trim().toLowerCase();
-  if (!val) { toast('Add meg a belépési kódot!'); return; }
+  const errEl2 = document.getElementById('login-error');
+  if (!val) {
+    if(errEl2) { errEl2.textContent = '⚠️ Add meg a belépési kódot!'; errEl2.style.display='block'; }
+    return;
+  }
+  if(errEl2) errEl2.style.display='none';
   if (val === 'admin') { window.location.href = 'admin.html'; return; }
   // Accept code in various formats: with/without dashes, upper/lower
   const normalizedVal = val.replace(/-/g,'').toLowerCase();
@@ -1823,7 +1837,10 @@ function doLogin() {
     });
     renderHelpConditions();
   } else {
-    toast('Ismeretlen belépési kód! Kérj segítséget a péksègtől.');
+    const errEl = document.getElementById('login-error');
+    if(errEl) { errEl.textContent = '❌ Ismeretlen kód! Kérj segítséget a pékségtől.'; errEl.style.display='block'; }
+    const inp = document.getElementById('login-input');
+    if(inp) { inp.style.border='1.5px solid #ef4444'; inp.focus(); inp.addEventListener('input', () => { if(errEl) errEl.style.display='none'; inp.style.border=''; }, {once:true}); }
   }
 }
 function logout() { window.location.href = 'index.html'; }
