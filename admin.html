@@ -979,6 +979,8 @@ async function doLogin(){
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
+      // Badge frissítése loadAllData után (seenMsgs már betöltve)
+      updateMsgBadge();
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
     if(pw === (D.settings?.adminPw||'admin')){
