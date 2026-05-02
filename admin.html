@@ -1682,7 +1682,7 @@ async function saveProduct(){
     D.products.push({id:prodId,name,weight,price,category,desc,image});
   }
   try {
-    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc,image_url:image||null});
+    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc});
     toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
   } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message, true); }
   save(); closeModal('product-modal'); renderCatalog();
