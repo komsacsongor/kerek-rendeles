@@ -69,10 +69,10 @@ const sb = {
   },
 
   async getSetting(key) {
-    const rows = await this.query('settings', { filter: `key=eq.${key}`, order: 'id.desc', limit: 1 });
+    const rows = await this.query('settings', { filter: `key=eq.${key}` });
     if (!rows[0]) return null;
     const val = rows[0].value;
-    if (typeof val === 'string') return JSON.parse(val);
+    if (typeof val === 'string') { try { return JSON.parse(val); } catch(e) { return val; } }
     return val;
   },
 
