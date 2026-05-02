@@ -1873,7 +1873,7 @@ async function loadMessage() {
 }
 
 
-function doLogin() {
+async function doLogin() {
   const val = document.getElementById('login-input').value.trim().toLowerCase();
   const errEl2 = document.getElementById('login-error');
   if (!val) {
@@ -1898,7 +1898,7 @@ function doLogin() {
     buildMonthSelectors();
     renderOrderTable();
     updateHeroTotal();
-    loadMessage();
+    await loadMessage();
 
     // ===== REALTIME: azonnali frissítés =====
     sb.subscribe(['messages', 'monthly_active_products'], async ({ table }) => {
