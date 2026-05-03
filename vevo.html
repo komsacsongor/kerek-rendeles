@@ -1327,6 +1327,7 @@ function checkDeadline(day) {
 function isMobile() { return window.innerWidth <= 640; }
 
 function renderOrderTable() {
+  if(!currentUser) return; // null guard
   if(isMobile()) { renderMobileOrderCards(); return; }
   const prods = getActiveProds(selectedYear, selectedMonth);
   const days = getDays(selectedYear, selectedMonth);
@@ -1720,6 +1721,7 @@ function renderHelpConditions() {
 
 // ===== MOBILE ORDER CARDS =====
 function renderMobileOrderCards() {
+  if(!currentUser) return;
   const prods = getActiveProds(selectedYear, selectedMonth);
   const days = getDays(selectedYear, selectedMonth);
   const now = new Date();
