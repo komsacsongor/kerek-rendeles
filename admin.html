@@ -885,23 +885,22 @@ async function seedInitialData() {
     {id:10,name:'Szilvás gombóc',weight:'60 g',price:6,category:'Sütemény',description:'Gluténmentes gombóc.'},
   ];
   try {
-    for(const p of seedProducts) { await sb.upsert('products', p); }
-    // Seed demo clients
+    // Batch insert – egy HTTP kérés
+    await sb.insert('products', seedProducts, true);
     const demoClients = [
       {id:'anna',name:'Kovács Anna',email:'anna@example.com',phone:'+40 740 111 222',join_date:'2025-09-01'},
       {id:'bela',name:'Nagy Béla',email:'bela@example.com',phone:'+40 750 333 444',join_date:'2025-11-15'},
       {id:'cica',name:'Fekete Cica',email:'cica@example.com',phone:'+40 760 555 666',join_date:'2026-01-10'},
     ];
-    for(const cl of demoClients) { await sb.upsert('clients', cl); }
+    await sb.insert('clients', demoClients, true);
     console.log('Seed complete. Reloading...');
     await loadAllData();
   } catch(e) { console.error('Seed error:', e); }
 }
 
 async function loadAllData() {
-
+  // Táblánkénti try/catch – egy hiba nem akadályozza a többit
   try {
-    // Termékek
     const products = await sb.query('products', { order: 'id' });
     if (products?.length) {
       D.products = products.map(p => ({
@@ -911,18 +910,18 @@ async function loadAllData() {
         marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
         allergens: p.allergens || '', nutrition: p.nutrition || null
       }));
-    } else {
-      await seedInitialData();
-    }
+    } else { await seedInitialData(); }
+  } catch(e) { console.error('loadAllData [products]:', e.message); }
 
-    // Kliensek
+  try {
     const clients = await sb.query('clients', { order: 'name' });
     D.clients = (clients||[]).map(c => ({
       id: c.id, name: c.name, email: c.email || '',
       phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
     }));
+  } catch(e) { console.error('loadAllData [clients]:', e.message); }
 
-    // Havi aktív termékek
+  try {
     const maps = await sb.query('monthly_active_products');
     D.monthlyActiveProducts = {};
     (maps||[]).forEach(r => {
@@ -930,8 +929,9 @@ async function loadAllData() {
       if (!D.monthlyActiveProducts[k]) D.monthlyActiveProducts[k] = [];
       D.monthlyActiveProducts[k].push(r.product_id);
     });
+  } catch(e) { console.error('loadAllData [monthly_active_products]:', e.message); }
 
-    // Rendelések
+  try {
     const orders = await sb.query('orders');
     D.orders = {};
     (orders||[]).forEach(r => {
@@ -939,8 +939,9 @@ async function loadAllData() {
       if (!D.orders[k]) D.orders[k] = {};
       D.orders[k][r.product_id] = r.quantity;
     });
+  } catch(e) { console.error('loadAllData [orders]:', e.message); }
 
-    // Üzenetek
+  try {
     const messages = await sb.query('messages', { order: 'created_at' });
     D.messages = {};
     (messages||[]).forEach(r => {
@@ -948,42 +949,36 @@ async function loadAllData() {
       if (!D.messages[k]) D.messages[k] = [];
       D.messages[k].push({ text: r.text, ts: r.created_at });
     });
+  } catch(e) { console.error('loadAllData [messages]:', e.message); }
 
-    // Sütési naptár
+  try {
     const cal = await sb.query('baking_calendar');
     D.bakingCalendar = {};
     (cal||[]).forEach(r => {
       const k = `${r.year}-${r.month}`;
-      D.bakingCalendar[k] = {
-        extra: r.extra_dates || [],
-        removed: r.removed_dates || []
-      };
+      D.bakingCalendar[k] = { extra: r.extra_dates || [], removed: r.removed_dates || [] };
     });
-    // Beállítások
+  } catch(e) { console.error('loadAllData [baking_calendar]:', e.message); }
+
+  try {
     const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery', 'admin_seen_msgs'];
     for (const key of settingKeys) {
-      const val = await sb.getSetting(key);
-      if (val !== null) {
-        if (key === 'baking_days_default') D.bakingDaysDefault = val;
-        else if (key === 'categories') D.categories = val;
-        else if (key === 'lang') D.settings.lang = val;
-        else if (key === 'currency') D.settings.currency = val;
-        else if (key === 'help_conditions') D.helpConditions = val;
-        else if (key === 'help_delivery') D.helpDelivery = val;
-        else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
-      }
+      try {
+        const val = await sb.getSetting(key);
+        if (val !== null) {
+          if (key === 'baking_days_default') D.bakingDaysDefault = val;
+          else if (key === 'categories') D.categories = val;
+          else if (key === 'lang') D.settings.lang = val;
+          else if (key === 'currency') D.settings.currency = val;
+          else if (key === 'help_conditions') D.helpConditions = val;
+          else if (key === 'help_delivery') D.helpDelivery = val;
+          else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
+        }
+      } catch(e) { console.error('loadAllData [settings:'+key+']:', e.message); }
     }
+  } catch(e) { console.error('loadAllData [settings]:', e.message); }
 
-    localStorage.setItem('kerek_data', JSON.stringify(D));
-
-
-
-  } catch(e) {
-    console.error('loadAllData HIBA:', e.message, e);
-    toast('⚠️ loadAllData hiba: ' + e.message, true);
-    const cached = localStorage.getItem('kerek_data');
-    if (cached) try { Object.assign(D, JSON.parse(cached)); } catch(e2) {}
-  }
+  localStorage.setItem('kerek_data', JSON.stringify(D));
 }
 
 // ===== AUTH =====
@@ -1025,6 +1020,7 @@ async function doLogin(){
   }
 }
 function logout() {
+  localStorage.removeItem('kerek_data');
   window.location.href = 'index.html';
 }
 
@@ -1039,13 +1035,7 @@ function initApp(){
       await loadAllData();
       updateMsgBadge();
       const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-      const renders = {
-        dashboard: renderDashboard, messages: renderMessages,
-        baking: renderBaking, orders: renderOrders,
-        clients: renderClients, catalog: renderCatalog,
-        reports: renderReports, categories: renderCategories
-      };
-      renders[activeView]?.();
+      RENDERS[activeView]?.();
       // Ha üzenet érkezett és nem az üzenetek nézetben vagyunk – badge pulzál
       if (table === 'messages' && event === 'INSERT' && activeView !== 'messages') {
         const badge = document.getElementById('msg-badge');
@@ -1061,10 +1051,7 @@ function initApp(){
         await loadAllData();
         updateMsgBadge();
         const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-        if(['dashboard','messages','baking'].includes(activeView)) {
-          const renders = {dashboard:renderDashboard, messages:renderMessages, baking:renderBaking};
-          renders[activeView]?.();
-        }
+        RENDERS[activeView]?.();
       } catch(e) {}
     }
   }, 300000);
@@ -1081,6 +1068,13 @@ const VIEW_TITLES = {
   'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások',
   export:'Adatok exportálása'
 };
+// Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
+const RENDERS = {
+  dashboard:()=>renderDashboard(), messages:()=>renderMessages(), baking:()=>renderBaking(),
+  orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
+  reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(),
+  export:()=>initExportView()
+};
 function nav(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1094,14 +1088,8 @@ function nav(id){
   if(monthBar) monthBar.style.display = (HAS_OWN_MONTHS.includes(id)||HIDE_MONTHS.includes(id)) ? 'none' : 'flex';
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
   currentView = id;
-  const renders = {
-    dashboard:renderDashboard, messages:renderMessages, baking:renderBaking,
-    orders:renderOrders, catalog:renderCatalog, clients:renderClients,
-    reports:renderReports, categories:renderCategories, settings:renderSettings,
-    export:initExportView
-  };
   // Olvasott jelölés csak kártya kinyitásakor (toggleMsgCard)
-  renders[id]?.();
+  RENDERS[id]?.();
 }
 
 // ===== HELPERS =====
@@ -2142,11 +2130,13 @@ function renderCategoriesList(){
       <button class="btn btn-danger btn-sm" onclick="deleteCategory(${i})">✕</button>
     </div>`).join('');
 }
-function addCategory(){
+async function addCategory(){
   const val=document.getElementById('new-cat-input').value.trim();
   if(!val){toast('Add meg a kategória nevét!');return;}
   if(D.categories.includes(val)){toast('Ez a kategória már létezik!');return;}
-  D.categories.push(val); save(); renderCategoriesList();
+  D.categories.push(val);
+  try { await sb.setSetting('categories', D.categories); } catch(e){ toast('⚠️ Kategória mentés sikertelen: '+e.message, true); }
+  save(); renderCategoriesList();
   document.getElementById('new-cat-input').value='';
   toast('Kategória hozzáadva!');
 }
@@ -2156,9 +2146,11 @@ function deleteCategory(i){
   sb.setSetting('categories', D.categories).catch(e=>console.warn(e));
   save(); renderCategoriesList(); toast('Kategória törölve.');
 }
-function saveSetting(key,val){
+async function saveSetting(key,val){
   if(!D.settings) D.settings={};
-  D.settings[key]=val; save(); toast('Beállítás mentve!');
+  D.settings[key]=val;
+  try { await sb.setSetting(key, val); } catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
+  save(); toast('Beállítás mentve!');
 }
 function saveHelpTexts(){
   D.helpConditions=document.getElementById('s-conditions').value;
@@ -2218,11 +2210,12 @@ function renderDefaultDayToggles(){
   `).join('');
 }
 
-function toggleDefaultDay(dow){
+async function toggleDefaultDay(dow){
   if(!D.bakingDaysDefault) D.bakingDaysDefault=[2,5];
   const idx=D.bakingDaysDefault.indexOf(dow);
   if(idx>-1) D.bakingDaysDefault.splice(idx,1);
   else D.bakingDaysDefault.push(dow);
+  try { await sb.setSetting('baking_days_default', D.bakingDaysDefault); } catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
   save(); renderDefaultDayToggles(); renderBakingCalendar();
   toast('Alapértelmezett sütési napok frissítve!');
 }
