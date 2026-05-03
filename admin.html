@@ -1534,7 +1534,7 @@ function toggleProduct(id){
   if(idx>-1) {
     sb.delete('monthly_active_products', `year=eq.${ky}&month=eq.${km}&product_id=eq.${id}`).catch(e=>console.warn(e));
   } else {
-    sb.upsert('monthly_active_products', {year:ky, month:km, product_id:id}).catch(e=>console.warn(e));
+    sb.upsert('monthly_active_products', {year:ky, month:km, product_id:id}, 'year,month,product_id').catch(e=>console.warn(e));
   }
   save(); renderCatalog();
   toast(idx>-1?'Termék eltávolítva a hónapból':'Termék aktiválva');
@@ -1715,7 +1715,7 @@ async function saveProduct(){
     D.products.push({id:prodId,name,weight,price,category,desc,image});
   }
   try {
-    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc});
+    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
     toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
   } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message, true); }
   save(); closeModal('product-modal'); renderCatalog();
@@ -1780,7 +1780,7 @@ async function saveClient(){
       phone: newClient.phone,
       note: newClient.note,
       join_date: newClient.joinDate
-    });
+    }, 'id');
     D.clients.push(newClient);
     save(); closeModal('client-modal'); renderClients();
     toast('✅ Kliens hozzáadva! Kód: '+id);
@@ -2312,7 +2312,7 @@ function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
   save();
   // Supabase sync
   const [calY, calM] = key.split('-').map(Number);
-  sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed})
+  sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed}, 'year,month')
     .then(()=>console.log('Cal saved OK:', {extra:cal.extra,removed:cal.removed}))
     .catch(e=>{ console.error('cal save err:', e.message); toast('⚠️ Naptár mentés sikertelen: '+e.message, true); });
   renderBakingCalendar();
