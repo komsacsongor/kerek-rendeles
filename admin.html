@@ -1473,7 +1473,12 @@ function setCatalogFilter(cat) {
 }
 
 function renderCatalog(){
-  const y=selYear, m=selMonth;
+  const y=selYear, m=catalogMonth;
+  // Hónap selector feltöltése
+  const catMonSel = document.getElementById('catalog-month-sel');
+  if(catMonSel) catMonSel.innerHTML = MONTHS.map((mo,i)=>
+    `<button class="month-btn ${i===catalogMonth?'active':''}" onclick="selectCatalogMonth(${i})">${mo}</button>`
+  ).join('');
   // Category filter
   const allCats = [...new Set(D.products.map(p=>p.category||'Egyéb'))].sort();
   const activeCat = window._catalogFilter || 'all';
