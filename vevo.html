@@ -1080,7 +1080,7 @@ const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek',
 // BAKING_DAYS now dynamic - loaded from shared data
 
 // ===== DATA =====
-let appData = JSON.parse(localStorage.getItem('kerek_vevo_data') || '{}') || {
+let appData = JSON.parse(localStorage.getItem('kerek_vevo_data') || 'null') || {
   products: [
     { id:1, name:'Kovászos prémium kenyér', weight:'500 g', price:23, category:'Kenyér', desc:'Összetevők: rizsliszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
     { id:2, name:'Kovászos prémium kenyér', weight:'1000 g', price:35, category:'Kenyér', desc:'Összetevők: rizsiszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
@@ -1173,9 +1173,15 @@ async function doLogin() {
     if(settings_cond) appData.helpConditions = settings_cond;
     if(settings_del) appData.helpDelivery = settings_del;
     if(settings_bake) appData.bakingDaysDefault = settings_bake;
+    if(!appData.orders) appData.orders = {};
+    if(!appData.messages) appData.messages = {};
+    if(!appData.bakingCalendar) appData.bakingCalendar = {};
 
   } catch(e) {
     console.warn('Supabase betöltési hiba, cache-t használ:', e.message);
+    if(!appData.orders) appData.orders = {};
+    if(!appData.messages) appData.messages = {};
+    if(!appData.bakingCalendar) appData.bakingCalendar = {};
   }
 
   if(btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
@@ -1200,6 +1206,28 @@ async function doLogin() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(client.name.split(' ')[1]) + '! 👋';
+    // Vevő rendelései + üzenetei Supabase-ből
+    try {
+      const [userOrders, userMsgs, calData] = await Promise.all([
+        sb.query('orders', {filter: `client_id=eq.${client.id}`}),
+        sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at'}),
+        sb.query('baking_calendar'),
+      ]);
+      (userOrders||[]).forEach(r => {
+        const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+        if(!appData.orders[k]) appData.orders[k] = {};
+        appData.orders[k][r.product_id] = r.quantity;
+      });
+      (userMsgs||[]).forEach(r => {
+        const k = `${r.client_id}-${r.year}-${r.month}`;
+        if(!appData.messages[k]) appData.messages[k] = [];
+        appData.messages[k].push({text: r.text, ts: r.created_at});
+      });
+      (calData||[]).forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        appData.bakingCalendar[k] = {extra: r.extra_dates||[], removed: r.removed_dates||[]};
+      });
+    } catch(e) { console.warn('User data load:', e.message); }
     buildMonthSelectors();
     renderOrderTable();
     updateHeroTotal();
