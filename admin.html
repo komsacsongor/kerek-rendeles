@@ -1780,13 +1780,20 @@ async function saveProduct(){
     D.products.push({id:prodId,name,weight,price,category,desc,image,ptype});
   }
   try {
-    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
+    const savedProds = await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
+    // Supabase-től visszajövő valódi id
+    const realProdId = (savedProds&&savedProds[0]?.id) ? savedProds[0].id : prodId;
+    if(realProdId !== prodId) {
+      prodId = realProdId;
+      const p = D.products.find(p=>p.id===editingProductId||p.id===prodId);
+      if(p) p.id = realProdId;
+    }
     // Ha gyártási termék és új termék → automatikus recept létrehozás
     if(ptype==='production' && !editingProductId) {
       try {
         const newRecipe = {
           name, category,
-          product_id: prodId,
+          product_id: realProdId,
           base_portion: 1000,
           bake_loss: 16,
           unit_weight: 1000,
