@@ -1126,7 +1126,7 @@ let selectedYear = new Date().getFullYear();
 let summaryMonth = selectedMonth;
 
 // ===== AUTH =====
-function doLogin() {
+async function doLogin() {
   const val = document.getElementById('login-input').value.trim().toLowerCase();
   const errEl2 = document.getElementById('login-error');
   if (!val) {
@@ -1135,10 +1135,54 @@ function doLogin() {
   }
   if(errEl2) errEl2.style.display='none';
   if (val === 'admin') { window.location.href = 'admin.html'; return; }
-  // Accept code in various formats: with/without dashes, upper/lower
+
+  // Loading jelzés
+  const btn = document.querySelector('#login-screen button');
+  if(btn) { btn.disabled = true; btn.textContent = 'Betöltés...'; }
+
+  try {
+    // Mindig Supabase-ből tölt – friss termékek, kliensek, beállítások
+    const [clients, products, maps, settings_cond, settings_del, settings_bake] = await Promise.all([
+      sb.query('clients'),
+      sb.query('products', {order:'id'}),
+      sb.query('monthly_active_products'),
+      sb.getSetting('help_conditions'),
+      sb.getSetting('help_delivery'),
+      sb.getSetting('baking_days_default'),
+    ]);
+
+    if(clients?.length) {
+      appData.clients = clients.map(c=>({id:c.id,name:c.name,email:c.email||'',phone:c.phone||''}));
+    }
+    if(products?.length) {
+      appData.products = products.map(p=>({
+        id:p.id, name:p.name, weight:p.weight||'', price:p.price||0,
+        category:p.category||'', desc:p.description||'', image:p.image||null,
+        marketing_desc:p.marketing_desc||'', ingredient_label:p.ingredient_label||'',
+        allergens:p.allergens||'', nutrition:p.nutrition||null
+      }));
+    }
+    if(maps?.length) {
+      appData.monthlyActiveProducts = {};
+      maps.forEach(r=>{
+        const k=`${r.year}-${r.month}`;
+        if(!appData.monthlyActiveProducts[k]) appData.monthlyActiveProducts[k]=[];
+        appData.monthlyActiveProducts[k].push(r.product_id);
+      });
+    }
+    if(settings_cond) appData.helpConditions = settings_cond;
+    if(settings_del) appData.helpDelivery = settings_del;
+    if(settings_bake) appData.bakingDaysDefault = settings_bake;
+
+  } catch(e) {
+    console.warn('Supabase betöltési hiba, cache-t használ:', e.message);
+  }
+
+  if(btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
+
   const normalizedVal = val.replace(/-/g,'').toLowerCase();
-  const client = appData.clients.find(c => 
-    c.id === val || 
+  const client = appData.clients.find(c =>
+    c.id === val ||
     c.id.toLowerCase() === val ||
     c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
     c.name.toLowerCase() === val
@@ -1146,8 +1190,8 @@ function doLogin() {
   if (client) {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('user-badge').textContent = '👤 ' + client.name;
-    document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ')[1] + '! 👋';
+    document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
+    document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(client.name.split(' ')[1]) + '! 👋';
     buildMonthSelectors();
     renderOrderTable();
     updateHeroTotal();
@@ -1816,42 +1860,20 @@ function checkAutoLogin() {
 }
 
 // ===== TOAST =====
-function toast(msg) {
+function toast(msg, isError=false) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.style.display = 'block';
   el.style.opacity = '1';
+  el.style.background = isError ? '#b91c1c' : '';
+  if(isError) console.error('KEREK:', msg);
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); }, 3200);
+  const duration = isError ? 8000 : 3200;
+  el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); el.style.background=''; }, duration);
 }
 
 // Auto-login check runs after everything is loaded
-window.addEventListener('load', async () => {
-  checkAutoLogin();
-  // Termék adatok frissítése Supabase-ből (marketing, tápérték, összetevők)
-  try {
-    const prods = await sb.query('products', {order: 'id'});
-    if(prods && prods.length) {
-      prods.forEach(p => {
-        const existing = appData.products.find(x => x.id === p.id);
-        if(existing) {
-          existing.marketing_desc = p.marketing_desc || '';
-          existing.ingredient_label = p.ingredient_label || '';
-          existing.allergens = p.allergens || '';
-          existing.nutrition = p.nutrition || null;
-          if(p.description) existing.desc = p.description;
-        } else {
-          appData.products.push({
-            id: p.id, name: p.name, weight: p.weight||'', price: p.price||0,
-            category: p.category||'', desc: p.description||'', image: p.image_url||null,
-            marketing_desc: p.marketing_desc||'', ingredient_label: p.ingredient_label||'',
-            allergens: p.allergens||'', nutrition: p.nutrition||null
-          });
-        }
-      });
-    }
-  } catch(e) { console.warn('Termék adatok betöltési hiba:', e); }
-});
+window.addEventListener('load', checkAutoLogin);
 async function loadMessage() {
   const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
   try {
