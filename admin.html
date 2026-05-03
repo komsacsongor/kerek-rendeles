@@ -1780,7 +1780,7 @@ async function saveProduct(){
     D.products.push({id:prodId,name,weight,price,category,desc,image,ptype});
   }
   try {
-    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc,type:ptype}, 'id');
+    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
     // Ha gyártási termék és új termék → automatikus recept létrehozás
     if(ptype==='production' && !editingProductId) {
       try {
