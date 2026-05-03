@@ -6,6 +6,7 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
+<script src="kerek-constants.js"></script>
 <script src="supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <style>
@@ -889,7 +890,7 @@ table.order-tbl {
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" style="color:#ef4444;font-size:0.82rem;margin-top:10px;text-align:center;min-height:20px;font-weight:600;display:none"></div>
-    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.4 (2026-05-03)</div>
+    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.5 (2026-05-03)</div>
     <div class="login-hint">A belépési kódot a KEREK péksègtől kaptad.</div>
   </div>
 </div>
@@ -1075,8 +1076,6 @@ table.order-tbl {
 
 <script>
 // ===== CONSTANTS =====
-const MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
-const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
 // BAKING_DAYS now dynamic - loaded from shared data
 
 // ===== DATA =====
@@ -1225,6 +1224,9 @@ async function doLogin() {
     updateHeroTotal();
     loadMessage();
     renderHelpConditions();
+    // Üzenetek auto-frissítése 30 másodpercenként
+    if(window._msgPollTimer) clearInterval(window._msgPollTimer);
+    window._msgPollTimer = setInterval(()=>{ if(currentUser) loadMessage(); }, 30000);
   } else {
     const errEl = document.getElementById('login-error');
     if(errEl) { errEl.textContent = '❌ Ismeretlen kód! Kérj segítséget a pékségtől.'; errEl.style.display='block'; }
@@ -1245,7 +1247,7 @@ function showView(id) {
 }
 
 // ===== HELPERS =====
-function getKey(month, year) { return `${year}-${month}`; }
+function getKey(month, year) { return `${year}-${month}`; } // NOTE: params are (month, year) intentionally - matches admin mk(year,month) output
 function getOrderKey(cid, y, m, d) { return `${cid}-${y}-${m}-${d}`; }
 function getActiveProds(year, month) {
   const ids = appData.monthlyActiveProducts[getKey(month, year)] || [];

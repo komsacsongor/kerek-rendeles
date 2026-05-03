@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
+<script src="kerek-constants.js"></script>
 <script src="supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <style>
@@ -252,7 +253,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.4 (2026-05-03)</div>
+    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.5 (2026-05-03)</div>
   </div>
 </div>
 
@@ -804,13 +805,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
 <script>
 // ===== DATA =====
-const MONTHS=['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
-const MONTHS_SHORT=['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
-const DAYS_HU=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
 const BAKING_DAYS=[2,5];
 
 // ===== SUPABASE DATA LAYER =====
-const APP_VERSION = 'v1.4 (2026-05-03)';
 
 let D = { _v: 'supabase', seenMsgs: {},
   products:[
@@ -1006,8 +1003,11 @@ async function doLogin(){
 
   try {
     const storedPw = await sb.getSetting('admin_password');
+    const pwHash = await hashPassword(pw);
+    // Support both plain (legacy) and hashed passwords
     const correctPw = storedPw || 'admin';
-    if(pw === correctPw){
+    const isCorrect = (pw === correctPw) || (pwHash === correctPw);
+    if(isCorrect){
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
@@ -1245,7 +1245,7 @@ function renderDashboard(){
   document.getElementById('monthly-chart-labels').innerHTML=months.map((x,i)=>`<div style="flex:1;text-align:center;font-size:0.68rem;color:var(--text-soft);font-weight:${i===5?700:400}">${MONTHS_SHORT[x.m]}</div>`).join('');
 
   // Next baking
-  const upcoming=bdays.filter(d=>d>=now).slice(0,4);
+  const upcoming=bdays.filter(d=>d>=now).slice(0,8);
   document.getElementById('next-baking').innerHTML=upcoming.map(d=>{
     const day=d.getDate(); const dayO=mo[day]||{}; const q=Object.values(dayO).reduce((a,b)=>a+b,0);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
@@ -1260,7 +1260,7 @@ function renderDashboard(){
     msgs.forEach(msg=>recentMsgs.push({client:client?.name||cid,text:msg.text,ts:msg.ts}));
   });
   recentMsgs.sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-  document.getElementById('recent-messages').innerHTML=recentMsgs.slice(0,4).map(m=>`
+  document.getElementById('recent-messages').innerHTML=recentMsgs.slice(0,6).map(m=>`
     <div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:0.72rem;color:var(--teal-mid);font-weight:600">${m.client}</div>
       <div style="font-size:0.82rem;color:var(--text);margin-top:2px">${esc(m.text).slice(0,80)}${m.text.length>80?'…':''}</div>
@@ -2032,7 +2032,7 @@ function renderReports(){
 
   // Top products
   const prodTotals={}; Object.values(mo).forEach(day=>Object.entries(day).forEach(([pid,q])=>prodTotals[pid]=(prodTotals[pid]||0)+q));
-  const sorted=Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const sorted=Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxP=sorted[0]?.[1]||1;
   document.getElementById('top-products').innerHTML=sorted.map(([pid,q])=>{
     const p=D.products.find(p=>p.id==pid); if(!p) return '';
@@ -2084,7 +2084,7 @@ function renderCategories(){
   const totalRev=catArr.reduce((a,[,v])=>a+v.rev,0)||1;
   const totalQty=catArr.reduce((a,[,v])=>a+v.qty,0)||1;
 
-  document.getElementById('cat-stats').innerHTML=catArr.slice(0,4).map(([cat,v])=>`
+  document.getElementById('cat-stats').innerHTML=catArr.slice(0,8).map(([cat,v])=>`
     <div class="stat-box"><div class="stat-val">${v.qty} db</div><div class="stat-label">🏷 ${esc(cat)}</div><div style="font-size:0.75rem;color:var(--gold-dark);margin-top:4px">${v.rev} lej</div></div>`).join('');
 
   // Bar chart
@@ -2177,7 +2177,7 @@ function changePassword(){
   if(!n1||n1!==n2){toast('Az új jelszavak nem egyeznek!');return;}
   if(!D.settings) D.settings={};
   D.settings.adminPw=n1;
-  sb.setSetting('admin_password', n1).catch(e=>console.warn(e));
+  hashPassword(n1).then(hash => sb.setSetting('admin_password', hash).catch(e=>console.warn(e)));
   save();
   ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
   toast('Jelszó sikeresen módosítva!');
