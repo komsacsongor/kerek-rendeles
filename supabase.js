@@ -4,6 +4,12 @@
 const SUPABASE_URL = 'https://lfaxeihrmiylggahougl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
+// ===== PASSWORD HASHING =====
+async function hashPassword(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 // ===== XSS PROTECTION =====
 // Minden user-generated tartalmat ezzel kell kiszúrni mielőtt innerHTML-be kerül
 function esc(str) {
@@ -17,21 +23,28 @@ function esc(str) {
 }
 
 const sb = {
-  async query(table, opts = {}) {
+  async query(table, opts = {}, retries = 2) {
     let url = `${SUPABASE_URL}/rest/v1/${table}?`;
     if (opts.select) url += `select=${opts.select}&`;
     if (opts.filter) url += `${opts.filter}&`;
     if (opts.order) url += `order=${opts.order}&`;
     if (opts.limit) url += `limit=${opts.limit}&`;
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
+    for(let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return await res.json();
+      } catch(e) {
+        if(attempt === retries) throw e;
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
       }
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    }
   },
 
   async insert(table, data, upsert = false, onConflict = null) {
