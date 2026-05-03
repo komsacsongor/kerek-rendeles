@@ -240,7 +240,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.6 (2026-05-03)</div>
+    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.7 (2026-05-03)</div>
     <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center"></p>
   </div>
 </div>
@@ -580,6 +580,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div class="form-row">
           <div class="form-group" style="flex:2"><label>Recept neve *</label><input type="text" id="r-name" placeholder="pl. Kovászos prémium kenyér" oninput="updateRecipeProductCode()"></div>
           <div class="form-group"><label>Kategória</label><select id="r-category" onchange="updateRecipeProductCode()"></select></div>
+          <div class="form-group"><label>Admin termék kapcsolat</label><select id="r-product-link"><option value="">– nincs hozzárendelve –</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -962,6 +963,11 @@ async function initApp() {
     catch(e) { console.warn('initApp getSetting ['+key+']:', e.message); }
   }));
 
+  // Admin termékek betöltése cache-be
+  try {
+    const prods = await sb.query('products', {order:'name'});
+    window._adminProductsCache = prods || [];
+  } catch(e) { window._adminProductsCache = []; }
   nav('recipes');
 }
 
@@ -2270,6 +2276,18 @@ function openRecipeModal(id=null) {
     document.getElementById('recipe-delete-btn').style.display = 'none';
   }
   renderModalIngredients(); renderModalSteps(); updateLevainPreview();
+  // Termék dropdown feltöltése
+  const prodSel = document.getElementById('r-product-link');
+  const curProductId = editingRecipeId ? (R.recipes.find(r=>r.id===editingRecipeId)||{}).product_id : null;
+  prodSel.innerHTML = '<option value="">– nincs hozzárendelve –</option>';
+  const adminProducts = _adminProductsCache || [];
+  adminProducts.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name + (p.weight ? ' ('+p.weight+')' : '');
+    if(p.id == curProductId) opt.selected = true;
+    prodSel.appendChild(opt);
+  });
   document.getElementById('recipe-modal').classList.add('open');
 }
 
@@ -2718,6 +2736,7 @@ async function saveRecipe() {
   const name = document.getElementById('r-name').value.trim();
   if (!name) { toast('Recept neve kötelező!'); return; }
   const data = {
+    product_id: parseInt(document.getElementById('r-product-link').value)||null,
     name, category: document.getElementById('r-category').value,
     basePortion: parseFloat(document.getElementById('r-base-portion').value)||1000,
     bakeLoss: parseFloat(document.getElementById('r-bake-loss').value)||R.settings.bakeLoss,
