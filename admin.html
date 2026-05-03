@@ -254,7 +254,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.6 (2026-05-03)</div>
+    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.7 (2026-05-03)</div>
   </div>
 </div>
 
@@ -718,6 +718,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
           <input type="url" id="p-image" placeholder="https://... (URL)" style="flex:1;min-width:160px;padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none" oninput="handleProductImageUrl(this.value)">
         </div>
         <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">Támogatott formátumok: JPG, PNG, WebP, GIF</div>
+      </div>
+      <div id="p-recipe-info" style="display:none;background:var(--teal-pale);border-radius:10px;padding:12px;margin-bottom:12px;font-size:0.82rem">
+        <div style="font-weight:600;color:var(--teal-dark);margin-bottom:4px">🧪 Kapcsolt recept: <span id="p-recipe-name">–</span></div>
+        <div style="color:var(--text-soft)">A recept adatai a Receptúra modulban szerkeszthetők.</div>
       </div>
       <div class="flex gap-10">
         <button class="btn btn-ghost" onclick="closeModal('product-modal')">Mégse</button>
@@ -1526,6 +1530,7 @@ function renderCatalog(){
         <div style="font-size:0.72rem;color:var(--text-soft)">${p.weight||''} · ${p.price||0} lej</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})" style="flex-shrink:0">✏️</button>
+      <button class="btn btn-ghost btn-sm" onclick="deleteProduct(${p.id})" style="flex-shrink:0;color:#b91c1c" title="Törlés">🗑</button>
       <button class="btn ${isActive?'btn-danger':'btn-primary'} btn-sm" onclick="toggleProduct(${p.id})" style="flex-shrink:0">${isActive?'–':'+'}</button>
     </div>`;
   };
@@ -1558,6 +1563,22 @@ function toggleProduct(id){
   toast(idx>-1?'Termék eltávolítva a hónapból':'Termék aktiválva');
 }
 
+async function deleteProduct(id) {
+  const p = D.products.find(p=>p.id===id);
+  if(!p) return;
+  if(!confirm('Biztosan törlöd: "' + esc(p.name) + '"?\nA havi aktiválások is törlődnek.')) return;
+  D.products = D.products.filter(x=>x.id!==id);
+  Object.keys(D.monthlyActiveProducts).forEach(k=>{
+    D.monthlyActiveProducts[k] = (D.monthlyActiveProducts[k]||[]).filter(x=>x!==id);
+  });
+  try {
+    await sb.delete('monthly_active_products', 'product_id=eq.'+id);
+    await sb.delete('products', 'id=eq.'+id);
+    toast('Termék törölve.');
+  } catch(e) { toast('⚠️ Törlés sikertelen: '+e.message, true); }
+  save(); renderCatalog();
+}
+
 function openProductModal(id=null){
   editingProductId=id;
   const catSel=document.getElementById('p-category');
@@ -1579,6 +1600,22 @@ function openProductModal(id=null){
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     clearProductImage();
     document.getElementById('pm-title').textContent='Új termék';
+  }
+  // Kapcsolt recept megjelenítése
+  const recipeInfo = document.getElementById('p-recipe-info');
+  const recipeNameEl = document.getElementById('p-recipe-name');
+  if(id && recipeInfo) {
+    // Lekérdezzük a kapcsolt receptet Supabase-ből
+    sb.query('recipes', {filter:'product_id=eq.'+id, select:'id,name'}).then(rows=>{
+      if(rows&&rows.length>0) {
+        recipeNameEl.textContent = rows[0].name;
+        recipeInfo.style.display = 'block';
+      } else {
+        recipeInfo.style.display = 'none';
+      }
+    }).catch(()=>{ recipeInfo.style.display='none'; });
+  } else if(recipeInfo) {
+    recipeInfo.style.display = 'none';
   }
   document.getElementById('product-modal').classList.add('open');
 }
