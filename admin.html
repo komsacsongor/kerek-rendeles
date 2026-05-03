@@ -1109,7 +1109,7 @@ function getBakingDays(y,m){
   const days=getDays(y,m);
   const result=[];
   days.forEach(d=>{
-    const dateStr=d.toISOString().slice(0,10);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const isDefault=defaultDays.includes(d.getDay());
     const isExtra=cal.extra.includes(dateStr);
     const isRemoved=cal.removed.includes(dateStr);
@@ -2253,7 +2253,7 @@ function renderBakingCalendar(){
   for(let i=0;i<offset;i++) html+=`<div></div>`;
 
   days.forEach(d=>{
-    const dateStr=d.toISOString().slice(0,10);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const dow=d.getDay();
     const isDefault=defaults.includes(dow);
     const isExtra=cal.extra.includes(dateStr);
