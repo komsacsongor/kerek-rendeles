@@ -865,7 +865,7 @@ let editingProductId = null;
 async function save() {
   // Save to Supabase - handled by individual save functions
   // Also keep local cache for offline
-  localStorage.setItem('kerek_data', JSON.stringify(D));
+  localStorage.setItem('kerek_admin_data', JSON.stringify(D));
 }
 
 
@@ -978,7 +978,7 @@ async function loadAllData() {
     }
   } catch(e) { console.error('loadAllData [settings]:', e.message); }
 
-  localStorage.setItem('kerek_data', JSON.stringify(D));
+  localStorage.setItem('kerek_admin_data', JSON.stringify(D));
 }
 
 // ===== AUTH =====
@@ -1010,17 +1010,12 @@ async function doLogin(){
       updateMsgBadge();
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
-    console.warn('doLogin getSetting hiba:', e.message);
-    if(pw === (D.settings?.adminPw||'admin')){
-      document.getElementById('login-screen').style.display='none';
-      await loadAllData();
-      initApp();
-      updateMsgBadge();
-    } else { loginError('❌ Hibás jelszó!'); }
+    console.error('doLogin Supabase hiba:', e.message);
+    loginError('❌ Kapcsolódási hiba. Kérjük próbáld újra.');
   }
 }
 function logout() {
-  localStorage.removeItem('kerek_data');
+  localStorage.removeItem('kerek_admin_data');
   window.location.href = 'index.html';
 }
 
@@ -1258,7 +1253,7 @@ function renderDashboard(){
   document.getElementById('recent-messages').innerHTML=recentMsgs.slice(0,4).map(m=>`
     <div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:0.72rem;color:var(--teal-mid);font-weight:600">${m.client}</div>
-      <div style="font-size:0.82rem;color:var(--text);margin-top:2px">${m.text.slice(0,80)}${m.text.length>80?'…':''}</div>
+      <div style="font-size:0.82rem;color:var(--text);margin-top:2px">${esc(m.text).slice(0,80)}${m.text.length>80?'…':''}</div>
     </div>`).join('')||'<p class="text-sm text-soft">Nincsenek üzenetek.</p>';
 }
 
@@ -1405,12 +1400,12 @@ function renderBaking(){
     activeP.forEach(p=>{
       const totalForP=aggr[p.id]||0;
       if(!totalForP) return;
-      html+=`<div class="baking-line"><span style="font-weight:600">${p.name} <span class="text-xs text-soft">${p.weight}</span></span><span class="baking-qty">${totalForP} db</span></div>`;
+      html+=`<div class="baking-line"><span style="font-weight:600">${esc(p.name)} <span class="text-xs text-soft">${esc(p.weight)}</span></span><span class="baking-qty">${totalForP} db</span></div>`;
       // Per client
       D.clients.forEach(c=>{
         const key=ok(c.id,y,m,day); const qty=(D.orders[key]||{})[p.id]||0;
         if(!qty) return;
-        html+=`<div class="baking-line client-sub"><span>↳ ${c.name}</span><span>${qty} db</span></div>`;
+        html+=`<div class="baking-line client-sub"><span>↳ ${esc(c.name)}</span><span>${qty} db</span></div>`;
       });
     });
 
@@ -1440,7 +1435,7 @@ function renderOrders(){
   activeP.forEach(p=>{
     const qties=bdays.map(d=>(mo[d.getDate()]||{})[p.id]||0);
     const tot=qties.reduce((a,b)=>a+b,0); if(!tot) return;
-    html+=`<tr><td><b>${p.name}</b><br><small class="text-soft">${p.weight}</small></td>`;
+    html+=`<tr><td><b>${esc(p.name)}</b><br><small class="text-soft">${esc(p.weight)}</small></td>`;
     qties.forEach(q=>html+=`<td class="num">${q||'—'}</td>`);
     html+=`<td class="num highlight">${tot}</td><td class="num gold-text">${tot*p.price} lej</td></tr>`;
   });
@@ -1455,7 +1450,7 @@ function renderOrders(){
       const key=ok(c.id,y,m,d.getDate());
       if(D.orders[key]){days++;Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});}
     });
-    chtml+=`<tr><td><b>${c.name}</b><br><small class="text-soft">${c.email}</small></td>
+    chtml+=`<tr><td><b>${esc(c.name)}</b><br><small class="text-soft">${esc(c.email)}</small></td>
       <td><span class="badge badge-teal">${days} nap</span></td>
       <td class="num highlight">${tot} db</td>
       <td class="num gold-text">${rev} lej</td>
@@ -1481,7 +1476,7 @@ function renderCatalog(){
   const filterHtml = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
     <span style="font-size:0.78rem;color:var(--text-soft);font-weight:600">Szűrés:</span>
     <button class="btn ${activeCat==='all'?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('all')">Összes</button>
-    ${allCats.map(cat=>`<button class="btn ${activeCat===cat?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('${cat}')">${cat}</button>`).join('')}
+    ${allCats.map(cat=>`<button class="btn ${activeCat===cat?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('${esc(cat)}')">${esc(cat)}</button>`).join('')}
   </div>`;
   
   const filtered = activeCat==='all' ? D.products : D.products.filter(p=>(p.category||'Egyéb')===activeCat);
@@ -1494,7 +1489,7 @@ function renderCatalog(){
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       ${img}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</div>
         <div style="font-size:0.72rem;color:var(--text-soft)">${p.weight||''} · ${p.price||0} lej</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})" style="flex-shrink:0">✏️</button>
@@ -1724,7 +1719,7 @@ function renderClients(){
       <div class="client-card-head">
         <div class="client-avatar">${initials}</div>
         <div>
-          <div class="client-name">${c.name}</div>
+          <div class="client-name">${esc(c.name)}</div>
           <div class="client-meta">Kód: <b>${c.id}</b></div>
           <div class="client-meta" style="margin-top:2px">📅 Kliens: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
         </div>
@@ -1841,13 +1836,13 @@ function renderClientDetail(){
   const infoEl = document.getElementById('client-info-box');
   if(infoEl){
     infoEl.innerHTML=`
-      <div class="client-stat"><span>👤 Teljes név</span><span style="font-weight:600">${c.name}</span></div>
+      <div class="client-stat"><span>👤 Teljes név</span><span style="font-weight:600">${esc(c.name)}</span></div>
       <div class="client-stat"><span>🔑 Belépési kód</span><span style="display:flex;align-items:center;gap:8px"><b>${c.id}</b><button class="btn btn-ghost btn-xs" onclick="copyToClipboard('${c.id}')" title="Kód másolása">📋</button></span></div>
       <div class="client-stat"><span>📧 Email</span><span>${c.email||'—'}</span></div>
       <div class="client-stat"><span>📱 Telefon</span><span>${c.phone||'—'}</span></div>
       <div class="client-stat"><span>📅 Kliens óta</span><span>${joinStr}</span></div>
       <div class="client-stat"><span>⏱ Időtartam</span><span style="font-weight:600;color:var(--teal-dark)">${tenureStr}</span></div>
-      ${c.note?`<div class="client-stat"><span>📝 Megjegyzés</span><span>${c.note}</span></div>`:''}
+      ${c.note?`<div class="client-stat"><span>📝 Megjegyzés</span><span>${esc(c.note)}</span></div>`:''}
     `;
   }
 
@@ -1899,7 +1894,7 @@ function renderClientCategoryBreakdown(c, y, m){
   catEl.innerHTML = cats.map(([cat,v],i)=>`
     <div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;font-size:0.83rem;margin-bottom:4px">
-        <span style="font-weight:600">${cat}</span>
+        <span style="font-weight:600">${esc(cat)}</span>
         <span style="color:var(--gold-dark);font-weight:700">${v.qty} db &nbsp;·&nbsp; ${v.rev} lej</span>
       </div>
       <div style="background:var(--teal-pale);border-radius:6px;height:9px;overflow:hidden">
@@ -1992,7 +1987,7 @@ function renderAnnualSummary() {
         <tbody>
           ${Object.values(clientTotals).sort((a,b)=>b.revenue-a.revenue).map(c => `
             <tr>
-              <td><b>${c.name}</b></td>
+              <td><b>${esc(c.name)}</b></td>
               <td class="num">${c.orders}</td>
               <td class="num gold">${c.revenue.toFixed(0)}</td>
               <td class="num">${totalRevenue>0?((c.revenue/totalRevenue)*100).toFixed(1):0}%</td>
@@ -2026,7 +2021,7 @@ function renderReports(){
   const maxP=sorted[0]?.[1]||1;
   document.getElementById('top-products').innerHTML=sorted.map(([pid,q])=>{
     const p=D.products.find(p=>p.id==pid); if(!p) return '';
-    return `<div class="prog-row"><div class="prog-label"><span>${p.name} <small class="text-soft">${p.weight}</small></span><span>${q} db · ${q*p.price} lej</span></div><div class="prog-bar-bg"><div class="prog-bar" style="width:${q/maxP*100}%;background:var(--teal)"></div></div></div>`;
+    return `<div class="prog-row"><div class="prog-label"><span>${esc(p.name)} <small class="text-soft">${esc(p.weight)}</small></span><span>${q} db · ${q*p.price} lej</span></div><div class="prog-bar-bg"><div class="prog-bar" style="width:${q/maxP*100}%;background:var(--teal)"></div></div></div>`;
   }).join('')||'<p class="text-soft text-sm">Nincs adat.</p>';
 
   // Top clients
@@ -2040,7 +2035,7 @@ function renderReports(){
   }).sort((a,b)=>b.tot-a.tot);
   const maxC=clientTotals[0]?.tot||1;
   document.getElementById('top-clients').innerHTML=clientTotals.map(c=>`
-    <div class="prog-row"><div class="prog-label"><span>${c.name}</span><span>${c.tot} db · ${c.rev} lej</span></div>
+    <div class="prog-row"><div class="prog-label"><span>${esc(c.name)}</span><span>${c.tot} db · ${c.rev} lej</span></div>
     <div class="prog-bar-bg"><div class="prog-bar" style="width:${c.tot/maxC*100}%;background:var(--gold)"></div></div></div>`).join('');
 
   // Baking day revenue
@@ -2075,7 +2070,7 @@ function renderCategories(){
   const totalQty=catArr.reduce((a,[,v])=>a+v.qty,0)||1;
 
   document.getElementById('cat-stats').innerHTML=catArr.slice(0,4).map(([cat,v])=>`
-    <div class="stat-box"><div class="stat-val">${v.qty} db</div><div class="stat-label">🏷 ${cat}</div><div style="font-size:0.75rem;color:var(--gold-dark);margin-top:4px">${v.rev} lej</div></div>`).join('');
+    <div class="stat-box"><div class="stat-val">${v.qty} db</div><div class="stat-label">🏷 ${esc(cat)}</div><div style="font-size:0.75rem;color:var(--gold-dark);margin-top:4px">${v.rev} lej</div></div>`).join('');
 
   // Bar chart
   const maxRev=Math.max(...catArr.map(([,v])=>v.rev),1);
@@ -2090,7 +2085,7 @@ function renderCategories(){
   // Table
   let html='<table class="tbl"><thead><tr><th>Kategória</th><th class="num">db</th><th class="num">Forgalom</th><th class="num">% (db)</th><th class="num">% (érték)</th></tr></thead><tbody>';
   catArr.forEach(([cat,v])=>{
-    html+=`<tr><td><b>${cat}</b></td><td class="num highlight">${v.qty}</td><td class="num gold-text">${v.rev} lej</td>
+    html+=`<tr><td><b>${esc(cat)}</b></td><td class="num highlight">${v.qty}</td><td class="num gold-text">${v.rev} lej</td>
       <td class="num">${(v.qty/totalQty*100).toFixed(1)}%</td><td class="num">${(v.rev/totalRev*100).toFixed(1)}%</td></tr>`;
   });
   html+='</tbody></table>';
@@ -2108,7 +2103,7 @@ function renderCategories(){
       });
       return q;
     });
-    chtml+=`<tr><td><b>${c.name}</b></td>${catVals.map(q=>`<td class="num">${q||'—'}</td>`).join('')}<td class="num highlight">${rowTotal||'—'}</td></tr>`;
+    chtml+=`<tr><td><b>${esc(c.name)}</b></td>${catVals.map(q=>`<td class="num">${q||'—'}</td>`).join('')}<td class="num highlight">${rowTotal||'—'}</td></tr>`;
   });
   chtml+='</tbody></table>';
   document.getElementById('cat-client-table').innerHTML=chtml;
@@ -2126,7 +2121,7 @@ function renderSettings(){
 function renderCategoriesList(){
   document.getElementById('categories-list').innerHTML=D.categories.map((cat,i)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:white;margin-bottom:6px">
-      <span style="font-weight:600;font-size:0.88rem">${cat}</span>
+      <span style="font-weight:600;font-size:0.88rem">${esc(cat)}</span>
       <button class="btn btn-danger btn-sm" onclick="deleteCategory(${i})">✕</button>
     </div>`).join('');
 }
@@ -2558,13 +2553,20 @@ function exportReport(){
 }
 
 function exportAll(){
-  const data = JSON.stringify(D, null, 2);
+  // Érzékeny adatok kizárása az exportból
+  const safeD = JSON.parse(JSON.stringify(D));
+  if(safeD.settings) delete safeD.settings.adminPw;
+  // Kliens személyes adatok részleges elfedése
+  if(safeD.clients) safeD.clients = safeD.clients.map(c=>({
+    ...c, email: c.email ? '***' : '', phone: c.phone ? '***' : ''
+  }));
+  const data = JSON.stringify(safeD, null, 2);
   const blob = new Blob([data], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href=url; a.download='kerek_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
   URL.revokeObjectURL(url);
-  toast('✅ Biztonsági mentés letöltve!');
+  toast('✅ Biztonsági mentés letöltve! (jelszó és személyes adatok nélkül)');
 }
 
 // ===== VEVO PREVIEW =====
@@ -2572,7 +2574,7 @@ function openVevoPreview() {
   // Populate client selector
   const sel = document.getElementById('preview-client-sel');
   sel.innerHTML = D.clients.map(c =>
-    `<option value="${c.id}">${c.name}</option>`
+    `<option value="${c.id}">${esc(c.name)}</option>`
   ).join('');
 
   // Set first client
