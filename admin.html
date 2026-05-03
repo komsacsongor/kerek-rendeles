@@ -900,6 +900,7 @@ async function seedInitialData() {
 }
 
 async function loadAllData() {
+  localStorage.removeItem('kerek_data'); // legacy kulcs törlése
   // Táblánkénti try/catch – egy hiba nem akadályozza a többit
   try {
     const products = await sb.query('products', { order: 'id' });
