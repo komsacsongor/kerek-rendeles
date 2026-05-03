@@ -1,0 +1,21 @@
+/* ============================================================
+   KEREK – Közös CSS változók és alapstílusok
+   ============================================================ */
+:root {
+  --teal-dark:  #064C48;
+  --teal:       #129990;
+  --teal-mid:   #43AAA0;
+  --teal-light: #A3D1C6;
+  --teal-pale:  #E0F2EF;
+  --gold-dark:  #B78029;
+  --gold:       #EFB036;
+  --gold-light: #EBCF9E;
+  --sand:       #EABD6C;
+  --slate:      #395A63;
+  --cream:      #FAF7F0;
+  --white:      #FFFFFF;
+  --text:       #1A2E31;
+  --text-soft:  #5A7A80;
+  --border:     #C8DDD9;
+  --shadow:     rgba(6,76,72,0.12);
+}
