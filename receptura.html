@@ -938,7 +938,7 @@ async function doLogin() {
   }
 }
 function logout() {
-  localStorage.removeItem('kerek_data');
+  localStorage.removeItem('kerek_admin_data');
   localStorage.removeItem('kerek_recipe_data');
   window.location.href = 'index.html';
 }
@@ -1754,7 +1754,7 @@ function deleteRecipeCat(i) {
 
 // ===== LEVAIN DAILY =====
 function getBakingDaysRange(fromDate, numDays) {
-  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
   const bakingDef = mainData.bakingDaysDefault || [2,5];
   const result = [];
   const d = new Date(fromDate);
@@ -1794,7 +1794,7 @@ async function calcLevainDaily() {
   document.getElementById('levain-daily-result').innerHTML = '<p style="color:var(--teal);padding:20px">⏳ Adatok betöltése...</p>';
 
   // Load from Supabase
-  let mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  let mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
   try {
     const [clients, products, ordersRaw] = await Promise.all([
       sb.query('clients'),
@@ -1940,7 +1940,7 @@ function calcProductionPrep() {
     }
   }
 
-  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
   const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
 
   // Aggregate all ingredient needs across selected days
@@ -2051,7 +2051,7 @@ function calcProductionPrep() {
 // ===== STOCK ALERTS =====
 function renderStockAlerts() {
   const now = new Date();
-  const mainData = JSON.parse(localStorage.getItem('kerek_data') || '{}');
+  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
 
   // Calculate daily consumption from recent orders
   const criticalIngs = [];

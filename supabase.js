@@ -4,6 +4,18 @@
 const SUPABASE_URL = 'https://lfaxeihrmiylggahougl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
+// ===== XSS PROTECTION =====
+// Minden user-generated tartalmat ezzel kell kiszúrni mielőtt innerHTML-be kerül
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
 const sb = {
   async query(table, opts = {}) {
     let url = `${SUPABASE_URL}/rest/v1/${table}?`;
