@@ -2303,7 +2303,9 @@ function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
   save();
   // Supabase sync
   const [calY, calM] = key.split('-').map(Number);
-  sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed}).catch(e=>console.warn('cal save err',e));
+  sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed})
+    .then(()=>console.log('Cal saved OK:', {extra:cal.extra,removed:cal.removed}))
+    .catch(e=>{ console.error('cal save err:', e.message); toast('⚠️ Naptár mentés sikertelen: '+e.message, true); });
   renderBakingCalendar();
 }
 
