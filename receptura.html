@@ -938,6 +938,8 @@ async function doLogin() {
   }
 }
 function logout() {
+  localStorage.removeItem('kerek_data');
+  localStorage.removeItem('kerek_recipe_data');
   window.location.href = 'index.html';
 }
 
