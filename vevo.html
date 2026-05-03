@@ -1204,7 +1204,8 @@ async function doLogin() {
     if(inp) { inp.style.border='1.5px solid #ef4444'; inp.focus(); inp.addEventListener('input', () => { if(errEl) errEl.style.display='none'; inp.style.border=''; }, {once:true}); }
   }
 }
-function logout() { localStorage.removeItem('kerek_vevo_data'); window.location.href = 'index.html'; }
+function logout() { localStorage.removeItem('kerek_vevo_data');
+  localStorage.removeItem('kerek_data'); window.location.href = 'index.html'; }
 
 // ===== NAVIGATION =====
 function showView(id) {
