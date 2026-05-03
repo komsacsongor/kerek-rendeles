@@ -998,6 +998,8 @@ async function doLogin(){
   loginClearError();
   const pw = document.getElementById('login-pw').value;
   if(!pw){ loginError('⚠️ Add meg a jelszót!'); return; }
+  const btn = document.querySelector('#login-screen .btn-primary');
+  if(btn) { btn.disabled=true; btn.textContent='Betöltés...'; }
 
   try {
     const storedPw = await sb.getSetting('admin_password');
@@ -1008,9 +1010,13 @@ async function doLogin(){
       initApp();
       // Badge frissítése loadAllData után (seenMsgs már betöltve)
       updateMsgBadge();
-    } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
+    } else {
+      if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
+      loginError('❌ Hibás jelszó! Próbáld újra.');
+    }
   } catch(e) {
     console.error('doLogin Supabase hiba:', e.message);
+    if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
     loginError('❌ Kapcsolódási hiba. Kérjük próbáld újra.');
   }
 }

@@ -945,16 +945,20 @@ function logout() {
 
 async function initApp() {
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
-  // AI beállítások betöltése Supabase-ből
-  try {
-    const aiCfg = await sb.getSetting('recipe_ai_settings');
-    if(aiCfg && typeof aiCfg === 'object') {
-      R.settings.apiKey = aiCfg.apiKey || R.settings.apiKey;
-      R.settings.aiProvider = aiCfg.aiProvider || 'anthropic';
-      R.settings.aiModel = aiCfg.aiModel || 'claude-sonnet-4-20250514';
-      R.settings.aiUrl = aiCfg.aiUrl || '';
-    }
-  } catch(e) { console.warn('AI beállítások betöltése sikertelen:', e); }
+
+  // Supabase-ből tölt minden beállítást
+  const settingLoads = [
+    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
+    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['recipe_categories', v=>{ if(Array.isArray(v)) R.recipeCategories=v; }],
+    ['recipe_stock', v=>{ if(v&&typeof v==='object') R.stock=v; }],
+  ];
+  await Promise.all(settingLoads.map(async ([key, apply]) => {
+    try { const val = await sb.getSetting(key); if(val!==null) apply(val); }
+    catch(e) { console.warn('initApp getSetting ['+key+']:', e.message); }
+  }));
+
   nav('recipes');
 }
 
@@ -1607,7 +1611,7 @@ function renderSettings() {
   renderRecipeCatsList();
 }
 
-function saveFinancialSettings() {
+async function saveFinancialSettings() {
   Object.assign(R.settings, {
     vat: parseFloat(document.getElementById('s-vat').value)||19,
     margin: parseFloat(document.getElementById('s-margin').value)||50,
@@ -1616,10 +1620,12 @@ function saveFinancialSettings() {
     toolWear: parseFloat(document.getElementById('s-tool-wear').value)||5,
     consumables: parseFloat(document.getElementById('s-consumables').value)||0.5,
   });
-  save(); toast('Pénzügyi beállítások mentve!');
+  save();
+  try { await sb.setSetting('recipe_financial_settings', R.settings); } catch(e) { console.warn('Supabase settings save:', e); }
+  toast('Pénzügyi beállítások mentve!');
 }
 
-function saveBakingSettings() {
+async function saveBakingSettings() {
   R.settings.bakeLoss = parseFloat(document.getElementById('s-bake-loss').value)||16;
   R.settings.basePortion = parseFloat(document.getElementById('s-base-portion').value)||1000;
   R.settings.levain = {
@@ -1631,7 +1637,9 @@ function saveBakingSettings() {
     flour: parseFloat(document.getElementById('s-refill-flour').value)||52,
     water: parseFloat(document.getElementById('s-refill-water').value)||48,
   };
-  save(); toast('Sütési beállítások mentve!');
+  save();
+  try { await sb.setSetting('recipe_baking_settings', R.settings); } catch(e) { console.warn('Supabase settings save:', e); }
+  toast('Sütési beállítások mentve!');
 }
 
 async function syncRecipeToSupabase(data, existingId) {
@@ -1741,15 +1749,19 @@ function renderRecipeCatsList() {
     </div>`).join('');
 }
 
-function addRecipeCat() {
+async function addRecipeCat() {
   const val = document.getElementById('new-recipe-cat').value.trim();
   if (!val) return;
-  R.recipeCategories.push(val); save(); renderRecipeCatsList();
+  R.recipeCategories.push(val); save();
+  try { await sb.setSetting('recipe_categories', R.recipeCategories); } catch(e) { console.warn(e); }
+  renderRecipeCatsList();
   document.getElementById('new-recipe-cat').value='';
   toast('Kategória hozzáadva!');
 }
-function deleteRecipeCat(i) {
-  R.recipeCategories.splice(i,1); save(); renderRecipeCatsList(); toast('Kategória törölve.');
+async function deleteRecipeCat(i) {
+  R.recipeCategories.splice(i,1); save();
+  try { await sb.setSetting('recipe_categories', R.recipeCategories); } catch(e) { console.warn(e); }
+  renderRecipeCatsList(); toast('Kategória törölve.');
 }
 
 // ===== LEVAIN DAILY =====
@@ -2192,6 +2204,11 @@ function renderStock() {
 function updateStock(id, val) {
   R.stock[id] = parseFloat(val)||0;
   save();
+  // Supabase stock sync (debounced - nem minden billentyűleütésnél)
+  clearTimeout(updateStock._t);
+  updateStock._t = setTimeout(async () => {
+    try { await sb.setSetting('recipe_stock', R.stock); } catch(e) { console.warn('Stock save:', e); }
+  }, 1500);
 }
 
 function generateShoppingList() {
@@ -2780,11 +2797,16 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
 // ===== TOAST =====
-function toast(msg) {
+function toast(msg, isError=false) {
   const el = document.getElementById('toast');
-  el.textContent=msg; el.style.display='block'; el.style.opacity='1';
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  el.style.background = isError ? '#b91c1c' : '';
+  if(isError) console.error('KEREK:', msg);
   clearTimeout(el._t);
-  el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},3000);
+  const duration = isError ? 8000 : 3200;
+  el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); el.style.background=''; }, duration);
 }
 </script>
 </body>
