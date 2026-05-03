@@ -1465,15 +1465,18 @@ async function saveOrder() {
     if(msg) {
       const now = Date.now();
       if(now - _lastMsgSent < 30000) {
-        toast('⚠️ Kérjük várj 30 másodpercet üzenetek között!'); return;
+        toast('⚠️ Kérjük várj 30 másodpercet üzenetek között!');
+        document.getElementById('order-message').value = '';
+        // Rendelés mégis elmegy, csak üzenet nem
+      } else {
+        await sb.insert('messages', {
+          client_id: currentUser.id,
+          year: selectedYear,
+          month: selectedMonth,
+          text: msg
+        });
+        _lastMsgSent = now;
       }
-      await sb.insert('messages', {
-        client_id: currentUser.id,
-        year: selectedYear,
-        month: selectedMonth,
-        text: msg
-      });
-      _lastMsgSent = now;
     }
     localStorage.setItem('kerek_vevo_data', JSON.stringify(appData));
     toast('✅ Rendelés elmentve! Köszönjük a megrendelést. 🌾');
@@ -1484,9 +1487,8 @@ async function saveOrder() {
       setTimeout(() => confirmEl.style.display = 'none', 5000);
     }
   } catch(e) {
-    localStorage.setItem('kerek_vevo_data', JSON.stringify(appData));
-    toast('✅ Rendelés mentve (offline mód)');
-    console.warn('Supabase save error:', e);
+    console.error('saveOrder hiba:', e);
+    toast('⚠️ Mentés sikertelen: ' + e.message, true);
   }
   document.getElementById('order-message').value = '';
 }
