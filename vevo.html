@@ -1491,7 +1491,7 @@ async function saveOrder() {
   const msg = document.getElementById('order-message').value.trim();
   
   try {
-    if(upserts.length > 0) await sb.upsert('orders', upserts);
+    if(upserts.length > 0) await sb.upsert('orders', upserts, 'client_id,year,month,day,product_id');
     if(msg) {
       const now = Date.now();
       if(now - _lastMsgSent < 30000) {

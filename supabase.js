@@ -34,8 +34,10 @@ const sb = {
     return res.json();
   },
 
-  async insert(table, data, upsert = false) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  async insert(table, data, upsert = false, onConflict = null) {
+    let url = `${SUPABASE_URL}/rest/v1/${table}`;
+    if(upsert && onConflict) url += `?on_conflict=${onConflict}`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -49,8 +51,8 @@ const sb = {
     return res.json();
   },
 
-  async upsert(table, data) {
-    return this.insert(table, data, true);
+  async upsert(table, data, onConflict = null) {
+    return this.insert(table, data, true, onConflict);
   },
 
   async update(table, data, filter) {
