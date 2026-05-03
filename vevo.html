@@ -1180,6 +1180,14 @@ async function doLogin() {
 
   if(btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
 
+  // DIAGNOSZTIKA
+  console.log('appData betöltve:', {
+    clients: appData.clients.length,
+    products: appData.products.length,
+    activeProducts: JSON.stringify(appData.monthlyActiveProducts),
+    bakingDays: appData.bakingDaysDefault
+  });
+
   const normalizedVal = val.replace(/-/g,'').toLowerCase();
   const client = appData.clients.find(c =>
     c.id === val ||
