@@ -254,7 +254,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.5 (2026-05-03)</div>
+    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.6 (2026-05-03)</div>
   </div>
 </div>
 
@@ -1079,7 +1079,7 @@ const RENDERS = {
   dashboard:()=>renderDashboard(), messages:()=>renderMessages(), baking:()=>renderBaking(),
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(),
-  export:()=>initExportView(), 'client-detail':()=>renderClientDetail()
+  export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); }
 };
 function nav(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -1139,7 +1139,7 @@ function buildTopbarMonths(){
   const el=document.getElementById('topbar-month');
   el.innerHTML = MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" data-month="${i}" onclick="selectMonth(${i})">${mo}</button>`).join(''); updateMonthBadges();
 }
-function selectMonth(m){ selMonth=m; buildTopbarMonths(); const renders={dashboard:renderDashboard,messages:renderMessages,baking:renderBaking,orders:renderOrders,reports:renderReports,categories:renderCategories}; renders[currentView]?.(); }
+function selectMonth(m){ selMonth=m; buildTopbarMonths(); RENDERS[currentView]?.(); }
 
 // ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING (Supabase alapú) =====
 // D.seenMsgs = { "2026-4": 2, "2026-5": 1, ... } - Supabase settings-ből töltve
@@ -1344,15 +1344,32 @@ function renderMessages(){
       const isAdmin = (msg.text||'').startsWith('📨 Admin:');
       const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
       const who = isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + c.name + ' &nbsp;·&nbsp; ' + (c.email||'');
-      html += '<div class="message-item" style="' + bg + '">';
-      html += '<div class="message-meta"><span>' + who + '</span><span>📅 ' + dt + '</span></div>';
-      html += '<div class="message-text">' + (msg.text||'') + '</div>';
+      const msgIdx = msgs.indexOf(msg);
+      html += '<div class="message-item" style="' + bg + 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
+      html += '<div style="flex:1"><div class="message-meta"><span>' + esc(who) + '</span><span>📅 ' + dt + '</span></div>';
+      html += '<div class="message-text">' + esc(msg.text||'') + '</div></div>';
+      html += '<button onclick="deleteMessage(\'' + key + '\',' + msgIdx + ')" style="background:none;border:none;cursor:pointer;color:#b91c1c;font-size:0.85rem;padding:2px 6px;opacity:0.6" title="Üzenet törlése">✕</button>';
       html += '</div>';
     });
 
     html += '</div></div></div>'; // card-body, msg-body, card vége
   });
   document.getElementById('messages-list').innerHTML = count > 0 ? html : '<p class="text-soft text-sm">Ebben a hónapban még senki nem küldött üzenetet.</p>';
+}
+
+async function deleteMessage(key, idx) {
+  if(!confirm('Törlöd ezt az üzenetet?')) return;
+  const msgs = D.messages[key];
+  if(!msgs || !msgs[idx]) return;
+  const msg = msgs[idx];
+  msgs.splice(idx, 1);
+  // Delete from Supabase by created_at timestamp
+  try {
+    const [cid, y, m] = key.split('-').slice(0,3);
+    await sb.delete('messages', `client_id=eq.${cid}&year=eq.${y}&month=eq.${m}&text=eq.${encodeURIComponent(msg.text)}`);
+  } catch(e) { console.warn('delete message:', e.message); }
+  renderMessages();
+  toast('Üzenet törölve.');
 }
 
 async function toggleMsgCard(key, clientId) {
