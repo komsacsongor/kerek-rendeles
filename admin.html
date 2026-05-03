@@ -248,8 +248,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <p>Admin hozzáférés szükséges a folytatáshoz.</p>
     <div class="form-group mb-16">
       <label>Admin jelszó</label>
-      <div style="color:rgba(255,255,255,0.5);font-size:0.7rem;text-align:center;margin-bottom:8px">v2025-05-02-A</div>
-        <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
@@ -896,8 +895,7 @@ async function seedInitialData() {
 }
 
 async function loadAllData() {
-  toast('DEBUG: loadAllData indul...', false);
-  console.log('DEBUG loadAllData START');
+
   try {
     // Termékek
     const products = await sb.query('products', { order: 'id' });
@@ -974,8 +972,7 @@ async function loadAllData() {
 
     localStorage.setItem('kerek_data', JSON.stringify(D));
 
-    // DIAGNOSZTIKA
-    alert('D BETÖLTVE:\n' + D.products.length + ' termék\n' + D.clients.length + ' kliens\n' + Object.keys(D.orders).length + ' rendelés');
+
 
   } catch(e) {
     console.error('loadAllData HIBA:', e.message, e);
@@ -1002,16 +999,7 @@ async function doLogin(){
   loginClearError();
   const pw = document.getElementById('login-pw').value;
   if(!pw){ loginError('⚠️ Add meg a jelszót!'); return; }
-  // Supabase connectivity test
-  try {
-    const testRes = await fetch('https://lfaxeihrmiylggahougl.supabase.co/rest/v1/products?limit=1', {
-      headers: {'apikey': 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN', 'Authorization': 'Bearer sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN'}
-    });
-    const testData = await testRes.json();
-    alert('SUPABASE TESZT\nHTTP: ' + testRes.status + '\nAdat: ' + JSON.stringify(testData).slice(0,200));
-  } catch(e) {
-    alert('SUPABASE ELÉRHETETLEN: ' + e.message);
-  }
+
   try {
     const storedPw = await sb.getSetting('admin_password');
     const correctPw = storedPw || 'admin';
