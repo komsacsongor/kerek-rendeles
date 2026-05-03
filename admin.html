@@ -252,6 +252,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
+    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:rgba(255,255,255,0.3);font-family:Kodchasan,sans-serif;letter-spacing:1px"></div>
   </div>
 </div>
 
@@ -261,6 +262,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <div class="sidebar-logo">
     <img src="img/logo_white_horiz.png" alt="KEREK" style="height:38px;width:auto;display:block">
     <div class="sidebar-tagline">Admin felület</div>
+    <div id="app-version" style="font-size:0.55rem;color:rgba(255,255,255,0.25);margin-top:3px;letter-spacing:0.5px"></div>
   </div>
 
   <div class="nav-section">
@@ -808,6 +810,8 @@ const DAYS_HU=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','S
 const BAKING_DAYS=[2,5];
 
 // ===== SUPABASE DATA LAYER =====
+const APP_VERSION = 'v1.2 (2026-05-03)';
+
 let D = { _v: 'supabase', seenMsgs: {},
   products:[
     {id:1,name:'Kovászos prémium kenyér',weight:'500 g',price:23,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
@@ -2182,6 +2186,9 @@ function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').
 // ===== MODAL =====
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+// Verziószám megjelenítése
+document.getElementById('login-version').textContent = APP_VERSION;
+document.getElementById('app-version').textContent = APP_VERSION;
 
 // ===== BAKING CALENDAR =====
 function initBakingCalendar(){
