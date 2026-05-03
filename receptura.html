@@ -8,6 +8,7 @@
 <script src="kerek-constants.js"></script>
 <script src="supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kerek-styles.css">
 <style>
 :root {
   --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6;
@@ -1768,8 +1769,7 @@ async function deleteRecipeCat(i) {
 
 // ===== LEVAIN DAILY =====
 function getBakingDaysRange(fromDate, numDays) {
-  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
-  const bakingDef = mainData.bakingDaysDefault || [2,5];
+  const bakingDef = (R.settings && R.settings.bakingDaysDefault) || JSON.parse(localStorage.getItem('kerek_admin_data') || '{}').bakingDaysDefault || DEFAULT_BAKING_DAYS;
   const result = [];
   const d = new Date(fromDate);
   d.setHours(0,0,0,0);
