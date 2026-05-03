@@ -1791,7 +1791,11 @@ async function saveProduct(){
     // Ha gyártási termék és új termék → automatikus recept létrehozás
     if(ptype==='production' && !editingProductId) {
       try {
+        // Max id lekérése hogy ne ütközzön a sequence-szel
+        const existingRecipes = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
+        const nextRecipeId = ((existingRecipes&&existingRecipes[0]?.id)||0) + 1;
         const newRecipe = {
+          id: nextRecipeId,
           name, category,
           product_id: realProdId,
           base_portion: 1000,
