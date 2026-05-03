@@ -240,7 +240,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.7 (2026-05-03)</div>
+    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.8 (2026-05-03)</div>
     <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center"></p>
   </div>
 </div>
@@ -955,7 +955,8 @@ async function initApp() {
     ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
     ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
     ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
-    ['recipe_categories', v=>{ if(Array.isArray(v)) R.recipeCategories=v; }],
+    ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
+    ['recipe_categories', v=>{ /* deprecated, categories-t használjuk */ }],
     ['recipe_stock', v=>{ if(v&&typeof v==='object') R.stock=v; }],
   ];
   await Promise.all(settingLoads.map(async ([key, apply]) => {
@@ -1658,6 +1659,7 @@ async function syncRecipeToSupabase(data, existingId) {
     // Upsert recipe
     await sb.upsert('recipes', {
       id: recId, name: data.name, category: data.category,
+      product_id: data.product_id || null,
       base_portion: data.basePortion, bake_loss: data.bakeLoss,
       unit_weight: data.unitWeight, temp1: data.temp1, time1: data.time1,
       temp2: data.temp2, time2: data.time2, description: data.desc||'',
@@ -1702,17 +1704,27 @@ async function syncRecipeToSupabase(data, existingId) {
         .replace(/[^A-Z]/g,'').slice(0,4)||'XXX';
       return `${prefix}-${namePart}-R${String(recId).padStart(2,'0')}`;
     })();
+    const prodId = data.product_id || (1000 + recId);
+    // Javasolt ár számítása receptúra alapján
+    const laborCost = (data.laborH||1) * (R.settings.labor||55);
+    const elecCost = (data.electricity||5) * (R.settings.electricity||1.5);
+    const toolCost = (R.settings.toolWear||5) + (R.settings.consumables||0.5);
+    const suggestedPrice = Math.ceil((laborCost + elecCost + toolCost) * (1 + (R.settings.margin||50)/100));
     await sb.upsert('products', {
-      id: 1000 + recId, name: data.name,
+      id: prodId, name: data.name,
       weight: `${data.unitWeight||data.basePortion} g`,
-      price: data.productPrice||0, category: data.category||'Kenyér',
+      price: data.productPrice || suggestedPrice,
+      category: data.category||'Kenyér',
       description: data.desc||'',
       code: productCode,
+      type: 'production',
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
       nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
     });
+    // Visszalinkeljük a product_id-t a recepthez
+    await sb.upsert('recipes', {id: recId, product_id: prodId}, 'id');
 
     console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
   } catch(e) {
@@ -1762,14 +1774,20 @@ async function addRecipeCat() {
   const val = document.getElementById('new-recipe-cat').value.trim();
   if (!val) return;
   R.recipeCategories.push(val); save();
-  try { await sb.setSetting('recipe_categories', R.recipeCategories); } catch(e) { console.warn(e); }
+  try {
+    await sb.setSetting('categories', R.recipeCategories);
+    await sb.setSetting('recipe_categories', R.recipeCategories); // backward compat
+  } catch(e) { console.warn(e); }
   renderRecipeCatsList();
   document.getElementById('new-recipe-cat').value='';
   toast('Kategória hozzáadva!');
 }
 async function deleteRecipeCat(i) {
   R.recipeCategories.splice(i,1); save();
-  try { await sb.setSetting('recipe_categories', R.recipeCategories); } catch(e) { console.warn(e); }
+  try {
+    await sb.setSetting('categories', R.recipeCategories);
+    await sb.setSetting('recipe_categories', R.recipeCategories);
+  } catch(e) { console.warn(e); }
   renderRecipeCatsList(); toast('Kategória törölve.');
 }
 

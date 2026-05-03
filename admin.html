@@ -254,7 +254,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" class="login-error"></div>
-    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.7 (2026-05-03)</div>
+    <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.8 (2026-05-03)</div>
   </div>
 </div>
 
@@ -695,6 +695,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div class="form-group">
           <label>Kategória</label>
           <select id="p-category"></select>
+        </div>
+        <div class="form-group">
+          <label>Terméktípus</label>
+          <select id="p-type" style="border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none;width:100%">
+            <option value="production">🧪 Gyártási termék (receptúra szinkron)</option>
+            <option value="consumable">📦 Fogyóáru / Csomagolás</option>
+          </select>
         </div>
       </div>
       <div class="form-group mb-16">
@@ -1595,9 +1602,11 @@ function openProductModal(id=null){
     document.getElementById('p-image-file')._base64 = imgVal.startsWith('data:') ? imgVal : null;
     if(imgVal){ showProductImagePreview(imgVal); }
     else { document.getElementById('p-image-preview').style.display='none'; }
+    document.getElementById('p-type').value=p.ptype||'production';
     document.getElementById('pm-title').textContent='Termék szerkesztése';
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('p-type').value='production';
     clearProductImage();
     document.getElementById('pm-title').textContent='Új termék';
   }
@@ -1760,18 +1769,43 @@ async function saveProduct(){
   const category=document.getElementById('p-category').value;
   const desc=document.getElementById('p-desc').value;
   const image=getProductImageValue();
+  const ptype=document.getElementById('p-type').value;
   let prodId;
   if(editingProductId){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight,price,category,desc,image});
+    Object.assign(p,{name,weight,price,category,desc,image,ptype});
   } else {
     prodId=Math.max(...D.products.map(p=>p.id),0)+1;
-    D.products.push({id:prodId,name,weight,price,category,desc,image});
+    D.products.push({id:prodId,name,weight,price,category,desc,image,ptype});
   }
   try {
-    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
-    toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
+    await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc,type:ptype}, 'id');
+    // Ha gyártási termék és új termék → automatikus recept létrehozás
+    if(ptype==='production' && !editingProductId) {
+      try {
+        const newRecipe = {
+          name, category,
+          product_id: prodId,
+          base_portion: 1000,
+          bake_loss: 16,
+          unit_weight: 1000,
+          temp1: 230, time1: 20,
+          temp2: 180, time2: 70,
+          description: desc||'',
+          levain_amount: 0,
+          labor_h: 1,
+          electricity: 5,
+          marketing_desc: '', ingredient_label: '', allergens: '', nutrition: null
+        };
+        await sb.insert('recipes', newRecipe);
+        toast('✅ Termék és recept létrehozva! Töltsd ki a receptet a Receptúra modulban.');
+      } catch(e2) {
+        toast('Termék mentve, de recept létrehozás sikertelen: '+e2.message, true);
+      }
+    } else {
+      toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
+    }
   } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message, true); }
   save(); closeModal('product-modal'); renderCatalog();
 }
