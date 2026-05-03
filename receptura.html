@@ -969,6 +969,39 @@ async function initApp() {
     const prods = await sb.query('products', {order:'name'});
     window._adminProductsCache = prods || [];
   } catch(e) { window._adminProductsCache = []; }
+
+  // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
+  try {
+    const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
+      sb.query('recipes', {order:'id'}),
+      sb.query('recipe_ingredients', {order:'recipe_id,sort_order'}),
+      sb.query('recipe_steps', {order:'recipe_id,sort_order'}),
+    ]);
+    if(dbRecipes && dbRecipes.length > 0) {
+      R.recipes = dbRecipes.map(r => ({
+        id: r.id, name: r.name, category: r.category||'Egyéb',
+        product_id: r.product_id||null,
+        basePortion: r.base_portion||1000, bakeLoss: r.bake_loss||16,
+        unitWeight: r.unit_weight||1000,
+        temp1: r.temp1||230, time1: r.time1||20,
+        temp2: r.temp2||180, time2: r.time2||70,
+        desc: r.description||'', levainAmount: r.levain_amount||0,
+        laborH: r.labor_h||1, electricity: r.electricity||5,
+        marketing: r.marketing_desc||'',
+        ingredientLabel: r.ingredient_label||'',
+        allergens: r.allergens||'',
+        nutrition: r.nutrition||null,
+        productCode: r.code||'',
+        productPrice: r.product_price||0,
+        // Összetevők
+        dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
+        wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
+        steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
+      }));
+      save(); // localStorage-ba is menti
+    }
+  } catch(e) { console.warn('Receptek Supabase betöltés sikertelen:', e.message); }
+
   nav('recipes');
 }
 
