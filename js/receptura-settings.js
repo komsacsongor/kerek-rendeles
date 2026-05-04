@@ -122,8 +122,11 @@ async function syncRecipeToSupabase(data, existingId) {
       allergens: data.allergens||'',
       nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
     });
-    // Visszalinkeljük a product_id-t a recepthez
-    await sb.upsert('recipes', {id: recId, product_id: prodId}, 'id');
+    // Visszalinkeljük a product_id-t a recepthez (update megbízhatóbb mint upsert)
+    await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
+    // Lokális R.recipes tömb frissítése
+    const localRec = R.recipes.find(r => r.id === recId);
+    if (localRec) localRec.product_id = prodId;
 
     console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
   } catch(e) {
@@ -188,4 +191,31 @@ async function deleteRecipeCat(i) {
     await sb.setSetting('recipe_categories', R.recipeCategories);
   } catch(e) { console.warn(e); }
   renderRecipeCatsList(); toast('Kategória törölve.');
+}
+
+// ===== PRODUCT_ID MIGRATION =====
+async function migrateRecipeProductIds() {
+  // Egyszeri javítás: product_id=null receptekhez beállítja az 1000+id értéket
+  // és létrehozza a hiányzó products sort
+  let fixed = 0;
+  for (const rec of R.recipes) {
+    if (rec.product_id) continue; // már van product_id
+    const prodId = 1000 + rec.id;
+    try {
+      // Termék létrehozása ha nem létezik
+      await sb.upsert('products', {
+        id: prodId, name: rec.name,
+        weight: `${rec.unitWeight||rec.basePortion||1000} g`,
+        price: 0, category: rec.category||'Egyéb',
+        description: rec.desc||'',
+        code: `REC-${String(rec.id).padStart(3,'0')}`,
+      });
+      // Recept frissítése
+      await sb.update('recipes', {product_id: prodId}, `id=eq.${rec.id}`);
+      rec.product_id = prodId; // lokális frissítés
+      fixed++;
+    } catch(e) { console.warn(`migrate recipe ${rec.id}:`, e.message); }
+  }
+  save();
+  toast(`✅ ${fixed} recept product_id javítva`);
 }
