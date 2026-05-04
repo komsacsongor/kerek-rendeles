@@ -132,7 +132,20 @@ const RECIPE_CAT_CODES = {
   'Leveles tészta':'LEV','Egyéb':'EGY'
 };
 
-// updateRecipeProductCode removed – kód az ID alapján generálódik mentéskor (generateProductCode)
+// Élő kód preview – új receptnél (nincs még product_id)
+function updateRecipeCodePreview() {
+  const rec = editingRecipeId ? R.recipes.find(r=>r.id===editingRecipeId) : null;
+  if(rec?.product_id) return; // meglévő termékkel rendelkező receptnél ne írja felül
+  const codeEl = document.getElementById('r-product-code');
+  if(!codeEl) return;
+  const name = document.getElementById('r-name')?.value?.trim() || '';
+  const catEl = document.getElementById('r-category');
+  const cat = catEl?.value || 'Egyéb';
+  if(!name) { codeEl.placeholder = 'mentés után generálódik'; codeEl.value = ''; return; }
+  // Preview – ID nélkül, tmp-vel jelezzük hogy ez csak előnézet
+  const preview = generateProductCode(name, cat, '????');
+  codeEl.value = preview + ' (előnézet)';
+}
 
 function updateLevainPreview() {
   const amount = parseFloat(document.getElementById('r-levain-amount').value)||0;

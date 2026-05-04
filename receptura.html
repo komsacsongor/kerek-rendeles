@@ -583,8 +583,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <!-- TAB: Basic -->
       <div id="rtab-basic" class="modal-tab-content">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label>Recept neve *</label><input type="text" id="r-name" placeholder="pl. Kovászos prémium kenyér" oninput="updateRecipeProductCode()"></div>
-          <div class="form-group"><label>Kategória</label><select id="r-category" onchange="updateRecipeProductCode()"></select></div>
+          <div class="form-group" style="flex:2"><label>Recept neve *</label><input type="text" id="r-name" placeholder="pl. Kovászos prémium kenyér" oninput="updateRecipeCodePreview()"></div>
+          <div class="form-group"><label>Kategória</label><select id="r-category" onchange="updateRecipeCatFilter();updateRecipeCodePreview()"></select></div>
           <div class="form-group"><label>Admin termék kapcsolat</label><select id="r-product-link"><option value="">– nincs hozzárendelve –</option></select></div>
         </div>
         <div class="form-row">
@@ -775,16 +775,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.7.3"></script>
-<script src="js/receptura-ui.js?v=2.7.3"></script>
-<script src="js/receptura-recipes.js?v=2.7.3"></script>
-<script src="js/receptura-operational.js?v=2.7.3"></script>
-<script src="js/receptura-ingredients.js?v=2.7.3"></script>
-<script src="js/receptura-settings.js?v=2.7.3"></script>
-<script src="js/receptura-levain.js?v=2.7.3"></script>
-<script src="js/receptura-production.js?v=2.7.3"></script>
-<script src="js/receptura-stock.js?v=2.7.3"></script>
-<script src="js/receptura-modal.js?v=2.7.3"></script>
-<script src="js/receptura-ai.js?v=2.7.3"></script>
+<script src="js/receptura-data.js?v=2.7.4"></script>
+<script src="js/receptura-ui.js?v=2.7.4"></script>
+<script src="js/receptura-recipes.js?v=2.7.4"></script>
+<script src="js/receptura-operational.js?v=2.7.4"></script>
+<script src="js/receptura-ingredients.js?v=2.7.4"></script>
+<script src="js/receptura-settings.js?v=2.7.4"></script>
+<script src="js/receptura-levain.js?v=2.7.4"></script>
+<script src="js/receptura-production.js?v=2.7.4"></script>
+<script src="js/receptura-stock.js?v=2.7.4"></script>
+<script src="js/receptura-modal.js?v=2.7.4"></script>
+<script src="js/receptura-ai.js?v=2.7.4"></script>
 </body>
 </html>

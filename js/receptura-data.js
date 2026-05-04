@@ -219,13 +219,22 @@ async function initApp() {
         ingredientLabel: r.ingredient_label||'',
         allergens: r.allergens||'',
         nutrition: r.nutrition||null,
-        productCode: r.code||'',
+        productCode: r.code || '', // enriched below from products cache
         productPrice: r.product_price||0,
         // Összetevők
         dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
         wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
         steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
       }));
+      // Kód enrichment: products táblából (product_id alapján)
+      if(window._adminProductsCache && window._adminProductsCache.length) {
+        R.recipes.forEach(rec => {
+          if(rec.product_id && !rec.productCode) {
+            const prod = _adminProductsCache.find(p=>p.id===rec.product_id);
+            if(prod?.code) rec.productCode = prod.code;
+          }
+        });
+      }
       save(); // localStorage-ba is menti
     }
   } catch(e) { console.warn('Receptek Supabase betöltés sikertelen:', e.message); }
