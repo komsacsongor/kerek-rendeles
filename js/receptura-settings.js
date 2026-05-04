@@ -95,15 +95,6 @@ async function syncRecipeToSupabase(data, existingId) {
     }));
     if(stepRows.length > 0) await sb.insert('recipe_steps', stepRows);
 
-    // Sync to products table - use productCode from modal if set
-    const productCode = data.productCode || (() => {
-      const catCodes = {'Kenyér':'KEN','Bagett / zsömle':'BAG','Sütemény':'SUT','Leveles tészta':'LEV','Egyéb':'EGY'};
-      const prefix = catCodes[data.category] || 'EGY';
-      const namePart = (data.name||'').toUpperCase()
-        .replace(/[ÁÉÍÓÖŐÚÜŰ]/g, c => ({Á:'A',É:'E',Í:'I',Ó:'O',Ö:'O',Ő:'O',Ú:'U',Ü:'U',Ű:'U'}[c]||c))
-        .replace(/[^A-Z]/g,'').slice(0,4)||'XXX';
-      return `${prefix}-${namePart}-R${String(recId).padStart(2,'0')}`;
-    })();
     // Javasolt ár számítása receptúra alapján
     const laborCost = (data.laborH||1) * (R.settings.labor||55);
     const elecCost = (data.electricity||5) * (R.settings.electricity||1.5);
@@ -115,7 +106,6 @@ async function syncRecipeToSupabase(data, existingId) {
       price: data.productPrice || suggestedPrice,
       category: data.category||'Kenyér',
       description: data.desc||'',
-      code: productCode,
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
@@ -123,12 +113,14 @@ async function syncRecipeToSupabase(data, existingId) {
     };
     let prodId = data.product_id || null;
     if (prodId) {
-      // Meglévő termék frissítése
+      // Meglévő termék frissítése (kód nem változik)
       await sb.update('products', productPayload, `id=eq.${prodId}`);
     } else {
-      // Új termék – Supabase generálja az ID-t
+      // Új termék – Supabase generálja az ID-t, kód az ID alapján
       const savedProd = await sb.insert('products', productPayload);
       prodId = savedProd[0].id;
+      const autoCode = generateProductCode(data.name, data.category||'Kenyér', prodId);
+      await sb.update('products', {code: autoCode}, `id=eq.${prodId}`);
     }
     // Visszalinkeljük a product_id-t a recepthez
     await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);

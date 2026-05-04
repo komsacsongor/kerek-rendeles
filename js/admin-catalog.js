@@ -289,14 +289,16 @@ async function saveProduct(){
   try {
     let realProdId;
     if(editingProductId) {
-      // UPDATE – meglévő termék
-      await sb.update('products', {name,weight,price,category,description:desc,code}, 'id=eq.'+editingProductId);
+      // UPDATE – meglévő termék, kód nem változik
+      await sb.update('products', {name,weight,price,category,description:desc}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
-      // INSERT – Supabase generálja az ID-t
-      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,code});
+      // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc});
       realProdId = savedProds[0].id;
-      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype});
+      const autoCode = generateProductCode(name, category, realProdId);
+      await sb.update('products', {code: autoCode}, 'id=eq.'+realProdId);
+      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode});
     }
     prodId = realProdId;
     // Ha gyártási termék és új termék → automatikus recept létrehozás (ID nélkül)
