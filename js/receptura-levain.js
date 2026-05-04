@@ -8,7 +8,7 @@ function getBakingDaysRange(fromDate, numDays) {
     const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
     // Build date string using LOCAL date parts (no UTC conversion)
     const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const cal = mainData.bakingCalendar?.[`${y}-${m}`] || {extra:[],removed:[]};
+    const cal = (JSON.parse(localStorage.getItem('kerek_admin_data')||'{}').bakingCalendar||{})[`${y}-${m}`] || {extra:[],removed:[]};
     const isDefault = bakingDef.includes(d.getDay());
     const isExtra = cal.extra?.includes(ds);
     const isRemoved = cal.removed?.includes(ds);
