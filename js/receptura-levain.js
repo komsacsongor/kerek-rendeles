@@ -25,7 +25,7 @@ function initLevainDaily() {
   const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
   document.getElementById('levain-day-selector').innerHTML = days.map(d =>
     `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
-      <input type="checkbox" value="${d.toISOString().slice(0,10)}" style="accent-color:var(--teal)">
+      <input type="checkbox" value="${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}" style="accent-color:var(--teal)">
       ${DAYS_HU[d.getDay()]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}
     </label>`
   ).join('') || '<p class="text-soft text-sm">Nincs sütési nap beállítva (alap: kedd + péntek).</p>';
