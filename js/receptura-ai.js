@@ -92,7 +92,7 @@ async function selectSheet(sheets, wb) {
 async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
-  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};
   const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
   const status = document.getElementById('import-status');
 
@@ -147,8 +147,9 @@ ${text.substring(0, 6000)}`;
       };
       body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
     } else if(provider === 'gemini') {
-      const mdl = (model && model.includes('gemini')) ? model : 'gemini-1.5-flash';
-      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${apiKey}`;
+      const mdl = (model && model.toLowerCase().includes('gemini') && !['Gemini','gemini'].includes(model)) ? model : 'gemini-2.0-flash';
+      const cleanMdl = mdl.replace('models/','');
+      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanMdl}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
       body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 2000} });
     } else if(provider === 'groq') {
