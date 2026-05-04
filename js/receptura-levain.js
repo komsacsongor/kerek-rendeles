@@ -70,27 +70,24 @@ async function calcLevainDaily() {
 
     // Sum all orders for this day
     let totalLevainNeeded = 0;
-    R.recipes.forEach(recipe => {
-      // Check all clients' orders for this recipe on this day
-      (mainData.clients||[]).forEach(c => {
-        // Order key format: clientId-year-monthIndex(0-based)-day
-        const key = `${c.id}-${y}-${m}-${day}`;
-        const order = mainData.orders?.[key];
-        if(!order) return;
-        // Find product matching recipe
-        (mainData.products||[]).forEach(p => {
-          if(!order[p.id]) return;
-          // Match recipe to product by name (approximate)
-          const recipeMatch = R.recipes.find(rec =>
-            rec.name.toLowerCase().includes(p.name.toLowerCase().slice(0,8)) ||
-            p.name.toLowerCase().includes(rec.name.toLowerCase().slice(0,8))
-          );
-          if(!recipeMatch) return;
-          const qty = order[p.id];
-          const rawWeight = calcRawWeight(recipeMatch, qty);
-          const scale = rawWeight / recipeMatch.basePortion;
-          totalLevainNeeded += recipeMatch.levainAmount * scale;
-        });
+    (mainData.clients||[]).forEach(c => {
+      const key = `${c.id}-${y}-${m}-${day}`;
+      const order = mainData.orders?.[key];
+      if(!order) return;
+      Object.entries(order).forEach(([prodId, qty]) => {
+        if(!qty) return;
+        // Match recipe: product_id first, then name fallback
+        const pid = parseInt(prodId);
+        const prod = (mainData.products||[]).find(p => p.id === pid);
+        const recipe = R.recipes.find(r => r.product_id === pid) ||
+          (prod ? R.recipes.find(r =>
+            r.name.toLowerCase().includes((prod.name||'').toLowerCase().slice(0,6)) ||
+            (prod.name||'').toLowerCase().includes(r.name.toLowerCase().slice(0,6))
+          ) : null);
+        if(!recipe || !recipe.levainAmount) return;
+        const rawWeight = calcRawWeight(recipe, qty);
+        const scale = rawWeight / (recipe.basePortion||1000);
+        totalLevainNeeded += recipe.levainAmount * scale;
       });
     });
 
