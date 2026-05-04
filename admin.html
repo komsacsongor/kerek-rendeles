@@ -682,7 +682,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div class="form-group">
           <label>Termékkód <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(automatikus)</span></label>
           <div style="display:flex;gap:6px">
-            <input type="text" id="p-code" placeholder="pl. KEN-PREM-01" style="flex:1;font-family:monospace">
+            <input type="text" id="p-code" placeholder="pl. KEN-PREM-01" style="flex:1;font-family:monospace" oninput="this.dataset.manual='true'">
             <button class="btn btn-ghost btn-sm" type="button" onclick="updateProductCode(true)" title="Újragenerálás">🔄</button>
           </div>
         </div>
@@ -694,7 +694,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         </div>
         <div class="form-group">
           <label>Kategória</label>
-          <select id="p-category"></select>
+          <select id="p-category" onchange="updateProductCode()"></select>
         </div>
         <div class="form-group">
           <label>Terméktípus</label>
@@ -815,14 +815,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div></div>
 
-<script src="js/admin-data.js?v=2.6.1"></script>
-<script src="js/admin-ui.js?v=2.6.1"></script>
-<script src="js/admin-messages.js?v=2.6.1"></script>
-<script src="js/admin-baking.js?v=2.6.1"></script>
-<script src="js/admin-orders.js?v=2.6.1"></script>
-<script src="js/admin-catalog.js?v=2.6.1"></script>
-<script src="js/admin-clients.js?v=2.6.1"></script>
-<script src="js/admin-reports.js?v=2.6.1"></script>
-<script src="js/admin-settings.js?v=2.6.1"></script>
+<script src="js/admin-data.js?v=2.6.2"></script>
+<script src="js/admin-ui.js?v=2.6.2"></script>
+<script src="js/admin-messages.js?v=2.6.2"></script>
+<script src="js/admin-baking.js?v=2.6.2"></script>
+<script src="js/admin-orders.js?v=2.6.2"></script>
+<script src="js/admin-catalog.js?v=2.6.2"></script>
+<script src="js/admin-clients.js?v=2.6.2"></script>
+<script src="js/admin-reports.js?v=2.6.2"></script>
+<script src="js/admin-settings.js?v=2.6.2"></script>
 </body>
 </html>

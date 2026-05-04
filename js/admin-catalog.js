@@ -103,11 +103,19 @@ function openProductModal(id=null){
     else { document.getElementById('p-image-preview').style.display='none'; }
     document.getElementById('p-type').value=p.ptype||'production';
     document.getElementById('pm-title').textContent='Termék szerkesztése';
+    // Kód mező: manual flag alaphelyzetbe – szerkesztéskor is frissülhet névvel/kategóriával
+    const codeField = document.getElementById('p-code');
+    codeField.value = p.code||'';
+    codeField.dataset.manual = 'false'; // engedjük az auto-frissítést
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('p-type').value='production';
     clearProductImage();
     document.getElementById('pm-title').textContent='Új termék';
+    // Új terméknél kód mező üres, manual flag reset
+    const codeField = document.getElementById('p-code');
+    codeField.value = '';
+    codeField.dataset.manual = 'false';
   }
   // Kapcsolt recept megjelenítése
   const recipeInfo = document.getElementById('p-recipe-info');
@@ -190,8 +198,10 @@ function updateWeightField() {
 function updateProductCode(force=false) {
   const codeEl = document.getElementById('p-code');
   if(!codeEl) return;
-  // Only auto-generate if empty or force
-  if(codeEl.value && !force) return;
+  // Skip if manually edited by user
+  if(codeEl.dataset.manual === 'true' && !force) return;
+  // Skip if empty name (nothing to generate from)
+  if(!document.getElementById('p-name')?.value?.trim()) return;
   const name = document.getElementById('p-name')?.value || '';
   const catEl = document.getElementById('p-category');
   const cat = catEl?.options[catEl.selectedIndex]?.text || 'Egyéb';
