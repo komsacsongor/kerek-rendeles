@@ -376,12 +376,72 @@ async function saveRecipe() {
 
 function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
 async function deleteCurrentRecipe() {
-  if (!confirm('Biztosan törlöd ezt a receptet?')) return;
+  if (!confirm('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?')) return;
+  const rec = R.recipes.find(r=>r.id===currentRecipeId);
+  const prodId = rec?.product_id;
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
     await sb.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
     await sb.delete('recipe_steps', `recipe_id=eq.${currentRecipeId}`);
     await sb.delete('recipes', `id=eq.${currentRecipeId}`);
-  } catch(e) { console.warn('Recipe delete Supabase:', e.message); }
-  save(); closeModal('recipe-modal'); nav('recipes'); toast('Recept törölve.');
+    if(prodId) {
+      await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
+      await sb.delete('products', `id=eq.${prodId}`);
+    }
+  } catch(e) { console.warn('Recipe delete error:', e.message); }
+  save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('Recept és termék véglegesen törölve.');
+}
+
+async function archiveCurrentRecipe() {
+  if (!confirm('Archiválod ezt a receptet? A termék eltűnik a rendelési rendszerből, de visszahívható.')) return;
+  const rec = R.recipes.find(r=>r.id===currentRecipeId);
+  if(!rec) return;
+  rec.archived = true;
+  const prodId = rec.product_id;
+  try {
+    await sb.update('recipes', {archived: true}, `id=eq.${currentRecipeId}`);
+    if(prodId) {
+      // Kivesszük az összes havi aktív termékből (jelen és jövőbeli hónapok)
+      const now = new Date();
+      await sb.delete('monthly_active_products', `product_id=eq.${prodId}&year=gte.${now.getFullYear()}`);
+    }
+  } catch(e) { console.warn('Archive error:', e.message); }
+  save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('Recept archiválva.');
+}
+
+async function restoreRecipe(recipeId) {
+  const rec = R.recipes.find(r=>r.id===recipeId);
+  if(!rec) return;
+  rec.archived = false;
+  const prodId = rec.product_id;
+  try {
+    await sb.update('recipes', {archived: false}, `id=eq.${recipeId}`);
+    // Hozzáadjuk a jelenlegi hónaphoz mint potenciális termék
+    if(prodId) {
+      const now = new Date();
+      await sb.upsert('monthly_active_products', {
+        year: now.getFullYear(),
+        month: now.getMonth(), // 0-indexed
+        product_id: prodId
+      }, 'year,month,product_id');
+    }
+  } catch(e) { console.warn('Restore error:', e.message); }
+  save(); renderRecipes(); toast('✅ Recept visszaállítva és hozzáadva az aktív termékekhez.');
+}
+
+async function deleteArchivedRecipe(recipeId) {
+  if (!confirm('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?')) return;
+  const rec = R.recipes.find(r=>r.id===recipeId);
+  const prodId = rec?.product_id;
+  R.recipes = R.recipes.filter(r=>r.id!==recipeId);
+  try {
+    await sb.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);
+    await sb.delete('recipe_steps', `recipe_id=eq.${recipeId}`);
+    await sb.delete('recipes', `id=eq.${recipeId}`);
+    if(prodId) {
+      await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
+      await sb.delete('products', `id=eq.${prodId}`);
+    }
+  } catch(e) { console.warn('Delete archived error:', e.message); }
+  save(); renderRecipes(); toast('Recept véglegesen törölve az archívból.');
 }

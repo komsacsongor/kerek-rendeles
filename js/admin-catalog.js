@@ -36,7 +36,7 @@ function renderCatalog(){
         <div style="font-size:0.72rem;color:var(--text-soft)">${p.weight||''} · ${p.price||0} lej</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})" style="flex-shrink:0">✏️</button>
-      <button class="btn btn-ghost btn-sm" onclick="deleteProduct(${p.id})" style="flex-shrink:0;color:#b91c1c" title="Törlés">🗑</button>
+
       <button class="btn ${isActive?'btn-danger':'btn-primary'} btn-sm" onclick="toggleProduct(${p.id})" style="flex-shrink:0">${isActive?'–':'+'}</button>
     </div>`;
   };

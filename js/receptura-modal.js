@@ -37,7 +37,7 @@ function openRecipeModal(id=null) {
     modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
     modalSteps = JSON.parse(JSON.stringify(r.steps||[]));
     document.getElementById('recipe-modal-title').textContent = 'Recept szerkesztése';
-    document.getElementById('recipe-delete-btn').style.display = 'inline-flex';
+    document.getElementById('recipe-action-btns').style.display = 'flex';
   } else {
     ['r-name','r-base-portion','r-bake-loss','r-unit-weight','r-temp1','r-time1',
      'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input'].forEach(x=>{
@@ -45,7 +45,7 @@ function openRecipeModal(id=null) {
     });
     modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];
     document.getElementById('recipe-modal-title').textContent = 'Új recept';
-    document.getElementById('recipe-delete-btn').style.display = 'none';
+    document.getElementById('recipe-action-btns').style.display = 'none';
   }
   renderModalIngredients(); renderModalSteps(); updateLevainPreview();
   // Termék dropdown feltöltése

@@ -18,7 +18,9 @@ function filterRecipes(cat, btn) {
 }
 
 function renderRecipeGrid(cat) {
-  const filtered = cat==='Mind' ? R.recipes : R.recipes.filter(r=>r.category===cat);
+  // Only active (non-archived) recipes
+  const active = R.recipes.filter(r => !r.archived);
+  const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
   document.getElementById('recipes-grid').innerHTML = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
     return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
@@ -34,6 +36,39 @@ function renderRecipeGrid(cat) {
       </div>
     </div>`;
   }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
+
+  // Archív receptek szekció
+  renderArchivedRecipes();
+}
+
+function renderArchivedRecipes() {
+  const archived = R.recipes.filter(r => r.archived);
+  let el = document.getElementById('archived-recipes-section');
+  if(!el) return;
+  if(archived.length === 0) { el.style.display='none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="border-top:2px dashed var(--border);margin-top:32px;padding-top:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <span style="font-family:'Fraunces',serif;font-size:1rem;color:var(--text-soft)">🗃 Archív receptek</span>
+        <span class="badge" style="background:var(--bg-soft);color:var(--text-soft)">${archived.length} db</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        ${archived.map(r=>`
+          <div class="recipe-card" style="opacity:0.6;border-style:dashed">
+            <div class="recipe-card-body">
+              <div class="recipe-card-name" style="color:var(--text-soft)">${r.name}</div>
+              <div class="recipe-card-meta">
+                <span class="badge" style="background:var(--bg-soft)">${r.category}</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn btn-sm" style="background:var(--teal);color:#fff;flex:1" onclick="restoreRecipe(${r.id})">↩ Visszaállítás</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteArchivedRecipe(${r.id})">🗑</button>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 // ===== RECIPE DETAIL =====

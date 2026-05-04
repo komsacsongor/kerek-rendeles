@@ -297,6 +297,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
     </div>
     <div id="recipes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
+    <div id="archived-recipes-section" style="display:none"></div>
   </div>
 
   <!-- ===== RECIPE DETAIL ===== -->
@@ -722,7 +723,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
       <div class="sep"></div>
       <div class="flex gap-10 justify-between">
-        <button class="btn btn-danger btn-sm" id="recipe-delete-btn" style="display:none" onclick="deleteCurrentRecipe()">🗑 Törlés</button>
+        <div id="recipe-action-btns" style="display:none;gap:8px;display:none">
+          <button class="btn btn-sm" style="background:#92400e;color:#fff" id="recipe-archive-btn" onclick="archiveCurrentRecipe()">🗃 Archiválás</button>
+          <button class="btn btn-danger btn-sm" id="recipe-delete-btn" onclick="deleteCurrentRecipe()">🗑 Törlés</button>
+        </div>
         <div class="flex gap-10">
           <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Mégse</button>
           <button class="btn btn-primary" onclick="saveRecipe()">💾 Mentés</button>
@@ -771,16 +775,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.6.5"></script>
-<script src="js/receptura-ui.js?v=2.6.5"></script>
-<script src="js/receptura-recipes.js?v=2.6.5"></script>
-<script src="js/receptura-operational.js?v=2.6.5"></script>
-<script src="js/receptura-ingredients.js?v=2.6.5"></script>
-<script src="js/receptura-settings.js?v=2.6.5"></script>
-<script src="js/receptura-levain.js?v=2.6.5"></script>
-<script src="js/receptura-production.js?v=2.6.5"></script>
-<script src="js/receptura-stock.js?v=2.6.5"></script>
-<script src="js/receptura-modal.js?v=2.6.5"></script>
-<script src="js/receptura-ai.js?v=2.6.5"></script>
+<script src="js/receptura-data.js?v=2.7.0"></script>
+<script src="js/receptura-ui.js?v=2.7.0"></script>
+<script src="js/receptura-recipes.js?v=2.7.0"></script>
+<script src="js/receptura-operational.js?v=2.7.0"></script>
+<script src="js/receptura-ingredients.js?v=2.7.0"></script>
+<script src="js/receptura-settings.js?v=2.7.0"></script>
+<script src="js/receptura-levain.js?v=2.7.0"></script>
+<script src="js/receptura-production.js?v=2.7.0"></script>
+<script src="js/receptura-stock.js?v=2.7.0"></script>
+<script src="js/receptura-modal.js?v=2.7.0"></script>
+<script src="js/receptura-ai.js?v=2.7.0"></script>
 </body>
 </html>
