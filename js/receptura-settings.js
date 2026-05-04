@@ -104,14 +104,13 @@ async function syncRecipeToSupabase(data, existingId) {
         .replace(/[^A-Z]/g,'').slice(0,4)||'XXX';
       return `${prefix}-${namePart}-R${String(recId).padStart(2,'0')}`;
     })();
-    const prodId = data.product_id || (1000 + recId);
     // Javasolt ár számítása receptúra alapján
     const laborCost = (data.laborH||1) * (R.settings.labor||55);
     const elecCost = (data.electricity||5) * (R.settings.electricity||1.5);
     const toolCost = (R.settings.toolWear||5) + (R.settings.consumables||0.5);
     const suggestedPrice = Math.ceil((laborCost + elecCost + toolCost) * (1 + (R.settings.margin||50)/100));
-    await sb.upsert('products', {
-      id: prodId, name: data.name,
+    const productPayload = {
+      name: data.name,
       weight: `${data.unitWeight||data.basePortion} g`,
       price: data.productPrice || suggestedPrice,
       category: data.category||'Kenyér',
@@ -121,8 +120,17 @@ async function syncRecipeToSupabase(data, existingId) {
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
       nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
-    });
-    // Visszalinkeljük a product_id-t a recepthez (update megbízhatóbb mint upsert)
+    };
+    let prodId = data.product_id || null;
+    if (prodId) {
+      // Meglévő termék frissítése
+      await sb.update('products', productPayload, `id=eq.${prodId}`);
+    } else {
+      // Új termék – Supabase generálja az ID-t
+      const savedProd = await sb.insert('products', productPayload);
+      prodId = savedProd[0].id;
+    }
+    // Visszalinkeljük a product_id-t a recepthez
     await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
     // Lokális R.recipes tömb frissítése
     const localRec = R.recipes.find(r => r.id === recId);

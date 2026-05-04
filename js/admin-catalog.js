@@ -274,38 +274,30 @@ async function saveProduct(){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
     Object.assign(p,{name,weight,price,category,desc,image,ptype});
-  } else {
-    prodId=Math.max(...D.products.map(p=>p.id),0)+1;
-    D.products.push({id:prodId,name,weight,price,category,desc,image,ptype});
   }
   try {
-    const savedProds = await sb.upsert('products',{id:prodId,name,weight,price,category,description:desc}, 'id');
-    // Supabase-től visszajövő valódi id
-    const realProdId = (savedProds&&savedProds[0]?.id) ? savedProds[0].id : prodId;
-    if(realProdId !== prodId) {
-      prodId = realProdId;
-      const p = D.products.find(p=>p.id===editingProductId||p.id===prodId);
-      if(p) p.id = realProdId;
+    let realProdId;
+    if(editingProductId) {
+      // UPDATE – meglévő termék
+      await sb.update('products', {name,weight,price,category,description:desc}, 'id=eq.'+editingProductId);
+      realProdId = editingProductId;
+    } else {
+      // INSERT – Supabase generálja az ID-t
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc});
+      realProdId = savedProds[0].id;
+      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype});
     }
-    // Ha gyártási termék és új termék → automatikus recept létrehozás
+    prodId = realProdId;
+    // Ha gyártási termék és új termék → automatikus recept létrehozás (ID nélkül)
     if(ptype==='production' && !editingProductId) {
       try {
-        // Max id lekérése hogy ne ütközzön a sequence-szel
-        const existingRecipes = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
-        const nextRecipeId = ((existingRecipes&&existingRecipes[0]?.id)||0) + 1;
         const newRecipe = {
-          id: nextRecipeId,
           name, category,
           product_id: realProdId,
-          base_portion: 1000,
-          bake_loss: 16,
-          unit_weight: 1000,
-          temp1: 230, time1: 20,
-          temp2: 180, time2: 70,
-          description: desc||'',
-          levain_amount: 0,
-          labor_h: 1,
-          electricity: 5,
+          base_portion: 1000, bake_loss: 16, unit_weight: 1000,
+          temp1: 230, time1: 20, temp2: 180, time2: 70,
+          description: desc||'', levain_amount: 0,
+          labor_h: 1, electricity: 5,
           marketing_desc: '', ingredient_label: '', allergens: '', nutrition: null
         };
         await sb.insert('recipes', newRecipe);
