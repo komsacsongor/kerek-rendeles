@@ -106,7 +106,7 @@ function openProductModal(id=null){
     // Kód mező: manual flag alaphelyzetbe – szerkesztéskor is frissülhet névvel/kategóriával
     const codeField = document.getElementById('p-code');
     codeField.value = p.code||'';
-    codeField.dataset.manual = 'false'; // engedjük az auto-frissítést
+    codeField.dataset.manual = 'true'; // szerkesztésnél ne írja felül a meglévő kódot
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('p-type').value='production';
@@ -279,21 +279,22 @@ async function saveProduct(){
   const desc=document.getElementById('p-desc').value;
   const image=getProductImageValue();
   const ptype=document.getElementById('p-type').value;
+  const code=document.getElementById('p-code').value.trim();
   let prodId;
   if(editingProductId){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight,price,category,desc,image,ptype});
+    Object.assign(p,{name,weight,price,category,desc,image,ptype,code});
   }
   try {
     let realProdId;
     if(editingProductId) {
       // UPDATE – meglévő termék
-      await sb.update('products', {name,weight,price,category,description:desc}, 'id=eq.'+editingProductId);
+      await sb.update('products', {name,weight,price,category,description:desc,code}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t
-      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc});
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,code});
       realProdId = savedProds[0].id;
       D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype});
     }
