@@ -427,7 +427,7 @@ async function restoreRecipe(recipeId) {
       }, 'year,month,product_id');
     }
   } catch(e) { console.warn('Restore error:', e.message); }
-  save(); renderRecipes(); toast('✅ Recept visszaállítva és hozzáadva az aktív termékekhez.');
+  save(); nav('archiv'); toast('✅ Recept visszaállítva és hozzáadva az aktív termékekhez.');
 }
 
 async function deleteArchivedRecipe(recipeId) {
@@ -444,5 +444,5 @@ async function deleteArchivedRecipe(recipeId) {
       await sb.delete('products', `id=eq.${prodId}`);
     }
   } catch(e) { console.warn('Delete archived error:', e.message); }
-  save(); renderRecipes(); toast('Recept véglegesen törölve az archívból.');
+  save(); nav('archiv'); toast('Recept véglegesen törölve az archívból.');
 }

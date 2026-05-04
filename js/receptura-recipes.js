@@ -310,3 +310,29 @@ function toggleArchivedSection(btn) {
     btn.style.fontWeight = '600';
   }
 }
+
+function renderArchivView() {
+  const archived = R.recipes.filter(r => r.archived);
+  const el = document.getElementById('archiv-grid');
+  if(!el) return;
+  if(archived.length === 0) {
+    el.innerHTML = '<p class="text-soft text-sm" style="padding:32px 0">Nincs archivált recept.</p>';
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:8px 0">
+    ${archived.map(r=>`
+      <div class="recipe-card" style="opacity:0.75;border:1.5px dashed var(--border)">
+        <div class="recipe-card-body">
+          <div class="recipe-card-name" style="color:var(--text-soft)">${r.name}</div>
+          <div class="recipe-card-meta" style="margin-bottom:10px">
+            <span class="badge" style="background:var(--bg-soft);color:var(--text-soft)">${r.category}</span>
+            ${r.productCode ? `<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${r.productCode}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" style="background:var(--teal);color:#fff;flex:1" onclick="restoreRecipe(${r.id})">↩ Visszaállítás</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteArchivedRecipe(${r.id})" title="Végleges törlés">🗑</button>
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}

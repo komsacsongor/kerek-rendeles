@@ -254,6 +254,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="nav-section">
     <div class="nav-label">Receptúrák</div>
     <button class="nav-item active" onclick="nav('recipes')"><span class="icon">📋</span>Receptek</button>
+    <button class="nav-item" id="nav-archiv" onclick="nav('archiv')"><span class="icon">🗃</span>Archív receptek</button>
     <button class="nav-item" onclick="nav('op-select')"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
   </div>
   <div class="nav-section">
@@ -294,10 +295,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-recipes" class="view active">
     <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
       <div class="flex gap-10 flex-wrap" id="recipe-filter-btns"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="toggleArchivedSection(this)" style="color:var(--text-soft)">🗃 Archív</button>
-        <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
-      </div>
+      <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
     </div>
     <div id="recipes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
     <div id="archived-recipes-section" style="display:none"></div>
@@ -352,6 +350,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
 
   <!-- ===== OPERATIONAL SELECT ===== -->
+  <div id="view-archiv" class="view">
+    <div class="view-header">
+      <h2 class="view-title">Archív receptek</h2>
+    </div>
+    <div id="archiv-grid"></div>
+  </div>
+
   <div id="view-op-select" class="view">
     <div class="op-header">
       <h2>Üzemi nézet</h2>
@@ -775,16 +780,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.7.4"></script>
-<script src="js/receptura-ui.js?v=2.7.4"></script>
-<script src="js/receptura-recipes.js?v=2.7.4"></script>
-<script src="js/receptura-operational.js?v=2.7.4"></script>
-<script src="js/receptura-ingredients.js?v=2.7.4"></script>
-<script src="js/receptura-settings.js?v=2.7.4"></script>
-<script src="js/receptura-levain.js?v=2.7.4"></script>
-<script src="js/receptura-production.js?v=2.7.4"></script>
-<script src="js/receptura-stock.js?v=2.7.4"></script>
-<script src="js/receptura-modal.js?v=2.7.4"></script>
-<script src="js/receptura-ai.js?v=2.7.4"></script>
+<script src="js/receptura-data.js?v=2.7.5"></script>
+<script src="js/receptura-ui.js?v=2.7.5"></script>
+<script src="js/receptura-recipes.js?v=2.7.5"></script>
+<script src="js/receptura-operational.js?v=2.7.5"></script>
+<script src="js/receptura-ingredients.js?v=2.7.5"></script>
+<script src="js/receptura-settings.js?v=2.7.5"></script>
+<script src="js/receptura-levain.js?v=2.7.5"></script>
+<script src="js/receptura-production.js?v=2.7.5"></script>
+<script src="js/receptura-stock.js?v=2.7.5"></script>
+<script src="js/receptura-modal.js?v=2.7.5"></script>
+<script src="js/receptura-ai.js?v=2.7.5"></script>
 </body>
 </html>

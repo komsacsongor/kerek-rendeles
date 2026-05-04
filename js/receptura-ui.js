@@ -19,6 +19,7 @@ function nav(id) {
     'cost-analysis': renderCostAnalysis, stock: renderStock,
     'levain-daily': () => { initLevainDaily(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
+    archiv: renderArchivView,
   };
   renders[id]?.();
 }
