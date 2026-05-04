@@ -117,7 +117,6 @@ async function syncRecipeToSupabase(data, existingId) {
       category: data.category||'Kenyér',
       description: data.desc||'',
       code: productCode,
-      type: 'production',
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
