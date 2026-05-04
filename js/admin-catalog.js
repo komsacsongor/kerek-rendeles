@@ -280,6 +280,15 @@ async function saveProduct(){
   const image=getProductImageValue();
   const ptype=document.getElementById('p-type').value;
   const code=document.getElementById('p-code').value.trim();
+  // Névütközés ellenőrzés
+  const duplicate = D.products.find(p =>
+    p.name.trim().toLowerCase() === name.toLowerCase() &&
+    p.id !== editingProductId
+  );
+  if(duplicate) {
+    toast(`⚠️ Már létezik "${duplicate.name}" nevű termék (kód: ${duplicate.code||duplicate.id}). Válassz más nevet!`, true);
+    return;
+  }
   let prodId;
   if(editingProductId){
     prodId=editingProductId;

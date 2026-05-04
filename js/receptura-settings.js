@@ -53,6 +53,16 @@ async function saveBakingSettings() {
 }
 
 async function syncRecipeToSupabase(data, existingId) {
+  // Névütközés ellenőrzés – csak új terméknél (nincs product_id)
+  if (!data.product_id) {
+    const existing = _adminProductsCache.find(p =>
+      p.name.trim().toLowerCase() === (data.name||'').trim().toLowerCase()
+    );
+    if (existing) {
+      toast(`⚠️ Már létezik "${existing.name}" nevű termék (kód: ${existing.code||existing.id}). Válassz más nevet!`, true);
+      return;
+    }
+  }
   try {
     const recId = existingId || data.id;
     
