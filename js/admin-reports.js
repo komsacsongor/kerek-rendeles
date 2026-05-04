@@ -1,0 +1,206 @@
+// ===== REPORTS =====
+function toggleAnnualSummary() {
+  const el = document.getElementById('annual-summary');
+  const btn = document.getElementById('annual-toggle-btn');
+  if(el.style.display === 'none') {
+    renderAnnualSummary();
+    el.style.display = 'block';
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-ghost');
+  } else {
+    el.style.display = 'none';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-ghost');
+  }
+}
+
+function renderAnnualSummary() {
+  const year = selYear;
+  let totalRevenue = 0, totalOrders = 0;
+  const monthlyData = [];
+  const clientTotals = {};
+
+  MONTHS.forEach((mo, m) => {
+    let monthRev = 0, monthOrders = 0;
+    D.clients.forEach(c => {
+      D.products.forEach(p => {
+        getDaysForMonth(year, m).forEach(d => {
+          const key = `${c.id}-${year}-${m}-${d}`;
+          const qty = D.orders[key]?.[p.id] || 0;
+          if(qty > 0) {
+            const rev = qty * p.price;
+            monthRev += rev;
+            monthOrders += qty;
+            totalRevenue += rev;
+            totalOrders += qty;
+            if(!clientTotals[c.id]) clientTotals[c.id] = {name:c.name, revenue:0, orders:0};
+            clientTotals[c.id].revenue += rev;
+            clientTotals[c.id].orders += qty;
+          }
+        });
+      });
+    });
+    monthlyData.push({mo, m, monthRev, monthOrders});
+  });
+
+  // Helper to get days array
+  function getDaysForMonth(y, m) {
+    const days = [];
+    const d = new Date(y, m, 1);
+    while(d.getMonth() === m) { days.push(d.getDate()); d.setDate(d.getDate()+1); }
+    return days;
+  }
+
+  // Max for chart scaling
+  const maxRev = Math.max(...monthlyData.map(d => d.monthRev), 1);
+
+  let html = `<div class="card">
+    <div class="card-head"><div class="card-title">📊 ${year}. évi összesítő</div>
+    <span class="badge badge-gold">${totalOrders} db · ${totalRevenue.toFixed(0)} lej</span></div>
+    <div class="card-body">
+      <!-- Monthly chart bars -->
+      <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin-bottom:8px;padding:0 4px">
+        ${monthlyData.map(({mo,monthRev}) => {
+          const h = Math.round((monthRev/maxRev)*90)+2;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="width:100%;height:${h}px;background:var(--teal);border-radius:4px 4px 0 0;min-height:2px" title="${mo}: ${monthRev.toFixed(0)} lej"></div>
+            <div style="font-size:0.55rem;color:var(--text-soft)">${mo.slice(0,3)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="sep"></div>
+      <div class="grid-4" style="margin-top:12px">
+        <div class="stat-box"><div class="stat-val">${totalOrders}</div><div class="stat-label">Összes rendelés</div></div>
+        <div class="stat-box"><div class="stat-val sm gold">${totalRevenue.toFixed(0)} lej</div><div class="stat-label">Éves forgalom</div></div>
+        <div class="stat-box"><div class="stat-val sm">${(totalRevenue/12).toFixed(0)} lej</div><div class="stat-label">Havi átlag</div></div>
+        <div class="stat-box"><div class="stat-val sm">${D.clients.length}</div><div class="stat-label">Aktív vevő</div></div>
+      </div>
+      <div class="sep"></div>
+      <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Vevőnkénti bontás</div>
+      <table class="tbl">
+        <thead><tr><th>Vevő</th><th class="num">Rendelés (db)</th><th class="num">Forgalom (lej)</th><th class="num">Arány</th></tr></thead>
+        <tbody>
+          ${Object.values(clientTotals).sort((a,b)=>b.revenue-a.revenue).map(c => `
+            <tr>
+              <td><b>${esc(c.name)}</b></td>
+              <td class="num">${c.orders}</td>
+              <td class="num gold">${c.revenue.toFixed(0)}</td>
+              <td class="num">${totalRevenue>0?((c.revenue/totalRevenue)*100).toFixed(1):0}%</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  document.getElementById('annual-summary').innerHTML = html;
+}
+
+function renderReports(){
+  const sel=document.getElementById('reports-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+  const rev=getRevenue(mo,y,m);
+  const qty=getTotalQty(mo);
+  const bdays=getBakingDays(y,m);
+
+  document.getElementById('report-stats').innerHTML=[
+    {val:qty+' db',label:'Összes rendelés',icon:'📦'},
+    {val:rev+' lej',label:'Becsült forgalom',icon:'💰',gold:true},
+    {val:bdays.length+' nap',label:'Sütési napok',icon:'🔥'},
+  ].map(s=>`<div class="stat-box"><div class="stat-val ${s.gold?'gold':''}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
+
+  // Top products
+  const prodTotals={}; Object.values(mo).forEach(day=>Object.entries(day).forEach(([pid,q])=>prodTotals[pid]=(prodTotals[pid]||0)+q));
+  const sorted=Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxP=sorted[0]?.[1]||1;
+  document.getElementById('top-products').innerHTML=sorted.map(([pid,q])=>{
+    const p=D.products.find(p=>p.id==pid); if(!p) return '';
+    return `<div class="prog-row"><div class="prog-label"><span>${esc(p.name)} <small class="text-soft">${esc(p.weight)}</small></span><span>${q} db · ${q*p.price} lej</span></div><div class="prog-bar-bg"><div class="prog-bar" style="width:${q/maxP*100}%;background:var(--teal)"></div></div></div>`;
+  }).join('')||'<p class="text-soft text-sm">Nincs adat.</p>';
+
+  // Top clients
+  const clientTotals=D.clients.map(c=>{
+    let tot=0,rev=0;
+    getDays(y,m).forEach(d=>{
+      const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+      Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});
+    });
+    return{...c,tot,rev};
+  }).sort((a,b)=>b.tot-a.tot);
+  const maxC=clientTotals[0]?.tot||1;
+  document.getElementById('top-clients').innerHTML=clientTotals.map(c=>`
+    <div class="prog-row"><div class="prog-label"><span>${esc(c.name)}</span><span>${c.tot} db · ${c.rev} lej</span></div>
+    <div class="prog-bar-bg"><div class="prog-bar" style="width:${c.tot/maxC*100}%;background:var(--gold)"></div></div></div>`).join('');
+
+  // Baking day revenue
+  let bdhtml='<table class="tbl"><thead><tr><th>Dátum</th><th>Nap</th><th>Rendelés (db)</th><th class="num">Forgalom</th></tr></thead><tbody>';
+  bdays.forEach(d=>{
+    const day=d.getDate(); const dayO=mo[day]||{};
+    const q=Object.values(dayO).reduce((a,b)=>a+b,0);
+    const r=Object.entries(dayO).reduce((acc,[pid,qty])=>{const p=D.products.find(p=>p.id==pid);return acc+(p?p.price*qty:0);},0);
+    bdhtml+=`<tr><td>${MONTHS[m]} ${day}.</td><td><span class="badge ${d.getDay()===2?'badge-gold':'badge-teal'}">${DAYS_HU[d.getDay()]}</span></td><td class="num">${q||'—'}</td><td class="num gold-text">${r>0?r+' lej':'—'}</td></tr>`;
+  });
+  bdhtml+='</tbody></table>';
+  document.getElementById('baking-day-revenue').innerHTML=bdhtml;
+}
+
+// ===== CATEGORIES =====
+function renderCategories(){
+  const sel=document.getElementById('cat-month-sel');
+  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  const y=selYear,m=selMonth;
+  const mo=getMonthOrders(y,m);
+
+  const cats={}; D.categories.forEach(c=>cats[c]={qty:0,rev:0});
+  Object.values(mo).forEach(day=>{
+    Object.entries(day).forEach(([pid,qty])=>{
+      const p=D.products.find(p=>p.id==pid); if(!p) return;
+      if(!cats[p.category]) cats[p.category]={qty:0,rev:0};
+      cats[p.category].qty+=qty; cats[p.category].rev+=qty*p.price;
+    });
+  });
+  const catArr=Object.entries(cats).filter(([,v])=>v.qty>0).sort((a,b)=>b[1].rev-a[1].rev);
+  const totalRev=catArr.reduce((a,[,v])=>a+v.rev,0)||1;
+  const totalQty=catArr.reduce((a,[,v])=>a+v.qty,0)||1;
+
+  document.getElementById('cat-stats').innerHTML=catArr.slice(0,8).map(([cat,v])=>`
+    <div class="stat-box"><div class="stat-val">${v.qty} db</div><div class="stat-label">🏷 ${esc(cat)}</div><div style="font-size:0.75rem;color:var(--gold-dark);margin-top:4px">${v.rev} lej</div></div>`).join('');
+
+  // Bar chart
+  const maxRev=Math.max(...catArr.map(([,v])=>v.rev),1);
+  const colors=['var(--teal)','var(--gold)','var(--teal-mid)','var(--sand)','var(--slate)'];
+  document.getElementById('cat-chart').innerHTML=`
+    <div class="bar-chart-wrap" style="height:120px">${catArr.map(([cat,v],i)=>`
+      <div class="bar-col"><div class="bar-v">${v.rev} lej</div>
+      <div class="bar" style="height:${v.rev/maxRev*110}px;background:${colors[i%colors.length]}"></div>
+      <div class="bar-lbl">${cat.split('/')[0].trim()}</div></div>`).join('')}
+    </div>`;
+
+  // Table
+  let html='<table class="tbl"><thead><tr><th>Kategória</th><th class="num">db</th><th class="num">Forgalom</th><th class="num">% (db)</th><th class="num">% (érték)</th></tr></thead><tbody>';
+  catArr.forEach(([cat,v])=>{
+    html+=`<tr><td><b>${esc(cat)}</b></td><td class="num highlight">${v.qty}</td><td class="num gold-text">${v.rev} lej</td>
+      <td class="num">${(v.qty/totalQty*100).toFixed(1)}%</td><td class="num">${(v.rev/totalRev*100).toFixed(1)}%</td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('cat-table').innerHTML=html;
+
+  // Client × Category
+  let chtml='<table class="tbl"><thead><tr><th>Vevő</th>'+catArr.map(([cat])=>`<th>${cat.split('/')[0]}</th>`).join('')+'<th class="num">Összesen</th></tr></thead><tbody>';
+  D.clients.forEach(c=>{
+    let rowTotal=0;
+    const catVals=catArr.map(([cat])=>{
+      let q=0;
+      getDays(y,m).forEach(d=>{
+        const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+        Object.entries(D.orders[key]).forEach(([pid,qty])=>{ const p=D.products.find(p=>p.id==pid); if(p&&p.category===cat){q+=qty;rowTotal+=qty;} });
+      });
+      return q;
+    });
+    chtml+=`<tr><td><b>${esc(c.name)}</b></td>${catVals.map(q=>`<td class="num">${q||'—'}</td>`).join('')}<td class="num highlight">${rowTotal||'—'}</td></tr>`;
+  });
+  chtml+='</tbody></table>';
+  document.getElementById('cat-client-table').innerHTML=chtml;
+}
+
