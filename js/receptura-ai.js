@@ -92,7 +92,7 @@ async function selectSheet(sheets, wb) {
 async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
-  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'llama-3.3-70b-versatile',openai:'gpt-4o-mini'};
   const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
   const status = document.getElementById('import-status');
 
