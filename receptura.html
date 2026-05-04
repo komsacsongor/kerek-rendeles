@@ -294,7 +294,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-recipes" class="view active">
     <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
       <div class="flex gap-10 flex-wrap" id="recipe-filter-btns"></div>
-      <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="toggleArchivedSection(this)" style="color:var(--text-soft)">🗃 Archív</button>
+        <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
+      </div>
     </div>
     <div id="recipes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
     <div id="archived-recipes-section" style="display:none"></div>
@@ -586,11 +589,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Termékkód <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(automatikus, felülírható)</span></label>
-            <div style="display:flex;gap:6px">
-              <input type="text" id="r-product-code" placeholder="pl. SUT-KEKS-01" style="flex:1;font-family:monospace">
-              <button class="btn btn-ghost btn-sm" type="button" onclick="updateRecipeProductCode(true)" title="Újragenerálás">🔄</button>
-            </div>
+            <label>Termékkód <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(automatikus)</span></label>
+            <input type="text" id="r-product-code" placeholder="mentés után generálódik" style="font-family:monospace;background:var(--bg-soft);color:var(--text-soft);cursor:default" readonly>
           </div>
           <div class="form-group">
             <label>Termék ár (lej/db) <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(adminban is megjelenik)</span></label>
@@ -775,16 +775,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.7.0"></script>
-<script src="js/receptura-ui.js?v=2.7.0"></script>
-<script src="js/receptura-recipes.js?v=2.7.0"></script>
-<script src="js/receptura-operational.js?v=2.7.0"></script>
-<script src="js/receptura-ingredients.js?v=2.7.0"></script>
-<script src="js/receptura-settings.js?v=2.7.0"></script>
-<script src="js/receptura-levain.js?v=2.7.0"></script>
-<script src="js/receptura-production.js?v=2.7.0"></script>
-<script src="js/receptura-stock.js?v=2.7.0"></script>
-<script src="js/receptura-modal.js?v=2.7.0"></script>
-<script src="js/receptura-ai.js?v=2.7.0"></script>
+<script src="js/receptura-data.js?v=2.7.1"></script>
+<script src="js/receptura-ui.js?v=2.7.1"></script>
+<script src="js/receptura-recipes.js?v=2.7.1"></script>
+<script src="js/receptura-operational.js?v=2.7.1"></script>
+<script src="js/receptura-ingredients.js?v=2.7.1"></script>
+<script src="js/receptura-settings.js?v=2.7.1"></script>
+<script src="js/receptura-levain.js?v=2.7.1"></script>
+<script src="js/receptura-production.js?v=2.7.1"></script>
+<script src="js/receptura-stock.js?v=2.7.1"></script>
+<script src="js/receptura-modal.js?v=2.7.1"></script>
+<script src="js/receptura-ai.js?v=2.7.1"></script>
 </body>
 </html>

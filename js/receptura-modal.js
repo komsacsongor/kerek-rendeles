@@ -31,7 +31,7 @@ function openRecipeModal(id=null) {
     document.getElementById('r-levain-amount').value = r.levainAmount||260;
     document.getElementById('r-labor-h').value = r.laborH||1;
     document.getElementById('r-electricity').value = r.electricity||5;
-    if(document.getElementById('r-product-code')) document.getElementById('r-product-code').value = r.productCode||'';
+    if(document.getElementById('r-product-code')) { const el=document.getElementById('r-product-code'); el.value = r.productCode||''; el.placeholder='mentés után generálódik'; }
     if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;   if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;
     modalDryIngs = JSON.parse(JSON.stringify(r.dryIngredients||[]));
     modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
@@ -132,26 +132,7 @@ const RECIPE_CAT_CODES = {
   'Leveles tészta':'LEV','Egyéb':'EGY'
 };
 
-function updateRecipeProductCode(force=false) {
-  const codeEl = document.getElementById('r-product-code');
-  if(!codeEl) return;
-  if(codeEl.value && !force) return;
-  
-  const name = document.getElementById('r-name')?.value || '';
-  const catEl = document.getElementById('r-category');
-  const cat = catEl?.options[catEl?.selectedIndex]?.text || 'Egyéb';
-  const prefix = RECIPE_CAT_CODES[cat] || 'EGY';
-  
-  const namePart = name.toUpperCase()
-    .replace(/[ÁÀÂÄ]/g,'A').replace(/[ÉÈÊË]/g,'E')
-    .replace(/[ÍÌÎÏ]/g,'I').replace(/[ÓÒÔÖŐ]/g,'O')
-    .replace(/[ÚÙÛÜŰ]/g,'U').replace(/[^A-Z]/g,'')
-    .slice(0,4) || 'XXX';
-  
-  const existing = R.recipes.filter(rec => rec.category === cat).length;
-  const seq = String(existing + 1).padStart(2,'0');
-  codeEl.value = `${prefix}-${namePart}-${seq}`;
-}
+// updateRecipeProductCode removed – kód az ID alapján generálódik mentéskor (generateProductCode)
 
 function updateLevainPreview() {
   const amount = parseFloat(document.getElementById('r-levain-amount').value)||0;
