@@ -224,6 +224,7 @@ function logout() {
 }
 
 function initApp(){
+  showVersionBadge();
   buildTopbarMonths();
 
   // ===== SUPABASE REALTIME =====

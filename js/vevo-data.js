@@ -49,6 +49,7 @@ let summaryMonth = selectedMonth;
 
 // ===== AUTH =====
 async function doLogin() {
+  showVersionBadge();
   const val = document.getElementById('login-input').value.trim().toLowerCase();
   const errEl2 = document.getElementById('login-error');
   if (!val) {

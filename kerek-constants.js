@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.7.6 (2026-05-04)';
+const APP_VERSION = 'v2.7.7 (2026-05-04)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -30,4 +30,11 @@ function generateProductCode(name, category, id) {
     .slice(0,4) || 'XXX';
   const seq = String(id).padStart(4,'0');
   return `${prefix}-${namePart}-${seq}`;
+}
+
+
+// ===== VERZIÓ BADGE =====
+function showVersionBadge() {
+  const el = document.getElementById('version-badge');
+  if(el) el.textContent = APP_VERSION;
 }

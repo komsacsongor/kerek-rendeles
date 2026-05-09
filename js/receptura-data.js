@@ -175,6 +175,7 @@ function logout() {
 }
 
 async function initApp() {
+  showVersionBadge();
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
 
   // Supabase-ből tölt minden beállítást
