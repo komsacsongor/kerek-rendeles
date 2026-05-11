@@ -39,9 +39,12 @@ function openRecipeModal(id=null) {
     document.getElementById('recipe-modal-title').textContent = 'Recept szerkesztése';
     document.getElementById('recipe-action-btns').style.display = 'flex';
   } else {
+    const defaults = {'r-base-portion':'1000','r-bake-loss':'16','r-unit-weight':'1000',
+      'r-temp1':'230','r-time1':'20','r-temp2':'185','r-time2':'30',
+      'r-levain-amount':'260','r-labor-h':'1','r-electricity':'5'};
     ['r-name','r-base-portion','r-bake-loss','r-unit-weight','r-temp1','r-time1',
      'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input'].forEach(x=>{
-      document.getElementById(x).value='';
+      document.getElementById(x).value = defaults[x]||'';
     });
     modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];
     document.getElementById('recipe-modal-title').textContent = 'Új recept';

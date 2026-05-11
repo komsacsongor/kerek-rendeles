@@ -124,7 +124,7 @@ async function doLogin() {
     // Vevő rendelései + üzenetei Supabase-ből
     try {
       const [userOrders, userMsgs, calData] = await Promise.all([
-        sb.query('orders', {filter: `client_id=eq.${client.id}`}),
+        sb.query('orders', {filter: `client_id=eq.${client.id}`, limit: 2000}),
         sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at'}),
         sb.query('baking_calendar'),
       ]);

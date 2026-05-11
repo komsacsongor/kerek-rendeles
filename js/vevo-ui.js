@@ -199,11 +199,45 @@ async function loadMessage() {
   if(!el) return;
   if(msgs.length===0){ el.innerHTML=''; return; }
   const adminMsgs = msgs.filter(m => (m.text||'').startsWith('📨 Admin:'));
-  if(adminMsgs.length===0){ el.innerHTML=''; return; }
-  el.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);margin-bottom:6px">📨 Pékség üzenetei</div>' +
-  adminMsgs.map(m=>{
-    const txt = m.text.replace('📨 Admin:','').trim();
-    const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
-    return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;"><div style="font-size:0.7rem;color:#065f46;margin-bottom:3px">👩‍💼 <b>KEREK Pékség</b> · ${dt}</div><div>${esc(txt)}</div></div>`;
-  }).join('');
+  const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));
+  if(adminMsgs.length===0 && clientMsgs.length===0){ el.innerHTML=''; return; }
+  let html = '';
+  if(adminMsgs.length > 0) {
+    html += '<div style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);margin-bottom:6px">📨 Pékség üzenetei</div>' +
+    adminMsgs.map(m=>{
+      const txt = m.text.replace('📨 Admin:','').trim();
+      const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
+      return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;"><div style="font-size:0.7rem;color:#065f46;margin-bottom:3px">👩‍💼 <b>KEREK Pékség</b> · ${dt}</div><div>${esc(txt)}</div></div>`;
+    }).join('');
+  }
+  if(clientMsgs.length > 0) {
+    html += '<div style="font-size:0.78rem;font-weight:600;color:var(--text-soft);margin:10px 0 6px">💬 Az én üzeneteim</div>' +
+    clientMsgs.map((m,i)=>{
+      const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
+      return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f8f8f8;border-left:3px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Te · ${dt}</div><div>${esc(m.text||'')}</div></div>
+        <button onclick="deleteMyMessage(${i})" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.9rem;padding:0 4px;flex-shrink:0" title="Törlés">✕</button>
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML = html;
+}
+
+async function deleteMyMessage(idx) {
+  if(!confirm('Törlöd ezt az üzenetet?')) return;
+  const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
+  const msgs = appData.messages?.[key] || [];
+  const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));
+  const target = clientMsgs[idx];
+  if(!target) return;
+  try {
+    // Delete from Supabase by matching text+timestamp
+    const all = await sb.query('messages', {filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`});
+    const found = all.find(m => m.text===target.text && m.created_at===target.ts);
+    if(found?.id) await sb.delete('messages', `id=eq.${found.id}`);
+    // Update local cache
+    appData.messages[key] = msgs.filter(m => !(m.text===target.text && m.ts===target.ts));
+    loadMessage();
+    toast('Üzenet törölve.');
+  } catch(e) { toast('Törlés sikertelen: '+e.message, true); }
 }

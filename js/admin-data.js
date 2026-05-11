@@ -107,7 +107,7 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [products]:', e.message); }
 
   try {
-    const clients = await sb.query('clients', { order: 'name' });
+    const clients = await sb.query('clients', { order: 'name', limit: 500 });
     D.clients = (clients||[]).map(c => ({
       id: c.id, name: c.name, email: c.email || '',
       phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
@@ -125,7 +125,7 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [monthly_active_products]:', e.message); }
 
   try {
-    const orders = await sb.query('orders');
+    const orders = await sb.query('orders', { limit: 5000 });
     D.orders = {};
     (orders||[]).forEach(r => {
       const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
