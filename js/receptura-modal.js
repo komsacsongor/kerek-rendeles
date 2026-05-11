@@ -48,18 +48,7 @@ function openRecipeModal(id=null) {
     document.getElementById('recipe-action-btns').style.display = 'none';
   }
   renderModalIngredients(); renderModalSteps(); updateLevainPreview();
-  // Termék dropdown feltöltése
-  const prodSel = document.getElementById('r-product-link');
-  const curProductId = editingRecipeId ? (R.recipes.find(r=>r.id===editingRecipeId)||{}).product_id : null;
-  prodSel.innerHTML = '<option value="">– nincs hozzárendelve –</option>';
-  const adminProducts = _adminProductsCache || [];
-  adminProducts.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name + (p.weight ? ' ('+p.weight+')' : '');
-    if(p.id == curProductId) opt.selected = true;
-    prodSel.appendChild(opt);
-  });
+  // Termék kapcsolat: automatikus (syncRecipeToSupabase kezeli)
   document.getElementById('recipe-modal').classList.add('open');
 }
 

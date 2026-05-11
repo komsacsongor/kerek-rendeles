@@ -229,3 +229,42 @@ async function migrateRecipeProductIds() {
   save();
   toast(`✅ ${fixed} recept product_id javítva`);
 }
+
+// ===== KATEGÓRIA HOZZÁADÁS MODAL-BÓL =====
+function showAddCategoryInline() {
+  const el = document.getElementById('new-cat-inline');
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+  if(el.style.display !== 'none') {
+    el.style.display = 'block';
+    document.getElementById('new-cat-inline-input')?.focus();
+  }
+}
+
+async function addCategoryFromModal() {
+  const input = document.getElementById('new-cat-inline-input');
+  const val = input?.value?.trim();
+  if(!val) return;
+  if(R.recipeCategories.includes(val)) { toast('Ez a kategória már létezik.', true); return; }
+  R.recipeCategories.push(val);
+  save();
+  try {
+    await sb.setSetting('categories', R.recipeCategories);
+    await sb.setSetting('recipe_categories', R.recipeCategories);
+  } catch(e) { console.warn(e); }
+  // Frissíti a select-et és kiválasztja az újat
+  updateRecipeCatSelect(val);
+  document.getElementById('new-cat-inline').style.display = 'none';
+  input.value = '';
+  toast('✅ Kategória hozzáadva és szinkronizálva.');
+}
+
+function updateRecipeCatSelect(selectVal) {
+  const sel = document.getElementById('r-category');
+  if(!sel) return;
+  // Újra feltölti az opciókat
+  const cats = R.recipeCategories || [];
+  sel.innerHTML = cats.map(c=>`<option value="${c}"${c===selectVal?' selected':''}>${c}</option>`).join('');
+  // Szűrőt is frissíti
+  updateRecipeCatFilter?.();
+}
