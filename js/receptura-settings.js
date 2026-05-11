@@ -195,6 +195,16 @@ async function addRecipeCat() {
   toast('Kategória hozzáadva!');
 }
 async function deleteRecipeCat(i) {
+  const cat = R.recipeCategories[i];
+  // Ellenőrzés: van-e recept vagy termék ebben a kategóriában?
+  const linkedRecipes = R.recipes.filter(r => r.category === cat && !r.archived);
+  if(linkedRecipes.length > 0) {
+    const names = linkedRecipes.slice(0,3).map(r=>r.name).join(', ');
+    const more = linkedRecipes.length > 3 ? ` és még ${linkedRecipes.length-3} db` : '';
+    toast(`⚠️ Nem törölhető! ${linkedRecipes.length} recept tartozik ide: ${names}${more}. Előbb rendeld át őket más kategóriába.`, true);
+    return;
+  }
+  if(!confirm(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá recept, biztonságos.`)) return;
   R.recipeCategories.splice(i,1); save();
   try {
     await sb.setSetting('categories', R.recipeCategories);

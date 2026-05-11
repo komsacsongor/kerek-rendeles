@@ -25,7 +25,16 @@ async function addCategory(){
   toast('Kategória hozzáadva!');
 }
 function deleteCategory(i){
-  if(!confirm('Törlöd ezt a kategóriát?')) return;
+  const cat = D.categories[i];
+  // Ellenőrzés: van-e termék ebben a kategóriában?
+  const linkedProducts = D.products.filter(p => p.category === cat);
+  if(linkedProducts.length > 0) {
+    const names = linkedProducts.slice(0,3).map(p=>p.name).join(', ');
+    const more = linkedProducts.length > 3 ? ` és még ${linkedProducts.length-3} db` : '';
+    toast(`⚠️ Nem törölhető! ${linkedProducts.length} termék tartozik ide: ${names}${more}. Előbb rendeld át őket más kategóriába.`, true);
+    return;
+  }
+  if(!confirm(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá termék, biztonságos.`)) return;
   D.categories.splice(i,1);
   sb.setSetting('categories', D.categories).catch(e=>console.warn(e));
   save(); renderCategoriesList(); toast('Kategória törölve.');
