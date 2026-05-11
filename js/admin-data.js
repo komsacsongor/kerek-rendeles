@@ -205,11 +205,13 @@ async function doLogin(){
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
+      auditLog('login', 'Admin', 'Sikeres belépés');
       // Badge frissítése loadAllData után (seenMsgs már betöltve)
       updateMsgBadge();
     } else {
       if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
       loginError('❌ Hibás jelszó! Próbáld újra.');
+      auditLog('login_failed', 'Admin', 'Hibás jelszó');
     }
   } catch(e) {
     console.error('doLogin Supabase hiba:', e.message);

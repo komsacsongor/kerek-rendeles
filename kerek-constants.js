@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.9.3 (2026-05-11)';
+const APP_VERSION = 'v2.10.0 (2026-05-11)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -48,3 +48,19 @@ function ok(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }
 function getKey(month, year){ return `${year}-${month}`; }
 // Vevő rendelés kulcs
 function getOrderKey(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }
+
+// ===== SC11: AUDIT LOG =====
+async function auditLog(action, entityName='', details='') {
+  try {
+    await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/audit_log`, {
+      method: 'POST',
+      headers: {
+        'apikey': 'SUPABASE_ANON_KEY_PLACEHOLDER',
+        'Authorization': 'Bearer SUPABASE_ANON_KEY_PLACEHOLDER',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({action, entity_name: entityName, details})
+    });
+  } catch(e) { console.warn('Audit log hiba:', e.message); }
+}

@@ -73,6 +73,7 @@ async function deleteProduct(id) {
   const p = D.products.find(p=>p.id===id);
   if(!p) return;
   if(!confirm('Biztosan törlöd: "' + esc(p.name) + '"?\nA havi aktiválások is törlődnek.')) return;
+  auditLog('product_delete', p.name, `ID: ${id}`);
   D.products = D.products.filter(x=>x.id!==id);
   Object.keys(D.monthlyActiveProducts).forEach(k=>{
     D.monthlyActiveProducts[k] = (D.monthlyActiveProducts[k]||[]).filter(x=>x!==id);
@@ -328,7 +329,13 @@ async function saveProduct(){
         toast('Termék mentve, de recept létrehozás sikertelen: '+e2.message, true);
       }
     } else {
-      toast(editingProductId?'Termék frissítve!':'Új termék hozzáadva!');
+      if(editingProductId) {
+        auditLog('product_update', name, `Ár: ${price} lej, Kategória: ${category}`);
+        toast('Termék frissítve!');
+      } else {
+        auditLog('product_create', name, `Ár: ${price} lej, Kategória: ${category}`);
+        toast('Új termék hozzáadva!');
+      }
     }
   } catch(e){ toast('⚠️ Supabase mentés sikertelen: '+e.message, true); }
   save(); closeModal('product-modal'); renderCatalog();

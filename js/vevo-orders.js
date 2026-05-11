@@ -192,6 +192,7 @@ async function saveOrder() {
       }
     }
     localStorage.setItem('kerek_vevo_data', JSON.stringify(appData));
+    auditLog('order_save', currentUser?.name||currentUser?.id||'?', `${selectedYear}-${selectedMonth+1} hónap`);
     toast('✅ Rendelés elmentve! Köszönjük a megrendelést. 🌾');
     // Show order confirmation summary  
     const confirmEl = document.getElementById('order-confirm-msg');

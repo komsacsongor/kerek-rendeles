@@ -365,11 +365,13 @@ async function saveRecipe() {
   if (editingRecipeId) {
     Object.assign(R.recipes.find(r=>r.id===editingRecipeId), data);
     await syncRecipeToSupabase(data, editingRecipeId);
+    auditLog('recipe_update', data.name, `Frissítve (id:${editingRecipeId})`);
     toast('✅ Recept frissítve!');
   } else {
     data.id = Math.max(...R.recipes.map(r=>r.id),0)+1;
     R.recipes.push(data);
     await syncRecipeToSupabase(data, null);
+    auditLog('recipe_create', data.name, 'Új recept létrehozva');
     toast('✅ Recept mentve!');
   }
   save(); closeModal('recipe-modal'); renderRecipes();
@@ -390,6 +392,7 @@ async function deleteCurrentRecipe() {
       await sb.delete('products', `id=eq.${prodId}`);
     }
   } catch(e) { console.warn('Recipe delete error:', e.message); }
+  auditLog('recipe_delete', rec?.name||'?', `ID: ${currentRecipeId}`);
   save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('Recept és termék véglegesen törölve.');
 }
 
@@ -407,6 +410,7 @@ async function archiveCurrentRecipe() {
       await sb.delete('monthly_active_products', `product_id=eq.${prodId}&year=gte.${now.getFullYear()}`);
     }
   } catch(e) { console.warn('Archive error:', e.message); }
+  auditLog('recipe_archive', rec?.name||'?', `ID: ${currentRecipeId}`);
   save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('Recept archiválva.');
 }
 
@@ -427,6 +431,7 @@ async function restoreRecipe(recipeId) {
       }, 'year,month,product_id');
     }
   } catch(e) { console.warn('Restore error:', e.message); }
+  auditLog('recipe_restore', rec?.name||'?', `ID: ${recipeId}`);
   save(); nav('archiv'); toast('✅ Recept visszaállítva és hozzáadva az aktív termékekhez.');
 }
 

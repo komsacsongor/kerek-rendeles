@@ -2,14 +2,14 @@
 const VIEW_TITLES = {
   dashboard:'Dashboard', messages:'Üzenetek', baking:'Sütési lista',
   orders:'Rendelések összesítő', catalog:'Termékkatalógus', clients:'Kliensek',
-  'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások',
+  'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások', 'audit-log':'Napló',
   export:'Adatok exportálása'
 };
 // Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
 const RENDERS = {
   dashboard:()=>renderDashboard(), messages:()=>renderMessages(), baking:()=>renderBaking(),
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
-  reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(),
+  reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
   export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); }
 };
 function nav(id){

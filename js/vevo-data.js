@@ -119,6 +119,7 @@ async function doLogin() {
   if (client) {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
+    auditLog('login', currentUser.name||currentUser.id, 'Vevő belépés');
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(client.name.split(' ')[1]) + '! 👋';
     // Vevő rendelései + üzenetei Supabase-ből

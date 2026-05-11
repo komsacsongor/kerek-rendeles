@@ -204,3 +204,49 @@ function renderCategories(){
   document.getElementById('cat-client-table').innerHTML=chtml;
 }
 
+
+// ===== AUDIT LOG NÉZET =====
+async function renderAuditLog() {
+  const el = document.getElementById('view-audit-log');
+  if(!el) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--teal)">⏳ Napló betöltése...</div>';
+  try {
+    const logs = await sb.query('audit_log', {order:'created_at.desc', limit:200});
+    const actionLabels = {
+      login:'🔑 Belépés', login_failed:'⚠️ Hibás belépés',
+      product_create:'📦 Termék létrehozva', product_update:'✏️ Termék módosítva', product_delete:'🗑 Termék törölve',
+      recipe_create:'🍞 Recept létrehozva', recipe_update:'✏️ Recept módosítva',
+      recipe_delete:'🗑 Recept törölve', recipe_archive:'🗃 Recept archiválva', recipe_restore:'↩ Recept visszaállítva',
+      order_save:'📋 Rendelés mentve',
+    };
+    el.innerHTML = `
+      <div class="view-header"><h2 class="view-title">📋 Napló</h2></div>
+      <div class="card">
+        <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+          <thead><tr style="border-bottom:2px solid var(--border)">
+            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Időpont</th>
+            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Művelet</th>
+            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Elem</th>
+            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Részletek</th>
+          </tr></thead>
+          <tbody>
+            ${logs.map(l=>{
+              const dt = new Date(l.created_at);
+              const dateStr = dt.toLocaleDateString('hu-HU') + ' ' + dt.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+              const label = actionLabels[l.action] || l.action;
+              const isDelete = l.action.includes('delete') || l.action.includes('failed');
+              return `<tr style="border-bottom:1px solid var(--border);${isDelete?'background:#fff5f5':''}">
+                <td style="padding:8px 10px;color:var(--text-soft);white-space:nowrap">${dateStr}</td>
+                <td style="padding:8px 10px;font-weight:500">${label}</td>
+                <td style="padding:8px 10px">${esc(l.entity_name||'')}</td>
+                <td style="padding:8px 10px;color:var(--text-soft)">${esc(l.details||'')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        ${logs.length===0?'<p class="text-soft text-sm" style="padding:20px">Még nincs naplóbejegyzés.</p>':''}
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="card"><p class="text-soft">Napló betöltési hiba: ${e.message}</p></div>`;
+  }
+}
