@@ -457,3 +457,55 @@ async function deleteArchivedRecipe(recipeId) {
   } catch(e) { console.warn('Delete archived error:', e.message); }
   save(); nav('archiv'); toast('Recept véglegesen törölve az archívból.');
 }
+
+// ===== ÚJ VERZIÓ =====
+async function newRecipeVersion() {
+  const r = R.recipes.find(r => r.id === currentRecipeId);
+  if (!r) return;
+  if (!confirm(`"${r.name}" v${r.version||1} → v${(r.version||1)+1}\n\nAz aktuális verzió archiválódik, és megnyílik az új verzió szerkesztésre. Folytatod?`)) return;
+
+  // Archive current
+  r.archived = true;
+  await sb.update('recipes', {archived: true}, `id=eq.${r.id}`);
+  auditLog('recipe_archive', r.name, `v${r.version||1} archiválva, új verzió indul`);
+
+  // Clone with new id and version+1
+  const newVer = (r.version || 1) + 1;
+  let newId;
+  try {
+    const dbMax = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
+    newId = dbMax.length ? dbMax[0].id + 1 : Math.max(...R.recipes.map(x=>x.id),0)+1;
+  } catch(e) {
+    newId = Math.max(...R.recipes.map(x=>x.id),0)+1;
+  }
+
+  const clone = JSON.parse(JSON.stringify(r));
+  clone.id = newId;
+  clone.version = newVer;
+  clone.archived = false;
+  R.recipes.push(clone);
+
+  // Sync to Supabase
+  await syncRecipeToSupabase(clone, null);
+
+  // Copy ingredients and steps
+  try {
+    const ings = await sb.query('recipe_ingredients', {filter:`recipe_id=eq.${r.id}`});
+    const steps = await sb.query('recipe_steps', {filter:`recipe_id=eq.${r.id}`});
+    if (ings.length) {
+      await sb.insert('recipe_ingredients', ings.map(i => ({...i, id:undefined, recipe_id:newId})));
+    }
+    if (steps.length) {
+      await sb.insert('recipe_steps', steps.map(s => ({...s, id:undefined, recipe_id:newId})));
+    }
+  } catch(e) { console.warn('version clone ings/steps:', e); }
+
+  save();
+  toast(`✅ v${newVer} létrehozva! Az előző verzió archiválva.`);
+  auditLog('recipe_create', clone.name, `v${newVer} – klónozva v${r.version||1}-ből`);
+
+  // Open new version for editing
+  currentRecipeId = newId;
+  renderRecipes();
+  openRecipeModal(newId);
+}

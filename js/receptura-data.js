@@ -209,6 +209,7 @@ async function initApp() {
       R.recipes = dbRecipes.map(r => ({
         id: r.id, name: r.name, category: r.category||'Egyéb',
         archived: r.archived || false,
+        version: r.version || 1,
         product_id: r.product_id||null,
         basePortion: r.base_portion||1000, bakeLoss: r.bake_loss||16,
         unitWeight: r.unit_weight||1000,
