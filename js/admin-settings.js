@@ -87,6 +87,7 @@ async function saveSetting(key,val){
   D.settings[key]=val;
   try { await sb.setSetting(key, val); } catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
   save(); toast('Beállítás mentve!');
+  if(['lang','currency'].includes(key)) auditLog('setting_change', key, String(val));
 }
 function saveHelpTexts(){
   D.helpConditions=document.getElementById('s-conditions').value;
@@ -107,6 +108,7 @@ function changePassword(){
   save();
   ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
   toast('Jelszó sikeresen módosítva!');
+  auditLog('password_change', 'Admin', 'Jelszó módosítva');
 }
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
 function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang; }

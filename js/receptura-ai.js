@@ -368,7 +368,13 @@ async function saveRecipe() {
     auditLog('recipe_update', data.name, `Frissítve (id:${editingRecipeId})`);
     toast('✅ Recept frissítve!');
   } else {
-    data.id = Math.max(...R.recipes.map(r=>r.id),0)+1;
+    // Sequence: DB-ből kérdezzük a max id-t, nem csak lokálisból
+    try {
+      const dbMax = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
+      data.id = dbMax.length ? dbMax[0].id + 1 : Math.max(...R.recipes.map(r=>r.id),0)+1;
+    } catch(e) {
+      data.id = Math.max(...R.recipes.map(r=>r.id),0)+1;
+    }
     R.recipes.push(data);
     await syncRecipeToSupabase(data, null);
     auditLog('recipe_create', data.name, 'Új recept létrehozva');

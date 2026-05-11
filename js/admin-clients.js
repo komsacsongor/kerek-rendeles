@@ -61,6 +61,7 @@ async function saveClient(){
     D.clients.push(newClient);
     save(); closeModal('client-modal'); renderClients();
     toast('✅ Kliens hozzáadva! Kód: '+id);
+    auditLog('client_create', name, 'Kód: '+id);
   } catch(e) {
     toast('⚠️ Mentés sikertelen: '+e.message, true);
     console.error('saveClient error:', e);
@@ -74,6 +75,7 @@ async function deleteClient(id){
     await sb.delete('orders',`client_id=eq.${id}`);
     await sb.delete('clients',`id=eq.${id}`);
   } catch(e){ console.warn('deleteClient Supabase error:',e); }
+  auditLog('client_delete', id, 'Kliens törölve');
   save(); renderClients(); toast('Kliens törölve.');
 }
 
