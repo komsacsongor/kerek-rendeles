@@ -175,11 +175,57 @@ function loadAiSettingsUI() {
 }
 
 function renderRecipeCatsList() {
-  document.getElementById('recipe-cats-list').innerHTML = R.recipeCategories.map((c,i)=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:white;margin-bottom:6px">
-      <span style="font-weight:600;font-size:0.85rem">${c}</span>
-      <button class="btn btn-danger btn-xs" onclick="deleteRecipeCat(${i})">✕</button>
-    </div>`).join('');
+  document.getElementById('recipe-cats-list').innerHTML = R.recipeCategories.map((cat,i) => {
+    const active = R.recipes.filter(r => r.category===cat && !r.archived);
+    const archived = R.recipes.filter(r => r.category===cat && r.archived);
+    const count = active.length;
+    return `<div style="margin-bottom:8px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:white">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer" onclick="toggleCatDetail('cat-rec-${i}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-weight:600;font-size:0.85rem">${cat}</span>
+          <span class="badge" style="background:${count>0?'var(--teal-light)':'var(--bg-soft)'};color:${count>0?'var(--teal-dark)':'var(--text-soft)'};font-size:0.7rem">${count} recept</span>
+          ${archived.length>0?`<span class="badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem">${archived.length} archív</span>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="color:var(--text-soft);font-size:0.75rem">▼</span>
+          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteRecipeCat(${i})" ${count>0?'disabled title="Előbb rendeld át a recepteket"':''} style="${count>0?'opacity:0.4;cursor:not-allowed':''}">✕</button>
+        </div>
+      </div>
+      <div id="cat-rec-${i}" style="display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg-soft)">
+        ${count===0 && archived.length===0 ? '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>' :
+          [...active,...archived].map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:0.82rem;${r.archived?'color:var(--text-soft)':''}">
+              ${r.archived?'🗃 ':''}${r.name}
+            </span>
+            <select onchange="reassignRecipe(${r.id},this.value,${i})" style="font-size:0.78rem;padding:3px 8px;border:1px solid var(--border);border-radius:6px">
+              ${R.recipeCategories.map(c=>`<option value="${c}" ${c===cat?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCatDetail(id){
+  const el = document.getElementById(id);
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+async function reassignRecipe(recipeId, newCat, refreshIdx){
+  const r = R.recipes.find(r=>r.id===recipeId);
+  if(!r) return;
+  const oldCat = r.category;
+  r.category = newCat;
+  try {
+    await sb.update('recipes', {category: newCat}, `id=eq.${recipeId}`);
+    toast(`✅ "${r.name}" átrendelve: ${oldCat} → ${newCat}`);
+  } catch(e) { r.category = oldCat; toast('Átrendelés sikertelen: '+e.message, true); return; }
+  save();
+  renderRecipeCatsList();
+  setTimeout(()=>{
+    const el = document.getElementById(`cat-rec-${refreshIdx}`);
+    if(el) el.style.display='block';
+  }, 50);
 }
 
 async function addRecipeCat() {

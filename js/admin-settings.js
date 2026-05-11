@@ -8,11 +8,54 @@ function renderSettings(){
   renderCategoriesList();
 }
 function renderCategoriesList(){
-  document.getElementById('categories-list').innerHTML=D.categories.map((cat,i)=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:white;margin-bottom:6px">
-      <span style="font-weight:600;font-size:0.88rem">${esc(cat)}</span>
-      <button class="btn btn-danger btn-sm" onclick="deleteCategory(${i})">✕</button>
-    </div>`).join('');
+  document.getElementById('categories-list').innerHTML = D.categories.map((cat,i) => {
+    const linked = D.products.filter(p => p.category === cat);
+    const count = linked.length;
+    return `<div style="margin-bottom:8px;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:white">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer" onclick="toggleCatDetail('cat-admin-${i}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-weight:600;font-size:0.88rem">${esc(cat)}</span>
+          <span class="badge" style="background:${count>0?'var(--teal-light)':'var(--bg-soft)'};color:${count>0?'var(--teal-dark)':'var(--text-soft)'};font-size:0.7rem">${count} termék</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="color:var(--text-soft);font-size:0.75rem">▼</span>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCategory(${i})" ${count>0?'disabled title="Előbb rendeld át a termékeket"':''} style="${count>0?'opacity:0.4;cursor:not-allowed':''}">✕</button>
+        </div>
+      </div>
+      <div id="cat-admin-${i}" style="display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg-soft)">
+        ${count===0 ? '<p class="text-soft text-sm">Nincs termék ebben a kategóriában.</p>' :
+          linked.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:0.82rem">${esc(p.name)} <span style="color:var(--text-soft);font-size:0.72rem">${p.code||''}</span></span>
+            <select onchange="reassignProduct('${p.id}',this.value,${i})" style="font-size:0.78rem;padding:3px 8px;border:1px solid var(--border);border-radius:6px">
+              ${D.categories.map(c=>`<option value="${esc(c)}" ${c===cat?'selected':''}>${esc(c)}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCatDetail(id){
+  const el = document.getElementById(id);
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+async function reassignProduct(productId, newCat, refreshIdx){
+  const p = D.products.find(p=>p.id==productId);
+  if(!p) return;
+  const oldCat = p.category;
+  p.category = newCat;
+  try {
+    await sb.update('products', {category: newCat}, `id=eq.${productId}`);
+    toast(`✅ "${p.name}" átrendelve: ${oldCat} → ${newCat}`);
+  } catch(e) { p.category = oldCat; toast('Átrendelés sikertelen: '+e.message, true); return; }
+  save();
+  renderCategoriesList();
+  // Reopen the detail panel
+  setTimeout(()=>{
+    const el = document.getElementById(`cat-admin-${refreshIdx}`);
+    if(el) el.style.display='block';
+  }, 50);
 }
 async function addCategory(){
   const val=document.getElementById('new-cat-input').value.trim();
