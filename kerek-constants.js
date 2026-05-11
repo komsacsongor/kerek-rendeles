@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.9.0 (2026-05-11)';
+const APP_VERSION = 'v2.9.1 (2026-05-11)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -38,3 +38,13 @@ function showVersionBadge() {
   const el = document.getElementById('version-badge');
   if(el) el.textContent = APP_VERSION;
 }
+
+// ===== SC5: EGYSÉGES KULCS FÜGGVÉNYEK =====
+// Hónap kulcs: "2026-4" (0-indexed hónap!)
+function mk(y,m){ return `${y}-${m}`; }
+// Rendelés kulcs: "anna-2026-4-15"
+function ok(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }
+// Vevő modul: getKey(month, year) - fordított sorrend, de azonos output mint mk()
+function getKey(month, year){ return `${year}-${month}`; }
+// Vevő rendelés kulcs
+function getOrderKey(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }

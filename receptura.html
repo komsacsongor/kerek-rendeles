@@ -196,13 +196,23 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:700px){
   .modal-overlay{padding:0;align-items:flex-end;}
-  .modal,.modal-lg{
-    max-width:100%;
-    border-radius:20px 20px 0 0;
-    max-height:95vh;
-    animation:slideUpMobile 0.25s ease;
-  }
+  .modal,.modal-lg{max-width:100%;border-radius:20px 20px 0 0;max-height:95vh;animation:slideUpMobile 0.25s ease;}
   @keyframes slideUpMobile{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  /* Mobil layout */
+  .sidebar{transform:translateX(-100%);}.content{margin-left:0;}
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
+  .topbar{padding:0 14px;}
+  .form-row{flex-wrap:wrap;}
+  .form-group{min-width:100%;}
+  .btn{min-height:44px;}
+  .recipe-grid{grid-template-columns:1fr!important;}
+  .modal-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  #toast{bottom:16px;right:16px;left:16px;max-width:none;}
+}
+@media(max-width:480px){
+  .modal-body{padding:16px;}
+  .modal-head{padding:14px 16px;}
 }
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .modal-head{background:var(--teal-dark);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;}
@@ -830,16 +840,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.9.0"></script>
-<script src="js/receptura-ui.js?v=2.9.0"></script>
-<script src="js/receptura-recipes.js?v=2.9.0"></script>
-<script src="js/receptura-operational.js?v=2.9.0"></script>
-<script src="js/receptura-ingredients.js?v=2.9.0"></script>
-<script src="js/receptura-settings.js?v=2.9.0"></script>
-<script src="js/receptura-levain.js?v=2.9.0"></script>
-<script src="js/receptura-production.js?v=2.9.0"></script>
-<script src="js/receptura-stock.js?v=2.9.0"></script>
-<script src="js/receptura-modal.js?v=2.9.0"></script>
-<script src="js/receptura-ai.js?v=2.9.0"></script>
+<script src="js/receptura-data.js?v=2.9.1"></script>
+<script src="js/receptura-ui.js?v=2.9.1"></script>
+<script src="js/receptura-recipes.js?v=2.9.1"></script>
+<script src="js/receptura-operational.js?v=2.9.1"></script>
+<script src="js/receptura-ingredients.js?v=2.9.1"></script>
+<script src="js/receptura-settings.js?v=2.9.1"></script>
+<script src="js/receptura-levain.js?v=2.9.1"></script>
+<script src="js/receptura-production.js?v=2.9.1"></script>
+<script src="js/receptura-stock.js?v=2.9.1"></script>
+<script src="js/receptura-modal.js?v=2.9.1"></script>
+<script src="js/receptura-ai.js?v=2.9.1"></script>
 </body>
 </html>

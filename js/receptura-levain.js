@@ -93,7 +93,7 @@ async function calcLevainDaily() {
 
     if(totalLevainNeeded === 0) {
       const dateDisplayEmpty = `${DAYS_HU[d.getDay()]}, ${dy}. ${MONTHS_HU[dm-1]} ${dd}.`;
-    html += `<div class="card mb-16"><div class="card-head"><div class="card-title">🧫 ${dateDisplayEmpty}</div></div><div class="card-body"><p class="text-soft text-sm">Nincs rendelés erre a napra.</p></div></div>`;
+    html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📅 ${dateDisplayEmpty}</div><span class="badge" style="background:var(--bg-soft);color:var(--text-soft)">Nincs levain rendelés</span></div><div class="card-body"><p class="text-soft text-sm">Erre a napra nincs rendelés, vagy a recepteknél nincs levain mennyiség beállítva.</p></div></div>`;
       return;
     }
 
