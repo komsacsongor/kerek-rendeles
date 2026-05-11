@@ -1,0 +1,30 @@
+{
+  "name": "kerek-rendeles",
+  "version": "1.0.0",
+  "description": "",
+  "main": "kerek-constants.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://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@github.com/komsacsongor/kerek-rendeles.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/komsacsongor/kerek-rendeles/issues"
+  },
+  "homepage": "https://github.com/komsacsongor/kerek-rendeles#readme",
+  "devDependencies": {
+    "jest": "^30.4.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}

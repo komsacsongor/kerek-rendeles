@@ -68,7 +68,7 @@ function subTypeHeadClass(subType) {
 function calcRawWeight(recipe, pieces) {
   const unitWeight = recipe.unitWeight || recipe.basePortion;
   const totalBaked = pieces * unitWeight;
-  return Math.round(totalBaked / (1 - (recipe.bakeLoss||R.settings.bakeLoss) / 100));
+  return Math.round(totalBaked / (1 - (recipe.bakeLoss ?? R.settings.bakeLoss ?? 16) / 100));
 }
 function calcLevain(levainAmount) {
   const s = R.settings.levain;
