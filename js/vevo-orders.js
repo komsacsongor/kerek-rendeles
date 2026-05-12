@@ -374,8 +374,10 @@ function renderMobileOrderCards() {
       let statusBanner = '';
       if (stStatus === 'confirmed') statusBanner = '<div style="background:#dcfce7;color:#166534;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">✅ Rendelésed jóváhagyva</div>';
       else if (stStatus === 'modified') statusBanner = '<div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem">' +
-        '<div style="font-weight:700;margin-bottom:2px">✏️ Az adminisztrátor módosította a rendelésedet</div>' +
-        (stNote ? '<div style="font-size:0.8rem">' + esc(stNote) + '</div>' : '') + '</div>';
+        '<div style="font-weight:700;margin-bottom:4px">✏️ Az adminisztrátor módosította a rendelésedet</div>' +
+        (stNote ? '<div style="font-size:0.8rem;margin-bottom:8px">' + esc(stNote) + '</div>' : '') +
+        '<button onclick="vevoConfirmOrder(' + selectedYear + ',' + selectedMonth + ',' + day + ')" style="background:var(--teal-dark);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:600;cursor:pointer;width:100%">✅ Elfogadom a módosítást</button>' +
+        '</div>';
       else if (stStatus === 'cancelled') statusBanner = '<div style="background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">❌ Rendelésed visszavonva</div>';
       html += `<div class="mob-day-card" id="mob-card-${day}">
         <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
@@ -495,3 +497,18 @@ window.addEventListener('resize', () => {
     renderOrderTable();
   }
 });
+
+async function vevoConfirmOrder(year, month, day) {
+  if (!currentUser) return;
+  const key = getOrderKey(currentUser.id, year, month, day);
+  try {
+    await sb.upsert('order_status', {
+      client_id: currentUser.id, year, month, day,
+      status: 'confirmed', confirmed_at: new Date().toISOString()
+    }, 'client_id,year,month,day');
+    if (!appData.orderStatus) appData.orderStatus = {};
+    appData.orderStatus[key] = { status: 'confirmed', admin_note: (appData.orderStatus[key]||{}).admin_note };
+    toast('✅ Módosítás elfogadva!');
+    renderMobileCards();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message); }
+}
