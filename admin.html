@@ -741,7 +741,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         </div>
         <div class="form-group">
           <label>Termékcsalád ID <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(opcionális – azonos termék más csatornához)</span></label>
-          <input type="number" id="p-family-id" placeholder="pl. 1019" min="1" oninput="updateFamilyPreview()">
+          <select id="p-family-id" onchange="updateFamilyPreview()" style="padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.88rem;background:white;color:var(--text);width:100%">
+            <option value="">– Önálló termék (nincs termékcsalád) –</option>
+          </select>
           <div id="p-family-preview" style="font-size:.75rem;color:var(--teal-dark);margin-top:4px"></div>
         </div>
       </div>
@@ -873,14 +875,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div></div>
 
-<script src="js/admin-data.js?v=2.12.0"></script>
-<script src="js/admin-ui.js?v=2.12.0"></script>
-<script src="js/admin-messages.js?v=2.12.0"></script>
-<script src="js/admin-baking.js?v=2.12.0"></script>
-<script src="js/admin-orders.js?v=2.12.0"></script>
-<script src="js/admin-catalog.js?v=2.12.0"></script>
-<script src="js/admin-clients.js?v=2.12.0"></script>
-<script src="js/admin-reports.js?v=2.12.0"></script>
-<script src="js/admin-settings.js?v=2.12.0"></script>
+<script src="js/admin-data.js?v=2.12.1"></script>
+<script src="js/admin-ui.js?v=2.12.1"></script>
+<script src="js/admin-messages.js?v=2.12.1"></script>
+<script src="js/admin-baking.js?v=2.12.1"></script>
+<script src="js/admin-orders.js?v=2.12.1"></script>
+<script src="js/admin-catalog.js?v=2.12.1"></script>
+<script src="js/admin-clients.js?v=2.12.1"></script>
+<script src="js/admin-reports.js?v=2.12.1"></script>
+<script src="js/admin-settings.js?v=2.12.1"></script>
 </body>
 </html>

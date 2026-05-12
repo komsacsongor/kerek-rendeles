@@ -90,6 +90,15 @@ function openProductModal(id=null){
   editingProductId=id;
   const catSel=document.getElementById('p-category');
   catSel.innerHTML=D.categories.map(c=>`<option>${c}</option>`).join('');
+  // Termékcsalád dropdown feltöltése (az aktuálisan szerkesztett terméket kizárjuk)
+  const famSel = document.getElementById('p-family-id');
+  if (famSel) {
+    famSel.innerHTML = '<option value="">– Önálló termék (nincs termékcsalád) –</option>' +
+      D.products
+        .filter(p => p.id !== id) // ne lehessen önmagát kiválasztani
+        .map(p => `<option value="${p.id}">${p.name} (${p.code||p.id})</option>`)
+        .join('');
+  }
   if(id){
     const p=D.products.find(p=>p.id===id);
     document.getElementById('p-name').value=p.name;
@@ -285,7 +294,7 @@ async function saveProduct(){
   const image=getProductImageValue();
   const ptype=document.getElementById('p-type').value;
   const code=document.getElementById('p-code').value.trim();
-  const familyIdRaw = document.getElementById('p-family-id')?.value.trim();
+  const familyIdRaw = document.getElementById('p-family-id')?.value;
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
   // Névütközés ellenőrzés
   const duplicate = D.products.find(p =>
@@ -351,15 +360,16 @@ async function saveProduct(){
 // ===== TERMÉKCSALÁD PREVIEW =====
 function updateFamilyPreview() {
   const el = document.getElementById('p-family-preview');
-  const famId = parseInt(document.getElementById('p-family-id')?.value);
+  const val = document.getElementById('p-family-id')?.value;
   if (!el) return;
-  if (!famId) { el.textContent = ''; return; }
+  if (!val) { el.textContent = ''; return; }
+  const famId = parseInt(val);
   const parent = D.products.find(p => p.id === famId);
   if (parent) {
     const members = D.products.filter(p => p.familyId === famId || p.id === famId);
-    el.textContent = `📦 Termékcsalád: "${parent.name}" (${members.length} tag)`;
+    el.innerHTML = `📦 Termékcsalád: <strong>${parent.name}</strong> (${members.length} tag)`;
+    el.style.color = 'var(--teal-dark)';
   } else {
-    el.textContent = '⚠️ Nem találom ezt a termék ID-t';
-    el.style.color = 'var(--red)';
+    el.textContent = '';
   }
 }
