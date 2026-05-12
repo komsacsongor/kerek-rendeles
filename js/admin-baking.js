@@ -56,16 +56,32 @@ function openModifyDialog(clientId, year, month, day, clientName) {
   const k = ok(clientId, year, month, day);
   const cur = (D.orderStatus && D.orderStatus[k]) || {};
   const curNote = (cur.admin_note || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const orders = D.orders[k] || {};
+
+  let productRows = '';
+  Object.entries(orders).forEach(function(e) {
+    const pid = e[0], qty = e[1];
+    const p = D.products.find(function(p){ return p.id == pid; });
+    if (!p) return;
+    productRows +=
+      '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="flex:1;font-size:0.88rem">' + esc(p.name) + ' <span style="color:var(--text-soft);font-size:0.78rem">' + esc(p.weight||'') + '</span></span>' +
+      '<input type="number" min="0" max="999" value="' + qty + '" data-pid="' + pid + '" style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;text-align:center">' +
+      '<span style="font-size:0.78rem;color:var(--text-soft)">db</span>' +
+      '</div>';
+  });
+
   const el = document.createElement('div');
   el.id = 'modify-overlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   el.addEventListener('click', function(e){ if(e.target===el) closeModifyDialog(); });
   el.innerHTML =
-    '<div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.2)">' +
-    '<h3 style="margin:0 0 8px;color:var(--teal-dark)">✏️ Rendelés módosítása</h3>' +
-    '<p style="margin:0 0 16px;color:var(--text-soft);font-size:0.88rem">' + esc(clientName) + ' &middot; ' + MONTHS[month] + ' ' + day + '.</p>' +
-    '<label style="font-size:0.85rem;font-weight:600;color:var(--text)">Admin megjegyzés a vevőnek:</label>' +
-    '<textarea id="modify-note" rows="3" style="width:100%;box-sizing:border-box;margin:8px 0 16px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;resize:vertical">' + curNote + '</textarea>' +
+    '<div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">' +
+    '<h3 style="margin:0 0 4px;color:var(--teal-dark)">✏️ Rendelés módosítása</h3>' +
+    '<p style="margin:0 0 14px;color:var(--text-soft);font-size:0.88rem">' + esc(clientName) + ' &middot; ' + MONTHS[month] + ' ' + day + '.</p>' +
+    '<div id="modify-products" style="margin-bottom:14px">' + productRows + '</div>' +
+    '<label style="font-size:0.85rem;font-weight:600;color:var(--text)">Megjegyzés a vevőnek:</label>' +
+    '<textarea id="modify-note" rows="2" placeholder="pl. Csak 7 db fehér kenyér áll rendelkezésre" style="width:100%;box-sizing:border-box;margin:6px 0 16px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;resize:vertical">' + curNote + '</textarea>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end">' +
     '<button id="modify-cancel-btn" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer">Mégse</button>' +
     '<button id="modify-save-btn" style="padding:8px 18px;background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;font-weight:600;cursor:pointer">Mentés</button>' +
@@ -88,14 +104,39 @@ async function saveModify() {
   const note = (document.getElementById('modify-note') || {}).value || '';
   const trimmed = note.trim();
   const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
-  const row = { client_id: clientId, year, month, day, status: 'modified', admin_note: trimmed, deadline };
+
+  // Mennyiség inputok kiolvasása
+  const inputs = document.querySelectorAll('#modify-products input[data-pid]');
+  const changes = [];
+  inputs.forEach(function(inp) {
+    const pid = inp.getAttribute('data-pid');
+    const newQty = parseInt(inp.value) || 0;
+    const k = ok(clientId, year, month, day);
+    const oldQty = (D.orders[k] || {})[pid] || 0;
+    if (newQty !== oldQty) changes.push({ pid, newQty, oldQty });
+  });
+
   try {
+    // Orders frissítése ahol változott a mennyiség
+    for (const ch of changes) {
+      await sb.upsert('orders', { client_id: clientId, year, month, day, product_id: parseInt(ch.pid), quantity: ch.newQty }, 'client_id,year,month,day,product_id');
+      const k = ok(clientId, year, month, day);
+      if (!D.orders[k]) D.orders[k] = {};
+      D.orders[k][ch.pid] = ch.newQty;
+    }
+
+    // Státusz mentése
+    const row = { client_id: clientId, year, month, day, status: 'modified', admin_note: trimmed, deadline };
     await sb.upsert('order_status', row, 'client_id,year,month,day');
     if (!D.orderStatus) D.orderStatus = {};
     D.orderStatus[ok(clientId, year, month, day)] = { status: 'modified', admin_note: trimmed, deadline };
+
     closeModifyDialog();
+    const changeDesc = changes.length > 0
+      ? changes.map(function(c){ return 'pid' + c.pid + ': ' + c.oldQty + '→' + c.newQty; }).join(', ')
+      : 'csak megjegyzés';
     toast('✏️ Rendelés módosítva!');
-    await auditLog('order_modify', year + '-' + month + '-' + day, clientId + ': ' + trimmed);
+    await auditLog('order_modify', year + '-' + month + '-' + day, clientId + ' [' + changeDesc + '] ' + trimmed);
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); console.error('saveModify:', e); }
 }

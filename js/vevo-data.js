@@ -124,15 +124,21 @@ async function doLogin() {
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(client.name.split(' ')[1]) + '! 👋';
     // Vevő rendelései + üzenetei Supabase-ből
     try {
-      const [userOrders, userMsgs, calData] = await Promise.all([
+      const [userOrders, userMsgs, calData, userStatuses] = await Promise.all([
         sb.query('orders', {filter: `client_id=eq.${client.id}`, limit: 2000}),
         sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at', limit: 200}),
         sb.query('baking_calendar', {limit: 200}),
+        sb.query('order_status', {filter: `client_id=eq.${client.id}`, limit: 500}),
       ]);
       (userOrders||[]).forEach(r => {
         const k = getOrderKey(r.client_id, r.year, r.month, r.day);
         if(!appData.orders[k]) appData.orders[k] = {};
         appData.orders[k][r.product_id] = r.quantity;
+      });
+      appData.orderStatus = {};
+      (userStatuses||[]).forEach(r => {
+        const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+        appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note};
       });
       (userMsgs||[]).forEach(r => {
         const k = `${r.client_id}-${r.year}-${r.month}`;

@@ -368,6 +368,15 @@ function renderMobileOrderCards() {
       </div>`;
     } else {
       const lockedClass = (isOver || isLocked) ? 'mob-locked' : '';
+      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+      const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
+      const stNote = orderSt.admin_note || '';
+      let statusBanner = '';
+      if (stStatus === 'confirmed') statusBanner = '<div style="background:#dcfce7;color:#166534;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">✅ Rendelésed jóváhagyva</div>';
+      else if (stStatus === 'modified') statusBanner = '<div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem">' +
+        '<div style="font-weight:700;margin-bottom:2px">✏️ Az adminisztrátor módosította a rendelésedet</div>' +
+        (stNote ? '<div style="font-size:0.8rem">' + esc(stNote) + '</div>' : '') + '</div>';
+      else if (stStatus === 'cancelled') statusBanner = '<div style="background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">❌ Rendelésed visszavonva</div>';
       html += `<div class="mob-day-card" id="mob-card-${day}">
         <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
           <div>
@@ -380,6 +389,7 @@ function renderMobileOrderCards() {
           </div>
         </div>
         <div class="mob-day-body ${rowTotal > 0 ? 'open' : ''}" id="mob-body-${day}">
+          ${statusBanner}
           ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
           <div class="${lockedClass}">
             ${prods.map(p => {
