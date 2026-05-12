@@ -69,6 +69,7 @@ async function syncRecipeToSupabase(data, existingId) {
     // Upsert recipe
     await sb.upsert('recipes', {
       id: recId, name: data.name, category: data.category, version: data.version||1,
+      activated_at: data.activatedAt || new Date().toISOString(),
       product_id: data.product_id || null,
       base_portion: data.basePortion, bake_loss: data.bakeLoss,
       unit_weight: data.unitWeight, temp1: data.temp1, time1: data.time1,

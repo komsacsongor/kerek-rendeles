@@ -101,7 +101,8 @@ async function loadAllData() {
         price: p.price, category: p.category || 'Egyéb',
         desc: p.description || '', image: p.image || null, code: p.code || '',
         marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
-        allergens: p.allergens || '', nutrition: p.nutrition || null
+        allergens: p.allergens || '', nutrition: p.nutrition || null,
+        familyId: p.product_family_id || null
       }));
     } else { await seedInitialData(); }
   } catch(e) { console.error('loadAllData [products]:', e.message); }

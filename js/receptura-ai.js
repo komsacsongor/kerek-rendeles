@@ -483,6 +483,7 @@ async function newRecipeVersion() {
   clone.id = newId;
   clone.version = newVer;
   clone.archived = false;
+  clone.activatedAt = new Date().toISOString();
   R.recipes.push(clone);
 
   // Sync to Supabase

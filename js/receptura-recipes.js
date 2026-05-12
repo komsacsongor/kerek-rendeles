@@ -85,7 +85,9 @@ function renderRecipeDetail() {
   if (!r) return;
   const pieces = parseInt(document.getElementById('scale-pieces').value)||10;
   const vBadge = r.version > 1 ? ` <span style="font-size:.75rem;background:var(--gold);color:#000;padding:2px 7px;border-radius:20px;font-family:Kodchasan,sans-serif;font-weight:700">v${r.version}</span>` : '';
-  document.getElementById('detail-title').innerHTML = r.name + vBadge;
+  const activatedLabel = r.activatedAt ? `<span style="font-size:.7rem;color:var(--text-soft);margin-left:8px">Aktiválva: ${new Date(r.activatedAt).toLocaleDateString('hu-HU')}</span>` : '';
+  document.getElementById('detail-title').innerHTML = r.name + vBadge + activatedLabel;
+  renderVersionHistory(r);
 
   // Scale info
   const rawWeight = calcRawWeight(r, pieces);
@@ -483,4 +485,80 @@ ${stepsHtml ? `<h2>📋 Technológiai folyamat</h2><div>${stepsHtml}</div>` : ''
   const w = window.open('', '_blank', 'width=900,height=1100');
   w.document.write(html);
   w.document.close();
+}
+
+// ===== VERZIÓ HISTORY PANEL =====
+function renderVersionHistory(activeRecipe) {
+  const containerId = 'version-history-panel';
+  let el = document.getElementById(containerId);
+  if (!el) return;
+
+  // Ugyanahhoz a termékhez tartozó összes verzió (product_id alapján)
+  const siblings = R.recipes
+    .filter(r => r.product_id && r.product_id === activeRecipe.product_id)
+    .sort((a, b) => (b.version||1) - (a.version||1));
+
+  if (siblings.length <= 1) {
+    el.style.display = 'none';
+    return;
+  }
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="margin-top:16px;padding:12px 16px;background:var(--bg-soft);border-radius:12px;border:1px solid var(--border)">
+      <div style="font-weight:700;font-size:.85rem;color:var(--teal-dark);margin-bottom:10px">📋 Verzió előzmények</div>
+      ${siblings.map(r => {
+        const isActive = r.id === activeRecipe.id;
+        const dateStr = r.activatedAt ? new Date(r.activatedAt).toLocaleDateString('hu-HU') : '–';
+        const archLabel = r.archived ? '<span style="color:var(--text-soft);font-size:.75rem"> · archivált</span>' : '<span style="color:#16a34a;font-size:.75rem"> · aktív</span>';
+        const restoreBtn = r.archived ? `<button onclick="restoreRecipeVersion(${r.id})" style="font-size:.7rem;padding:2px 8px;border-radius:8px;border:1px solid var(--teal-dark);background:transparent;color:var(--teal-dark);cursor:pointer">Visszaállítás</button>` : '';
+        const viewBtn = !isActive ? `<button onclick="setCurrentRecipe(${r.id})" style="font-size:.7rem;padding:2px 8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-soft);cursor:pointer">Megtekintés</button>` : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);${isActive?'font-weight:700':'opacity:.8'}">
+          <span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:10px;font-size:.75rem;font-weight:700">v${r.version||1}</span>
+          <span style="flex:1;font-size:.85rem">${r.name}${archLabel}</span>
+          <span style="font-size:.75rem;color:var(--text-soft)">${dateStr}</span>
+          ${restoreBtn}
+          ${viewBtn}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function setCurrentRecipe(id) {
+  currentRecipeId = id;
+  renderRecipeDetail();
+}
+
+async function restoreRecipeVersion(id) {
+  const toRestore = R.recipes.find(r => r.id === id);
+  if (!toRestore) return;
+
+  // Az aktív verzió megkeresése (ugyanaz a product_id, nem archivált)
+  const currentActive = R.recipes.find(r =>
+    r.product_id === toRestore.product_id && !r.archived && r.id !== id
+  );
+
+  const activeLabel = currentActive ? `v${currentActive.version||1}` : 'jelenlegi';
+  if (!confirm(`"${toRestore.name}" v${toRestore.version||1} visszaállítása?\n\nA ${activeLabel} verzió archiválódik. Folytatod?`)) return;
+
+  // Jelenlegi aktív archiválása
+  if (currentActive) {
+    currentActive.archived = true;
+    await sb.update('recipes', {archived: true}, `id=eq.${currentActive.id}`);
+  }
+
+  // Visszaállítás
+  toRestore.archived = false;
+  toRestore.activatedAt = new Date().toISOString();
+  await sb.update('recipes', {
+    archived: false,
+    activated_at: toRestore.activatedAt
+  }, `id=eq.${id}`);
+
+  auditLog('recipe_restore', toRestore.name, `v${toRestore.version||1} visszaállítva`);
+  save();
+  currentRecipeId = id;
+  renderRecipes();
+  renderRecipeDetail();
+  toast(`✅ v${toRestore.version||1} visszaállítva!`);
 }

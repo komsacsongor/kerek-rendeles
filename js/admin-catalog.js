@@ -107,7 +107,9 @@ function openProductModal(id=null){
     // Kód mező: manual flag alaphelyzetbe – szerkesztéskor is frissülhet névvel/kategóriával
     const codeField = document.getElementById('p-code');
     codeField.value = p.code||'';
-    codeField.dataset.manual = 'true'; // szerkesztésnél ne írja felül a meglévő kódot
+    codeField.dataset.manual = 'true';
+    const famInput = document.getElementById('p-family-id');
+    if (famInput) { famInput.value = p.familyId || ''; updateFamilyPreview(); } // szerkesztésnél ne írja felül a meglévő kódot
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('p-type').value='production';
@@ -117,6 +119,8 @@ function openProductModal(id=null){
     const codeField = document.getElementById('p-code');
     codeField.value = '';
     codeField.dataset.manual = 'false';
+    const famInput2 = document.getElementById('p-family-id');
+    if (famInput2) { famInput2.value = ''; updateFamilyPreview(); }
   }
   // Kapcsolt recept megjelenítése
   const recipeInfo = document.getElementById('p-recipe-info');
@@ -281,6 +285,8 @@ async function saveProduct(){
   const image=getProductImageValue();
   const ptype=document.getElementById('p-type').value;
   const code=document.getElementById('p-code').value.trim();
+  const familyIdRaw = document.getElementById('p-family-id')?.value.trim();
+  const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
   // Névütközés ellenőrzés
   const duplicate = D.products.find(p =>
     p.name.trim().toLowerCase() === name.toLowerCase() &&
@@ -294,17 +300,17 @@ async function saveProduct(){
   if(editingProductId){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight,price,category,desc,image,ptype,code});
+    Object.assign(p,{name,weight,price,category,desc,image,ptype,code,familyId});
   }
   try {
     let realProdId;
     if(editingProductId) {
       // UPDATE – meglévő termék, kód nem változik
-      await sb.update('products', {name,weight,price,category,description:desc}, 'id=eq.'+editingProductId);
+      await sb.update('products', {name,weight,price,category,description:desc,product_family_id:familyId}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
-      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc});
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,product_family_id:familyId});
       realProdId = savedProds[0].id;
       const autoCode = generateProductCode(name, category, realProdId);
       await sb.update('products', {code: autoCode}, 'id=eq.'+realProdId);
@@ -341,3 +347,19 @@ async function saveProduct(){
   save(); closeModal('product-modal'); renderCatalog();
 }
 
+
+// ===== TERMÉKCSALÁD PREVIEW =====
+function updateFamilyPreview() {
+  const el = document.getElementById('p-family-preview');
+  const famId = parseInt(document.getElementById('p-family-id')?.value);
+  if (!el) return;
+  if (!famId) { el.textContent = ''; return; }
+  const parent = D.products.find(p => p.id === famId);
+  if (parent) {
+    const members = D.products.filter(p => p.familyId === famId || p.id === famId);
+    el.textContent = `📦 Termékcsalád: "${parent.name}" (${members.length} tag)`;
+  } else {
+    el.textContent = '⚠️ Nem találom ezt a termék ID-t';
+    el.style.color = 'var(--red)';
+  }
+}
