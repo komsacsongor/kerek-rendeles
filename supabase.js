@@ -2,7 +2,7 @@
 // KEREK – Supabase kliens
 // ============================================================
 const SUPABASE_URL = 'https://lfaxeihrmiylggahougl.supabase.co';
-const SUPABASE_KEY = 'SUPABASE_ANON_KEY_PLACEHOLDER';
+const SUPABASE_KEY = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
 // ===== PASSWORD HASHING =====
 async function hashPassword(pw) {
