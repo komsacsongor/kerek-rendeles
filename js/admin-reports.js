@@ -207,49 +207,170 @@ function renderCategories(){
 
 
 // ===== AUDIT LOG NÉZET =====
+// Audit log state
+let _auditLogs = [];
+let _auditFilter = { type: 'all', dateFrom: '', dateTo: '', search: '' };
+
+const AUDIT_ACTION_LABELS = {
+  login:'🔑 Belépés', login_failed:'⚠️ Hibás belépés',
+  product_create:'📦 Termék létrehozva', product_update:'✏️ Termék módosítva', product_delete:'🗑 Termék törölve',
+  recipe_create:'🍞 Recept létrehozva', recipe_update:'✏️ Recept módosítva',
+  recipe_delete:'🗑 Recept törölve', recipe_archive:'🗃 Recept archiválva', recipe_restore:'↩ Recept visszaállítva',
+  order_save:'📋 Rendelés mentve', client_create:'👤 Kliens létrehozva', client_delete:'🗑 Kliens törölve',
+  setting_change:'⚙️ Beállítás módosítva', password_change:'🔒 Jelszó módosítva',
+};
+
+const AUDIT_TYPE_GROUPS = {
+  all: null,
+  login: ['login','login_failed'],
+  product: ['product_create','product_update','product_delete'],
+  recipe: ['recipe_create','recipe_update','recipe_delete','recipe_archive','recipe_restore'],
+  order: ['order_save'],
+  client: ['client_create','client_delete'],
+  settings: ['setting_change','password_change'],
+};
+
 async function renderAuditLog() {
   const el = document.getElementById('view-audit-log');
   if(!el) return;
   el.innerHTML = '<div style="padding:20px;color:var(--teal)">⏳ Napló betöltése...</div>';
   try {
-    const logs = await sb.query('audit_log', {order:'created_at.desc', limit:200});
-    const actionLabels = {
-      login:'🔑 Belépés', login_failed:'⚠️ Hibás belépés',
-      product_create:'📦 Termék létrehozva', product_update:'✏️ Termék módosítva', product_delete:'🗑 Termék törölve',
-      recipe_create:'🍞 Recept létrehozva', recipe_update:'✏️ Recept módosítva',
-      recipe_delete:'🗑 Recept törölve', recipe_archive:'🗃 Recept archiválva', recipe_restore:'↩ Recept visszaállítva',
-      order_save:'📋 Rendelés mentve',
-    };
-    el.innerHTML = `
-      <div class="view-header"><h2 class="view-title">📋 Napló</h2></div>
-      <div class="card">
+    _auditLogs = await sb.query('audit_log', {order:'created_at.desc', limit:500});
+    renderAuditLogTable();
+  } catch(e) {
+    el.innerHTML = `<div class="card"><p class="text-soft">Napló betöltési hiba: ${e.message}</p></div>`;
+  }
+}
+
+function renderAuditLogTable() {
+  const el = document.getElementById('view-audit-log');
+  if(!el) return;
+
+  // Szűrés
+  let filtered = _auditLogs.filter(l => {
+    const group = AUDIT_TYPE_GROUPS[_auditFilter.type];
+    if (group && !group.includes(l.action)) return false;
+    if (_auditFilter.dateFrom) {
+      const d = new Date(l.created_at).toISOString().slice(0,10);
+      if (d < _auditFilter.dateFrom) return false;
+    }
+    if (_auditFilter.dateTo) {
+      const d = new Date(l.created_at).toISOString().slice(0,10);
+      if (d > _auditFilter.dateTo) return false;
+    }
+    if (_auditFilter.search) {
+      const s = _auditFilter.search.toLowerCase();
+      if (!(l.entity_name||'').toLowerCase().includes(s) &&
+          !(l.details||'').toLowerCase().includes(s) &&
+          !(l.action||'').toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+
+  el.innerHTML = `
+    <div class="view-header"><h2 class="view-title">📋 Napló</h2></div>
+    <div class="card mb-20">
+      <div class="card-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="font-size:.75rem">Típus</label>
+            <select onchange="auditFilterChange('type',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:.85rem;width:100%">
+              <option value="all" ${_auditFilter.type==='all'?'selected':''}>Összes</option>
+              <option value="login" ${_auditFilter.type==='login'?'selected':''}>🔑 Belépések</option>
+              <option value="product" ${_auditFilter.type==='product'?'selected':''}>📦 Termékek</option>
+              <option value="recipe" ${_auditFilter.type==='recipe'?'selected':''}>🍞 Receptek</option>
+              <option value="order" ${_auditFilter.type==='order'?'selected':''}>📋 Rendelések</option>
+              <option value="client" ${_auditFilter.type==='client'?'selected':''}>👤 Kliensek</option>
+              <option value="settings" ${_auditFilter.type==='settings'?'selected':''}>⚙️ Beállítások</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:130px">
+            <label style="font-size:.75rem">Dátumtól</label>
+            <input type="date" value="${_auditFilter.dateFrom}" onchange="auditFilterChange('dateFrom',this.value)"
+              style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:.85rem">
+          </div>
+          <div class="form-group" style="margin:0;min-width:130px">
+            <label style="font-size:.75rem">Dátumig</label>
+            <input type="date" value="${_auditFilter.dateTo}" onchange="auditFilterChange('dateTo',this.value)"
+              style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:.85rem">
+          </div>
+          <div class="form-group" style="margin:0;flex:2;min-width:160px">
+            <label style="font-size:.75rem">Keresés</label>
+            <input type="text" value="${_auditFilter.search}" placeholder="Elem neve, részletek..."
+              oninput="auditFilterChange('search',this.value)"
+              style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:.85rem;width:100%">
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="auditResetFilter()">✕ Reset</button>
+          <button class="btn btn-ghost btn-sm" onclick="auditExportCSV()">⬇️ CSV</button>
+        </div>
+        <div style="font-size:.75rem;color:var(--text-soft);margin-top:8px">${filtered.length} / ${_auditLogs.length} bejegyzés</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body-np">
         <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
           <thead><tr style="border-bottom:2px solid var(--border)">
-            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Időpont</th>
+            <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600;white-space:nowrap">Időpont</th>
             <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Művelet</th>
             <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Elem</th>
             <th style="padding:10px;text-align:left;color:var(--text-soft);font-weight:600">Részletek</th>
           </tr></thead>
           <tbody>
-            ${logs.map(l=>{
-              const dt = new Date(l.created_at);
-              const dateStr = dt.toLocaleDateString('hu-HU') + ' ' + dt.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
-              const label = actionLabels[l.action] || l.action;
-              const isDelete = l.action.includes('delete') || l.action.includes('failed');
-              return `<tr style="border-bottom:1px solid var(--border);${isDelete?'background:#fff5f5':''}">
-                <td style="padding:8px 10px;color:var(--text-soft);white-space:nowrap">${dateStr}</td>
-                <td style="padding:8px 10px;font-weight:500">${label}</td>
-                <td style="padding:8px 10px">${esc(l.entity_name||'')}</td>
-                <td style="padding:8px 10px;color:var(--text-soft)">${esc(l.details||'')}</td>
-              </tr>`;
-            }).join('')}
+            ${filtered.length === 0 ? '<tr><td colspan="4" style="padding:20px;color:var(--text-soft);text-align:center">Nincs találat a szűrőkre.</td></tr>' :
+              filtered.map(l=>{
+                const dt = new Date(l.created_at);
+                const dateStr = dt.toLocaleDateString('hu-HU') + ' ' + dt.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+                const label = AUDIT_ACTION_LABELS[l.action] || l.action;
+                const isDelete = l.action.includes('delete') || l.action.includes('failed');
+                const isCreate = l.action.includes('create');
+                let rowBg = '';
+                if (isDelete) rowBg = 'background:#fff5f5';
+                else if (isCreate) rowBg = 'background:#f0fdf4';
+                return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
+                  <td style="padding:8px 10px;color:var(--text-soft);white-space:nowrap">${dateStr}</td>
+                  <td style="padding:8px 10px;font-weight:500">${label}</td>
+                  <td style="padding:8px 10px">${esc(l.entity_name||'')}</td>
+                  <td style="padding:8px 10px;color:var(--text-soft)">${esc(l.details||'')}</td>
+                </tr>`;
+              }).join('')}
           </tbody>
         </table>
-        ${logs.length===0?'<p class="text-soft text-sm" style="padding:20px">Még nincs naplóbejegyzés.</p>':''}
-      </div>`;
-  } catch(e) {
-    el.innerHTML = `<div class="card"><p class="text-soft">Napló betöltési hiba: ${e.message}</p></div>`;
-  }
+      </div>
+    </div>`;
+}
+
+function auditFilterChange(key, val) {
+  _auditFilter[key] = val;
+  renderAuditLogTable();
+}
+
+function auditResetFilter() {
+  _auditFilter = { type: 'all', dateFrom: '', dateTo: '', search: '' };
+  renderAuditLogTable();
+}
+
+function auditExportCSV() {
+  const group = AUDIT_TYPE_GROUPS[_auditFilter.type];
+  const filtered = _auditLogs.filter(l => {
+    if (group && !group.includes(l.action)) return false;
+    if (_auditFilter.dateFrom && new Date(l.created_at).toISOString().slice(0,10) < _auditFilter.dateFrom) return false;
+    if (_auditFilter.dateTo && new Date(l.created_at).toISOString().slice(0,10) > _auditFilter.dateTo) return false;
+    if (_auditFilter.search) {
+      const s = _auditFilter.search.toLowerCase();
+      if (!(l.entity_name||'').toLowerCase().includes(s) && !(l.details||'').toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+  const rows = [['Időpont','Művelet','Elem','Részletek']];
+  filtered.forEach(l => {
+    const dt = new Date(l.created_at).toLocaleString('hu-HU');
+    rows.push([dt, AUDIT_ACTION_LABELS[l.action]||l.action, l.entity_name||'', l.details||'']);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
+  a.download = `kerek-naplo-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
 
 // ===== TERMÉKCSALÁDOK KIMUTATÁS =====
