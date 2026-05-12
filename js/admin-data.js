@@ -136,6 +136,15 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [orders]:', e.message); }
 
   try {
+    const statuses = await sb.query('order_status', { limit: 2000 });
+    D.orderStatus = {};
+    (statuses||[]).forEach(r => {
+      const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
+      D.orderStatus[k] = { status: r.status, admin_note: r.admin_note, deadline: r.deadline, confirmed_at: r.confirmed_at };
+    });
+  } catch(e) { D.orderStatus = {}; console.error('loadAllData [order_status]:', e.message); }
+
+  try {
     const messages = await sb.query('messages', { order: 'created_at', limit: 500 });
     D.messages = {};
     (messages||[]).forEach(r => {

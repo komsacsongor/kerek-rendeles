@@ -1,51 +1,185 @@
+// ===== BAKING STATUS MACHINE =====
+function getOrderStatus(clientId, year, month, day) {
+  const k = ok(clientId, year, month, day);
+  return (D.orderStatus && D.orderStatus[k]) || { status: 'pending' };
+}
+
+function statusBadge(status) {
+  const map = {
+    pending:   '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">⏳ Vár</span>',
+    confirmed: '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">✅ Jóváhagyva</span>',
+    modified:  '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">✏️ Módosítva</span>',
+    cancelled: '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">❌ Visszavonva</span>',
+  };
+  return map[status] || map.pending;
+}
+
+async function confirmDay(year, month, day) {
+  const clients = D.clients.filter(c => {
+    const k = ok(c.id, year, month, day);
+    return D.orders[k] && Object.values(D.orders[k]).some(q => q > 0);
+  });
+  if (!clients.length) { toast('Nincs rendelés ezen a napon.'); return; }
+  const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
+  const now = new Date().toISOString();
+  try {
+    for (const c of clients) {
+      const row = { client_id: c.id, year, month, day, status: 'confirmed', deadline, confirmed_at: now, admin_note: null };
+      await sb.upsert('order_status', row, 'client_id,year,month,day');
+      if (!D.orderStatus) D.orderStatus = {};
+      D.orderStatus[ok(c.id, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now, admin_note: null };
+    }
+    toast('✅ Összes rendelés jóváhagyva!');
+    await auditLog('order_confirm_day', `${year}-${month}-${day}`, `${clients.length} rendelés`);
+    renderBaking();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
+async function confirmSingleOrder(clientId, year, month, day) {
+  const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
+  const now = new Date().toISOString();
+  const row = { client_id: clientId, year, month, day, status: 'confirmed', deadline, confirmed_at: now };
+  try {
+    await sb.upsert('order_status', row, 'client_id,year,month,day');
+    if (!D.orderStatus) D.orderStatus = {};
+    D.orderStatus[ok(clientId, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now };
+    toast('✅ Rendelés jóváhagyva!');
+    renderBaking();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
+function openModifyDialog(clientId, year, month, day, clientName) {
+  const k = ok(clientId, year, month, day);
+  const cur = (D.orderStatus && D.orderStatus[k]) || {};
+  const curNote = cur.admin_note || '';
+  const escapedNote = curNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const escapedName = esc(clientName);
+  const safeId = clientId.replace(/'/g,"\\'");
+  const safeName = clientName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="modify-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeModifyDialog()">' +
+    '<div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.2)">' +
+    '<h3 style="margin:0 0 8px;color:var(--teal-dark)">✏️ Rendelés módosítása</h3>' +
+    '<p style="margin:0 0 16px;color:var(--text-soft);font-size:0.88rem">' + escapedName + ' &middot; ' + MONTHS[month] + ' ' + day + '.</p>' +
+    '<label style="font-size:0.85rem;font-weight:600;color:var(--text)">Admin megjegyzés a vevőnek:</label>' +
+    '<textarea id="modify-note" rows="3" style="width:100%;box-sizing:border-box;margin:8px 0 16px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;resize:vertical">' + escapedNote + '</textarea>' +
+    '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+    '<button onclick="closeModifyDialog()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer">Mégse</button>' +
+    '<button onclick="saveModify(\'' + safeId + '\',' + year + ',' + month + ',' + day + ')" style="padding:8px 18px;background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;font-weight:600;cursor:pointer">Mentés</button>' +
+    '</div></div></div>'
+  );
+  document.getElementById('modify-note').focus();
+}
+
+function closeModifyDialog() {
+  const el = document.getElementById('modify-overlay');
+  if (el) el.remove();
+}
+
+async function saveModify(clientId, year, month, day) {
+  const note = (document.getElementById('modify-note') || {}).value || '';
+  const trimmed = note.trim();
+  const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
+  const row = { client_id: clientId, year, month, day, status: 'modified', admin_note: trimmed, deadline };
+  try {
+    await sb.upsert('order_status', row, 'client_id,year,month,day');
+    if (!D.orderStatus) D.orderStatus = {};
+    D.orderStatus[ok(clientId, year, month, day)] = { status: 'modified', admin_note: trimmed, deadline };
+    closeModifyDialog();
+    toast('✏️ Rendelés módosítva!');
+    await auditLog('order_modify', year + '-' + month + '-' + day, clientId + ': ' + trimmed);
+    renderBaking();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
+async function cancelOrder(clientId, year, month, day, clientName) {
+  if (!confirm('Visszavonod ' + clientName + ' rendelését (' + MONTHS[month] + ' ' + day + '.)?')) return;
+  const row = { client_id: clientId, year, month, day, status: 'cancelled', deadline: new Date(year, month, day - 1, 18, 0, 0).toISOString() };
+  try {
+    await sb.upsert('order_status', row, 'client_id,year,month,day');
+    if (!D.orderStatus) D.orderStatus = {};
+    D.orderStatus[ok(clientId, year, month, day)] = { status: 'cancelled' };
+    toast('❌ Rendelés visszavonva.');
+    await auditLog('order_cancel', year + '-' + month + '-' + day, clientId);
+    renderBaking();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
 // ===== BAKING =====
 function renderBaking(){
   const sel=document.getElementById('baking-month-sel');
-  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  sel.innerHTML=MONTHS.map(function(mo,i){ return '<button class="month-btn ' + (i===selMonth?'active':'') + '" onclick="selectMonth(' + i + ')">' + mo + '</button>'; }).join('');
   const y=selYear,m=selMonth;
   const bdays=getBakingDays(y,m);
   const activeP=getActiveProds(y,m);
   let html='';
 
-  bdays.forEach(d=>{
+  bdays.forEach(function(d){
     const day=d.getDate(); const dayName=DAYS_HU[d.getDay()];
     let totalQty=0, totalRev=0;
-    // Aggregated across all clients
     const aggr={};
-    D.clients.forEach(c=>{
+    const dayClients=[];
+
+    D.clients.forEach(function(c){
       const key=ok(c.id,y,m,day); const o=D.orders[key];
       if(!o) return;
-      Object.entries(o).forEach(([pid,qty])=>{ aggr[pid]=(aggr[pid]||0)+qty; totalQty+=qty; const p=D.products.find(p=>p.id==pid); if(p)totalRev+=p.price*qty; });
+      const qty=Object.values(o).reduce(function(a,b){return a+b;},0);
+      if(!qty) return;
+      Object.entries(o).forEach(function(e){ const pid=e[0],q=e[1]; aggr[pid]=(aggr[pid]||0)+q; totalQty+=q; const p=D.products.find(function(p){return p.id==pid;}); if(p)totalRev+=p.price*q; });
+      const st=getOrderStatus(c.id,y,m,day);
+      dayClients.push({ c:c, key:key, o:o, st:st });
     });
 
-    html+=`<div class="baking-day-card">
-      <div class="baking-day-head" onclick="toggleBakingDay(this)">
-        <h4>🔥 ${dayName}, ${MONTHS[m]} ${day}.</h4>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span class="badge badge-teal">${totalQty} db</span>
-          <span class="badge badge-gold">${totalRev} lej</span>
-          <span style="color:white;font-size:0.8rem">▾</span>
-        </div>
-      </div>
-      <div class="baking-day-body">`;
+    const allConfirmed = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='confirmed';});
+    const confirmBtnHtml = totalQty > 0
+      ? '<button onclick="event.stopPropagation();confirmDay(' + y + ',' + m + ',' + day + ')" style="background:' + (allConfirmed?'#dcfce7':'var(--gold)') + ';color:' + (allConfirmed?'#166534':'var(--teal-dark)') + ';border:none;border-radius:8px;padding:5px 12px;font-size:0.76rem;font-weight:600;cursor:pointer">' + (allConfirmed?'✅ Mind jóváhagyva':'✅ Mindent jóváhagy') + '</button>'
+      : '';
 
-    // Product lines with client breakdown
-    activeP.forEach(p=>{
+    html+='<div class="baking-day-card">';
+    html+='<div class="baking-day-head" onclick="toggleBakingDay(this)" style="cursor:pointer">';
+    html+='<h4>🔥 ' + dayName + ', ' + MONTHS[m] + ' ' + day + '.</h4>';
+    html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    html+='<span class="badge badge-teal">' + totalQty + ' db</span>';
+    html+='<span class="badge badge-gold">' + totalRev + ' lej</span>';
+    html+=confirmBtnHtml;
+    html+='<span style="color:white;font-size:0.8rem">▾</span>';
+    html+='</div></div>';
+    html+='<div class="baking-day-body">';
+
+    activeP.forEach(function(p){
       const totalForP=aggr[p.id]||0;
       if(!totalForP) return;
-      html+=`<div class="baking-line"><span style="font-weight:600">${esc(p.name)} <span class="text-xs text-soft">${esc(p.weight)}</span></span><span class="baking-qty">${totalForP} db</span></div>`;
-      // Per client
-      D.clients.forEach(c=>{
-        const key=ok(c.id,y,m,day); const qty=(D.orders[key]||{})[p.id]||0;
-        if(!qty) return;
-        html+=`<div class="baking-line client-sub"><span>↳ ${esc(c.name)}</span><span>${qty} db</span></div>`;
-      });
+      html+='<div class="baking-line"><span style="font-weight:600">' + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db</span></div>';
     });
 
-    if(totalQty===0) html+=`<div class="baking-line text-soft">Nincs rendelés erre a napra.</div>`;
-    else html+=`<div class="baking-line" style="background:var(--teal-pale);font-weight:700"><span>ÖSSZESEN</span><span style="color:var(--teal-dark)">${totalQty} db · ${totalRev} lej</span></div>`;
-
-    html+=`</div></div>`;
+    if(totalQty===0){
+      html+='<div class="baking-line text-soft">Nincs rendelés erre a napra.</div>';
+    } else {
+      html+='<div class="baking-line" style="background:var(--teal-pale);font-weight:700"><span>ÖSSZESEN</span><span style="color:var(--teal-dark)">' + totalQty + ' db &middot; ' + totalRev + ' lej</span></div>';
+      html+='<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">';
+      dayClients.forEach(function(x){
+        const c=x.c, o=x.o, st=x.st;
+        const cQty=Object.values(o).reduce(function(a,b){return a+b;},0);
+        const cRev=Object.entries(o).reduce(function(a,e){ const pid=e[0],q=e[1]; const p=D.products.find(function(p){return p.id==pid;}); return a+(p?p.price*q:0); },0);
+        const safeId=c.id.replace(/'/g,"\\'");
+        const safeName=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);flex-wrap:wrap">';
+        html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + '</span>';
+        html+='<span style="font-size:0.82rem;color:var(--text-soft)">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
+        html+=statusBadge(st.status);
+        if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';
+        if(st.status !== 'cancelled') {
+          html+='<div style="display:flex;gap:6px;margin-left:auto">';
+          if(st.status !== 'confirmed') html+='<button onclick="confirmSingleOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ')" style="background:#dcfce7;color:#166534;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Jóváhagyás">✅</button>';
+          html+='<button onclick="openModifyDialog(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Módosítás">✏️</button>';
+          html+='<button onclick="cancelOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Visszavonás">❌</button>';
+          html+='</div>';
+        }
+        html+='</div>';
+      });
+      html+='</div>';
+    }
+    html+='</div></div>';
   });
 
   document.getElementById('baking-content').innerHTML=html||'<p class="text-soft">Nincsenek sütési napok.</p>';

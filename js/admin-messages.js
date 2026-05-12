@@ -146,6 +146,12 @@ function renderMessages(){
       html += '</div>';
     });
 
+    // Admin válasz input
+    const replyId = 'admin-reply-' + key;
+    html += '<div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">';
+    html += '<input id="' + replyId + '" type="text" placeholder="Admin válasz..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem" onkeydown="if(event.key===\'Enter\')sendAdminReply(\'' + c.id + '\',' + selMonth + ',\'' + replyId + '\')">';
+    html += '<button onclick="sendAdminReply(\'' + c.id + '\',' + selMonth + ',\'' + replyId + '\')" style="background:var(--teal-dark);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.9rem">Küld</button>';
+    html += '</div>';
     html += '</div></div></div>'; // card-body, msg-body, card vége
   });
   document.getElementById('messages-list').innerHTML = count > 0 ? html : '<p class="text-soft text-sm">Ebben a hónapban még senki nem küldött üzenetet.</p>';
