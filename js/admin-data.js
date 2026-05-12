@@ -94,7 +94,7 @@ async function loadAllData() {
   localStorage.removeItem('kerek_data'); // legacy kulcs törlése
   // Táblánkénti try/catch – egy hiba nem akadályozza a többit
   try {
-    const products = await sb.query('products', { order: 'id' });
+    const products = await sb.query('products', { order: 'id', limit: 500 });
     if (products?.length) {
       D.products = products.map(p => ({
         id: p.id, name: p.name, weight: p.weight || '',
@@ -116,7 +116,7 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [clients]:', e.message); }
 
   try {
-    const maps = await sb.query('monthly_active_products');
+    const maps = await sb.query('monthly_active_products', { limit: 2000 });
     D.monthlyActiveProducts = {};
     (maps||[]).forEach(r => {
       const k = `${r.year}-${r.month}`;
@@ -136,7 +136,7 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [orders]:', e.message); }
 
   try {
-    const messages = await sb.query('messages', { order: 'created_at' });
+    const messages = await sb.query('messages', { order: 'created_at', limit: 500 });
     D.messages = {};
     (messages||[]).forEach(r => {
       const k = `${r.client_id}-${r.year}-${r.month}`;
@@ -146,7 +146,7 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [messages]:', e.message); }
 
   try {
-    const cal = await sb.query('baking_calendar');
+    const cal = await sb.query('baking_calendar', { limit: 200 });
     D.bakingCalendar = {};
     (cal||[]).forEach(r => {
       const k = `${r.year}-${r.month}`;

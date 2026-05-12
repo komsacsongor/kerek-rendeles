@@ -29,6 +29,7 @@ function renderRecipeGrid(cat) {
         <div class="recipe-card-name">${r.name}</div>
         <div class="recipe-card-meta">
           <span class="badge badge-teal">${r.category}</span>
+          ${(r.version||1) > 1 ? `<span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:10px;font-size:.7rem;font-weight:700">v${r.version}</span>` : ''}
           <span>${r.unitWeight||r.basePortion}g/db</span>
           ${r.productCode ? `<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${r.productCode}</span>` : ''}
         </div>

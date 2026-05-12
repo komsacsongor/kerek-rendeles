@@ -136,9 +136,16 @@ async function syncRecipeToSupabase(data, existingId) {
     }
     // Visszalinkeljük a product_id-t a recepthez
     await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
-    // Lokális R.recipes tömb frissítése
+    // Lokális R.recipes + D adatobjektum frissítése (product_id szinkron bug fix)
     const localRec = R.recipes.find(r => r.id === recId);
-    if (localRec) localRec.product_id = prodId;
+    if (localRec) {
+      localRec.product_id = prodId;
+      // Ha a familyId is változott, frissítsük a cache-t is
+      if (data.familyId !== undefined && typeof _adminProductsCache !== 'undefined') {
+        const cachedProd = _adminProductsCache.find(p => p.id === prodId);
+        if (cachedProd) cachedProd.product_family_id = data.familyId || null;
+      }
+    }
 
     console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
   } catch(e) {

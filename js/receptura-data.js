@@ -194,16 +194,16 @@ async function initApp() {
 
   // Admin termékek betöltése cache-be
   try {
-    const prods = await sb.query('products', {order:'name'});
+    const prods = await sb.query('products', {order:'name', limit:500});
     window._adminProductsCache = prods || [];
   } catch(e) { window._adminProductsCache = []; }
 
   // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
   try {
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
-      sb.query('recipes', {order:'id'}),
-      sb.query('recipe_ingredients', {order:'recipe_id,sort_order'}),
-      sb.query('recipe_steps', {order:'recipe_id,sort_order'}),
+      sb.query('recipes', {order:'id', limit:500}),
+      sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
+      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
     ]);
     if(dbRecipes && dbRecipes.length > 0) {
       R.recipes = dbRecipes.map(r => ({
@@ -242,5 +242,6 @@ async function initApp() {
     }
   } catch(e) { console.warn('Receptek Supabase betöltés sikertelen:', e.message); }
 
+  auditLog('login', 'Receptúra', 'Sikeres belépés');
   nav('recipes');
 }

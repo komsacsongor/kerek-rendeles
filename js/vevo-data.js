@@ -66,9 +66,9 @@ async function doLogin() {
   try {
     // Mindig Supabase-ből tölt – friss termékek, kliensek, beállítások
     const [clients, products, maps, settings_cond, settings_del, settings_bake] = await Promise.all([
-      sb.query('clients'),
-      sb.query('products', {order:'id'}),
-      sb.query('monthly_active_products'),
+      sb.query('clients', {limit: 500}),
+      sb.query('products', {order:'id', limit: 500}),
+      sb.query('monthly_active_products', {limit: 2000}),
       sb.getSetting('help_conditions'),
       sb.getSetting('help_delivery'),
       sb.getSetting('baking_days_default'),
@@ -126,8 +126,8 @@ async function doLogin() {
     try {
       const [userOrders, userMsgs, calData] = await Promise.all([
         sb.query('orders', {filter: `client_id=eq.${client.id}`, limit: 2000}),
-        sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at'}),
-        sb.query('baking_calendar'),
+        sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at', limit: 200}),
+        sb.query('baking_calendar', {limit: 200}),
       ]);
       (userOrders||[]).forEach(r => {
         const k = getOrderKey(r.client_id, r.year, r.month, r.day);
