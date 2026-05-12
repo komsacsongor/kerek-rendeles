@@ -143,6 +143,7 @@ function renderReports(){
   });
   bdhtml+='</tbody></table>';
   document.getElementById('baking-day-revenue').innerHTML=bdhtml;
+  renderFamilyReport();
 }
 
 // ===== CATEGORIES =====
@@ -249,4 +250,119 @@ async function renderAuditLog() {
   } catch(e) {
     el.innerHTML = `<div class="card"><p class="text-soft">Napló betöltési hiba: ${e.message}</p></div>`;
   }
+}
+
+// ===== TERMÉKCSALÁDOK KIMUTATÁS =====
+function renderFamilyReport() {
+  const card = document.getElementById('family-report-card');
+  const body = document.getElementById('family-report-body');
+  const periodEl = document.getElementById('family-report-period');
+  if (!card || !body) return;
+
+  // Van-e egyáltalán termékcsalád?
+  const hasFamily = D.products.some(p => p.familyId);
+  if (!hasFamily) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const y = selYear, m = selMonth;
+  const mo = getMonthOrders(y, m);
+  if (periodEl) periodEl.textContent = `${MONTHS[m]} ${y}`;
+
+  // Előző hónap adatai összehasonlításhoz
+  const prevM = m === 0 ? 11 : m - 1;
+  const prevY = m === 0 ? y - 1 : y;
+  const prevMo = getMonthOrders(prevY, prevM);
+
+  // Termékek rendelési összesítése az aktuális hónapra
+  const prodTotals = {}; // pid → {qty, rev}
+  const prevTotals = {};
+  const aggregate = (orders, target) => {
+    Object.values(orders).forEach(day => Object.entries(day).forEach(([pid, q]) => {
+      const p = D.products.find(p => p.id == pid);
+      if (!p) return;
+      target[pid] = target[pid] || {qty:0, rev:0};
+      target[pid].qty += q;
+      target[pid].rev += q * (p.price||0);
+    }));
+  };
+  aggregate(mo, prodTotals);
+  aggregate(prevMo, prevTotals);
+
+  // Familia-k összegyűjtése
+  const familyMap = {}; // parentId → {parent, members:[]}
+  D.products.forEach(p => {
+    if (!p.familyId) return;
+    if (!familyMap[p.familyId]) {
+      const parent = D.products.find(x => x.id === p.familyId);
+      if (!parent) return;
+      familyMap[p.familyId] = {parent, members:[]};
+    }
+    familyMap[p.familyId].members.push(p);
+  });
+
+  if (Object.keys(familyMap).length === 0) { card.style.display = 'none'; return; }
+
+  let html = '';
+  Object.values(familyMap).forEach(({parent, members}) => {
+    const allMembers = [parent, ...members];
+
+    // Havi összesítők
+    let totalQty = 0, totalRev = 0, prevQty = 0;
+    allMembers.forEach(p => {
+      const t = prodTotals[p.id] || {qty:0,rev:0};
+      const pt = prevTotals[p.id] || {qty:0,rev:0};
+      totalQty += t.qty; totalRev += t.rev; prevQty += pt.qty;
+    });
+    const trend = prevQty === 0 ? null : Math.round((totalQty - prevQty) / prevQty * 100);
+    const trendHtml = trend === null ? '' :
+      `<span style="font-size:.75rem;padding:2px 7px;border-radius:10px;background:${trend>=0?'#dcfce7':'#fee2e2'};color:${trend>=0?'#16a34a':'#dc2626'};font-weight:700">${trend>=0?'▲':'▼'} ${Math.abs(trend)}%</span>`;
+
+    html += `<div style="margin-bottom:20px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="background:var(--teal-dark);padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <span style="font-family:'Fraunces',serif;color:white;font-size:1rem">📦 ${parent.name}</span>
+        <span style="flex:1"></span>
+        ${trendHtml}
+        <span style="color:rgba(255,255,255,.8);font-size:.85rem;font-weight:700">${totalQty} db</span>
+        <span style="color:var(--gold);font-size:.85rem;font-weight:700">${totalRev} lej</span>
+      </div>
+      <div style="padding:0 16px 4px">
+        <table style="width:100%;font-size:.83rem;border-collapse:collapse">
+          <tr style="color:var(--text-soft);font-size:.75rem;border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:8px 0;font-weight:600">Termék</th>
+            <th style="text-align:right;padding:8px 0;font-weight:600">Kód</th>
+            <th style="text-align:right;padding:8px 0;font-weight:600">Db</th>
+            <th style="text-align:right;padding:8px 0;font-weight:600">Forgalom</th>
+            <th style="text-align:right;padding:8px 0;font-weight:600">Részarány</th>
+          </tr>
+          ${allMembers.map(p => {
+            const t = prodTotals[p.id] || {qty:0,rev:0};
+            const share = totalQty > 0 ? Math.round(t.qty / totalQty * 100) : 0;
+            const isParent = p.id === parent.id;
+            return `<tr style="border-bottom:1px solid var(--border)${isParent?';font-weight:700':''}">
+              <td style="padding:7px 0">${isParent?'👑 ':''}<span style="color:var(--teal-dark)">${p.name}</span> <small style="color:var(--text-soft)">${p.weight||''}</small></td>
+              <td style="text-align:right;font-family:monospace;font-size:.72rem;color:var(--text-soft)">${p.code||'–'}</td>
+              <td style="text-align:right;font-weight:700">${t.qty || '–'}</td>
+              <td style="text-align:right;color:var(--teal-dark);font-weight:${isParent?'700':'400'}">${t.rev > 0 ? t.rev+' lej' : '–'}</td>
+              <td style="text-align:right">
+                ${t.qty > 0 ? `<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                  <div style="width:50px;height:6px;background:var(--bg-soft);border-radius:3px">
+                    <div style="width:${share}%;height:100%;background:var(--gold);border-radius:3px"></div>
+                  </div>
+                  <span style="font-size:.75rem">${share}%</span>
+                </div>` : '–'}
+              </td>
+            </tr>`;
+          }).join('')}
+          <tr style="background:var(--bg-soft)">
+            <td colspan="2" style="padding:8px 0;font-weight:700;color:var(--teal-dark)">Összesen</td>
+            <td style="text-align:right;font-weight:700;padding:8px 0">${totalQty} db</td>
+            <td style="text-align:right;font-weight:700;color:var(--gold);padding:8px 0">${totalRev} lej</td>
+            <td style="text-align:right;padding:8px 0">100%</td>
+          </tr>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  body.innerHTML = html || '<p class="text-soft text-sm" style="padding:16px">Nincs rendelési adat ebben a hónapban.</p>';
 }

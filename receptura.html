@@ -643,7 +643,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group">
             <label>Kategória</label>
             <div style="display:flex;gap:6px;align-items:center">
-              <select id="r-category" onchange="updateRecipeCatFilter();updateRecipeCodePreview()" style="flex:1"></select>
+              <select id="r-category" onchange="updateRecipeCodePreview()" style="flex:1"></select>
               <button class="btn btn-ghost btn-sm" type="button" onclick="showAddCategoryInline()" title="Új kategória" style="padding:6px 10px;flex-shrink:0">＋</button>
             </div>
             <div id="new-cat-inline" style="display:none;margin-top:6px;display:none">
@@ -663,6 +663,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group">
             <label>Termék ár (lej/db) <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(adminban is megjelenik)</span></label>
             <input type="number" id="r-product-price" placeholder="0" step="0.5">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Termékcsalád <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(opcionális – azonos termék más csatornához)</span></label>
+            <select id="r-family-id" onchange="updateRecipeFamilyPreview()" style="padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.88rem;background:white;color:var(--text);width:100%">
+              <option value="">– Önálló termék (nincs termékcsalád) –</option>
+            </select>
+            <div id="r-family-preview" style="font-size:.75rem;color:var(--teal-dark);margin-top:4px"></div>
           </div>
         </div>
         <div class="form-row">
@@ -843,16 +852,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.12.3"></script>
-<script src="js/receptura-ui.js?v=2.12.3"></script>
-<script src="js/receptura-recipes.js?v=2.12.3"></script>
-<script src="js/receptura-operational.js?v=2.12.3"></script>
-<script src="js/receptura-ingredients.js?v=2.12.3"></script>
-<script src="js/receptura-settings.js?v=2.12.3"></script>
-<script src="js/receptura-levain.js?v=2.12.3"></script>
-<script src="js/receptura-production.js?v=2.12.3"></script>
-<script src="js/receptura-stock.js?v=2.12.3"></script>
-<script src="js/receptura-modal.js?v=2.12.3"></script>
-<script src="js/receptura-ai.js?v=2.12.3"></script>
+<script src="js/receptura-data.js?v=2.13.0"></script>
+<script src="js/receptura-ui.js?v=2.13.0"></script>
+<script src="js/receptura-recipes.js?v=2.13.0"></script>
+<script src="js/receptura-operational.js?v=2.13.0"></script>
+<script src="js/receptura-ingredients.js?v=2.13.0"></script>
+<script src="js/receptura-settings.js?v=2.13.0"></script>
+<script src="js/receptura-levain.js?v=2.13.0"></script>
+<script src="js/receptura-production.js?v=2.13.0"></script>
+<script src="js/receptura-stock.js?v=2.13.0"></script>
+<script src="js/receptura-modal.js?v=2.13.0"></script>
+<script src="js/receptura-ai.js?v=2.13.0"></script>
 </body>
 </html>

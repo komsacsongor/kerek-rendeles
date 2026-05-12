@@ -121,6 +121,7 @@ async function syncRecipeToSupabase(data, existingId) {
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
       nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
+      ...(data.familyId !== undefined ? {product_family_id: data.familyId||null} : {}),
     };
     let prodId = data.product_id || null;
     if (prodId) {

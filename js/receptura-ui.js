@@ -172,3 +172,23 @@ function toast(msg, isError=false) {
   const duration = isError ? 8000 : 3200;
   el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); el.style.background=''; }, duration);
 }
+
+// updateRecipeCatFilter – volt egy korábbi implementáció, jelenleg no-op
+function updateRecipeCatFilter() {}
+
+// Termékcsalád preview a receptúra modalban
+function updateRecipeFamilyPreview() {
+  const el = document.getElementById('r-family-preview');
+  const val = document.getElementById('r-family-id')?.value;
+  if (!el) return;
+  if (!val) { el.textContent = ''; return; }
+  const famId = parseInt(val);
+  const parent = (_adminProductsCache||[]).find(p => p.id === famId);
+  if (parent) {
+    const members = (_adminProductsCache||[]).filter(p => p.product_family_id === famId || p.id === famId);
+    el.innerHTML = `📦 Termékcsalád: <strong>${parent.name}</strong> (${members.length} tag)`;
+    el.style.color = 'var(--teal-dark)';
+  } else {
+    el.textContent = '';
+  }
+}

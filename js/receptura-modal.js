@@ -32,6 +32,20 @@ function openRecipeModal(id=null) {
     document.getElementById('r-labor-h').value = r.laborH||1;
     document.getElementById('r-electricity').value = r.electricity||5;
     if(document.getElementById('r-product-code')) { const el=document.getElementById('r-product-code'); el.value = r.productCode||''; el.placeholder='mentés után generálódik'; }
+    // Termékcsalád dropdown feltöltése
+    const famSel = document.getElementById('r-family-id');
+    if (famSel && typeof _adminProductsCache !== 'undefined') {
+      const currentProdId = r.product_id;
+      famSel.innerHTML = '<option value="">– Önálló termék –</option>' +
+        (_adminProductsCache||[])
+          .filter(p => p.id !== currentProdId)
+          .map(p => `<option value="${p.id}">${p.name} (${p.code||p.id})</option>`)
+          .join('');
+      // Jelenlegi family_id betöltése a termékből
+      const linkedProd = (_adminProductsCache||[]).find(p => p.id === currentProdId);
+      if (linkedProd?.product_family_id) famSel.value = linkedProd.product_family_id;
+      updateRecipeFamilyPreview();
+    }
     if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;   if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;
     modalDryIngs = JSON.parse(JSON.stringify(r.dryIngredients||[]));
     modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
@@ -48,6 +62,12 @@ function openRecipeModal(id=null) {
     });
     modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];
     document.getElementById('recipe-modal-title').textContent = 'Új recept';
+    const famSel2 = document.getElementById('r-family-id');
+    if (famSel2 && typeof _adminProductsCache !== 'undefined') {
+      famSel2.innerHTML = '<option value="">– Önálló termék –</option>' +
+        (_adminProductsCache||[]).map(p => `<option value="${p.id}">${p.name} (${p.code||p.id})</option>`).join('');
+      famSel2.value = '';
+    }
     document.getElementById('recipe-action-btns').style.display = 'none';
   }
   renderModalIngredients(); renderModalSteps(); updateLevainPreview();

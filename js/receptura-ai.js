@@ -331,7 +331,8 @@ async function saveRecipe() {
   const name = document.getElementById('r-name').value.trim();
   if (!name) { toast('Recept neve kötelező!'); return; }
   const data = {
-    product_id: parseInt(document.getElementById('r-product-link').value)||null,
+    product_id: parseInt(document.getElementById('r-product-link')?.value)||null,
+    familyId: document.getElementById('r-family-id')?.value ? parseInt(document.getElementById('r-family-id').value) : null,
     name, category: document.getElementById('r-category').value,
     basePortion: parseFloat(document.getElementById('r-base-portion').value)||1000,
     bakeLoss: parseFloat(document.getElementById('r-bake-loss').value)||R.settings.bakeLoss,
