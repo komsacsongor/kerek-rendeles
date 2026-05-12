@@ -373,3 +373,123 @@ function updateFamilyPreview() {
     el.textContent = '';
   }
 }
+
+// ===== TERMÉKCSALÁDOK TAB =====
+function switchCatalogTab(tab) {
+  const prodView = document.getElementById('catalog-products-view');
+  const famView = document.getElementById('catalog-families-view');
+  const tabProd = document.getElementById('catalog-tab-products');
+  const tabFam = document.getElementById('catalog-tab-families');
+
+  if (tab === 'families') {
+    prodView.style.display = 'none';
+    famView.style.display = 'block';
+    tabProd.style.borderBottom = '';
+    tabFam.style.borderBottom = '2px solid var(--teal-dark)';
+    renderFamilies();
+  } else {
+    famView.style.display = 'none';
+    prodView.style.display = 'block';
+    tabFam.style.borderBottom = '';
+    tabProd.style.borderBottom = '2px solid var(--teal-dark)';
+  }
+}
+
+function renderFamilies() {
+  const el = document.getElementById('families-grid');
+  if (!el) return;
+
+  // Önálló termékek (nincs familyId)
+  const standalone = D.products.filter(p => !p.familyId);
+
+  // Termékcsaládok csoportosítása: familyId → szülő termék
+  const familyMap = {};
+  D.products.filter(p => p.familyId).forEach(p => {
+    if (!familyMap[p.familyId]) familyMap[p.familyId] = [];
+    familyMap[p.familyId].push(p);
+  });
+
+  // Szülő termékek (akik legalább egy gyereket vannak)
+  const parentIds = Object.keys(familyMap).map(Number);
+  const families = parentIds.map(pid => ({
+    parent: D.products.find(p => p.id === pid),
+    members: familyMap[pid]
+  })).filter(f => f.parent);
+
+  let html = '';
+
+  if (families.length === 0 && standalone.length === 0) {
+    el.innerHTML = '<p class="text-soft text-sm" style="padding:32px">Nincs termék a katalógusban.</p>';
+    return;
+  }
+
+  // Termékcsaládok
+  if (families.length > 0) {
+    html += `<h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin-bottom:16px">🔗 Termékcsaládok (${families.length})</h3>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:32px">`;
+    families.forEach(({ parent, members }) => {
+      const allMembers = [parent, ...members];
+      const avgPrice = Math.round(allMembers.reduce((s, p) => s + (p.price || 0), 0) / allMembers.length);
+      const cats = [...new Set(allMembers.map(p => p.category))].join(', ');
+      html += `
+        <div class="card" style="border-left:4px solid var(--gold)">
+          <div class="card-head">
+            <div class="card-title">📦 ${parent.name}</div>
+            <span style="font-size:.75rem;color:var(--text-soft)">${allMembers.length} tag · ${cats}</span>
+          </div>
+          <div class="card-body">
+            <table style="width:100%;font-size:.83rem;border-collapse:collapse">
+              <tr style="color:var(--text-soft);font-size:.75rem">
+                <th style="text-align:left;padding:4px 0;font-weight:600">Termék</th>
+                <th style="text-align:right;padding:4px 0;font-weight:600">Kód</th>
+                <th style="text-align:right;padding:4px 0;font-weight:600">Ár</th>
+                <th style="text-align:right;padding:4px 0;font-weight:600"></th>
+              </tr>
+              ${allMembers.map(p => {
+                const isParent = p.id === parent.id;
+                return `<tr style="border-top:1px solid var(--border)${isParent ? ';font-weight:700' : ''}">
+                  <td style="padding:6px 0">${isParent ? '👑 ' : '└ '}${p.name}</td>
+                  <td style="text-align:right;font-family:monospace;font-size:.75rem;color:var(--text-soft)">${p.code || '–'}</td>
+                  <td style="text-align:right;color:var(--teal-dark);font-weight:700">${p.price} lej</td>
+                  <td style="text-align:right"><button onclick="openProductModal(${p.id})" style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--text-soft)" title="Szerkesztés">✏️</button></td>
+                </tr>`;
+              }).join('')}
+            </table>
+            <div style="display:flex;gap:16px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+              <div style="text-align:center;flex:1">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--teal-dark)">${allMembers.length}</div>
+                <div style="font-size:.7rem;color:var(--text-soft)">termék</div>
+              </div>
+              <div style="text-align:center;flex:1">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--gold-dark)">${avgPrice} lej</div>
+                <div style="font-size:.7rem;color:var(--text-soft)">átlag ár</div>
+              </div>
+              <div style="text-align:center;flex:1">
+                <div style="font-size:1.1rem;font-weight:700;color:var(--teal)">${allMembers.filter(p=>p.ptype==='production').length}</div>
+                <div style="font-size:.7rem;color:var(--text-soft)">gyártási</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Önálló termékek
+  if (standalone.length > 0) {
+    html += `<h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin-bottom:16px">📌 Önálló termékek (${standalone.length})</h3>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">`;
+    standalone.forEach(p => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-soft);border-radius:10px;border:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+          <div style="font-size:.72rem;color:var(--text-soft)">${p.code || '–'} · ${p.price} lej</div>
+        </div>
+        <button onclick="openProductModal(${p.id})" style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--text-soft)">✏️</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}

@@ -435,20 +435,31 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <div class="flex gap-12 items-center mb-20 flex-wrap">
       <div class="month-row" id="catalog-month-sel" style="margin:0"></div>
       <div style="flex:1"></div>
+      <div class="flex gap-8">
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-products" onclick="switchCatalogTab('products')" style="border-bottom:2px solid var(--teal-dark)">📦 Termékek</button>
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-families" onclick="switchCatalogTab('families')">🔗 Termékcsaládok</button>
+      </div>
       <button class="btn btn-primary" onclick="openProductModal()">＋ Új termék</button>
     </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-head"><div class="card-title">📦 Összes termék</div></div>
-        <div class="card-body" id="all-products"></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">✅ Aktív ezen a hónapon</div></div>
-        <div class="card-body">
-          <p class="text-sm text-soft mb-16">Kattints egy termékre a bal oldalon az aktiváláshoz.</p>
-          <div id="active-products"></div>
+    <!-- Termékek nézet -->
+    <div id="catalog-products-view">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><div class="card-title">📦 Összes termék</div></div>
+          <div class="card-body" id="all-products"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">✅ Aktív ezen a hónapon</div></div>
+          <div class="card-body">
+            <p class="text-sm text-soft mb-16">Kattints egy termékre a bal oldalon az aktiváláshoz.</p>
+            <div id="active-products"></div>
+          </div>
         </div>
       </div>
+    </div>
+    <!-- Termékcsaládok nézet -->
+    <div id="catalog-families-view" style="display:none">
+      <div id="families-grid"></div>
     </div>
   </div>
 
@@ -875,14 +886,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div></div>
 
-<script src="js/admin-data.js?v=2.12.1"></script>
-<script src="js/admin-ui.js?v=2.12.1"></script>
-<script src="js/admin-messages.js?v=2.12.1"></script>
-<script src="js/admin-baking.js?v=2.12.1"></script>
-<script src="js/admin-orders.js?v=2.12.1"></script>
-<script src="js/admin-catalog.js?v=2.12.1"></script>
-<script src="js/admin-clients.js?v=2.12.1"></script>
-<script src="js/admin-reports.js?v=2.12.1"></script>
-<script src="js/admin-settings.js?v=2.12.1"></script>
+<script src="js/admin-data.js?v=2.12.2"></script>
+<script src="js/admin-ui.js?v=2.12.2"></script>
+<script src="js/admin-messages.js?v=2.12.2"></script>
+<script src="js/admin-baking.js?v=2.12.2"></script>
+<script src="js/admin-orders.js?v=2.12.2"></script>
+<script src="js/admin-catalog.js?v=2.12.2"></script>
+<script src="js/admin-clients.js?v=2.12.2"></script>
+<script src="js/admin-reports.js?v=2.12.2"></script>
+<script src="js/admin-settings.js?v=2.12.2"></script>
 </body>
 </html>
