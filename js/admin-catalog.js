@@ -301,7 +301,9 @@ async function saveProduct(){
     p.name.trim().toLowerCase() === name.toLowerCase() &&
     p.id !== editingProductId
   );
-  if(duplicate) {
+  // Termékcsaládon belül megengedett az azonos név (pl. 500g és 1000g verzió)
+  const sameFamily = duplicate && familyId && (duplicate.id === familyId || duplicate.familyId === familyId);
+  if(duplicate && !sameFamily) {
     toast(`⚠️ Már létezik "${duplicate.name}" nevű termék (kód: ${duplicate.code||duplicate.id}). Válassz más nevet!`, true);
     return;
   }
