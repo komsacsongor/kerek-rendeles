@@ -48,35 +48,43 @@ async function confirmSingleOrder(clientId, year, month, day) {
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
 
+// Aktív modify célpont – elkerüli az inline onclick escapelési problémákat
+let _modifyTarget = null;
+
 function openModifyDialog(clientId, year, month, day, clientName) {
+  _modifyTarget = { clientId, year, month, day };
   const k = ok(clientId, year, month, day);
   const cur = (D.orderStatus && D.orderStatus[k]) || {};
-  const curNote = cur.admin_note || '';
-  const escapedNote = curNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const escapedName = esc(clientName);
-  const safeId = clientId.replace(/'/g,"\\'");
-  const safeName = clientName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  document.body.insertAdjacentHTML('beforeend',
-    '<div id="modify-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)closeModifyDialog()">' +
+  const curNote = (cur.admin_note || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const el = document.createElement('div');
+  el.id = 'modify-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  el.addEventListener('click', function(e){ if(e.target===el) closeModifyDialog(); });
+  el.innerHTML =
     '<div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.2)">' +
     '<h3 style="margin:0 0 8px;color:var(--teal-dark)">✏️ Rendelés módosítása</h3>' +
-    '<p style="margin:0 0 16px;color:var(--text-soft);font-size:0.88rem">' + escapedName + ' &middot; ' + MONTHS[month] + ' ' + day + '.</p>' +
+    '<p style="margin:0 0 16px;color:var(--text-soft);font-size:0.88rem">' + esc(clientName) + ' &middot; ' + MONTHS[month] + ' ' + day + '.</p>' +
     '<label style="font-size:0.85rem;font-weight:600;color:var(--text)">Admin megjegyzés a vevőnek:</label>' +
-    '<textarea id="modify-note" rows="3" style="width:100%;box-sizing:border-box;margin:8px 0 16px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;resize:vertical">' + escapedNote + '</textarea>' +
+    '<textarea id="modify-note" rows="3" style="width:100%;box-sizing:border-box;margin:8px 0 16px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;resize:vertical">' + curNote + '</textarea>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end">' +
-    '<button onclick="closeModifyDialog()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer">Mégse</button>' +
-    '<button onclick="saveModify(\'' + safeId + '\',' + year + ',' + month + ',' + day + ')" style="padding:8px 18px;background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;font-weight:600;cursor:pointer">Mentés</button>' +
-    '</div></div></div>'
-  );
-  document.getElementById('modify-note').focus();
+    '<button id="modify-cancel-btn" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer">Mégse</button>' +
+    '<button id="modify-save-btn" style="padding:8px 18px;background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;font-weight:600;cursor:pointer">Mentés</button>' +
+    '</div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#modify-cancel-btn').addEventListener('click', closeModifyDialog);
+  el.querySelector('#modify-save-btn').addEventListener('click', saveModify);
+  el.querySelector('#modify-note').focus();
 }
 
 function closeModifyDialog() {
   const el = document.getElementById('modify-overlay');
   if (el) el.remove();
+  _modifyTarget = null;
 }
 
-async function saveModify(clientId, year, month, day) {
+async function saveModify() {
+  if (!_modifyTarget) return;
+  const { clientId, year, month, day } = _modifyTarget;
   const note = (document.getElementById('modify-note') || {}).value || '';
   const trimmed = note.trim();
   const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
@@ -89,7 +97,7 @@ async function saveModify(clientId, year, month, day) {
     toast('✏️ Rendelés módosítva!');
     await auditLog('order_modify', year + '-' + month + '-' + day, clientId + ': ' + trimmed);
     renderBaking();
-  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); console.error('saveModify:', e); }
 }
 
 async function cancelOrder(clientId, year, month, day, clientName) {
