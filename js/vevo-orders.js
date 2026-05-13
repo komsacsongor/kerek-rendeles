@@ -379,6 +379,11 @@ function renderMobileOrderCards() {
         '<button onclick="vevoConfirmOrder(' + selectedYear + ',' + selectedMonth + ',' + day + ')" style="background:var(--teal-dark);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:600;cursor:pointer;width:100%">✅ Elfogadom a módosítást</button>' +
         '</div>';
       else if (stStatus === 'cancelled') statusBanner = '<div style="background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">❌ Rendelésed visszavonva</div>';
+      const bodyAutoOpen = rowTotal > 0 || stStatus === 'modified' || stStatus === 'cancelled';
+      const headStatusBadge = stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✅</span>'
+        : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✏️ Módosítva</span>'
+        : stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">❌</span>'
+        : '';
       html += `<div class="mob-day-card" id="mob-card-${day}">
         <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
           <div>
@@ -386,11 +391,12 @@ function renderMobileOrderCards() {
             ${isLocked ? '<div style="font-size:0.7rem;color:var(--gold-dark)">⏰ 24h határidő – következő sütésnél érvényes</div>' : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
+            ${headStatusBadge}
             ${rowTotal > 0 ? `<span class="mob-baking-badge">${rowTotal} db</span>` : ''}
             <span style="color:var(--teal-mid);font-size:0.85rem" id="mob-arrow-${day}">▾</span>
           </div>
         </div>
-        <div class="mob-day-body ${rowTotal > 0 ? 'open' : ''}" id="mob-body-${day}">
+        <div class="mob-day-body ${bodyAutoOpen ? 'open' : ''}" id="mob-body-${day}">
           ${statusBanner}
           ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
           <div class="${lockedClass}">
