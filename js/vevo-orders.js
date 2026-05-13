@@ -61,14 +61,25 @@ function renderOrderTable() {
       const isLocked = hoursLeft >= 0 && hoursLeft < 24;
       const isOver = d < now;
 
-      html += `<tr class="baking-row" id="row-${day}">
+      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+      const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
+      const stNote = orderSt.admin_note || '';
+      const rowBg = stStatus === 'confirmed' ? 'background:#f0fdf4' : stStatus === 'modified' ? 'background:#fffbeb' : stStatus === 'cancelled' ? 'background:#fff1f2' : '';
+      const stBadge = stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">✅ Jóváhagyva</span>'
+        : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">✏️ Módosítva</span>' + (stNote ? '<span style="font-size:0.72rem;color:#92400e;display:block;margin-top:2px;font-style:italic">' + esc(stNote) + '</span>' : '')
+        : stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">❌ Visszavonva</span>'
+        : '';
+
+      html += `<tr class="baking-row" id="row-${day}" style="${rowBg}">
         <td class="col-date">
           ${day}. <b>${dayName}</b>
           <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
+          ${stBadge}
+          ${stStatus === 'modified' ? `<button onclick="vevoConfirmOrder(${selectedYear},${selectedMonth},${day})" style="margin-top:5px;background:var(--teal-dark);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;display:block;width:100%">✅ Elfogadom</button>` : ''}
         </td>`;
       prods.forEach(p => {
         const val = rowOrders[p.id] || '';
-        const disabled = isOver || isLocked ? 'disabled' : '';
+        const disabled = isOver || isLocked || stStatus === 'cancelled' ? 'disabled' : '';
         const cls = val ? 'has-value' : '';
         colTotals[p.id] += (rowOrders[p.id]||0);
         html += `<td><input type="number" min="0" max="99" value="${val}" placeholder="0"
