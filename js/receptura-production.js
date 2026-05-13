@@ -13,46 +13,65 @@ function initProductionPrep() {
   renderStockAlerts();
 }
 
-function calcProductionPrep() {
+async function calcProductionPrep() {
   const selected = [...document.querySelectorAll('#prod-day-selector input:checked')].map(i=>i.value);
   if(selected.length === 0) {
-    // Use all checked in levain selector
     const levSel = [...document.querySelectorAll('#levain-day-selector input:checked')].map(i=>i.value);
-    if(levSel.length > 0) {
-      selected.push(...levSel);
-    } else {
-      alert('Válassz legalább egy napot!'); return;
-    }
+    if(levSel.length > 0) { selected.push(...levSel); }
+    else { alert('Válassz legalább egy napot!'); return; }
   }
 
-  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
   const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
 
-  // Aggregate all ingredient needs across selected days
-  const needs = {}; // ingId -> {name, needed, unit, cost}
+  // Load confirmed orders from Supabase for selected days
+  const needs = {};
+  const dayBreakdown = {}; // dateStr -> { recipeId -> pieces }
+
+  // Fetch all data in parallel
+  const [allOrders, allStatuses, allClients] = await Promise.all([
+    sb.query('orders', { limit: 5000 }),
+    sb.query('order_status', { limit: 2000 }),
+    sb.query('clients', { limit: 500 }),
+  ]);
+
+  // Build status lookup: "clientId-y-m-d" -> status
+  const statusMap = {};
+  (allStatuses||[]).forEach(s => { statusMap[`${s.client_id}-${s.year}-${s.month}-${s.day}`] = s.status; });
+
+  // Build order lookup
+  const orderMap = {};
+  (allOrders||[]).forEach(o => {
+    const k = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+    if(!orderMap[k]) orderMap[k] = {};
+    orderMap[k][o.product_id] = o.quantity;
+  });
+
+  const activeRecipes = R.recipes.filter(r => !r.archived);
 
   selected.forEach(dateStr => {
-    // Parse date without timezone issues: "2026-04-30" -> local date
     const [dy, dm, dd] = dateStr.split('-').map(Number);
     const d = new Date(dy, dm-1, dd);
     const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
 
-    R.recipes.forEach(recipe => {
+    dayBreakdown[dateStr] = {};
+
+    activeRecipes.forEach(recipe => {
       let totalPieces = 0;
-      (mainData.clients||[]).forEach(c => {
-        // Order key format: clientId-year-monthIndex(0-based)-day
-        const key = `${c.id}-${y}-${m}-${day}`;
-        const order = mainData.orders?.[key];
+      (allClients||[]).forEach(c => {
+        const k = `${c.id}-${y}-${m}-${day}`;
+        const stStatus = statusMap[k] || 'pending';
+        // Count pending + confirmed (not cancelled)
+        if (stStatus === 'cancelled') return;
+        const order = orderMap[k];
         if(!order) return;
-        (mainData.products||[]).forEach(p => {
-          if(!order[p.id]) return;
-          const nameMatch = recipe.name.toLowerCase().includes(p.name.toLowerCase().slice(0,8)) ||
-            p.name.toLowerCase().includes(recipe.name.toLowerCase().slice(0,8));
-          if(nameMatch) totalPieces += order[p.id];
-        });
+        const pid = recipe.product_id;
+        if(pid && order[pid]) {
+          totalPieces += order[pid];
+        }
       });
 
       if(totalPieces === 0) return;
+      dayBreakdown[dateStr][recipe.id] = (dayBreakdown[dateStr][recipe.id]||0) + totalPieces;
 
       const rawWeight = calcRawWeight(recipe, totalPieces);
       const scale = rawWeight / recipe.basePortion;
