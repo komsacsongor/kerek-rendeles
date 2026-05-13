@@ -118,11 +118,17 @@ async function saveModify() {
 
   try {
     // Orders frissítése ahol változott a mennyiség
+    const k = ok(clientId, year, month, day);
+    if (!D.orders[k]) D.orders[k] = {};
     for (const ch of changes) {
-      await sb.upsert('orders', { client_id: clientId, year, month, day, product_id: parseInt(ch.pid), quantity: ch.newQty }, 'client_id,year,month,day,product_id');
-      const k = ok(clientId, year, month, day);
-      if (!D.orders[k]) D.orders[k] = {};
-      D.orders[k][ch.pid] = ch.newQty;
+      if (ch.newQty === 0) {
+        // qty=0: sor törlése az orders-ből (DB constraint miatt 0 nem tárolható)
+        await sb.delete('orders', `client_id=eq.${clientId}&year=eq.${year}&month=eq.${month}&day=eq.${day}&product_id=eq.${ch.pid}`);
+        delete D.orders[k][ch.pid];
+      } else {
+        await sb.upsert('orders', { client_id: clientId, year, month, day, product_id: parseInt(ch.pid), quantity: ch.newQty }, 'client_id,year,month,day,product_id');
+        D.orders[k][ch.pid] = ch.newQty;
+      }
     }
 
     // Státusz mentése

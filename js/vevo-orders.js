@@ -515,6 +515,6 @@ async function vevoConfirmOrder(year, month, day) {
     if (!appData.orderStatus) appData.orderStatus = {};
     appData.orderStatus[key] = { status: 'confirmed', admin_note: (appData.orderStatus[key]||{}).admin_note };
     toast('✅ Módosítás elfogadva!');
-    renderMobileCards();
+    renderOrderTable();
   } catch(e) { toast('⚠️ Hiba: ' + e.message); }
 }

@@ -157,7 +157,22 @@ async function doLogin() {
     renderHelpConditions();
     // Üzenetek auto-frissítése 30 másodpercenként
     if(window._msgPollTimer) clearInterval(window._msgPollTimer);
-    window._msgPollTimer = setInterval(()=>{ if(currentUser) loadMessage(); }, 30000);
+    window._msgPollTimer = setInterval(async ()=>{
+      if(!currentUser) return;
+      loadMessage();
+      try {
+        const st = await sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500});
+        if(!appData.orderStatus) appData.orderStatus = {};
+        let changed = false;
+        (st||[]).forEach(r => {
+          const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+          const prev = (appData.orderStatus[k]||{}).status;
+          appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note};
+          if (prev !== r.status) changed = true;
+        });
+        if (changed) renderOrderTable();
+      } catch(e) {}
+    }, 30000);
   } else {
     const errEl = document.getElementById('login-error');
     if(errEl) { errEl.textContent = '❌ Ismeretlen kód! Kérj segítséget a pékségtől.'; errEl.style.display='block'; }
