@@ -66,7 +66,7 @@ async function auditLog(action, entityName='', details='') {
 }
 
 // ===== PUSH NOTIFICATION SENDER =====
-const PUSH_FN_URL = 'https://lfaxeihrmiylggahougl.supabase.co/functions/v1/send-push';
+const PUSH_FN_URL = 'https://lfaxeihrmiylggahougl.supabase.co/functions/v1/dynamic-service';
 const PUSH_ANON = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
 async function sendPushToClient(clientId, type, title, body) {
