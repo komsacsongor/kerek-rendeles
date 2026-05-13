@@ -31,6 +31,7 @@ async function confirmDay(year, month, day) {
     }
     toast('✅ Összes rendelés jóváhagyva!');
     await auditLog('order_confirm_day', `${year}-${month}-${day}`, `${clients.length} rendelés`);
+    clients.forEach(c => sendPushToClient(c.id, 'confirmed', 'Rendelés visszaigazolva ✅', MONTHS[month] + ' ' + day + '. – rendelésedet jóváhagytuk.'));
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
@@ -143,6 +144,7 @@ async function saveModify() {
       : 'csak megjegyzés';
     toast('✏️ Rendelés módosítva!');
     await auditLog('order_modify', year + '-' + month + '-' + day, clientId + ' [' + changeDesc + '] ' + trimmed);
+    sendPushToClient(clientId, 'modified', 'Rendelésed módosítva ✏️', MONTHS[month] + ' ' + day + '.' + (trimmed ? ' – ' + trimmed : '') + ' Kérjük fogadd el.');
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); console.error('saveModify:', e); }
 }
@@ -156,6 +158,7 @@ async function cancelOrder(clientId, year, month, day, clientName) {
     D.orderStatus[ok(clientId, year, month, day)] = { status: 'cancelled' };
     toast('❌ Rendelés visszavonva.');
     await auditLog('order_cancel', year + '-' + month + '-' + day, clientId);
+    sendPushToClient(clientId, 'cancelled', 'Rendelés visszavonva ❌', MONTHS[month] + ' ' + day + '. napi rendelésedet visszavontuk.');
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }

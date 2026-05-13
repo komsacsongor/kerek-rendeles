@@ -19,7 +19,8 @@
   },
   "homepage": "https://github.com/komsacsongor/kerek-rendeles#readme",
   "devDependencies": {
-    "jest": "^30.4.2"
+    "jest": "^30.4.2",
+    "web-push": "^3.6.7"
   },
   "jest": {
     "testEnvironment": "node",

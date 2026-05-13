@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.14.7 (2026-05-13)';
+const APP_VERSION = 'v2.15.0 (2026-05-13)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -63,4 +63,18 @@ async function auditLog(action, entityName='', details='') {
       body: JSON.stringify({action, entity_name: entityName, details})
     });
   } catch(e) { console.warn('Audit log hiba:', e.message); }
+}
+
+// ===== PUSH NOTIFICATION SENDER =====
+const PUSH_FN_URL = 'https://lfaxeihrmiylggahougl.supabase.co/functions/v1/send-push';
+const PUSH_ANON = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
+
+async function sendPushToClient(clientId, type, title, body) {
+  try {
+    await fetch(PUSH_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + PUSH_ANON },
+      body: JSON.stringify({ client_id: clientId, type, title, body, url: '/kerek-rendeles/vevo.html' })
+    });
+  } catch(e) { console.warn('Push send failed:', e.message); }
 }

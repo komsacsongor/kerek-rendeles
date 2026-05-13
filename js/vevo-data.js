@@ -155,6 +155,7 @@ async function doLogin() {
     updateHeroTotal();
     loadMessage();
     renderHelpConditions();
+    initPushSubscription();
     // Üzenetek auto-frissítése 30 másodpercenként
     if(window._msgPollTimer) clearInterval(window._msgPollTimer);
     window._msgPollTimer = setInterval(async ()=>{
@@ -182,3 +183,47 @@ async function doLogin() {
 }
 function logout() { localStorage.removeItem('kerek_vevo_data');
   localStorage.removeItem('kerek_data'); window.location.href = 'index.html'; }
+
+// ===== WEB PUSH =====
+const VAPID_PUBLIC_KEY = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!currentUser) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/kerek-rendeles/sw.js');
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await savePushSubscription(existing);
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    await savePushSubscription(sub);
+    toast('🔔 Értesítések bekapcsolva!');
+  } catch(e) { console.warn('Push init:', e.message); }
+}
+
+async function savePushSubscription(sub) {
+  if (!currentUser) return;
+  const j = sub.toJSON();
+  try {
+    await sb.upsert('push_subscriptions', {
+      client_id: currentUser.id,
+      endpoint: j.endpoint,
+      p256dh: j.keys.p256dh,
+      auth: j.keys.auth
+    }, 'client_id,endpoint');
+  } catch(e) { console.warn('Push save:', e.message); }
+}
