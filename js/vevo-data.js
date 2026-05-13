@@ -235,12 +235,11 @@ async function togglePushSubscription() {
   if (existing) {
     await existing.unsubscribe();
     await sb.delete('push_subscriptions', `client_id=eq.${currentUser.id}`);
-    document.getElementById('push-btn').style.opacity = '0.4';
-    document.getElementById('push-btn').title = 'Értesítések kikapcsolva';
     toast('🔕 Értesítések kikapcsolva.');
   } else {
     await initPushSubscription();
   }
+  await updatePushBtn();
 }
 
 async function updatePushBtn() {
