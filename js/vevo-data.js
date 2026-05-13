@@ -155,7 +155,7 @@ async function doLogin() {
     updateHeroTotal();
     loadMessage();
     renderHelpConditions();
-    initPushSubscription();
+    initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
     // Üzenetek auto-frissítése 30 másodpercenként
     if(window._msgPollTimer) clearInterval(window._msgPollTimer);
     window._msgPollTimer = setInterval(async ()=>{
@@ -226,4 +226,31 @@ async function savePushSubscription(sub) {
       auth: j.keys.auth
     }, 'client_id,endpoint');
   } catch(e) { console.warn('Push save:', e.message); }
+}
+
+async function togglePushSubscription() {
+  if (!currentUser) return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+    await sb.delete('push_subscriptions', `client_id=eq.${currentUser.id}`);
+    document.getElementById('push-btn').style.opacity = '0.4';
+    document.getElementById('push-btn').title = 'Értesítések kikapcsolva';
+    toast('🔕 Értesítések kikapcsolva.');
+  } else {
+    await initPushSubscription();
+  }
+}
+
+async function updatePushBtn() {
+  const btn = document.getElementById('push-btn');
+  if (!btn) return;
+  btn.style.display = 'inline-block';
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  const perm = Notification.permission;
+  if (perm === 'denied') { btn.style.opacity = '0.3'; btn.title = 'Értesítések tiltva (böngésző beállítás)'; btn.textContent = '🔕'; }
+  else if (sub) { btn.style.opacity = '1'; btn.title = 'Értesítések bekapcsolva – kattints a kikapcsoláshoz'; btn.textContent = '🔔'; }
+  else { btn.style.opacity = '0.5'; btn.title = 'Kattints az értesítések bekapcsolásához'; btn.textContent = '🔔'; }
 }
