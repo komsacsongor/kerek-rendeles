@@ -64,31 +64,41 @@ function renderOrderTable() {
       const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
       const stNote = orderSt.admin_note || '';
-      const rowBg = stStatus === 'confirmed' ? 'background:#f0fdf4' : stStatus === 'modified' ? 'background:#fffbeb' : stStatus === 'cancelled' ? 'background:#fff1f2' : '';
-      const stBadge = stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">✅ Jóváhagyva</span>'
-        : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">✏️ Módosítva</span>' + (stNote ? '<span style="font-size:0.72rem;color:#92400e;display:block;margin-top:2px;font-style:italic">' + esc(stNote) + '</span>' : '')
-        : stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:block;margin-top:3px">❌ Visszavonva</span>'
-        : '';
+      const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
+      const colCount = prods.length + 2; // date + products + total
 
       html += `<tr class="baking-row" id="row-${day}" style="${rowBg}">
         <td class="col-date">
           ${day}. <b>${dayName}</b>
           <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
-          ${stBadge}
-          ${stStatus === 'modified' ? `<button onclick="vevoConfirmOrder(${selectedYear},${selectedMonth},${day})" style="margin-top:5px;background:var(--teal-dark);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;display:block;width:100%">✅ Elfogadom</button>` : ''}
+          ${stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">✅ Jóváhagyva</span>' : ''}
+          ${stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">❌ Visszavonva</span>' : ''}
         </td>`;
       prods.forEach(p => {
         const val = rowOrders[p.id] || '';
         const disabled = isOver || isLocked || stStatus === 'cancelled' ? 'disabled' : '';
-        const cls = val ? 'has-value' : '';
+        const isModifiedProd = stStatus === 'modified' && val !== '' && parseInt(val) !== ((appData._origOrders && appData._origOrders[key] && appData._origOrders[key][p.id]) || parseInt(val));
+        const cls = (val ? 'has-value' : '') + (stStatus === 'modified' ? ' mod-cell' : '');
         colTotals[p.id] += (rowOrders[p.id]||0);
-        html += `<td><input type="number" min="0" max="99" value="${val}" placeholder="0"
-          class="${cls}" ${disabled}
+        html += `<td style="${stStatus==='modified'&&val?'background:#fffbeb':''}""><input type="number" min="0" max="99" value="${val}" placeholder="0"
+          class="${val?'has-value':''}" ${disabled}
           data-day="${day}" data-pid="${p.id}"
           onchange="handleOrderChange(${day},${p.id},this)"
           oninput="handleOrderChange(${day},${p.id},this)"></td>`;
       });
       html += `<td style="font-weight:700;color:var(--teal-dark)">${rowTotal||'—'}</td></tr>`;
+
+      // Option A: slim info sáv módosított sorok után
+      if(stStatus === 'modified') {
+        html += `<tr style="background:#fffbeb">
+          <td colspan="${colCount}" style="padding:0">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-left:3px solid #f59e0b;border-bottom:1px solid #fde68a">
+              <span style="font-size:0.88rem;color:#92400e;font-weight:600">✏️ A pékség módosította ezt a napot${stNote ? ': ' + esc(stNote) : ''}</span>
+              <button onclick="vevoConfirmOrder(${selectedYear},${selectedMonth},${day})" style="margin-left:auto;background:#064C48;color:#EFB036;border:none;border-radius:8px;padding:7px 20px;font-size:0.84rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.02em">✅ Elfogadom a módosítást</button>
+            </div>
+          </td>
+        </tr>`;
+      }
     }
   });
 

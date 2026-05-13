@@ -197,29 +197,40 @@ async function loadMessage() {
   const msgs = appData.messages?.[key] || [];
   const el = document.getElementById('order-messages-display');
   if(!el) return;
-  if(msgs.length===0){ el.innerHTML=''; return; }
   const adminMsgs = msgs.filter(m => (m.text||'').startsWith('📨 Admin:'));
   const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));
   if(adminMsgs.length===0 && clientMsgs.length===0){ el.innerHTML=''; return; }
-  let html = '';
-  if(adminMsgs.length > 0) {
-    html += '<div style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);margin-bottom:6px">📨 Pékség üzenetei</div>' +
-    adminMsgs.map(m=>{
+
+  const monthLabel = MONTHS[selectedMonth] + ' ' + selectedYear;
+  let html = '<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">';
+  html += '<div style="font-size:0.8rem;font-weight:700;color:var(--teal-dark);margin-bottom:12px;display:flex;align-items:center;gap:6px">💬 Üzenetek – ' + monthLabel + '</div>';
+
+  // All messages in chronological order, styled by sender
+  const allMsgs = msgs.map((m,origIdx) => ({...m, origIdx})).sort((a,b) => new Date(a.ts||0)-new Date(b.ts||0));
+  const clientMsgsIdx = clientMsgs.map((m,i) => ({m, i}));
+
+  allMsgs.forEach(m => {
+    const isAdmin = (m.text||'').startsWith('📨 Admin:');
+    const dt = new Date(m.ts||Date.now()).toLocaleString('hu-HU', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    if(isAdmin) {
       const txt = m.text.replace('📨 Admin:','').trim();
-      const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
-      return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f0fff4;border-left:3px solid #059669;border-radius:6px;padding:8px 12px;"><div style="font-size:0.7rem;color:#065f46;margin-bottom:3px">👩‍💼 <b>KEREK Pékség</b> · ${dt}</div><div>${esc(txt)}</div></div>`;
-    }).join('');
-  }
-  if(clientMsgs.length > 0) {
-    html += '<div style="font-size:0.78rem;font-weight:600;color:var(--text-soft);margin:10px 0 6px">💬 Az én üzeneteim</div>' +
-    clientMsgs.map((m,i)=>{
-      const dt = new Date(m.ts||Date.now()).toLocaleDateString('hu-HU');
-      return `<div style="margin-bottom:8px;font-size:0.82rem;background:#f8f8f8;border-left:3px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Te · ${dt}</div><div>${esc(m.text||'')}</div></div>
-        <button onclick="deleteMyMessage(${i})" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.9rem;padding:0 4px;flex-shrink:0" title="Törlés">✕</button>
-      </div>`;
-    }).join('');
-  }
+      html += '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">';
+      html += '<div style="width:28px;height:28px;border-radius:50%;background:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">🏪</div>';
+      html += '<div style="flex:1"><div style="background:#f0fdf9;border:1px solid #a7f3d0;border-radius:0 10px 10px 10px;padding:8px 12px;font-size:0.84rem">' + esc(txt) + '</div>';
+      html += '<div style="font-size:0.68rem;color:var(--text-soft);margin-top:3px;padding-left:4px">KEREK Pékség · ' + dt + '</div></div></div>';
+    } else {
+      const clientIdx = clientMsgsIdx.findIndex(x => x.m.text===m.text && x.m.ts===m.ts);
+      const ci = clientIdx >= 0 ? clientMsgsIdx[clientIdx].i : -1;
+      html += '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;flex-direction:row-reverse">';
+      html += '<div style="width:28px;height:28px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">👤</div>';
+      html += '<div style="flex:1;text-align:right"><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px 0 10px 10px;padding:8px 12px;font-size:0.84rem;display:inline-block;text-align:left">' + esc(m.text||'') + '</div>';
+      html += '<div style="font-size:0.68rem;color:var(--text-soft);margin-top:3px;padding-right:4px">Te · ' + dt;
+      if(ci >= 0) html += ' <button onclick="deleteMyMessage(' + ci + ')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.75rem;padding:0 2px;vertical-align:middle" title="Törlés">✕</button>';
+      html += '</div></div></div>';
+    }
+  });
+
+  html += '</div>';
   el.innerHTML = html;
 }
 
