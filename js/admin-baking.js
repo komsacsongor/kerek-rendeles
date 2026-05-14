@@ -189,9 +189,20 @@ function renderBaking(){
     });
 
     const allConfirmed = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='confirmed';});
-    const confirmBtnHtml = totalQty > 0
-      ? '<button onclick="event.stopPropagation();confirmDay(' + y + ',' + m + ',' + day + ')" style="background:' + (allConfirmed?'#dcfce7':'var(--gold)') + ';color:' + (allConfirmed?'#166534':'var(--teal-dark)') + ';border:none;border-radius:8px;padding:5px 12px;font-size:0.76rem;font-weight:600;cursor:pointer">' + (allConfirmed?'✅ Mind jóváhagyva':'✅ Mindent jóváhagy') + '</button>'
-      : '';
+    const hasPending = dayClients.some(function(x){return x.st.status==='pending';});
+    const hasNoOrders = totalQty === 0;
+
+    // Fejléc státusz badge (összecsukva is látható)
+    var headerBadge;
+    if (hasNoOrders) {
+      headerBadge = '<span style="background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);border-radius:6px;padding:3px 10px;font-size:0.75rem">Üres</span>';
+    } else if (allConfirmed) {
+      headerBadge = '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700">✅ Rendben</span>';
+    } else if (hasPending) {
+      headerBadge = '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700;animation:pulse 1s infinite">⚠️ Jóváhagyás szükséges</span>';
+    } else {
+      headerBadge = '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700">✏️ Módosított</span>';
+    }
 
     html+='<div class="baking-day-card">';
     html+='<div class="baking-day-head" onclick="toggleBakingDay(this)" style="cursor:pointer">';
@@ -199,10 +210,17 @@ function renderBaking(){
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
     html+='<span class="badge badge-teal">' + totalQty + ' db</span>';
     html+='<span class="badge badge-gold">' + totalRev + ' lej</span>';
-    html+=confirmBtnHtml;
+    html+=headerBadge;
     html+='<span style="color:white;font-size:0.8rem">▾</span>';
     html+='</div></div>';
+    // Confirm gomb a body-ban van (csak nyitott állapotban látható)
+    var confirmBtnInBody = (!hasNoOrders && !allConfirmed)
+      ? '<div style="padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px">' +
+        '<button onclick="confirmDay(' + y + ',' + m + ',' + day + ')" style="background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;width:100%">✅ Mindent jóváhagy</button>' +
+        '</div>'
+      : '';
     html+='<div class="baking-day-body">';
+    html+=confirmBtnInBody;
 
     activeP.forEach(function(p){
       const totalForP=aggr[p.id]||0;
