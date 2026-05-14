@@ -61,34 +61,6 @@ async function save() {
 }
 
 
-async function seedInitialData() {
-  // Egyszer fut le, ha a products tábla üres – beírja az alapadatokat Supabase-be
-  console.log('Seeding initial products to Supabase...');
-  const seedProducts = [
-    {id:1,name:'Kovászos prémium kenyér',weight:'500 g',price:23,category:'Kenyér',description:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium. Allergenek: GLUTÉNMENTES.'},
-    {id:2,name:'Kovászos prémium kenyér',weight:'1000 g',price:35,category:'Kenyér',description:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium. Allergenek: GLUTÉNMENTES.'},
-    {id:3,name:'„Diabétesz" kenyér',weight:'1000 g',price:38,category:'Kenyér',description:'Alacsony glikémiás indexű. GLUTÉNMENTES.'},
-    {id:4,name:'Fehér kenyér',weight:'1000 g',price:32,category:'Kenyér',description:'Gluténmentes fehér kenyér.'},
-    {id:5,name:'Kovászos bagett',weight:'360 g',price:16,category:'Bagett / zsömle',description:'Ropogós héjú bagett. GLUTÉNMENTES.'},
-    {id:6,name:'Kovászos zsömle',weight:'100 g',price:6,category:'Bagett / zsömle',description:'Kis méretű zsömle. GLUTÉNMENTES.'},
-    {id:7,name:'Guilt free kuglóf',weight:'260 g',price:29,category:'Sütemény',description:'Cukor- és gluténmentes kuglóf.'},
-    {id:8,name:'Sós sütemény',weight:'100 g',price:12,category:'Sütemény',description:'Ropogós sós sütemény. GLUTÉNMENTES.'},
-    {id:9,name:'Mákos/diós kifli',weight:'100 g',price:12,category:'Sütemény',description:'Gluténmentes kifli.'},
-    {id:10,name:'Szilvás gombóc',weight:'60 g',price:6,category:'Sütemény',description:'Gluténmentes gombóc.'},
-  ];
-  try {
-    // Batch insert – egy HTTP kérés
-    await sb.insert('products', seedProducts, true);
-    const demoClients = [
-      {id:'anna',name:'Kovács Anna',email:'anna@example.com',phone:'+40 740 111 222',join_date:'2025-09-01'},
-      {id:'bela',name:'Nagy Béla',email:'bela@example.com',phone:'+40 750 333 444',join_date:'2025-11-15'},
-      {id:'cica',name:'Fekete Cica',email:'cica@example.com',phone:'+40 760 555 666',join_date:'2026-01-10'},
-    ];
-    await sb.insert('clients', demoClients, true);
-    console.log('Seed complete. Reloading...');
-    await loadAllData();
-  } catch(e) { console.error('Seed error:', e); }
-}
 
 async function loadAllData() {
   localStorage.removeItem('kerek_data'); // legacy kulcs törlése
@@ -104,7 +76,7 @@ async function loadAllData() {
         allergens: p.allergens || '', nutrition: p.nutrition || null,
         familyId: p.product_family_id || null
       }));
-    } else { await seedInitialData(); }
+    } else { D.products = []; } // Üres DB = üres lista (seed eltávolítva)
   } catch(e) { console.error('loadAllData [products]:', e.message); }
 
   try {
