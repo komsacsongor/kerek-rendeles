@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.15.3"></script>
-<script src="supabase.js?v=2.15.3"></script>
+<script src="kerek-constants.js?v=2.16.0"></script>
+<script src="supabase.js?v=2.16.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -438,6 +438,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       <div class="flex gap-8">
         <button class="btn btn-ghost btn-sm" id="catalog-tab-products" onclick="switchCatalogTab('products')" style="border-bottom:2px solid var(--teal-dark)">📦 Termékek</button>
         <button class="btn btn-ghost btn-sm" id="catalog-tab-families" onclick="switchCatalogTab('families')">🔗 Termékcsaládok</button>
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-archive" onclick="switchCatalogTab('archive')">🗂️ Archívum</button>
       </div>
       <button class="btn btn-primary" onclick="openProductModal()">＋ Új termék</button>
     </div>
@@ -457,6 +458,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         </div>
       </div>
     </div>
+    <!-- Archívum nézet -->
+    <div id="catalog-archive-view" style="display:none">
+      <div class="card"><div class="card-header"><div class="card-title">🗂️ Archivált termékek</div></div>
+      <div class="card-body" id="archived-products"></div></div>
+    </div>
+
     <!-- Termékcsaládok nézet -->
     <div id="catalog-families-view" style="display:none">
       <div id="families-grid"></div>
@@ -893,14 +900,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div></div>
 
-<script src="js/admin-data.js?v=2.15.3"></script>
-<script src="js/admin-ui.js?v=2.15.3"></script>
-<script src="js/admin-messages.js?v=2.15.3"></script>
-<script src="js/admin-baking.js?v=2.15.3"></script>
-<script src="js/admin-orders.js?v=2.15.3"></script>
-<script src="js/admin-catalog.js?v=2.15.3"></script>
-<script src="js/admin-clients.js?v=2.15.3"></script>
-<script src="js/admin-reports.js?v=2.15.3"></script>
-<script src="js/admin-settings.js?v=2.15.3"></script>
+<script src="js/admin-data.js?v=2.16.0"></script>
+<script src="js/admin-ui.js?v=2.16.0"></script>
+<script src="js/admin-messages.js?v=2.16.0"></script>
+<script src="js/admin-baking.js?v=2.16.0"></script>
+<script src="js/admin-orders.js?v=2.16.0"></script>
+<script src="js/admin-catalog.js?v=2.16.0"></script>
+<script src="js/admin-clients.js?v=2.16.0"></script>
+<script src="js/admin-reports.js?v=2.16.0"></script>
+<script src="js/admin-settings.js?v=2.16.0"></script>
 </body>
 </html>

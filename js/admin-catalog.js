@@ -22,7 +22,8 @@ function renderCatalog(){
     ${allCats.map(cat=>`<button class="btn ${activeCat===cat?'btn-primary':'btn-ghost'} btn-sm" onclick="setCatalogFilter('${esc(cat)}')">${esc(cat)}</button>`).join('')}
   </div>`;
   
-  const filtered = activeCat==='all' ? D.products : D.products.filter(p=>(p.category||'Egyéb')===activeCat);
+  const nonDeleted = D.products.filter(p => !p.deleted_at);
+  const filtered = activeCat==='all' ? nonDeleted : nonDeleted.filter(p=>(p.category||'Egyéb')===activeCat);
   const active = D.monthlyActiveProducts[`${y}-${m}`] || [];
 
   const productCard = (p, isActive) => {
@@ -36,6 +37,7 @@ function renderCatalog(){
         <div style="font-size:0.72rem;color:var(--text-soft)">${p.weight||''} · ${p.price||0} lej</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})" style="flex-shrink:0">✏️</button>
+      <button class="btn btn-ghost btn-sm" onclick="archiveProduct(${p.id})" style="flex-shrink:0;color:#b45309" title="Archiválás">🗂️</button>
 
       <button class="btn ${isActive?'btn-danger':'btn-primary'} btn-sm" onclick="toggleProduct(${p.id})" style="flex-shrink:0">${isActive?'–':'+'}</button>
     </div>`;
@@ -69,22 +71,75 @@ function toggleProduct(id){
   toast(idx>-1?'Termék eltávolítva a hónapból':'Termék aktiválva');
 }
 
-async function deleteProduct(id) {
+async function archiveProduct(id) {
   const p = D.products.find(p=>p.id===id);
   if(!p) return;
-  if(!confirm('Biztosan törlöd: "' + esc(p.name) + '"?\nA havi aktiválások is törlődnek.')) return;
-  auditLog('product_delete', p.name, `ID: ${id}`);
-  D.products = D.products.filter(x=>x.id!==id);
-  Object.keys(D.monthlyActiveProducts).forEach(k=>{
-    D.monthlyActiveProducts[k] = (D.monthlyActiveProducts[k]||[]).filter(x=>x!==id);
-  });
+  if(!confirm('Archiválod: "' + p.name + '"?\n\nA termék eltűnik a katalógusból, nem rendelhető.\nA múltbeli statisztikákban megmarad.\nVisszaallítí tható az archívumból.')) return;
+  const now = new Date().toISOString();
   try {
+    await sb.upsert('products', {...p, deleted_at: now}, 'id');
+    const relRecipes = await sb.query('recipes', {filter: 'product_id=eq.'+id, limit: 10});
+    for (const r of (relRecipes||[])) {
+      if (!r.archived) await sb.upsert('recipes', {...r, archived: true}, 'id');
+    }
     await sb.delete('monthly_active_products', 'product_id=eq.'+id);
-    await sb.delete('products', 'id=eq.'+id);
-    toast('Termék törölve.');
-  } catch(e) { toast('⚠️ Törlés sikertelen: '+e.message, true); }
-  save(); renderCatalog();
+    const idx = D.products.findIndex(x=>x.id===id);
+    if(idx>=0) D.products[idx].deleted_at = now;
+    Object.keys(D.monthlyActiveProducts).forEach(k=>{
+      D.monthlyActiveProducts[k] = (D.monthlyActiveProducts[k]||[]).filter(x=>x!==id);
+    });
+    await auditLog('product_archive', p.name, 'ID: '+id);
+    toast('🗂️ Termék archiválva.');
+    save(); renderCatalog(); renderArchive();
+  } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
 }
+
+async function restoreProduct(id) {
+  const p = D.products.find(p=>p.id===id);
+  if(!p) return;
+  try {
+    const updated = Object.assign({}, p, {deleted_at: null});
+    await sb.upsert('products', updated, 'id');
+    const idx = D.products.findIndex(x=>x.id===id);
+    if(idx>=0) D.products[idx].deleted_at = null;
+    await auditLog('product_restore', p.name, 'ID: '+id);
+    toast('✅ Termék visszaallítva.');
+    save(); renderCatalog(); renderArchive();
+  } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
+}
+
+async function permanentDeleteProduct(id) {
+  const p = D.products.find(p=>p.id===id);
+  if(!p) return;
+  if(!confirm('VÉGLEGES törlés: "' + p.name + '"?\n\nEz nem visszavonható!')) return;
+  try {
+    await sb.delete('products', 'id=eq.'+id);
+    D.products = D.products.filter(x=>x.id!==id);
+    await auditLog('product_delete_permanent', p.name, 'ID: '+id);
+    toast('❌ Termék véglegesen törölve.');
+    save(); renderCatalog(); renderArchive();
+  } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
+}
+
+function renderArchive() {
+  const archived = D.products.filter(p => p.deleted_at);
+  const el = document.getElementById('archived-products');
+  if (!el) return;
+  if (!archived.length) { el.innerHTML = '<p class="text-soft text-sm">Nincsenek archivált termékek.</p>'; return; }
+  el.innerHTML = archived.map(function(p) {
+    const dt = new Date(p.deleted_at).toLocaleDateString('hu-HU');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:0.85rem">' + esc(p.name) +
+      ' <span style="color:var(--text-soft);font-size:0.72rem;font-weight:400">– archiválva: ' + dt + '</span></div>' +
+      '<div style="font-size:0.72rem;color:var(--text-soft)">' + (p.weight||'') + ' · ' + (p.price||0) + ' lej · ' + (p.category||'Egyéb') + '</div></div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="restoreProduct(' + p.id + ')" style="color:#059669" title="Visszaallítás">↩️ Vissza</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="permanentDeleteProduct(' + p.id + ')" style="color:#b91c1c" title="Végleges törlés">🗑️</button>' +
+      '</div>';
+  }).join('');
+}
+
+function deleteProduct(id) { archiveProduct(id); }
+
 
 function openProductModal(id=null){
   editingProductId=id;
@@ -380,20 +435,25 @@ function updateFamilyPreview() {
 function switchCatalogTab(tab) {
   const prodView = document.getElementById('catalog-products-view');
   const famView = document.getElementById('catalog-families-view');
+  const arcView = document.getElementById('catalog-archive-view');
   const tabProd = document.getElementById('catalog-tab-products');
   const tabFam = document.getElementById('catalog-tab-families');
+  const tabArc = document.getElementById('catalog-tab-archive');
+
+  [prodView, famView, arcView].forEach(v => { if(v) v.style.display = 'none'; });
+  [tabProd, tabFam, tabArc].forEach(t => { if(t) t.style.borderBottom = ''; });
 
   if (tab === 'families') {
-    prodView.style.display = 'none';
-    famView.style.display = 'block';
-    tabProd.style.borderBottom = '';
-    tabFam.style.borderBottom = '2px solid var(--teal-dark)';
+    if(famView) famView.style.display = 'block';
+    if(tabFam) tabFam.style.borderBottom = '2px solid var(--teal-dark)';
     renderFamilies();
+  } else if (tab === 'archive') {
+    if(arcView) arcView.style.display = 'block';
+    if(tabArc) tabArc.style.borderBottom = '2px solid var(--teal-dark)';
+    renderArchive();
   } else {
-    famView.style.display = 'none';
-    prodView.style.display = 'block';
-    tabFam.style.borderBottom = '';
-    tabProd.style.borderBottom = '2px solid var(--teal-dark)';
+    if(prodView) prodView.style.display = 'block';
+    if(tabProd) tabProd.style.borderBottom = '2px solid var(--teal-dark)';
   }
 }
 

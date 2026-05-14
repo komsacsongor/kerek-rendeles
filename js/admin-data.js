@@ -34,7 +34,7 @@ let D = { _v: 'supabase', seenMsgs: {},
     'anna-2026-4':[{text:'Kedden inkább délután tudok átvenni, jó?',ts:'2026-04-01T09:12:00'}],
     'bela-2026-4':[{text:'A bagettből 2-t kérek extra ha van.',ts:'2026-04-04T11:30:00'}],
   },
-  categories:['Kenyér','Bagett / zsömle','Sütemény','Egyéb'],
+  categories:[],
   settings:{lang:'hu',currency:'lej',adminPw:'admin'},
   bakingDaysDefault:[2,5],
   bakingCalendar:{
