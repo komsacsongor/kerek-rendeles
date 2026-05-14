@@ -1,5 +1,178 @@
 // ===== SETTINGS =====
+// ===== SHARED CATEGORIES (from admin) =====
+function renderRCategories() {
+  const el = document.getElementById('r-categories-list');
+  if (!el) return;
+  const cats = R.settings?.categories || [];
+  if (cats.length === 0) {
+    el.innerHTML = '<p class="text-soft text-sm">Nincs termék kategória. Add hozzá lent.</p>';
+    return;
+  }
+  el.innerHTML = cats.map((cat, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
+      <span style="font-size:0.85rem;font-weight:600">${esc(cat)}</span>
+      <button onclick="deleteRCategory(${i})" class="btn btn-ghost btn-sm" style="color:var(--red,#dc2626);font-size:0.75rem">✕</button>
+    </div>`).join('');
+}
+
+async function addRCategory() {
+  const val = document.getElementById('r-new-cat-input')?.value?.trim();
+  if (!val) { toast('Add meg a kategória nevét!', true); return; }
+  const cats = R.settings?.categories || [];
+  if (cats.includes(val)) { toast('Ez a kategória már létezik!', true); return; }
+  cats.push(val);
+  if (!R.settings) R.settings = {};
+  R.settings.categories = cats;
+  try {
+    await sb.setSetting('categories', cats);
+    save();
+    renderRCategories();
+    document.getElementById('r-new-cat-input').value = '';
+    // Update recipe modal category dropdown
+    const sel = document.getElementById('r-category');
+    if (sel) sel.innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
+    toast('✅ Kategória hozzáadva!');
+  } catch(e) { toast('⚠️ Mentés sikertelen: '+e.message, true); }
+}
+
+async function deleteRCategory(i) {
+  const cats = R.settings?.categories || [];
+  const cat = cats[i];
+  if (!cat) return;
+  const linked = R.recipes.filter(r => r.category === cat);
+  if (linked.length > 0) {
+    toast(`⚠️ Nem törölhető: ${linked.length} recept használja. Előbb rendeld át!`, true);
+    return;
+  }
+  if (!confirm(`Törlöd a(z) "${cat}" kategóriát?`)) return;
+  cats.splice(i, 1);
+  R.settings.categories = cats;
+  try {
+    await sb.setSetting('categories', cats);
+    save(); renderRCategories();
+    toast('Kategória törölve.');
+  } catch(e) { toast('⚠️ Mentés sikertelen: '+e.message, true); }
+}
+
+// ===== STOCK INTAKE (Bevételezés) =====
+function openStockIntakeModal(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const currentStock = getTotalStock(ing);
+
+  // Build supplier options
+  const suppliers = ing.suppliers || [];
+  const supplierOpts = suppliers.map((s,i) =>
+    `<option value="${i}">${esc(s.source||s.name||'?')} – ${s.pricePerKg||0} lej/kg</option>`
+  ).join('');
+
+  const modal = document.getElementById('stock-intake-modal') || (() => {
+    const m = document.createElement('div');
+    m.id = 'stock-intake-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(m);
+    return m;
+  })();
+
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0">📦 Bevételezés</h3>
+      <button onclick="document.getElementById('stock-intake-modal').style.display='none'" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-soft)">✕</button>
+    </div>
+    <div style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:0.95rem;color:var(--teal-dark)">${esc(ing.name)}</div>
+      <div style="font-size:0.82rem;color:var(--text-soft);margin-top:4px">Jelenlegi készlet: <b>${currentStock.toLocaleString()} g</b></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Bevételezett mennyiség (g)</label>
+      <input type="number" id="si-amount" min="0" step="100" placeholder="pl. 2000"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Egységár (lej/kg) – opcionális</label>
+      <input type="number" id="si-price" min="0" step="0.1" placeholder="pl. 8.5"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Beszállító</label>
+      ${suppliers.length > 0 ? `<select id="si-supplier-select" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;margin-bottom:8px">
+        ${supplierOpts}
+        <option value="new">+ Új beszállító</option>
+      </select>` : ''}
+      <input type="text" id="si-supplier-name" placeholder="Beszállító neve (pl. BioMart Sf)"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box;${suppliers.length > 0 ? 'display:none' : ''}">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmStockIntake(${ingId})" class="btn btn-primary" style="flex:1">✅ Bevételezés rögzítése</button>
+    </div>
+    <div style="margin-top:10px;font-size:0.75rem;color:var(--text-soft);text-align:center">
+      A bevételezés hozzáadódik a meglévő készlethez
+    </div>
+  </div>`;
+
+  // Toggle new supplier input
+  const sel = modal.querySelector('#si-supplier-select');
+  if (sel) {
+    sel.onchange = () => {
+      const nameInput = modal.querySelector('#si-supplier-name');
+      if (nameInput) nameInput.style.display = sel.value === 'new' ? 'block' : 'none';
+    };
+  }
+
+  modal.style.display = 'flex';
+  setTimeout(() => modal.querySelector('#si-amount')?.focus(), 100);
+}
+
+async function confirmStockIntake(ingId) {
+  const amountEl = document.getElementById('si-amount');
+  const priceEl = document.getElementById('si-price');
+  const supplierSel = document.getElementById('si-supplier-select');
+  const supplierNameEl = document.getElementById('si-supplier-name');
+
+  const amount = parseFloat(amountEl?.value) || 0;
+  if (amount <= 0) { toast('⚠️ Add meg a mennyiséget!', true); return; }
+
+  const price = parseFloat(priceEl?.value) || 0;
+  const supplierName = supplierSel?.value === 'new' || !supplierSel
+    ? (supplierNameEl?.value?.trim() || '')
+    : supplierSel.options[supplierSel.selectedIndex]?.text?.split(' – ')[0] || '';
+
+  const ing = getIng(ingId);
+  if (!ing) return;
+
+  // Add to stock
+  const newStock = (R.stock[ingId] || 0) + amount;
+  R.stock[ingId] = newStock;
+
+  // Update price if provided (add/update supplier)
+  if (price > 0 && supplierName) {
+    if (!ing.suppliers) ing.suppliers = [];
+    const existing = ing.suppliers.find(s => (s.source||s.name||'') === supplierName);
+    if (existing) { existing.pricePerKg = price; }
+    else { ing.suppliers.push({ source: supplierName, name: supplierName, pricePerKg: price }); }
+    // Save ingredients update
+    try {
+      const ingIdx = R.ingredients.findIndex(i => i.id === ingId);
+      if (ingIdx >= 0) {
+        R.ingredients[ingIdx].suppliers = ing.suppliers;
+        await sb.upsert('recipe_ingredients', { id: ingId, suppliers: JSON.stringify(ing.suppliers) }, 'id');
+      }
+    } catch(e) { console.warn('Supplier save:', e.message); }
+  }
+
+  // Save stock to Supabase settings
+  try {
+    await sb.setSetting('recipe_stock', R.stock);
+    save();
+    document.getElementById('stock-intake-modal').style.display = 'none';
+    toast(`✅ Bevételezve: ${amount.toLocaleString()} g ${ing.name}. Új készlet: ${newStock.toLocaleString()} g`);
+    renderStock();
+    renderStockAlerts();
+  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
+}
+
 function renderSettings() {
+  if(document.getElementById('r-categories-list')) renderRCategories();
   if(document.getElementById('s-api-key') && R.settings?.apiKey) {
     document.getElementById('s-api-key').value = R.settings.apiKey;
   }

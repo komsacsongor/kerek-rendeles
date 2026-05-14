@@ -135,6 +135,7 @@ function renderStock() {
       </td>
       <td class="num text-soft">${min.toLocaleString()} g</td>
       <td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'✓ Rendben':'⚠ Alacsony'}</span></td>
+      <td><button onclick="openStockIntakeModal(${ing.id})" class="btn btn-ghost btn-sm" style="color:var(--teal-dark)" title="Bevételezés">📦 +</button></td>
     </tr>`;
   }).join('');
 }
