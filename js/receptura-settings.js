@@ -57,17 +57,17 @@ async function syncRecipeToSupabase(data, existingId) {
   // Supabase-ből ellenőrizzük, nem cache-ből (cache lehet üres!)
   if (!data.product_id) {
     try {
-      const existing = await sb.query('products', {
-        filter: `name=eq.${encodeURIComponent(data.name.trim())}`,
-        limit: 1
-      });
-      if (existing && existing.length > 0) {
-        toast(`⚠️ Már létezik "${existing[0].name}" nevű termék. Válassz más nevet vagy linkeld a meglévőhöz!`, true);
+      const allProds = await sb.query('products', { limit: 500 });
+      const nameToCheck = (data.name||'').trim().toLowerCase();
+      const existing = (allProds||[]).find(p =>
+        (p.name||'').trim().toLowerCase() === nameToCheck && !p.deleted_at
+      );
+      if (existing) {
+        toast(`⚠️ Már létezik "${existing.name}" nevű termék. Válassz más nevet vagy linkeld a meglévőhöz!`, true);
         return;
       }
     } catch(dupCheckErr) {
       console.warn('Névütközés check sikertelen:', dupCheckErr.message);
-      // Ne blokkoljuk a mentést ha a check maga hibás
     }
   }
   try {
