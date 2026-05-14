@@ -54,13 +54,20 @@ async function saveBakingSettings() {
 
 async function syncRecipeToSupabase(data, existingId) {
   // Névütközés ellenőrzés – csak új terméknél (nincs product_id)
+  // Supabase-ből ellenőrizzük, nem cache-ből (cache lehet üres!)
   if (!data.product_id) {
-    const existing = _adminProductsCache.find(p =>
-      p.name.trim().toLowerCase() === (data.name||'').trim().toLowerCase()
-    );
-    if (existing) {
-      toast(`⚠️ Már létezik "${existing.name}" nevű termék (kód: ${existing.code||existing.id}). Válassz más nevet!`, true);
-      return;
+    try {
+      const existing = await sb.query('products', {
+        filter: `name=eq.${encodeURIComponent(data.name.trim())}`,
+        limit: 1
+      });
+      if (existing && existing.length > 0) {
+        toast(`⚠️ Már létezik "${existing[0].name}" nevű termék. Válassz más nevet vagy linkeld a meglévőhöz!`, true);
+        return;
+      }
+    } catch(dupCheckErr) {
+      console.warn('Névütközés check sikertelen:', dupCheckErr.message);
+      // Ne blokkoljuk a mentést ha a check maga hibás
     }
   }
   try {
@@ -124,6 +131,7 @@ async function syncRecipeToSupabase(data, existingId) {
       ...(data.familyId !== undefined ? {product_family_id: data.familyId||null} : {}),
     };
     let prodId = data.product_id || null;
+    let newlyCreatedProdId = null; // rollback-hez
     if (prodId) {
       // Meglévő termék frissítése (kód nem változik)
       await sb.update('products', productPayload, `id=eq.${prodId}`);
@@ -131,11 +139,21 @@ async function syncRecipeToSupabase(data, existingId) {
       // Új termék – Supabase generálja az ID-t, kód az ID alapján
       const savedProd = await sb.insert('products', productPayload);
       prodId = savedProd[0].id;
+      newlyCreatedProdId = prodId; // rollback-hez megjegyezzük
       const autoCode = generateProductCode(data.name, data.category||'Kenyér', prodId);
       await sb.update('products', {code: autoCode}, `id=eq.${prodId}`);
     }
     // Visszalinkeljük a product_id-t a recepthez
-    await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
+    try {
+      await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
+    } catch(linkErr) {
+      // Rollback: ha az új termék már létrejött de a link sikertelen, töröljük
+      if (newlyCreatedProdId) {
+        try { await sb.delete('products', `id=eq.${newlyCreatedProdId}`); } catch(e) {}
+        try { await sb.delete('recipes', `id=eq.${recId}`); } catch(e) {}
+      }
+      throw linkErr; // továbbadjuk a catch-nek
+    }
     // Lokális R.recipes + D adatobjektum frissítése (product_id szinkron bug fix)
     const localRec = R.recipes.find(r => r.id === recId);
     if (localRec) {
