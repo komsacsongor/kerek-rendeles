@@ -150,8 +150,91 @@ function updateStock(id, val) {
 }
 
 function generateShoppingList() {
-  const needed = R.ingredients.filter(i=>(R.stock[i.id]||0) < (i.minStock||0));
-  if (needed.length===0) { toast('✅ Minden alapanyag elegendő!'); return; }
-  const list = needed.map(i=>`${i.name}: ${(i.minStock-(R.stock[i.id]||0)).toLocaleString()}g hiány`).join('\n');
-  alert('🛒 Bevásárló lista:\n\n'+list);
+  // Combine stock deficit + production needs if available
+  const productionNeeds = window._lastProductionNeeds || {};
+  const items = [];
+
+  R.ingredients.forEach(ing => {
+    const stock = getTotalStock(ing);
+    const minStock = ing.minStock || 0;
+    const needed = productionNeeds[ing.id]?.total || 0;
+    const required = Math.max(minStock, needed);
+    const deficit = Math.max(0, Math.round(required) - stock);
+    if (deficit <= 0 && needed <= 0) return;
+
+    items.push({
+      id: ing.id,
+      name: ing.name,
+      stock,
+      needed: Math.round(needed),
+      deficit,
+      minStock,
+      subType: ing.subType || 'other_dry',
+      supplier: ing.suppliers?.[0]?.source || '—',
+      checked: false
+    });
+  });
+
+  if (items.length === 0) {
+    toast('✅ Minden alapanyag elegendő!');
+    return;
+  }
+
+  // Render shopping list panel
+  const el = document.getElementById('shopping-list-panel');
+  if (!el) { toast('⚠️ Shopping list panel nem található!', true); return; }
+
+  const grouped = {};
+  items.forEach(it => {
+    if (!grouped[it.subType]) grouped[it.subType] = [];
+    grouped[it.subType].push(it);
+  });
+
+  const labels = {flour:'Lisztek',other_dry:'Száraz összetevők',wet:'Folyadékok',starter:'Kovász'};
+  const dayInfo = window._lastProductionDays?.length
+    ? `<span style="font-size:0.78rem;color:var(--text-soft)">(${window._lastProductionDays.length} sütési napra számolva)</span>`
+    : '<span style="font-size:0.78rem;color:var(--text-soft)">(csak készlet alapján)</span>';
+
+  let html = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
+    <div class="card-title">🛒 Bevásárló lista ${dayInfo}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="exportShoppingListCSV()" class="btn btn-ghost btn-sm">📥 CSV</button>
+      <button onclick="document.getElementById('shopping-list-panel').innerHTML=''" class="btn btn-ghost btn-sm" style="color:var(--text-soft)">✕</button>
+    </div>
+  </div><div class="card-body-np">`;
+
+  Object.entries(grouped).forEach(([st, grpItems]) => {
+    html += `<div style="padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-weight:700;font-size:0.8rem;color:var(--teal-dark);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">${labels[st]||st}</div>`;
+    grpItems.sort((a,b) => b.deficit - a.deficit).forEach(it => {
+      const urgency = it.deficit > 0 ? (it.stock === 0 ? '#fef2f2' : '#fffbeb') : '#f0fdf4';
+      const urgencyBorder = it.deficit > 0 ? (it.stock === 0 ? '#fca5a5' : '#fde68a') : '#86efac';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;margin-bottom:6px;background:${urgency};border:1px solid ${urgencyBorder};border-radius:8px">
+        <input type="checkbox" id="shop-${it.id}" style="width:16px;height:16px;accent-color:var(--teal);flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.84rem">${it.name}</div>
+          <div style="font-size:0.72rem;color:var(--text-soft)">
+            Készlet: <b>${it.stock.toLocaleString()}g</b>
+            ${it.needed > 0 ? ` · Szükséges: <b>${it.needed.toLocaleString()}g</b>` : ''}
+            ${it.supplier !== '—' ? ` · 🏪 ${it.supplier}` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;color:${it.deficit>0?'var(--red-dark)':'var(--green)'};font-size:0.9rem">
+            ${it.deficit > 0 ? `+${it.deficit.toLocaleString()}g` : '✓'}
+          </div>
+          ${it.deficit > 0 ? `<div style="font-size:0.7rem;color:var(--text-soft)">rendelni</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  const totalDeficit = items.filter(i=>i.deficit>0).length;
+  html += `<div style="padding:12px 16px;background:var(--teal-pale);font-size:0.82rem;color:var(--teal-dark);font-weight:600">
+    ${totalDeficit > 0 ? `⚠️ ${totalDeficit} alapanyagot kell rendelni` : '✅ Minden alapanyag elegendő a szükséges mennyiséghez'}
+  </div></div></div>`;
+
+  el.innerHTML = html;
+  el.scrollIntoView({behavior:'smooth', block:'start'});
 }

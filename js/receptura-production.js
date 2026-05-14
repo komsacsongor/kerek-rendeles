@@ -98,8 +98,42 @@ async function calcProductionPrep() {
     needs[ingId].cost += calcIngCost(ingId, amount);
   }
 
-  if(Object.keys(needs).length === 0) {
+  // Check if there were any orders at all (even without ingredient_id)
+  const hasAnyOrders = Object.values(dayBreakdown).some(day => Object.keys(day).length > 0);
+
+  if(!hasAnyOrders) {
     document.getElementById('prod-prep-result').innerHTML = '<p class="text-soft text-sm">Nincs rendelés a kiválasztott napokra.</p>';
+    return;
+  }
+
+  // Build order summary (always shown, regardless of ingredient links)
+  let orderSummaryHtml = '<div class="card mb-16"><div class="card-head"><div class="card-title">📋 Rendelési összesítő</div></div><div class="card-body-np">';
+  selected.forEach(dateStr => {
+    const dayData = dayBreakdown[dateStr];
+    if(!dayData || Object.keys(dayData).length === 0) return;
+    const [dy,dm,dd] = dateStr.split('-').map(Number);
+    const dow = new Date(dy,dm-1,dd).getDay();
+    const dayNames = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+    const MONTHS_HU=['jan','feb','már','ápr','máj','jún','júl','aug','sze','okt','nov','dec'];
+      orderSummaryHtml += `<div style="padding:10px 16px;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:0.85rem;color:var(--teal-dark);margin-bottom:6px">${dayNames[dow]}, ${dy}. ${MONTHS_HU[dm-1]}. ${dd}.</div>`;
+    Object.entries(dayData).forEach(([recipeId, pieces]) => {
+      const recipe = activeRecipes.find(r=>r.id===parseInt(recipeId));
+      if(!recipe) return;
+      const rawW = calcRawWeight(recipe, pieces);
+      orderSummaryHtml += `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0">
+        <span>${recipe.name}</span>
+        <span><b style="color:var(--teal-dark)">${pieces} db</b> · ${(rawW/1000).toFixed(2)} kg nyers</span>
+      </div>`;
+    });
+    orderSummaryHtml += '</div>';
+  });
+  orderSummaryHtml += '</div></div>';
+
+  if(Object.keys(needs).length === 0) {
+    // Orders exist but no ingredient_id links set up yet
+    document.getElementById('prod-prep-result').innerHTML = orderSummaryHtml +
+      '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;color:#92400e;font-size:0.85rem">' +
+      '⚠️ Az összetevők nincsenek az alapanyag listához kötve. A receptúra modulban állítsd be az összetevők <b>Alapanyag</b> hivatkozásait a pontos nyersanyag kalkulációhoz.</div>';
     return;
   }
 

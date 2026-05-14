@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.16.9"></script>
-<script src="supabase.js?v=2.16.9"></script>
+<script src="kerek-constants.js?v=2.17.0"></script>
+<script src="supabase.js?v=2.17.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -574,10 +574,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="card-body">
         <div id="prod-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
         <button class="btn btn-primary btn-sm" onclick="calcProductionPrep()">🏭 Előkészítés kiszámítása</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportShoppingListCSV()" style="margin-left:8px">📥 Excel export</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportShoppingListCSV()" style="margin-left:8px">📥 CSV export</button>
+        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()" style="margin-left:8px">🛒 Bevásárló lista</button>
       </div>
     </div>
     <div id="prod-prep-result"></div>
+    <div id="shopping-list-panel" class="mb-16"></div>
     <div id="stock-alerts" class="mb-16"></div>
   </div>
 
@@ -600,7 +602,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div id="stock-alert-banner"></div>
     <div class="flex justify-between items-center mb-20">
       <div class="flex gap-10">
-        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()">📥 Bevásárló lista (CSV)</button>
+        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()">🛒 Bevásárló lista</button>
       </div>
     </div>
     <div class="card mb-16">
@@ -852,16 +854,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.16.9"></script>
-<script src="js/receptura-ui.js?v=2.16.9"></script>
-<script src="js/receptura-recipes.js?v=2.16.9"></script>
-<script src="js/receptura-operational.js?v=2.16.9"></script>
-<script src="js/receptura-ingredients.js?v=2.16.9"></script>
-<script src="js/receptura-settings.js?v=2.16.9"></script>
-<script src="js/receptura-levain.js?v=2.16.9"></script>
-<script src="js/receptura-production.js?v=2.16.9"></script>
-<script src="js/receptura-stock.js?v=2.16.9"></script>
-<script src="js/receptura-modal.js?v=2.16.9"></script>
-<script src="js/receptura-ai.js?v=2.16.9"></script>
+<script src="js/receptura-data.js?v=2.17.0"></script>
+<script src="js/receptura-ui.js?v=2.17.0"></script>
+<script src="js/receptura-recipes.js?v=2.17.0"></script>
+<script src="js/receptura-operational.js?v=2.17.0"></script>
+<script src="js/receptura-ingredients.js?v=2.17.0"></script>
+<script src="js/receptura-settings.js?v=2.17.0"></script>
+<script src="js/receptura-levain.js?v=2.17.0"></script>
+<script src="js/receptura-production.js?v=2.17.0"></script>
+<script src="js/receptura-stock.js?v=2.17.0"></script>
+<script src="js/receptura-modal.js?v=2.17.0"></script>
+<script src="js/receptura-ai.js?v=2.17.0"></script>
 </body>
 </html>
