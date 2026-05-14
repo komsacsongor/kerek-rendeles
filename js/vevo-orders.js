@@ -52,8 +52,11 @@ function renderOrderTable() {
       </tr>`;
     } else {
       const rowOrders = appData.orders[key] || {};
+      const orderSt0 = (appData.orderStatus && appData.orderStatus[key]) || {};
+      // Cancelled rendelés nem számít az összesítőbe
+      const isCancelled0 = orderSt0.status === 'cancelled';
       let rowTotal = 0;
-      prods.forEach(p => rowTotal += (rowOrders[p.id]||0));
+      if (!isCancelled0) prods.forEach(p => rowTotal += (rowOrders[p.id]||0));
       grandTotal += rowTotal;
 
       // Is this baking day locked (< 24h)?
@@ -79,7 +82,7 @@ function renderOrderTable() {
         const disabled = isOver || isLocked || stStatus === 'cancelled' ? 'disabled' : '';
         const isModifiedProd = stStatus === 'modified' && val !== '' && parseInt(val) !== ((appData._origOrders && appData._origOrders[key] && appData._origOrders[key][p.id]) || parseInt(val));
         const cls = (val ? 'has-value' : '') + (stStatus === 'modified' ? ' mod-cell' : '');
-        colTotals[p.id] += (rowOrders[p.id]||0);
+        if (!isCancelled0) colTotals[p.id] += (rowOrders[p.id]||0);
         html += `<td style="${stStatus==='modified'&&val?'background:#fffbeb':''}""><input type="number" min="0" max="99" value="${val}" placeholder="0"
           class="${val?'has-value':''}" ${disabled}
           data-day="${day}" data-pid="${p.id}"
@@ -195,7 +198,22 @@ async function saveOrder() {
   const msg = document.getElementById('order-message').value.trim();
   
   try {
-    if(upserts.length > 0) await sb.upsert('orders', upserts, 'client_id,year,month,day,product_id');
+    if(upserts.length > 0) {
+      await sb.upsert('orders', upserts, 'client_id,year,month,day,product_id');
+      // Ha jóváhagyott/módosított nap rendelését változtatta meg a vevő → vissza PENDING
+      const affectedDays = [...new Set(upserts.map(u => u.day))];
+      for (const day of affectedDays) {
+        const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+        const st = (appData.orderStatus && appData.orderStatus[key]) || {};
+        if (st.status === 'confirmed' || st.status === 'modified') {
+          const newRow = { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
+            status: 'pending', admin_note: st.admin_note || null };
+          await sb.upsert('order_status', newRow, 'client_id,year,month,day');
+          if (!appData.orderStatus) appData.orderStatus = {};
+          appData.orderStatus[key] = { ...st, status: 'pending' };
+        }
+      }
+    }
     if(msg) {
       const now = Date.now();
       if(now - _lastMsgSent < 30000) {
@@ -524,6 +542,28 @@ window.addEventListener('resize', () => {
     renderOrderTable();
   }
 });
+
+async function sendMessageOnly() {
+  if (!currentUser) return;
+  const msg = document.getElementById('order-message')?.value?.trim();
+  if (!msg) { toast('⚠️ Üzenet nem lehet üres!', true); return; }
+  const now = Date.now();
+  if (now - (_lastMsgSent||0) < 30000) {
+    toast('⚠️ Kérjük várj 30 másodpercet üzenetek között!', true); return;
+  }
+  try {
+    await sb.insert('messages', {
+      client_id: currentUser.id,
+      year: selectedYear,
+      month: selectedMonth,
+      text: msg
+    });
+    _lastMsgSent = now;
+    document.getElementById('order-message').value = '';
+    await loadMessage();
+    toast('✅ Üzenet elküldve!');
+  } catch(e) { toast('⚠️ Küldés sikertelen: ' + e.message, true); }
+}
 
 async function vevoConfirmOrder(year, month, day) {
   if (!currentUser) return;
