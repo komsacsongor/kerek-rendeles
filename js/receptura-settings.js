@@ -55,21 +55,7 @@ async function saveBakingSettings() {
 async function syncRecipeToSupabase(data, existingId) {
   // Névütközés ellenőrzés – csak új terméknél (nincs product_id)
   // Supabase-ből ellenőrizzük, nem cache-ből (cache lehet üres!)
-  if (!data.product_id) {
-    try {
-      const allProds = await sb.query('products', { limit: 500 });
-      const nameToCheck = (data.name||'').trim().toLowerCase();
-      const existing = (allProds||[]).find(p =>
-        (p.name||'').trim().toLowerCase() === nameToCheck && !p.deleted_at
-      );
-      if (existing) {
-        toast(`⚠️ Már létezik "${existing.name}" nevű termék. Válassz más nevet vagy linkeld a meglévőhöz!`, true);
-        return;
-      }
-    } catch(dupCheckErr) {
-      console.warn('Névütközés check sikertelen:', dupCheckErr.message);
-    }
-  }
+  // Duplikátum check áthelyezve saveRecipe()-be (modal nyitva marad hiba esetén)
   try {
     const recId = existingId || data.id;
     

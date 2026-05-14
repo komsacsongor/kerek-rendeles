@@ -368,8 +368,23 @@ async function saveRecipe() {
     await syncRecipeToSupabase(data, editingRecipeId);
     auditLog('recipe_update', data.name, `Frissítve (id:${editingRecipeId})`);
     toast('✅ Recept frissítve!');
+    save(); closeModal('recipe-modal'); renderRecipes();
   } else {
-    // Sequence: DB-ből kérdezzük a max id-t, nem csak lokálisból
+    // Duplikátum check – modal nyitva marad ha hiba van
+    if (!data.product_id) {
+      try {
+        const allProds = await sb.query('products', { limit: 500 });
+        const nameToCheck = (data.name||'').trim().toLowerCase();
+        const existing = (allProds||[]).find(p =>
+          (p.name||'').trim().toLowerCase() === nameToCheck && !p.deleted_at
+        );
+        if (existing) {
+          toast(`⚠️ Már létezik "${existing.name}" nevű termék. Válassz más nevet!`, true);
+          return; // Modal nyitva marad
+        }
+      } catch(e) { console.warn('Dup check:', e.message); }
+    }
+    // Sequence: DB-ből kérdezzük a max id-t
     try {
       const dbMax = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
       data.id = dbMax.length ? dbMax[0].id + 1 : Math.max(...R.recipes.map(r=>r.id),0)+1;
@@ -380,8 +395,8 @@ async function saveRecipe() {
     await syncRecipeToSupabase(data, null);
     auditLog('recipe_create', data.name, 'Új recept létrehozva');
     toast('✅ Recept mentve!');
+    save(); closeModal('recipe-modal'); renderRecipes();
   }
-  save(); closeModal('recipe-modal'); renderRecipes();
 }
 
 function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
