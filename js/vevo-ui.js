@@ -12,7 +12,7 @@ function getKey(month, year) { return `${year}-${month}`; } // NOTE: params are 
 function getOrderKey(cid, y, m, d) { return `${cid}-${y}-${m}-${d}`; }
 function getActiveProds(year, month) {
   const ids = appData.monthlyActiveProducts[getKey(month, year)] || [];
-  return appData.products.filter(p => ids.includes(p.id));
+  return appData.products.filter(p => ids.includes(p.id) && !p.deleted_at);
 }
 function getDays(year, month) {
   const days = [];

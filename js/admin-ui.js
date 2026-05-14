@@ -32,7 +32,7 @@ function nav(id){
 // ===== HELPERS =====
 function mk(y,m){return `${y}-${m}`;}
 function ok(cid,y,m,d){return `${cid}-${y}-${m}-${d}`;}
-function getActiveProds(y,m){ const ids=D.monthlyActiveProducts[mk(y,m)]||[]; return D.products.filter(p=>ids.includes(p.id)); }
+function getActiveProds(y,m){ const ids=D.monthlyActiveProducts[mk(y,m)]||[]; return D.products.filter(p=>ids.includes(p.id) && !p.deleted_at); }
 function getDays(y,m){ const days=[]; const d=new Date(y,m,1); while(d.getMonth()===m){days.push(new Date(d));d.setDate(d.getDate()+1);} return days; }
 function getBakingDays(y,m){
   const key=`${y}-${m}`;

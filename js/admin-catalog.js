@@ -66,6 +66,8 @@ function renderCatalog(){
 }
 function selectCatalogMonth(m){ catalogMonth=m; renderCatalog(); }
 function toggleProduct(id){
+  const p = D.products.find(p=>p.id===id);
+  if(p && p.deleted_at) { toast('⚠️ Archivált termék nem aktiválható. Először állítsd vissza az archivúmból.', true); return; }
   const key=mk(selYear,catalogMonth);
   if(!D.monthlyActiveProducts[key]) D.monthlyActiveProducts[key]=[];
   const idx=D.monthlyActiveProducts[key].indexOf(id);
