@@ -1,3 +1,19 @@
+async function refreshAll() {
+  const btn = document.getElementById('btn-refresh-all');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await loadAllData();
+    const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+    if (activeView && RENDERS[activeView]) RENDERS[activeView]();
+    updateMsgBadge();
+    toast('✅ Minden frissítve!');
+  } catch(e) {
+    toast('⚠️ Frissítés sikertelen: ' + e.message, true);
+  } finally {
+    if (btn) { btn.textContent = '🔄 Frissítés'; btn.disabled = false; }
+  }
+}
+
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
   dashboard:'Dashboard', messages:'Üzenetek', baking:'Sütési lista',
