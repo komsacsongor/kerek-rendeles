@@ -1,15 +1,41 @@
 // ===== PRODUCTION PREP =====
 function initProductionPrep() {
   const now = new Date();
-  const days = getBakingDaysRange(now, 30);
+  // 30 napra visszamenőleg + 30 napra előre (hogy a múltbeli rendelések is látszanak)
+  const from = new Date(now);
+  from.setDate(from.getDate() - 30);
+  const days = getBakingDaysRange(from, 60);
   const DAYS_HU = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
   const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
-  document.getElementById('prod-day-selector').innerHTML = days.map(d =>
-    `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
-      <input type="checkbox" value="${d.toISOString().slice(0,10)}" style="accent-color:var(--teal)">
+  const todayStr = now.toISOString().slice(0,10);
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Csoportosítás: múlt és jövő
+  const past = days.filter(d => d < now);
+  const future = days.filter(d => d >= now);
+
+  function dayLabel(d) {
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    // Auto-check: aktuális hónap napjai
+    const autoCheck = d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
+      <input type="checkbox" value="${ds}" ${autoCheck ? 'checked' : ''} style="accent-color:var(--teal)">
       ${DAYS_HU[d.getDay()]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}
-    </label>`
-  ).join('') || '<p class="text-soft text-sm">Nincs sütési nap a következő 30 napban.</p>';
+    </label>`;
+  }
+
+  let selectorHtml = '';
+  if (past.length > 0) {
+    selectorHtml += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-soft);margin:4px 0 6px;text-transform:uppercase;letter-spacing:0.05em">Elmúlt sütési napok</div>';
+    selectorHtml += past.map(dayLabel).join('');
+  }
+  if (future.length > 0) {
+    selectorHtml += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-soft);margin:10px 0 6px;text-transform:uppercase;letter-spacing:0.05em">Közelgő sütési napok</div>';
+    selectorHtml += future.map(dayLabel).join('');
+  }
+
+  document.getElementById('prod-day-selector').innerHTML = selectorHtml || '<p class="text-soft text-sm">Nincs sütési nap a következő 30 napban.</p>';
   renderStockAlerts();
 }
 
