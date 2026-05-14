@@ -4,6 +4,17 @@ function setCatalogFilter(cat) {
   renderCatalog();
 }
 
+async function refreshCatalog() {
+  const btn = document.querySelector('[onclick="refreshCatalog()"]');
+  if(btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await loadAllData();
+    renderCatalog();
+    toast('✅ Katalógus frissítve!');
+  } catch(e) { toast('⚠️ Frissítés sikertelen: '+e.message, true); }
+  if(btn) { btn.textContent = '🔄 Frissítés'; btn.disabled = false; }
+}
+
 function renderCatalog(){
   const y=selYear, m=catalogMonth;
   // Hónap selector feltöltése

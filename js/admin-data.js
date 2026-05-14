@@ -238,7 +238,7 @@ function initApp(){
         RENDERS[activeView]?.();
       } catch(e) {}
     }
-  }, 300000);
+  }, 60000); // 1 perc – gyorsabb szinkron receptúra modullal
 
   renderDashboard();
   updateMsgBadge();
