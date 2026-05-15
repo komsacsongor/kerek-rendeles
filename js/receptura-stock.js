@@ -1,241 +1,181 @@
-// ===== STOCK ALERTS =====
+// ===== STOCK VIEW – batch alapú, auto/kézi min/max =====
+
 function renderStockAlerts() {
-  const now = new Date();
-  const mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
-
-  // Calculate daily consumption from recent orders
-  const criticalIngs = [];
-  const emptyIngs = [];
-
-  R.ingredients.forEach(ing => {
+  const el = document.getElementById('stock-alerts');
+  if (!el) return;
+  const alerts = R.ingredients.filter(ing => {
     const stock = getTotalStock(ing);
-    const min = ing.minStock || 0;
-    const critical = ing.criticalStock || min * 1.3;
-
-    if(stock === 0) {
-      emptyIngs.push(ing);
-    } else if(stock < critical) {
-      criticalIngs.push({ing, stock, deficit: Math.round(critical - stock)});
-    }
+    const min = ing.minStock;
+    return min > 0 && stock < min;
   });
+  if (alerts.length === 0) { el.innerHTML = ''; return; }
+  const critical = alerts.filter(i => getTotalStock(i) < (i.maxStockAutoG * 0.3 || 50));
+  el.innerHTML = `<div style="background:${critical.length?'#fef2f2':'#fef3c7'};border:1px solid ${critical.length?'#fca5a5':'#fde68a'};border-radius:10px;padding:12px 16px;margin-bottom:12px">
+    <div style="font-weight:700;font-size:0.85rem;color:${critical.length?'#991b1b':'#92400e'};margin-bottom:6px">
+      ${critical.length?'🔴 Kritikus készletszint':'🟡 Alacsony készlet'}
+    </div>
+    ${alerts.map(i=>`<div style="font-size:0.8rem;color:${critical.includes(i)?'#dc2626':'#b45309'}">
+      ${i.name}: <b>${Math.round(getTotalStock(i)).toLocaleString()}g</b> (min: ${i.minStock.toLocaleString()}g)
+    </div>`).join('')}
+  </div>`;
+}
 
-  if(criticalIngs.length === 0 && emptyIngs.length === 0) {
-    document.getElementById('stock-alerts').innerHTML = `
-      <div style="background:var(--green-pale);border:1px solid #86efac;border-radius:12px;padding:14px 18px;color:var(--green);font-weight:600;margin-bottom:16px">
-        ✅ Minden alapanyag készlete megfelelő szinten van.
-      </div>`;
-    return;
-  }
+function renderStock() {
+  const el = document.getElementById('stock-list');
+  if (!el) return;
+
+  // Group by category
+  const cats = {};
+  R.ingredients.forEach(ing => {
+    const cat = ing.cat || 'Egyéb';
+    if (!cats[cat]) cats[cat] = [];
+    cats[cat].push(ing);
+  });
 
   let html = '';
-  if(emptyIngs.length > 0) {
-    html += `<div style="background:var(--red-pale);border:1.5px solid #fca5a5;border-radius:12px;padding:14px 18px;margin-bottom:12px">
-      <div style="font-weight:700;color:var(--red);margin-bottom:8px">🔴 Elfogyott alapanyagok (${emptyIngs.length})</div>`;
-    emptyIngs.forEach(ing => {
-      html += `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0">
-        <span>${ing.name}</span><span style="color:var(--red);font-weight:700">0 g – ELFOGYOTT</span></div>`;
-    });
-    html += `</div>`;
-  }
-
-  if(criticalIngs.length > 0) {
-    html += `<div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:12px">
-      <div style="font-weight:700;color:var(--gold-dark);margin-bottom:8px">⚠️ Kritikus szint alatt (${criticalIngs.length}) – 5 napon belül rendelj!</div>`;
-    criticalIngs.forEach(({ing, stock, deficit}) => {
-      html += `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0">
-        <span>${ing.name}</span>
-        <span><b style="color:var(--gold-dark)">${stock.toLocaleString()}g</b> <span style="color:var(--text-soft)">(min: ${(ing.minStock||0).toLocaleString()}g, hiány: ${deficit.toLocaleString()}g)</span></span>
+  Object.keys(cats).sort().forEach(cat => {
+    html += `<div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.05em;
+        color:var(--teal-dark);padding:8px 16px;background:var(--teal-pale);border-radius:8px;margin-bottom:8px">
+        ${cat} (${cats[cat].length} tétel)
       </div>`;
-    });
-    html += `</div>`;
-  }
 
-  document.getElementById('stock-alerts').innerHTML = html;
-}
+    cats[cat].forEach(ing => {
+      const stock = Math.round(getTotalStock(ing));
+      const minS = ing.minStock;
+      const maxS = ing.maxStock;
+      const isOk = maxS > 0 ? stock >= minS : stock > 0;
+      const isCrit = minS > 0 && stock < minS * 0.5;
+      const isLow = minS > 0 && stock < minS && !isCrit;
+      const statusColor = isCrit ? '#dc2626' : isLow ? '#d97706' : '#059669';
+      const statusBg = isCrit ? '#fef2f2' : isLow ? '#fffbeb' : '#f0fdf4';
+      const statusLabel = isCrit ? '🔴 Kritikus' : isLow ? '⚠️ Alacsony' : stock === 0 ? '⬜ Üres' : '✅ Rendben';
 
-// ===== SHOPPING LIST CSV EXPORT =====
-function exportShoppingListCSV() {
-  const needs = window._lastProductionNeeds;
-  if(!needs) { alert('Először számold ki a gyártás előkészítést!'); return; }
+      // Progress bar
+      const pct = maxS > 0 ? Math.min(100, Math.round(stock / maxS * 100)) : (stock > 0 ? 100 : 0);
+      const barColor = isCrit ? '#ef4444' : isLow ? '#f59e0b' : '#10b981';
 
-  const BOM = '﻿';
-  const SEP = ';';
-  const rows = [
-    ['KEREK – Bevásárló lista', '', '', '', ''],
-    ['Generálva:', new Date().toLocaleDateString('hu-HU'), '', '', ''],
-    ['', '', '', '', ''],
-    ['Alapanyag','Kategória','Szükséges (g)','Készlet (g)','Hiány (g)','Egységár (lej/kg)','Becsült költség (lej)','Forrás / Beszállító'],
-  ];
+      // FIFO + avg price
+      const fifoP = ing.fifoPrice || 0;
+      const avgP = ing.avgPrice || 0;
+      const priceStr = fifoP > 0
+        ? `FIFO: <b>${(fifoP*1000).toFixed(2)} lej/kg</b>${avgP !== fifoP ? ` · Átlag: ${(avgP*1000).toFixed(2)} lej/kg` : ''}`
+        : '<span style="color:var(--text-soft)">Nincs árinfo</span>';
 
-  Object.values(needs).sort((a,b)=>a.subType?.localeCompare(b.subType)||0).forEach(n => {
-    const ing = getIng(n.ingId);
-    const stock = getTotalStock(ing);
-    const deficit = Math.max(0, Math.round(n.total) - stock);
-    const ppkg = ing ? (getFifoPrice(ing)*1000).toFixed(2) : '';
-    const supplier = ing?.suppliers?.[0]?.source || '';
-    rows.push([
-      n.name,
-      subTypeLabel(n.subType || 'other_dry'),
-      Math.round(n.total),
-      stock,
-      deficit > 0 ? deficit : '',
-      ppkg,
-      n.cost.toFixed(2),
-      supplier,
-    ]);
-  });
+      // Min/max display
+      const mmLabel = ing.isOverride
+        ? `<span title="Kézi beállítás" style="color:#7c3aed">🔒 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+        : ing.minStockAutoG > 0
+          ? `<span title="Automatikus számítás">🤖 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+          : '<span style="color:var(--text-soft)">Nincs adat még</span>';
 
-  const csv = BOM + rows.map(r => r.map(c => {
-    const s = String(c==null?'':c);
-    return s.includes(SEP)||s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s;
-  }).join(SEP)).join('\n');
+      // Batches count
+      const batches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
 
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href=url; a.download=`kerek_bevasarlo_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ===== COST ANALYSIS =====
-function renderCostAnalysis() {
-  const costs = R.recipes.map(r=>({r, c10:calcRecipeCost(r,10), c15:calcRecipeCost(r,15)}));
-  document.getElementById('cost-stats').innerHTML = [
-    {val:R.recipes.length+' recept',label:'Összesen',icon:'📋'},
-    {val:costs.reduce((a,x)=>a+x.c10.costPerUnit,0).toFixed(2)+' lej',label:'Átl. önköltség/db (10db)',icon:'💰',gold:true},
-    {val:costs.reduce((a,x)=>a+x.c10.priceGross,0).toFixed(2)+' lej',label:'Átl. bruttó ár (10db)',icon:'🏷'},
-    {val:costs.reduce((a,x)=>a+(x.c10.costPerUnit-x.c15.costPerUnit),0).toFixed(2)+' lej',label:'Potenciális megtakarítás (15db)',icon:'📈',green:true},
-  ].map(s=>`<div class="stat-box"><div class="stat-val sm ${s.gold?'gold':''}" style="${s.green?'color:var(--green)':''}">${s.val}</div><div class="stat-label">${s.icon} ${s.label}</div></div>`).join('');
-
-  document.getElementById('cost-analysis-tbody').innerHTML = costs.map(({r,c10,c15})=>`
-    <tr>
-      <td><b>${r.name}</b><br><small class="text-soft">${r.category} · ${r.unitWeight||r.basePortion}g</small></td>
-      <td class="num">${c10.costPerUnit.toFixed(2)} lej</td>
-      <td class="num">${c10.priceNet.toFixed(2)} lej</td>
-      <td class="num gold">${c10.priceGross.toFixed(2)} lej</td>
-      <td class="num" style="color:${c10.priceGross>c10.priceNet?'var(--green)':'var(--red)'}">
-        ${(c10.priceGross-c10.priceNet).toFixed(2)} lej
-      </td>
-      <td class="num">${c15.priceGross.toFixed(2)} lej</td>
-      <td class="num" style="color:var(--green)">${(c10.costPerUnit-c15.costPerUnit).toFixed(2)} lej</td>
-    </tr>`).join('');
-}
-
-// ===== STOCK =====
-function renderStock() {
-  document.getElementById('stock-tbody').innerHTML = R.ingredients.map(ing=>{
-    const stock = R.stock[ing.id]||0;
-    const min = ing.minStock||0;
-    const ok = stock >= min;
-    return `<tr>
-      <td><b>${ing.name}</b></td>
-      <td class="num">
-        <input type="number" value="${stock}" min="0" style="width:90px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none"
-          onchange="updateStock(${ing.id},this.value)">
-      </td>
-      <td class="num text-soft">${min.toLocaleString()} g</td>
-      <td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'✓ Rendben':'⚠ Alacsony'}</span></td>
-      <td><button onclick="openStockIntakeModal(${ing.id})" class="btn btn-ghost btn-sm" style="color:var(--teal-dark)" title="Bevételezés">📦 +</button></td>
-    </tr>`;
-  }).join('');
-}
-
-function updateStock(id, val) {
-  R.stock[id] = parseFloat(val)||0;
-  save();
-  // Supabase stock sync (debounced - nem minden billentyűleütésnél)
-  clearTimeout(updateStock._t);
-  updateStock._t = setTimeout(async () => {
-    try { await sb.setSetting('recipe_stock', R.stock); } catch(e) { console.warn('Stock save:', e); }
-  }, 1500);
-}
-
-function generateShoppingList() {
-  // Combine stock deficit + production needs if available
-  const productionNeeds = window._lastProductionNeeds || {};
-  const items = [];
-
-  R.ingredients.forEach(ing => {
-    const stock = getTotalStock(ing);
-    const minStock = ing.minStock || 0;
-    const needed = productionNeeds[ing.id]?.total || 0;
-    const required = Math.max(minStock, needed);
-    const deficit = Math.max(0, Math.round(required) - stock);
-    if (deficit <= 0 && needed <= 0) return;
-
-    items.push({
-      id: ing.id,
-      name: ing.name,
-      stock,
-      needed: Math.round(needed),
-      deficit,
-      minStock,
-      subType: ing.subType || 'other_dry',
-      supplier: ing.suppliers?.[0]?.source || '—',
-      checked: false
-    });
-  });
-
-  if (items.length === 0) {
-    toast('✅ Minden alapanyag elegendő!');
-    return;
-  }
-
-  // Render shopping list panel
-  const el = document.getElementById('shopping-list-panel');
-  if (!el) { toast('⚠️ Shopping list panel nem található!', true); return; }
-
-  const grouped = {};
-  items.forEach(it => {
-    if (!grouped[it.subType]) grouped[it.subType] = [];
-    grouped[it.subType].push(it);
-  });
-
-  const labels = {flour:'Lisztek',other_dry:'Száraz összetevők',wet:'Folyadékok',starter:'Kovász'};
-  const dayInfo = window._lastProductionDays?.length
-    ? `<span style="font-size:0.78rem;color:var(--text-soft)">(${window._lastProductionDays.length} sütési napra számolva)</span>`
-    : '<span style="font-size:0.78rem;color:var(--text-soft)">(csak készlet alapján)</span>';
-
-  let html = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
-    <div class="card-title">🛒 Bevásárló lista ${dayInfo}</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="exportShoppingListCSV()" class="btn btn-ghost btn-sm">📥 CSV</button>
-      <button onclick="document.getElementById('shopping-list-panel').innerHTML=''" class="btn btn-ghost btn-sm" style="color:var(--text-soft)">✕</button>
-    </div>
-  </div><div class="card-body-np">`;
-
-  Object.entries(grouped).forEach(([st, grpItems]) => {
-    html += `<div style="padding:10px 16px;border-bottom:1px solid var(--border)">
-      <div style="font-weight:700;font-size:0.8rem;color:var(--teal-dark);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">${labels[st]||st}</div>`;
-    grpItems.sort((a,b) => b.deficit - a.deficit).forEach(it => {
-      const urgency = it.deficit > 0 ? (it.stock === 0 ? '#fef2f2' : '#fffbeb') : '#f0fdf4';
-      const urgencyBorder = it.deficit > 0 ? (it.stock === 0 ? '#fca5a5' : '#fde68a') : '#86efac';
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;margin-bottom:6px;background:${urgency};border:1px solid ${urgencyBorder};border-radius:8px">
-        <input type="checkbox" id="shop-${it.id}" style="width:16px;height:16px;accent-color:var(--teal);flex-shrink:0">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:0.84rem">${it.name}</div>
-          <div style="font-size:0.72rem;color:var(--text-soft)">
-            Készlet: <b>${it.stock.toLocaleString()}g</b>
-            ${it.needed > 0 ? ` · Szükséges: <b>${it.needed.toLocaleString()}g</b>` : ''}
-            ${it.supplier !== '—' ? ` · 🏪 ${it.supplier}` : ''}
+      html += `<div style="background:white;border:1.5px solid ${statusColor}22;border-radius:12px;padding:14px 16px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:0.9rem">${esc(ing.name)}</div>
+            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${stock.toLocaleString()}g</div>
+            <div style="font-size:0.7rem;background:${statusBg};color:${statusColor};padding:1px 8px;border-radius:10px;font-weight:600">${statusLabel}</div>
           </div>
         </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-weight:700;color:${it.deficit>0?'var(--red-dark)':'var(--green)'};font-size:0.9rem">
-            ${it.deficit > 0 ? `+${it.deficit.toLocaleString()}g` : '✓'}
-          </div>
-          ${it.deficit > 0 ? `<div style="font-size:0.7rem;color:var(--text-soft)">rendelni</div>` : ''}
+
+        ${maxS > 0 ? `
+        <div style="background:#f3f4f6;border-radius:6px;height:6px;margin-bottom:8px;overflow:hidden">
+          <div style="background:${barColor};height:100%;width:${pct}%;border-radius:6px;transition:width 0.3s"></div>
         </div>
+        ` : ''}
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;color:var(--text-soft)">
+          <div>Min–Max: ${mmLabel}</div>
+          <div style="display:flex;gap:6px">
+            ${batches.length > 0 ? `<span style="background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:10px;font-size:0.7rem">${batches.length} batch</span>` : ''}
+            <button onclick="openStockIntakeModal(${ing.id})" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem;font-weight:600">📦 Bevételezés</button>
+            <button onclick="openMinMaxEditor(${ing.id})" style="background:${ing.isOverride?'#7c3aed':'var(--bg-soft)'};color:${ing.isOverride?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">✏️ Min/Max</button>
+          </div>
+        </div>
+
+        ${batches.length > 0 ? `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text-soft)">
+          <b>Batch-ek (FIFO):</b>
+          ${batches.sort((a,b)=>a.receivedDate.localeCompare(b.receivedDate)).map((b,i) => `
+            <span style="display:inline-block;background:${i===0?'var(--teal-pale)':'#f9fafb'};border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin:2px">
+              ${b.receivedDate} · ${Math.round(b.qtyRemainingG).toLocaleString()}g
+              ${b.pricePerG>0 ? `· ${(b.pricePerG*1000).toFixed(2)} lej/kg` : ''}
+              ${b.supplierName ? `· ${esc(b.supplierName)}` : ''}
+            </span>`).join('')}
+        </div>` : ''}
       </div>`;
     });
     html += '</div>';
   });
 
-  const totalDeficit = items.filter(i=>i.deficit>0).length;
-  html += `<div style="padding:12px 16px;background:var(--teal-pale);font-size:0.82rem;color:var(--teal-dark);font-weight:600">
-    ${totalDeficit > 0 ? `⚠️ ${totalDeficit} alapanyagot kell rendelni` : '✅ Minden alapanyag elegendő a szükséges mennyiséghez'}
-  </div></div></div>`;
+  el.innerHTML = html || '<p class="text-soft text-sm">Nincsenek alapanyagok. Töltsd be a receptúra beállításokban.</p>';
+}
 
-  el.innerHTML = html;
-  el.scrollIntoView({behavior:'smooth', block:'start'});
+function openMinMaxEditor(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const modal = document.getElementById('min-max-modal') || (() => {
+    const m = document.createElement('div');
+    m.id = 'min-max-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(m); return m;
+  })();
+
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:400px">
+    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">✏️ Min/Max szint</h3>
+    <div style="font-weight:600;margin-bottom:16px">${esc(ing.name)}</div>
+    <div style="background:var(--bg-soft);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem">
+      🤖 Auto számított: min <b>${ing.minStockAutoG.toLocaleString()}g</b> · max <b>${ing.maxStockAutoG.toLocaleString()}g</b>
+      ${ing.autoUpdatedAt ? `<br><span style="color:var(--text-soft)">${new Date(ing.autoUpdatedAt).toLocaleDateString('hu-HU')}</span>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:4px">Min készlet (g)</label>
+        <input type="number" id="mm-min" value="${ing.minStockOverrideG ?? ing.minStockAutoG}"
+          style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:4px">Max készlet (g)</label>
+        <input type="number" id="mm-max" value="${ing.maxStockOverrideG ?? ing.maxStockAutoG}"
+          style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="setStockOverride(${ingId},document.getElementById('mm-min').value,document.getElementById('mm-max').value);document.getElementById('min-max-modal').style.display='none'"
+        class="btn btn-primary" style="flex:1">🔒 Kézi beállítás mentése</button>
+    </div>
+    ${ing.isOverride ? `<button onclick="clearStockOverride(${ingId});document.getElementById('min-max-modal').style.display='none'"
+      style="width:100%;margin-top:8px;padding:7px;background:none;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:0.8rem;color:var(--text-soft)">
+      🤖 Visszaváltás automatikus számításra</button>` : ''}
+    <button onclick="document.getElementById('min-max-modal').style.display='none'"
+      style="width:100%;margin-top:6px;padding:7px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--text-soft)">Mégse</button>
+  </div>`;
+
+  modal.style.display = 'flex';
+}
+
+function exportShoppingListCSV() {
+  const productionNeeds = window._lastProductionNeeds || {};
+  const rows = [['Alapanyag', 'Készlet (g)', 'Szükséges (g)', 'Hiány (g)', 'FIFO ár (lej/kg)', 'Átlagár (lej/kg)', 'Forrás']];
+  R.ingredients.forEach(ing => {
+    const stock = Math.round(getTotalStock(ing));
+    const needed = Math.round(productionNeeds[ing.id]?.total || 0);
+    const deficit = Math.max(0, needed - stock);
+    if (stock === 0 && needed === 0) return;
+    rows.push([ing.name, stock, needed, deficit,
+      (ing.fifoPrice*1000).toFixed(2), (ing.avgPrice*1000).toFixed(2),
+      ing.suppliers?.join('; ') || '']);
+  });
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `keszlet_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }

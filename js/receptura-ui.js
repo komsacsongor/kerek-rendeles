@@ -16,7 +16,7 @@ function nav(id) {
   const renders = {
     recipes: renderRecipes, 'op-select': renderOpSelect,
     ingredients: renderIngredients, 'settings-r': renderSettings,
-    'cost-analysis': renderCostAnalysis, stock: renderStock,
+    'cost-analysis': renderCostAnalysis, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
@@ -191,4 +191,131 @@ function updateRecipeFamilyPreview() {
   } else {
     el.textContent = '';
   }
+}
+
+// ===== AUTO MIN/MAX KALKULÁCIÓ =====
+async function calcAutoMinMax() {
+  // Rendelések az utolsó 90 napból
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffMonth = cutoff.getMonth();
+  const cutoffYear = cutoff.getFullYear();
+
+  let allOrders = [], allStatuses = [];
+  try {
+    [allOrders, allStatuses] = await Promise.all([
+      sb.query('orders', { limit: 5000 }),
+      sb.query('order_status', { limit: 2000 }),
+    ]);
+  } catch(e) { return; }
+
+  const statusMap = {};
+  (allStatuses||[]).forEach(s => {
+    statusMap[`${s.client_id}-${s.year}-${s.month}-${s.day}`] = s.status;
+  });
+
+  // Filter: nem cancelled, és az elmúlt 90 napban
+  const validOrders = (allOrders||[]).filter(o => {
+    if (o.year < cutoffYear || (o.year === cutoffYear && o.month < cutoffMonth)) return false;
+    const k = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+    return statusMap[k] !== 'cancelled';
+  });
+
+  if (validOrders.length === 0) return;
+
+  // Napi átlagos darabszám termékenként
+  const days = new Set(validOrders.map(o => `${o.year}-${o.month}-${o.day}`)).size || 1;
+  const productDailyAvg = {}; // productId → avg pieces/day
+  const productTotals = {};
+  validOrders.forEach(o => {
+    productTotals[o.product_id] = (productTotals[o.product_id]||0) + o.quantity;
+  });
+  Object.keys(productTotals).forEach(pid => {
+    productDailyAvg[pid] = productTotals[pid] / days;
+  });
+
+  // Ingredient napi fogyás = Σ(recipe.ingredient_amount × daily_pieces / base_portion)
+  const ingDailyG = {}; // ingId → g/day
+
+  R.recipes.filter(r => !r.archived && r.product_id).forEach(recipe => {
+    const dailyPieces = productDailyAvg[recipe.product_id] || 0;
+    if (dailyPieces === 0) return;
+    const scale = dailyPieces; // per base_portion already in recipe amounts
+
+    const allIng = [
+      ...(recipe.dryIngredients||[]),
+      ...(recipe.otherDryIngredients||[]),
+      ...(recipe.wetIngredients||[]),
+      ...(recipe.starterIngredients||[]),
+    ];
+    allIng.forEach(ing => {
+      if (!ing.ingredientId) return;
+      ingDailyG[ing.ingredientId] = (ingDailyG[ing.ingredientId]||0) + (ing.amount * scale / (recipe.basePortion||1000));
+    });
+
+    // Levain contribution
+    if (recipe.levainAmount > 0) {
+      const lev = calcLevain(recipe.levainAmount * scale);
+      ingDailyG[4] = (ingDailyG[4]||0) + lev.starter * scale;  // id=4 Kovász
+    }
+  });
+
+  if (Object.keys(ingDailyG).length === 0) return;
+
+  // Calculate and save auto min/max for each ingredient
+  const updates = [];
+  R.ingredients.forEach(ing => {
+    const dailyG = ingDailyG[ing.id] || 0;
+    if (dailyG === 0) return;
+    const autoMin = Math.ceil(dailyG * ing.leadTimeDays * ing.safetyFactor);
+    const autoMax = Math.ceil(autoMin + dailyG * ing.orderCycleDays);
+    if (autoMin !== ing.minStockAutoG || autoMax !== ing.maxStockAutoG) {
+      ing.minStockAutoG = autoMin;
+      ing.maxStockAutoG = autoMax;
+      ing.autoUpdatedAt = new Date().toISOString();
+      updates.push({ id: ing.id, min_stock_auto_g: autoMin, max_stock_auto_g: autoMax,
+                     auto_updated_at: ing.autoUpdatedAt });
+    }
+  });
+
+  // Batch save to DB
+  for (const upd of updates) {
+    try {
+      await sb.update('ingredients', upd, `id=eq.${upd.id}`);
+    } catch(e) { console.warn('autoMinMax save:', e.message); }
+  }
+
+  if (updates.length > 0) {
+    console.log(`Auto min/max frissítve: ${updates.length} alapanyag`);
+    // Re-render stock if visible
+    if(typeof renderStock === 'function') renderStock();
+    if(typeof renderStockAlerts === 'function') renderStockAlerts();
+  }
+}
+
+// Override min/max kézzel
+async function setStockOverride(ingId, minG, maxG) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  ing.minStockOverrideG = minG !== null ? parseInt(minG) : null;
+  ing.maxStockOverrideG = maxG !== null ? parseInt(maxG) : null;
+  try {
+    await sb.update('ingredients', {
+      min_stock_override_g: ing.minStockOverrideG,
+      max_stock_override_g: ing.maxStockOverrideG,
+    }, `id=eq.${ingId}`);
+    toast('✅ Kézi beállítás mentve.');
+    renderStock();
+  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
+}
+
+async function clearStockOverride(ingId) {
+  await setStockOverride(ingId, null, null);
+  toast('🤖 Visszaváltva automatikus számításra.');
+}
+
+// getTotalStock uses new batches structure
+function getTotalStock(ing) {
+  if (!ing) return 0;
+  return ing.totalStockG || 0;
 }

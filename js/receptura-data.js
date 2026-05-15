@@ -14,33 +14,9 @@ let R = _s || {
   },
   recipeCategories: [],
   ingredientCategories: ['Vegyes', 'Lisztek', 'Keményítők', 'Magvak', 'Élelmiszerek', 'Egyéb'],
-  ingredients: [
-    // subType: 'flour'=száraz liszt/korpa, 'other_dry'=só/cukor/élesztő/egész mag, 'wet'=nedves, 'starter'=kovász
-    {id:1,name:'Víz',cat:'Vegyes',subType:'wet',suppliers:[{source:'',priceGross:6,priceNet:4.86,package:1000,stock:10000,date:'2026-01-01'}],pricePerG:0.00486,minStock:5000,criticalStock:8000},
-    {id:2,name:'Olívaolaj',cat:'Vegyes',subType:'wet',suppliers:[{source:'Grizly',priceGross:60,priceNet:48.6,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.0486,minStock:500,criticalStock:800},
-    {id:3,name:'Só',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:8,priceNet:6.48,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.00648,minStock:500,criticalStock:700},
-    {id:4,name:'Kovász',cat:'Vegyes',subType:'starter',suppliers:[{source:'',priceGross:20,priceNet:16.2,package:1000,stock:500,date:'2026-01-01'}],pricePerG:0.0162,minStock:300,criticalStock:400},
-    {id:5,name:'Sütőpor',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:1.65,priceNet:1.34,package:30,stock:120,date:'2026-01-01'}],pricePerG:0.0446,minStock:100,criticalStock:150},
-    {id:6,name:'Guar gumi',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Top Ingrediente',priceGross:29,priceNet:23.49,package:1000,stock:800,date:'2026-01-01'}],pricePerG:0.0235,minStock:200,criticalStock:300},
-    {id:7,name:'Édesrizs liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'asianfood.ro',priceGross:15,priceNet:12.15,package:1000,stock:3000,date:'2026-01-01'}],pricePerG:0.01215,minStock:1000,criticalStock:1500},
-    {id:8,name:'Zabliszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:15,priceNet:12.15,package:1000,stock:2500,date:'2026-01-01'},{source:'Naturking',priceGross:14,priceNet:11.34,package:500,stock:1000,date:'2026-02-01'}],pricePerG:0.01215,minStock:1000,criticalStock:1500},
-    {id:9,name:'Barnarizs liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'naturking.ro',priceGross:12,priceNet:9.72,package:1000,stock:4000,date:'2026-01-01'}],pricePerG:0.00972,minStock:2000,criticalStock:3000},
-    {id:10,name:'Kukorica liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:10,priceNet:8.1,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.0081,minStock:500,criticalStock:700},
-    {id:11,name:'Világos hajdina liszt',cat:'Lisztek',subType:'flour',suppliers:[{source:'Grizly',priceGross:12,priceNet:9.72,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.00972,minStock:1000,criticalStock:1500},
-    {id:12,name:'Kukorica keményítő',cat:'Keményítők',subType:'flour',suppliers:[{source:'Paprica.ro',priceGross:13,priceNet:10.53,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.01053,minStock:500,criticalStock:700},
-    {id:13,name:'Tápióka liszt',cat:'Keményítők',subType:'flour',suppliers:[{source:'Bioshi',priceGross:75,priceNet:60.75,package:5000,stock:8000,date:'2026-01-01'}],pricePerG:0.01215,minStock:2000,criticalStock:3000},
-    {id:14,name:'Lenmag (darált)',cat:'Magvak',subType:'flour',suppliers:[{source:'Grizly',priceGross:14,priceNet:11.34,package:1000,stock:1000,date:'2026-01-01'}],pricePerG:0.01134,minStock:500,criticalStock:700},
-    {id:15,name:'Chia mag',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:22.99,priceNet:18.62,package:1000,stock:800,date:'2026-01-01'}],pricePerG:0.01862,minStock:500,criticalStock:700},
-    {id:16,name:'Psyllium / Útifű',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:51.19,priceNet:41.46,package:500,stock:600,date:'2026-01-01'}],pricePerG:0.08293,minStock:300,criticalStock:400},
-    {id:17,name:'Növényi vaj',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'Kaufland',priceGross:17,priceNet:13.77,package:200,stock:400,date:'2026-01-01'}],pricePerG:0.06885,minStock:200,criticalStock:300},
-    {id:18,name:'Növényi tej',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'DM',priceGross:7,priceNet:5.67,package:1000,stock:3000,date:'2026-01-01'}],pricePerG:0.00567,minStock:1000,criticalStock:1500},
-    {id:19,name:'Ecet',cat:'Élelmiszerek',subType:'wet',suppliers:[{source:'Kaufland',priceGross:4,priceNet:3.24,package:1000,stock:1500,date:'2026-01-01'}],pricePerG:0.00324,minStock:500,criticalStock:700},
-    {id:20,name:'Cukor',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:5,priceNet:4.05,package:1000,stock:500,date:'2026-01-01'}],pricePerG:0.00405,minStock:200,criticalStock:300},
-    {id:21,name:'Száraz élesztő',cat:'Vegyes',subType:'other_dry',suppliers:[{source:'Kaufland',priceGross:3,priceNet:2.43,package:100,stock:200,date:'2026-01-01'}],pricePerG:0.0243,minStock:100,criticalStock:150},
-    {id:22,name:'Szezámmag (egész)',cat:'Magvak',subType:'other_dry',suppliers:[{source:'Grizly',priceGross:18,priceNet:14.58,package:500,stock:400,date:'2026-01-01'}],pricePerG:0.02916,minStock:200,criticalStock:300},
-    {id:23,name:'Napraforgó olaj',cat:'Vegyes',subType:'wet',suppliers:[{source:'Kaufland',priceGross:12,priceNet:9.72,package:1000,stock:2000,date:'2026-01-01'}],pricePerG:0.00972,minStock:500,criticalStock:700},
-  ],
+  ingredients: [],
   recipes: [],
+  batches: [],
   stock: {},
 };
 
@@ -133,8 +109,10 @@ async function initApp() {
         productCode: r.code || '', // enriched below from products cache
         productPrice: r.product_price||0,
         // Összetevők
-        dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
-        wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id})),
+        dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        otherDryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='other_dry').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        starterIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='starter').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
         steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
       }));
       // Kód enrichment: products táblából (product_id alapján)
@@ -149,6 +127,62 @@ async function initApp() {
       save(); // localStorage-ba is menti
     }
   } catch(e) { console.warn('Receptek Supabase betöltés sikertelen:', e.message); }
+
+  // Alapanyagok betöltése Supabase-ből (felváltja a hardkódolt listát)
+  try {
+    const [dbIngList, dbBatches] = await Promise.all([
+      sb.query('ingredients', {order:'category,name', limit:500}),
+      sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+    ]);
+    if(dbIngList && dbIngList.length > 0) {
+      R.ingredients = dbIngList.map(i => ({
+        id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
+        leadTimeDays: i.lead_time_days || 5,
+        orderCycleDays: i.order_cycle_days || 7,
+        safetyFactor: i.safety_factor || 1.5,
+        minStockAutoG: i.min_stock_auto_g || 0,
+        maxStockAutoG: i.max_stock_auto_g || 0,
+        minStockOverrideG: i.min_stock_override_g ?? null,
+        maxStockOverrideG: i.max_stock_override_g ?? null,
+        autoUpdatedAt: i.auto_updated_at || null,
+        notes: i.notes || '',
+        // Effective min/max (override ?? auto)
+        get minStock() { return this.minStockOverrideG ?? this.minStockAutoG; },
+        get maxStock() { return this.maxStockOverrideG ?? this.maxStockAutoG; },
+        get isOverride() { return this.minStockOverrideG !== null || this.maxStockOverrideG !== null; },
+      }));
+    }
+    if(dbBatches) {
+      R.batches = dbBatches.map(b => ({
+        id: b.id, ingredientId: b.ingredient_id,
+        receivedDate: b.received_date,
+        qtyReceivedG: b.qty_received_g,
+        qtyRemainingG: b.qty_remaining_g,
+        pricePerG: b.price_per_g || 0,
+        priceGrossPerUnit: b.price_gross_per_unit || 0,
+        packageSizeG: b.package_size_g || 1000,
+        supplierName: b.supplier_name || '',
+        sourceType: b.source_type || 'purchase',
+        notes: b.notes || '',
+      }));
+      // Compute totalStockG per ingredient from batches
+      R.ingredients.forEach(ing => {
+        const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
+        ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+        // FIFO price = oldest batch with stock
+        const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
+        ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
+        // Weighted average price
+        const totalStock = ing.totalStockG;
+        ing.avgPrice = totalStock > 0
+          ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / totalStock
+          : 0;
+        ing.suppliers = [...new Set(ingBatches.map(b => b.supplierName).filter(Boolean))];
+      });
+    }
+    // Calc auto min/max from orders (async, non-blocking)
+    calcAutoMinMax().catch(e => console.warn('autoMinMax:', e.message));
+  } catch(e) { console.warn('Ingredients DB load:', e.message); }
 
   auditLog('login', 'Receptúra', 'Sikeres belépés');
   nav('recipes');

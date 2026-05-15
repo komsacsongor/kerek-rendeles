@@ -1,3 +1,18 @@
+async function refreshR() {
+  const btn = document.getElementById('r-btn-refresh');
+  if(btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await loadAllData();
+    const views = ['recipes','stock','production','settings-r','ingredients'];
+    const active = views.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if(active) nav(active);
+    toast('✅ Minden frissítve!');
+  } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
+  finally {
+    if(btn) { btn.textContent = '🔄 Frissítés'; btn.disabled = false; }
+  }
+}
+
 // ===== SETTINGS =====
 // ===== SHARED CATEGORIES (from admin) =====
 function renderRCategories() {
