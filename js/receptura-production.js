@@ -139,19 +139,31 @@ async function calcProductionPrep() {
       addNeed(needs, 9, lev.flour);
       addNeed(needs, 1, lev.water);
 
-      [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])].forEach(ing => {
-        if(ing.ingredientId) addNeed(needs, ing.ingredientId, ing.amount * scale);
+      // Use allIngredients (all sub_types with ingredient_id links) if available
+      const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+        ? recipe.allIngredients
+        : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
+           ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+      allIng.forEach(ing => {
+        addNeed(needs, ing.ingredientId, ing.amount * scale, ing.name);
       });
     });
   });
 
-  function addNeed(needs, ingId, amount) {
+  function addNeed(needs, ingId, amount, nameHint) {
+    if (!ingId) {
+      // No ID - use name as key, mark as unlinked
+      const key = 'name:' + (nameHint||'?');
+      if(!needs[key]) needs[key] = {name: nameHint||'?', ingId: null, total:0, cost:0, subType:'other_dry', unlinked:true};
+      needs[key].total += amount;
+      return;
+    }
     if(!needs[ingId]) {
       const ing = getIng(ingId);
       needs[ingId] = {name: ing?.name||'?', ingId, total:0, cost:0, subType: ing?.subType||'other_dry'};
     }
     needs[ingId].total += amount;
-    needs[ingId].cost += calcIngCost(ingId, amount);
+    needs[ingId].cost += calcIngCost ? calcIngCost(ingId, amount) : 0;
   }
 
   const hasAnyOrders = Object.values(dayBreakdown).some(day => Object.keys(day).length > 0);

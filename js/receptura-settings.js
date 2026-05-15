@@ -1,3 +1,62 @@
+
+// ===== ALAPANYAG CSOPORTOK (ingredient category) =====
+async function renderIngCategories() {
+  const el = document.getElementById('ing-categories-list');
+  if (!el) return;
+  // Get unique categories from loaded ingredients
+  const cats = [...new Set(R.ingredients.map(i => i.cat).filter(Boolean))].sort();
+  if (cats.length === 0) {
+    el.innerHTML = '<p class="text-soft text-sm">Nincsenek alapanyag csoportok.</p>';
+    return;
+  }
+  el.innerHTML = cats.map(cat => {
+    const count = R.ingredients.filter(i => i.cat === cat).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
+      <span style="font-size:0.85rem;font-weight:600">${esc(cat)} <span style="font-size:0.75rem;color:var(--text-soft);font-weight:400">(${count} tétel)</span></span>
+      ${count === 0 ? `<button onclick="deleteIngCategory('${cat}')" class="btn btn-ghost btn-sm" style="color:var(--red,#dc2626);font-size:0.75rem">✕</button>` : '<span style="font-size:0.72rem;color:var(--text-soft)">használatban</span>'}
+    </div>`;
+  }).join('');
+}
+
+async function addIngCategory() {
+  const val = document.getElementById('ing-new-cat-input')?.value?.trim();
+  if (!val) { toast('⚠️ Add meg a csoport nevét!', true); return; }
+  const exists = R.ingredients.some(i => i.cat === val);
+  if (exists) { toast('Ez a csoport már létezik!', true); return; }
+  // Add as a temporary entry (will be used when creating ingredients)
+  // Store in settings as ingredient_categories
+  const cats = R.settings?.ingredientCategories || [];
+  if (!cats.includes(val)) {
+    cats.push(val);
+    if (!R.settings) R.settings = {};
+    R.settings.ingredientCategories = cats;
+    try {
+      await sb.setSetting('ingredient_categories', cats);
+      document.getElementById('ing-new-cat-input').value = '';
+      // Render updated list including the new category
+      const el = document.getElementById('ing-categories-list');
+      if (el) {
+        const allCats = [...new Set([...R.ingredients.map(i=>i.cat).filter(Boolean), ...cats])].sort();
+        el.innerHTML = allCats.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
+          <span style="font-size:0.85rem;font-weight:600">${esc(c)}</span>
+        </div>`).join('');
+      }
+      toast('✅ Csoport hozzáadva!');
+    } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
+  }
+}
+
+async function deleteIngCategory(cat) {
+  if (!confirm('Törlöd a "'+cat+'" csoportot? Csak üres csoportot lehet törölni.')) return;
+  const cats = (R.settings?.ingredientCategories || []).filter(c => c !== cat);
+  R.settings.ingredientCategories = cats;
+  try {
+    await sb.setSetting('ingredient_categories', cats);
+    renderIngCategories();
+    toast('Csoport törölve.');
+  } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
+}
+
 async function refreshR() {
   const btn = document.getElementById('r-btn-refresh');
   if(btn) { btn.textContent = '⏳'; btn.disabled = true; }
@@ -188,6 +247,7 @@ async function confirmStockIntake(ingId) {
 
 function renderSettings() {
   if(document.getElementById('r-categories-list')) renderRCategories();
+  if(document.getElementById('ing-categories-list')) renderIngCategories();
   if(document.getElementById('s-api-key') && R.settings?.apiKey) {
     document.getElementById('s-api-key').value = R.settings.apiKey;
   }
