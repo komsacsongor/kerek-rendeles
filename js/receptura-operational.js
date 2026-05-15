@@ -35,19 +35,36 @@ function renderOpDetail() {
 
   // Ingredients list
   const scale = rawWeight / r.basePortion;
-  let html = `<div class="ing-section">
-    <div class="ing-section-head dry">🌾 Száraz összetevők</div>`;
-  r.dryIngredients.forEach(ing=>{
-    const scaled = Math.round(ing.amount*scale*10)/10;
-    html+=`<div class="op-ing-item"><span>${ing.name}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+  const SUB_CFG = [
+    {key:'flour',   label:'🌾 Száraz (liszt/korpa)', cls:'dry'},
+    {key:'other_dry',label:'🧂 Egyéb száraz',        cls:'dry'},
+    {key:'wet',     label:'💧 Nedves',               cls:'wet'},
+    {key:'starter', label:'🧫 Kovász',               cls:'levain'},
+  ];
+  // Group by sub_type - use allIngredients if available
+  const allIng = r.allIngredients && r.allIngredients.length > 0
+    ? r.allIngredients
+    : [...(r.dryIngredients||[]), ...(r.otherDryIngredients||[]),
+       ...(r.wetIngredients||[]), ...(r.starterIngredients||[])];
+  const grouped = {};
+  allIng.forEach(ing => {
+    const st = ing.subType || 'other_dry';
+    if (!grouped[st]) grouped[st] = [];
+    grouped[st].push(ing);
   });
-  html += `</div><div class="ing-section" style="margin-top:12px">
-    <div class="ing-section-head wet">💧 Nedves összetevők</div>`;
-  r.wetIngredients.forEach(ing=>{
-    const scaled = Math.round(ing.amount*scale*10)/10;
-    html+=`<div class="op-ing-item"><span>${ing.name}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+  let html = '';
+  SUB_CFG.forEach(({key, label, cls}) => {
+    if (!grouped[key] || grouped[key].length === 0) return;
+    html += `<div class="ing-section" style="margin-top:12px">
+      <div class="ing-section-head ${cls}">${label}</div>`;
+    grouped[key].forEach(ing => {
+      const masterIng = ing.ingredientId ? R.ingredients?.find(i=>i.id===ing.ingredientId) : null;
+      const displayName = masterIng?.name || ing.name;
+      const scaled = Math.round(ing.amount * scale * 10) / 10;
+      html += `<div class="op-ing-item"><span>${displayName}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+    });
+    html += '</div>';
   });
-  html+=`</div>`;
   document.getElementById('op-ingredients').innerHTML = html;
 
   // Steps

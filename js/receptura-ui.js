@@ -245,12 +245,11 @@ async function calcAutoMinMax() {
     if (dailyPieces === 0) return;
     const scale = dailyPieces; // per base_portion already in recipe amounts
 
-    const allIng = [
-      ...(recipe.dryIngredients||[]),
-      ...(recipe.otherDryIngredients||[]),
-      ...(recipe.wetIngredients||[]),
-      ...(recipe.starterIngredients||[]),
-    ];
+    // Use allIngredients if available (all sub_types with ingredient_id links)
+    const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+      ? recipe.allIngredients
+      : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
+         ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
     allIng.forEach(ing => {
       if (!ing.ingredientId) return;
       ingDailyG[ing.ingredientId] = (ingDailyG[ing.ingredientId]||0) + (ing.amount * scale / (recipe.basePortion||1000));
@@ -321,4 +320,105 @@ async function clearStockOverride(ingId) {
 function getTotalStock(ing) {
   if (!ing) return 0;
   return ing.totalStockG || 0;
+}
+
+// ===== ÖNKÖLTSÉG ELEMZÉS =====
+function renderCostAnalysis() {
+  const tbody = document.getElementById('cost-analysis-tbody');
+  const stats = document.getElementById('cost-stats');
+  if (!tbody) return;
+
+  const margin = (R.settings?.financialSettings?.targetMargin || 30) / 100;
+  const laborH = R.settings?.financialSettings?.laborCostPerHour || 55;
+  const electricKwh = R.settings?.financialSettings?.electricityCostPerKwh || 1.8;
+
+  const rows = [];
+  let totalRevPotential = 0, totalCostPotential = 0;
+
+  R.recipes.filter(r => !r.archived).forEach(recipe => {
+    // Find linked product
+    const product = window._adminProductsCache?.find(p => p.id === recipe.product_id);
+    const currentPrice = product?.price || 0;
+    const basePortion = recipe.basePortion || 1000;
+    const pieces = 1;
+    const rawWeight = calcRawWeight(recipe, pieces);
+    const scale = rawWeight / basePortion;
+
+    // Ingredient cost
+    const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+      ? recipe.allIngredients
+      : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
+         ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+
+    let ingCost = 0;
+    allIng.forEach(ing => {
+      const scaled = ing.amount * scale;
+      if (ing.ingredientId) {
+        const master = getIng(ing.ingredientId);
+        ingCost += getFifoPrice(master) * scaled;
+      }
+    });
+
+    // Levain cost
+    if (recipe.levainAmount > 0) {
+      const lev = calcLevain(recipe.levainAmount * scale);
+      const kovasz = getIng(4);
+      ingCost += getFifoPrice(kovasz) * lev.starter;
+    }
+
+    // Labor cost
+    const laborCost = (recipe.laborH || 0) * laborH / (recipe.basePortion / (recipe.unitWeight || recipe.basePortion));
+
+    // Electricity cost
+    const elCost = (recipe.electricity || 0) * electricKwh / (recipe.basePortion / (recipe.unitWeight || recipe.basePortion));
+
+    const totalCost = ingCost + laborCost + elCost;
+    const suggestedPrice = margin > 0 ? totalCost / (1 - margin) : totalCost * 1.3;
+    const diff = currentPrice - totalCost;
+    const diffPct = totalCost > 0 ? (diff / totalCost * 100) : 0;
+
+    // Optimal scale (15 db example)
+    const optPieces = 15;
+    const optRaw = calcRawWeight(recipe, optPieces);
+    const optScale = optRaw / basePortion;
+    let optIngCost = 0;
+    allIng.forEach(ing => { if (ing.ingredientId) { const m = getIng(ing.ingredientId); optIngCost += getFifoPrice(m) * ing.amount * optScale; }});
+    const optLaborCost = (recipe.laborH || 0) * laborH;
+    const optCost = (optIngCost + optLaborCost + (recipe.electricity||0)*electricKwh) / optPieces;
+    const saving = totalCost - optCost;
+
+    totalRevPotential += currentPrice;
+    totalCostPotential += totalCost;
+
+    rows.push({ recipe, product, currentPrice, totalCost, suggestedPrice, diff, diffPct, optCost, saving, ingCost, laborCost, elCost });
+  });
+
+  // Stats cards
+  const avgMargin = totalCostPotential > 0 ? ((totalRevPotential - totalCostPotential) / totalRevPotential * 100) : 0;
+  const noPrice = rows.filter(r => r.currentPrice === 0).length;
+  const belowCost = rows.filter(r => r.diff < 0).length;
+  if (stats) stats.innerHTML = [
+    {label:'Aktív receptek', val: rows.length, color:'var(--teal-dark)'},
+    {label:'Átlagos fedezet', val: avgMargin.toFixed(1)+'%', color: avgMargin > 20 ? '#059669' : '#dc2626'},
+    {label:'Nincs ár', val: noPrice, color: noPrice > 0 ? '#dc2626' : '#059669'},
+    {label:'Önköltség alatt', val: belowCost, color: belowCost > 0 ? '#dc2626' : '#059669'},
+  ].map(s => `<div class="card" style="border-left:4px solid ${s.color};padding:14px 18px">
+    <div style="font-size:1.6rem;font-weight:800;color:${s.color};font-family:'Fraunces',serif">${s.val}</div>
+    <div style="font-size:0.78rem;color:var(--text-soft);margin-top:2px">${s.label}</div>
+  </div>`).join('');
+
+  tbody.innerHTML = rows.map(r => {
+    const hasPrice = r.currentPrice > 0;
+    const ok = r.diff >= 0;
+    const rowColor = !hasPrice ? '' : ok ? '' : 'background:#fff1f2';
+    return `<tr style="${rowColor}">
+      <td style="font-weight:600">${esc(r.recipe.name)}</td>
+      <td class="num">${r.totalCost > 0 ? r.totalCost.toFixed(2)+' lej' : '<span style="color:var(--text-soft)">—</span>'}</td>
+      <td class="num">${r.suggestedPrice > 0 ? r.suggestedPrice.toFixed(2)+' lej' : '—'}</td>
+      <td class="num">${hasPrice ? r.currentPrice.toFixed(2)+' lej' : '<span style="color:#dc2626">Nincs ár</span>'}</td>
+      <td class="num" style="color:${ok?'#059669':'#dc2626'};font-weight:600">${hasPrice ? (ok?'+':'')+r.diff.toFixed(2)+' lej ('+r.diffPct.toFixed(0)+'%)' : '—'}</td>
+      <td class="num" style="color:var(--text-soft)">${r.optCost > 0 ? r.optCost.toFixed(2)+' lej' : '—'}</td>
+      <td class="num" style="color:#059669">${r.saving > 0.01 ? '+'+r.saving.toFixed(2)+' lej' : '—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-soft);padding:20px">Nincs aktív recept</td></tr>';
 }

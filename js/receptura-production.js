@@ -310,3 +310,198 @@ async function calcProductionPrep() {
   window._lastProductionNeeds = needs;
   window._lastProductionDays = selected;
 }
+
+// ===== SÜTÉS ELVÉGEZVE – FIFO LEVONAT =====
+async function confirmBakingDone() {
+  const needs = window._lastProductionNeeds;
+  const days = window._lastProductionDays;
+  if (!needs || Object.keys(needs).length === 0) {
+    toast('⚠️ Előbb számítsd ki az előkészítést!', true); return;
+  }
+
+  const confirmed = confirm(
+    'Rögzíted a sütést elvégezve?\n\n' +
+    'Ez levonja az alapanyagokat a készletből (FIFO):\n' +
+    Object.values(needs).filter(n=>n.ingId).map(n => `• ${n.name}: ${Math.round(n.total).toLocaleString()}g`).join('\n') +
+    '\n\nA művelet nem visszavonható!'
+  );
+  if (!confirmed) return;
+
+  const btn = document.getElementById('prod-done-btn');
+  if (btn) { btn.textContent = '⏳ Feldolgozás...'; btn.disabled = true; }
+
+  try {
+    const usage = [];
+    let totalCost = 0;
+
+    for (const [key, need] of Object.entries(needs)) {
+      if (!need.ingId || need.total <= 0) continue;
+      let remaining = need.total;
+
+      // FIFO: deduct from oldest batches first
+      const batches = R.batches
+        .filter(b => b.ingredientId === need.ingId && b.qtyRemainingG > 0)
+        .sort((a,b) => a.receivedDate.localeCompare(b.receivedDate));
+
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, batch.qtyRemainingG);
+        const cost = take * batch.pricePerG;
+        totalCost += cost;
+        usage.push({ ingredient_id: need.ingId, batch_id: batch.id, qty_g: take, cost });
+
+        // Update batch in DB
+        batch.qtyRemainingG -= take;
+        remaining -= take;
+        try {
+          await sb.update('ingredient_batches',
+            { qty_remaining_g: Math.max(0, batch.qtyRemainingG) },
+            `id=eq.${batch.id}`);
+        } catch(e) { console.warn('batch update:', e.message); }
+      }
+
+      // Update local ingredient stock
+      const ing = getIng(need.ingId);
+      if (ing) {
+        ing.totalStockG = Math.max(0, (ing.totalStockG || 0) - need.total);
+        const remaining_batches = R.batches.filter(b => b.ingredientId === need.ingId && b.qtyRemainingG > 0);
+        const fifoB = [...remaining_batches].sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
+        ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
+        const tot = ing.totalStockG;
+        ing.avgPrice = tot > 0 ? remaining_batches.reduce((s,b) => s + b.pricePerG * b.qtyRemainingG, 0) / tot : 0;
+      }
+    }
+
+    // Save production log
+    const now = new Date().toISOString().slice(0,10);
+    await sb.insert('production_logs', {
+      date: now,
+      log_type: 'customer',
+      pieces_planned: 0,
+      pieces_actual: 0,
+      ingredient_usage: JSON.stringify(usage),
+      total_cost: totalCost,
+      notes: `Sütési napok: ${days?.join(', ') || '—'}`
+    });
+
+    if (btn) { btn.style.display = 'none'; btn.textContent = '✅ Sütés elvégezve → Készlet levonása'; btn.disabled = false; }
+    toast(`✅ Sütés rögzítve! ${usage.length} alapanyag levonva. Önköltség: ${totalCost.toFixed(2)} lej`);
+    renderStock();
+    renderStockAlerts();
+    window._lastProductionNeeds = {};
+  } catch(e) {
+    toast('⚠️ Hiba: ' + e.message, true);
+    if (btn) { btn.textContent = '✅ Sütés elvégezve → Készlet levonása'; btn.disabled = false; }
+  }
+}
+
+// ===== KÍSÉRLETI SÜTÉS =====
+async function openExperimentalBake(recipeId) {
+  const recipe = R.recipes.find(r => r.id === recipeId);
+  if (!recipe) return;
+
+  const modal = document.getElementById('exp-bake-modal') || (() => {
+    const m = document.createElement('div');
+    m.id = 'exp-bake-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(m); return m;
+  })();
+
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:420px">
+    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">🧪 Kísérleti sütés</h3>
+    <div style="font-weight:600;margin-bottom:14px">${esc(recipe.name)}</div>
+    <div style="background:#fef3c7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:#92400e">
+      ⚠️ A kísérleti sütés levonja az alapanyagokat a készletből, de <b>nem</b> kerül a rendelési statisztikákba.
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Darabszám</label>
+      <input type="number" id="exp-pieces" min="1" value="1" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Megjegyzés (opcionális)</label>
+      <input type="text" id="exp-notes" placeholder="pl. új psyllium teszt, alacsonyabb só..." style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+    </div>
+    <div id="exp-cost-preview" style="background:var(--bg-soft);border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.8rem"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="confirmExperimentalBake(${recipeId})" class="btn btn-primary" style="flex:1">🧪 Rögzít + Készlet levonat</button>
+      <button onclick="document.getElementById('exp-bake-modal').style.display='none'" style="padding:8px 14px;border:1px solid var(--border);background:none;border-radius:8px;cursor:pointer">Mégse</button>
+    </div>
+  </div>`;
+
+  modal.style.display = 'flex';
+
+  // Live cost preview
+  const piecesEl = modal.querySelector('#exp-pieces');
+  const previewEl = modal.querySelector('#exp-cost-preview');
+  const updatePreview = () => {
+    const pieces = parseInt(piecesEl.value) || 1;
+    const raw = calcRawWeight(recipe, pieces);
+    const scale = raw / recipe.basePortion;
+    const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+      ? recipe.allIngredients
+      : [...(recipe.dryIngredients||[]),...(recipe.wetIngredients||[])];
+    let cost = 0;
+    allIng.forEach(ing => {
+      if (ing.ingredientId) cost += getFifoPrice(getIng(ing.ingredientId)) * ing.amount * scale;
+    });
+    previewEl.innerHTML = `Nyers tömeg: <b>${raw.toLocaleString()}g</b> · Becsült önköltség: <b style="color:var(--gold-dark)">${cost.toFixed(2)} lej</b>`;
+  };
+  piecesEl.addEventListener('input', updatePreview);
+  updatePreview();
+}
+
+async function confirmExperimentalBake(recipeId) {
+  const recipe = R.recipes.find(r => r.id === recipeId);
+  if (!recipe) return;
+  const pieces = parseInt(document.getElementById('exp-pieces')?.value) || 1;
+  const notes = document.getElementById('exp-notes')?.value?.trim() || '';
+
+  const rawWeight = calcRawWeight(recipe, pieces);
+  const scale = rawWeight / recipe.basePortion;
+  const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+    ? recipe.allIngredients
+    : [...(recipe.dryIngredients||[]),...(recipe.otherDryIngredients||[]),
+       ...(recipe.wetIngredients||[]),...(recipe.starterIngredients||[])];
+
+  // Build needs
+  const needs = {};
+  allIng.forEach(ing => {
+    if (!ing.ingredientId) return;
+    needs[ing.ingredientId] = (needs[ing.ingredientId]||0) + ing.amount * scale;
+  });
+
+  // FIFO deduction
+  const usage = [];
+  let totalCost = 0;
+  for (const [ingId, qty] of Object.entries(needs)) {
+    let rem = qty;
+    const batches = R.batches.filter(b => b.ingredientId === parseInt(ingId) && b.qtyRemainingG > 0)
+      .sort((a,b) => a.receivedDate.localeCompare(b.receivedDate));
+    for (const batch of batches) {
+      if (rem <= 0) break;
+      const take = Math.min(rem, batch.qtyRemainingG);
+      totalCost += take * batch.pricePerG;
+      usage.push({ ingredient_id: parseInt(ingId), batch_id: batch.id, qty_g: take, cost: take * batch.pricePerG });
+      batch.qtyRemainingG -= take; rem -= take;
+      try { await sb.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, `id=eq.${batch.id}`); } catch(e) {}
+    }
+    const ing = getIng(parseInt(ingId));
+    if (ing) ing.totalStockG = Math.max(0, (ing.totalStockG||0) - qty);
+  }
+
+  try {
+    await sb.insert('production_logs', {
+      date: new Date().toISOString().slice(0,10),
+      log_type: 'experimental',
+      recipe_id: recipeId,
+      pieces_planned: pieces,
+      pieces_actual: pieces,
+      ingredient_usage: JSON.stringify(usage),
+      total_cost: totalCost,
+      notes: notes || 'Kísérleti sütés'
+    });
+    document.getElementById('exp-bake-modal').style.display = 'none';
+    toast(`✅ Kísérleti sütés rögzítve: ${pieces} db ${recipe.name}. Önköltség: ${totalCost.toFixed(2)} lej`);
+    renderStock();
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
