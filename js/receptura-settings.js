@@ -160,13 +160,19 @@ function openStockIntakeModal(ingId) {
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Bevételezett mennyiség (g)</label>
-      <input type="number" id="si-amount" min="0" step="100" placeholder="pl. 2000"
+      <input type="number" id="si-amount" min="0" step="100" placeholder="pl. 2000" oninput="updateSiPriceLabel()"
         style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
     </div>
     <div style="margin-bottom:12px">
-      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Egységár (lej/kg) – opcionális</label>
-      <input type="number" id="si-price" min="0" step="0.1" placeholder="pl. 8.5"
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Ár megadása</label>
+      <select id="si-price-mode" onchange="updateSiPriceLabel()"
+        style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.84rem;font-family:'Kodchasan',sans-serif;margin-bottom:6px">
+        <option value="per_kg">Egységár (lej/kg)</option>
+        <option value="total">Teljes összeg (lej) – rendszer számolja kg-árat</option>
+      </select>
+      <input type="number" id="si-price" min="0" step="0.01" placeholder="pl. 8.50" oninput="updateSiPriceLabel()"
         style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+      <div id="si-price-preview" style="font-size:0.75rem;color:var(--text-soft);margin-top:4px"></div>
     </div>
     <div style="margin-bottom:16px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Beszállító</label>
@@ -198,16 +204,54 @@ function openStockIntakeModal(ingId) {
   setTimeout(() => modal.querySelector('#si-amount')?.focus(), 100);
 }
 
+
+function updateSiPriceLabel() {
+  const mode = document.getElementById('si-price-mode')?.value;
+  const amountEl = document.getElementById('si-amount');
+  const priceEl = document.getElementById('si-price');
+  const preview = document.getElementById('si-price-preview');
+  if (!preview) return;
+  if (mode === 'total') {
+    const amount = parseFloat(amountEl?.value) || 0;
+    const total = parseFloat(priceEl?.value) || 0;
+    if (amount > 0 && total > 0) {
+      const perKg = total / (amount / 1000);
+      preview.textContent = `→ Egységár: ${perKg.toFixed(2)} lej/kg`;
+    } else {
+      preview.textContent = 'Add meg a mennyiséget és az összeget a kalkulációhoz';
+    }
+  } else {
+    const price = parseFloat(priceEl?.value) || 0;
+    const amount = parseFloat(amountEl?.value) || 0;
+    if (price > 0 && amount > 0) {
+      const total = (amount / 1000) * price;
+      preview.textContent = `→ Teljes: ${total.toFixed(2)} lej`;
+    } else {
+      preview.textContent = '';
+    }
+  }
+}
+
 async function confirmStockIntake(ingId) {
   const amountEl = document.getElementById('si-amount');
   const priceEl = document.getElementById('si-price');
+  const priceModeEl = document.getElementById('si-price-mode');
   const supplierSel = document.getElementById('si-supplier-select');
   const supplierNameEl = document.getElementById('si-supplier-name');
 
   const amount = parseFloat(amountEl?.value) || 0;
   if (amount <= 0) { toast('⚠️ Add meg a mennyiséget!', true); return; }
 
-  const price = parseFloat(priceEl?.value) || 0;
+  const priceMode = priceModeEl?.value || 'per_kg';
+  const priceInput = parseFloat(priceEl?.value) || 0;
+  // Calculate price per kg from input mode
+  let price = 0;
+  if (priceMode === 'total') {
+    // Total cost → price per kg
+    price = amount > 0 ? (priceInput / (amount / 1000)) : 0;
+  } else {
+    price = priceInput; // already per kg
+  }
   const supplierName = supplierSel?.value === 'new' || !supplierSel
     ? (supplierNameEl?.value?.trim() || '')
     : supplierSel.options[supplierSel.selectedIndex]?.text?.split(' – ')[0] || '';
