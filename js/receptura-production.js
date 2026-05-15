@@ -35,40 +35,44 @@ async function renderProdMonthSelector() {
     if (bakingDef.includes(dow)) bakingDays.push(d);
   }
 
-  // Month nav
-  const prevM = month === 0 ? {y: year-1, m: 11} : {y: year, m: month-1};
-  const nextM = month === 11 ? {y: year+1, m: 0} : {y: year, m: month+1};
-
-  let html = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-    <button onclick="_prodSelectedMonth={year:${prevM.y},month:${prevM.m}};renderProdMonthSelector()" class="btn btn-ghost btn-sm">◀</button>
-    <span style="font-weight:700;font-size:1rem;color:var(--teal-dark)">${MONTHS_HU[month]} ${year}</span>
-    <button onclick="_prodSelectedMonth={year:${nextM.y},month:${nextM.m}};renderProdMonthSelector()" class="btn btn-ghost btn-sm">▶</button>
-    <span style="font-size:0.78rem;color:var(--text-soft)">${daysWithOrders.length} nap rendeléssel</span>
+  // Admin-style month selector
+  const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
+  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <button onclick="_prodSelectedMonth={year:${year-1},month:${month}};renderProdMonthSelector()" 
+      class="btn btn-ghost btn-sm" style="font-size:0.78rem">◀ ${year-1}</button>
+    <span style="font-weight:700;color:var(--teal-dark);font-size:0.9rem;flex:1;text-align:center">${year}</span>
+    <button onclick="_prodSelectedMonth={year:${year+1},month:${month}};renderProdMonthSelector()"
+      class="btn btn-ghost btn-sm" style="font-size:0.78rem">${year+1} ▶</button>
+  </div>
+  <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px">
+    ${MONTHS_SHORT.map((m, i) => `<button onclick="_prodSelectedMonth={year:${year},month:${i}};renderProdMonthSelector()"
+      style="padding:5px 8px;border-radius:16px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+      background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
+      font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
   </div>`;
 
   if (bakingDays.length === 0) {
     html += '<p class="text-soft text-sm">Nincs sütési nap ebben a hónapban.</p>';
   } else {
     const DAYS_HU = ['V','H','K','Sz','Cs','P','Szo'];
-    const MONTHS_SHORT = ['jan','feb','már','ápr','máj','jún','júl','aug','sze','okt','nov','dec'];
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
-    bakingDays.forEach(d => {
-      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const hasOrder = daysWithOrders.includes(d);
-      const dow = new Date(year, month, d).getDay();
-      html += `<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
-        border:1.5px solid ${hasOrder ? 'var(--teal)' : 'var(--border)'};
-        border-radius:20px;cursor:pointer;font-size:0.8rem;
-        background:${hasOrder ? 'var(--teal-pale)' : 'white'};
-        transition:all 0.2s" title="${hasOrder ? 'Van rendelés' : 'Nincs rendelés'}">
-        <input type="checkbox" value="${dateStr}" ${hasOrder ? 'checked' : ''} style="accent-color:var(--teal)">
-        ${DAYS_HU[dow]} ${d}. ${hasOrder ? '📦' : ''}
-      </label>`;
-    });
-    html += '</div>';
-
-    if (daysWithOrders.length === 0) {
-      html += '<p class="text-soft text-sm" style="margin-top:8px">Ebben a hónapban nincs rendelés a sütési napokon.</p>';
+    // Only show days WITH orders
+    const bakingDaysWithOrders = bakingDays.filter(d => daysWithOrders.includes(d));
+    
+    if (bakingDaysWithOrders.length === 0) {
+      html += '<p class="text-soft text-sm" style="margin-top:4px">Ebben a hónapban nincs rendelés a sütési napokon.</p>';
+    } else {
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      bakingDaysWithOrders.forEach(d => {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = new Date(year, month, d).getDay();
+        html += `<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+          border:1.5px solid var(--teal);border-radius:20px;cursor:pointer;font-size:0.82rem;
+          background:var(--teal-pale);transition:all 0.2s">
+          <input type="checkbox" value="${dateStr}" checked style="accent-color:var(--teal)">
+          ${DAYS_HU[dow]} ${d}. 📦
+        </label>`;
+      });
+      html += '</div>';
     }
   }
 
@@ -174,64 +178,93 @@ async function calcProductionPrep() {
 
   let html = '';
 
-  // === PER-RECIPE SCALED BREAKDOWN ===
+  // === PER-RECIPE SCALED BREAKDOWN (collapsible, sub-type grouped) ===
   const DAYS_HU_S = ['V','H','K','Sz','Cs','P','Szo'];
-  html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📋 Termékenkénti recept összesítő</div></div><div class="card-body-np">`;
+  const SUB_LABELS = {flour:'🌾 Száraz (liszt/korpa)', other_dry:'🧂 Egyéb száraz', wet:'💧 Nedves', starter:'🧫 Kovász', raw_grain:'🌱 Nyers mag'};
   
+  html += `<div class="card mb-16">
+    <div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="card-title">📋 Termékenkénti recept összesítő</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="document.querySelectorAll('.prod-recipe-body').forEach(el=>el.style.display='block')" 
+          style="font-size:0.75rem;padding:3px 10px;background:var(--bg-soft);border:1px solid var(--border);border-radius:6px;cursor:pointer">Mind kinyit</button>
+        <button onclick="document.querySelectorAll('.prod-recipe-body').forEach(el=>el.style.display='none')"
+          style="font-size:0.75rem;padding:3px 10px;background:var(--bg-soft);border:1px solid var(--border);border-radius:6px;cursor:pointer">Mind becsuk</button>
+      </div>
+    </div>
+    <div class="card-body-np">`;
+
+  let recipeIdx = 0;
   Object.values(recipeBreakdown).forEach(({ recipe, totalPieces, rawWeight, days }) => {
-    const scale = totalPieces; // pieces count as scale factor
     const basePortion = recipe.basePortion || 1000;
-    const scaleFactor = (totalPieces * (recipe.unitWeight || basePortion)) / basePortion;
-    
-    html += `<div style="padding:14px 16px;border-bottom:2px solid var(--teal-pale)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700;font-size:0.95rem;color:var(--teal-dark)">${esc(recipe.name)}</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge badge-teal">${totalPieces} db</span>
-          <span class="badge badge-gold">${(rawWeight/1000).toFixed(2)} kg nyers</span>
-          <span style="font-size:0.72rem;color:var(--text-soft)">szorzó: ×${scaleFactor.toFixed(2)}</span>
-        </div>
-      </div>`;
-    
+    // FIX: use same scale as summary (includes bake loss)
+    const scaleFactor = rawWeight / basePortion;
+    const rid = 'prod-recipe-' + (recipeIdx++);
+    // First recipe open, rest closed
+    const openDefault = recipeIdx === 1;
+
     // Per-day summary
-    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
-    Object.entries(days).sort().forEach(([ds, pieces]) => {
+    const dayBadges = Object.entries(days).sort().map(([ds, pieces]) => {
       const [dy,dm,dd] = ds.split('-').map(Number);
       const dow = new Date(dy,dm-1,dd).getDay();
-      html += `<span style="font-size:0.75rem;padding:2px 10px;background:var(--teal-pale);border-radius:12px;color:var(--teal-dark)">
-        ${DAYS_HU_S[dow]} ${dd}.: <b>${pieces} db</b>
-      </span>`;
-    });
-    html += `</div>`;
-    
-    // Scaled ingredient list for this recipe
+      return `<span style="font-size:0.72rem;padding:2px 8px;background:rgba(255,255,255,0.15);border-radius:10px">${DAYS_HU_S[dow]} ${dd}.: ${pieces} db</span>`;
+    }).join('');
+
+    html += `<div style="border-bottom:2px solid var(--teal-pale)">
+      <div onclick="const b=document.getElementById('${rid}');b.style.display=b.style.display==='none'?'block':'none'"
+        style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;background:var(--teal-pale);user-select:none">
+        <div>
+          <span style="font-weight:700;font-size:0.92rem;color:var(--teal-dark)">${esc(recipe.name)}</span>
+          <span style="font-size:0.78rem;color:var(--text-soft);margin-left:10px">${dayBadges}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          <span class="badge badge-teal">${totalPieces} db</span>
+          <span class="badge badge-gold">${(rawWeight/1000).toFixed(2)} kg nyers</span>
+          <span style="color:var(--text-soft);font-size:0.9rem">${openDefault ? '▴' : '▾'}</span>
+        </div>
+      </div>
+      <div id="${rid}" class="prod-recipe-body" style="display:${openDefault ? 'block' : 'none'};padding:12px 16px">`;
+
+    // Group ingredients by sub_type
     const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
       ? recipe.allIngredients
       : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
          ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
-    
-    if (allIng.length > 0) {
-      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px;font-size:0.78rem">`;
-      allIng.forEach(ing => {
-        const scaled = Math.round(ing.amount * scaleFactor);
+
+    // Add levain as starter ingredient
+    const levIng = [];
+    if (recipe.levainAmount > 0) {
+      const lev = calcLevain(recipe.levainAmount * scaleFactor);
+      levIng.push({name:'Kovász (starter)', ingredientId:4, amount:recipe.levainAmount, subType:'starter', _scaledG: Math.round(lev.starter)});
+      levIng.push({name:'Víz (levainhez)', ingredientId:1, amount:0, subType:'wet', _scaledG: Math.round(lev.water)});
+    }
+
+    const allWithLev = [...allIng, ...levIng];
+    const grouped = {};
+    allWithLev.forEach(ing => {
+      const st = ing.subType || 'other_dry';
+      if (!grouped[st]) grouped[st] = [];
+      grouped[st].push(ing);
+    });
+
+    ['flour','other_dry','wet','starter','raw_grain'].forEach(st => {
+      if (!grouped[st] || grouped[st].length === 0) return;
+      html += `<div style="margin-bottom:10px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--border)">${SUB_LABELS[st]||st}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 20px">`;
+      grouped[st].forEach(ing => {
+        const scaledG = ing._scaledG !== undefined ? ing._scaledG : Math.round(ing.amount * scaleFactor);
         const ingMaster = ing.ingredientId ? getIng(ing.ingredientId) : null;
         const displayName = ingMaster?.name || ing.name;
-        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
+        html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:0.8rem">
           <span style="color:var(--teal-dark)">${esc(displayName)}</span>
-          <span style="font-weight:600;color:var(--gold-dark)">${scaled.toLocaleString()} g</span>
+          <span style="font-weight:700;color:var(--gold-dark);margin-left:8px">${scaledG.toLocaleString()} g</span>
         </div>`;
       });
-      // Levain
-      if (recipe.levainAmount > 0) {
-        const lev = calcLevain(recipe.levainAmount * scaleFactor);
-        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-style:italic">
-          <span style="color:var(--teal-dark)">🧫 Kovász (starter)</span>
-          <span style="font-weight:600;color:var(--gold-dark)">${Math.round(lev.starter).toLocaleString()} g</span>
-        </div>`;
-      }
-      html += `</div>`;
-    }
-    html += `</div>`;
+      html += `</div></div>`;
+    });
+
+    html += `</div></div>`;
   });
   html += `</div></div>`;
 

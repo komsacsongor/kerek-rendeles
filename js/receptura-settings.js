@@ -159,9 +159,19 @@ function openStockIntakeModal(ingId) {
       <div style="font-size:0.82rem;color:var(--text-soft);margin-top:4px">Jelenlegi készlet: <b>${currentStock.toLocaleString()} g</b></div>
     </div>
     <div style="margin-bottom:12px">
-      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Bevételezett mennyiség (g)</label>
-      <input type="number" id="si-amount" min="0" step="100" placeholder="pl. 2000" oninput="updateSiPriceLabel()"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Bevételezett mennyiség</label>
+      <div style="display:flex;gap:8px">
+        <input type="number" id="si-amount" min="0" step="0.001" placeholder="pl. 2" oninput="updateSiPriceLabel()"
+          style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif">
+        <select id="si-unit" onchange="updateSiPriceLabel()"
+          style="width:80px;padding:10px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:'Kodchasan',sans-serif">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="ml">ml</option>
+          <option value="L">L</option>
+        </select>
+      </div>
+      <div id="si-amount-preview" style="font-size:0.72rem;color:var(--text-soft);margin-top:3px"></div>
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Ár megadása</label>
@@ -207,24 +217,35 @@ function openStockIntakeModal(ingId) {
 
 function updateSiPriceLabel() {
   const mode = document.getElementById('si-price-mode')?.value;
-  const amountEl = document.getElementById('si-amount');
-  const priceEl = document.getElementById('si-price');
+  const unit = document.getElementById('si-unit')?.value || 'g';
+  const amountRaw = parseFloat(document.getElementById('si-amount')?.value) || 0;
+  const priceInput = parseFloat(document.getElementById('si-price')?.value) || 0;
   const preview = document.getElementById('si-price-preview');
+  const amountPreview = document.getElementById('si-amount-preview');
+
+  // Convert to grams for preview
+  let amountG = amountRaw;
+  if (unit === 'kg') amountG = amountRaw * 1000;
+  else if (unit === 'L') amountG = amountRaw * 1000;
+  else if (unit === 'ml') amountG = amountRaw;
+
+  if (amountPreview && amountRaw > 0 && unit !== 'g') {
+    amountPreview.textContent = `→ ${amountG.toLocaleString()} g`;
+  } else if (amountPreview) {
+    amountPreview.textContent = '';
+  }
+
   if (!preview) return;
   if (mode === 'total') {
-    const amount = parseFloat(amountEl?.value) || 0;
-    const total = parseFloat(priceEl?.value) || 0;
-    if (amount > 0 && total > 0) {
-      const perKg = total / (amount / 1000);
+    if (amountG > 0 && priceInput > 0) {
+      const perKg = priceInput / (amountG / 1000);
       preview.textContent = `→ Egységár: ${perKg.toFixed(2)} lej/kg`;
     } else {
-      preview.textContent = 'Add meg a mennyiséget és az összeget a kalkulációhoz';
+      preview.textContent = 'Add meg a mennyiséget és az összeget';
     }
   } else {
-    const price = parseFloat(priceEl?.value) || 0;
-    const amount = parseFloat(amountEl?.value) || 0;
-    if (price > 0 && amount > 0) {
-      const total = (amount / 1000) * price;
+    if (priceInput > 0 && amountG > 0) {
+      const total = (amountG / 1000) * priceInput;
       preview.textContent = `→ Teljes: ${total.toFixed(2)} lej`;
     } else {
       preview.textContent = '';
@@ -234,60 +255,91 @@ function updateSiPriceLabel() {
 
 async function confirmStockIntake(ingId) {
   const amountEl = document.getElementById('si-amount');
+  const unitEl = document.getElementById('si-unit');
   const priceEl = document.getElementById('si-price');
   const priceModeEl = document.getElementById('si-price-mode');
   const supplierSel = document.getElementById('si-supplier-select');
   const supplierNameEl = document.getElementById('si-supplier-name');
 
-  const amount = parseFloat(amountEl?.value) || 0;
-  if (amount <= 0) { toast('⚠️ Add meg a mennyiséget!', true); return; }
+  const amountRaw = parseFloat(amountEl?.value) || 0;
+  if (amountRaw <= 0) { toast('⚠️ Add meg a mennyiséget!', true); return; }
 
+  // Convert to grams (1ml = 1g approximation)
+  const unit = unitEl?.value || 'g';
+  let amountG = amountRaw;
+  if (unit === 'kg') amountG = amountRaw * 1000;
+  else if (unit === 'L') amountG = amountRaw * 1000;
+  else if (unit === 'ml') amountG = amountRaw;
+  // g stays as is
+
+  // Price calculation
   const priceMode = priceModeEl?.value || 'per_kg';
   const priceInput = parseFloat(priceEl?.value) || 0;
-  // Calculate price per kg from input mode
-  let price = 0;
-  if (priceMode === 'total') {
-    // Total cost → price per kg
-    price = amount > 0 ? (priceInput / (amount / 1000)) : 0;
-  } else {
-    price = priceInput; // already per kg
+  let pricePerG = 0;
+  if (priceInput > 0) {
+    if (priceMode === 'total') {
+      pricePerG = amountG > 0 ? priceInput / amountG : 0;
+    } else {
+      // per_kg → per_g
+      pricePerG = priceInput / 1000;
+    }
   }
+
   const supplierName = supplierSel?.value === 'new' || !supplierSel
     ? (supplierNameEl?.value?.trim() || '')
-    : supplierSel.options[supplierSel.selectedIndex]?.text?.split(' – ')[0] || '';
+    : (supplierSel.options[supplierSel.selectedIndex]?.text?.split(' – ')[0] || '');
 
   const ing = getIng(ingId);
   if (!ing) return;
 
-  // Add to stock
-  const newStock = (R.stock[ingId] || 0) + amount;
-  R.stock[ingId] = newStock;
-
-  // Update price if provided (add/update supplier)
-  if (price > 0 && supplierName) {
-    if (!ing.suppliers) ing.suppliers = [];
-    const existing = ing.suppliers.find(s => (s.source||s.name||'') === supplierName);
-    if (existing) { existing.pricePerKg = price; }
-    else { ing.suppliers.push({ source: supplierName, name: supplierName, pricePerKg: price }); }
-    // Save ingredients update
-    try {
-      const ingIdx = R.ingredients.findIndex(i => i.id === ingId);
-      if (ingIdx >= 0) {
-        R.ingredients[ingIdx].suppliers = ing.suppliers;
-        await sb.upsert('recipe_ingredients', { id: ingId, suppliers: JSON.stringify(ing.suppliers) }, 'id');
-      }
-    } catch(e) { console.warn('Supplier save:', e.message); }
-  }
-
-  // Save stock to Supabase settings
   try {
-    await sb.setSetting('recipe_stock', R.stock);
-    save();
+    // FIX: INSERT into ingredient_batches (not just R.stock settings!)
+    const batchRow = {
+      ingredient_id: ingId,
+      received_date: new Date().toISOString().slice(0,10),
+      qty_received_g: amountG,
+      qty_remaining_g: amountG,
+      price_per_g: pricePerG,
+      price_gross_per_unit: priceMode === 'total' ? priceInput : (priceInput / 1000 * amountG),
+      package_size_g: amountG,
+      supplier_name: supplierName,
+      source_type: 'purchase',
+      notes: unit !== 'g' ? `Bevételezve: ${amountRaw} ${unit}` : ''
+    };
+
+    await sb.insert('ingredient_batches', batchRow);
+
+    // Update local R.batches
+    if (!R.batches) R.batches = [];
+    R.batches.push({
+      ingredientId: ingId,
+      receivedDate: batchRow.received_date,
+      qtyReceivedG: amountG,
+      qtyRemainingG: amountG,
+      pricePerG: pricePerG,
+      supplierName: supplierName,
+      sourceType: 'purchase',
+    });
+
+    // Recalculate totalStockG and prices for this ingredient
+    const ingBatches = R.batches.filter(b => b.ingredientId === ingId && b.qtyRemainingG > 0);
+    ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+    const fifoB = [...ingBatches].sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
+    ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
+    const totalQ = ing.totalStockG;
+    ing.avgPrice = totalQ > 0
+      ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / totalQ
+      : 0;
+
+    const unitLabel = unit === 'g' ? 'g' : unit === 'kg' ? 'kg' : unit;
     document.getElementById('stock-intake-modal').style.display = 'none';
-    toast(`✅ Bevételezve: ${amount.toLocaleString()} g ${ing.name}. Új készlet: ${newStock.toLocaleString()} g`);
+    toast(`✅ Bevételezve: ${amountRaw} ${unitLabel} ${ing.name}. Készlet: ${Math.round(ing.totalStockG).toLocaleString()} g`);
     renderStock();
     renderStockAlerts();
-  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
+  } catch(e) {
+    toast('⚠️ Mentés sikertelen: ' + e.message, true);
+    console.error('confirmStockIntake error:', e);
+  }
 }
 
 function renderSettings() {
