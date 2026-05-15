@@ -132,10 +132,10 @@ async function calcProductionPrep() {
       recipeBreakdown[recipe.id].totalPieces += totalPieces;
       recipeBreakdown[recipe.id].days[dateStr] = (recipeBreakdown[recipe.id].days[dateStr]||0) + totalPieces;
 
-      const rawWeight = calcRawWeight(recipe, totalPieces);
+      const rawWeight = calcRawWeight(recipe, totalPieces); // display only
       recipeBreakdown[recipe.id].rawWeight += rawWeight;
 
-      const scale = rawWeight / recipe.basePortion;
+      const scale = calcScaleFactor(recipe, totalPieces); // no bake_loss
 
       // Levain egységként (Kész levain ID=105) – nem bontjuk víz+lisztre
       // A levain előkészítés a Napi levain igény nézetben történik
@@ -197,8 +197,8 @@ async function calcProductionPrep() {
   let recipeIdx = 0;
   Object.values(recipeBreakdown).forEach(({ recipe, totalPieces, rawWeight, days }) => {
     const basePortion = recipe.basePortion || 1000;
-    // FIX: use same scale as summary (includes bake loss)
-    const scaleFactor = rawWeight / basePortion;
+    // scaleFactor = no bake_loss (recipe amounts already include it)
+    const scaleFactor = calcScaleFactor(recipe, totalPieces);
     const rid = 'prod-recipe-' + (recipeIdx++);
     // First recipe open, rest closed
     const openDefault = recipeIdx === 1;
@@ -456,8 +456,8 @@ async function confirmExperimentalBake(recipeId) {
   const pieces = parseInt(document.getElementById('exp-pieces')?.value) || 1;
   const notes = document.getElementById('exp-notes')?.value?.trim() || '';
 
-  const rawWeight = calcRawWeight(recipe, pieces);
-  const scale = rawWeight / recipe.basePortion;
+  const rawWeight = calcRawWeight(recipe, pieces); // display only
+  const scale = calcScaleFactor(recipe, pieces); // no bake_loss
   const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
     ? recipe.allIngredients
     : [...(recipe.dryIngredients||[]),...(recipe.otherDryIngredients||[]),

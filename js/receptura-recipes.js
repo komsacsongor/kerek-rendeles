@@ -91,18 +91,19 @@ function renderRecipeDetail() {
   renderVersionHistory(r);
 
   // Scale info
-  const rawWeight = calcRawWeight(r, pieces);
+  const rawWeight = calcRawWeight(r, pieces); // display only
+  const scale = calcScaleFactor(r, pieces); // no bake_loss for ingredients
   const bakedWeight = pieces * (r.unitWeight||r.basePortion);
-  const levainNeeded = Math.round(r.levainAmount * rawWeight / r.basePortion);
+  const levainNeeded = Math.round(r.levainAmount * scale);
   document.getElementById('scale-raw-weight').textContent = rawWeight.toLocaleString();
   document.getElementById('scale-baked-weight').textContent = bakedWeight.toLocaleString();
   document.getElementById('scale-levain').textContent = levainNeeded;
 
   // Levain box
-  renderLevainBox('levain-box', levainNeeded, r.levainAmount * rawWeight / r.basePortion);
+  renderLevainBox('levain-box', levainNeeded, r.levainAmount * scale);
 
   // Ingredients
-  renderIngredientsDetail(r, pieces, rawWeight);
+  renderIngredientsDetail(r, pieces, rawWeight, scale);
 
   // Cost
   renderCostDetail(r, pieces);
@@ -140,8 +141,8 @@ function renderLevainBox(containerId, levainTotal, levainBase) {
     </div>`;
 }
 
-function renderIngredientsDetail(recipe, pieces, rawWeight) {
-  const scale = rawWeight / recipe.basePortion;
+function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
+  scale = scale || calcScaleFactor(recipe, pieces); // no bake_loss
   const allIngs = [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])];
   const totalBase = allIngs.reduce((a,i)=>a+i.amount, 0) + recipe.levainAmount;
 
@@ -346,8 +347,8 @@ function printRecipeDatasheet() {
   const r = R.recipes.find(x => x.id === currentRecipeId);
   if (!r) return;
   const pieces = parseInt(document.getElementById('scale-pieces').value) || 10;
-  const rawWeight = calcRawWeight(r, pieces);
-  const scale = rawWeight / r.basePortion;
+  const rawWeight = calcRawWeight(r, pieces); // display only
+  const scale = calcScaleFactor(r, pieces); // no bake_loss
 
   // Product image
   const prod = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).find(p => p.id === r.product_id);

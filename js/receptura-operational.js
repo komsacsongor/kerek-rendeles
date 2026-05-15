@@ -34,7 +34,7 @@ function renderOpDetail() {
   renderLevainBox('op-levain-box', levainNeeded, r.levainAmount);
 
   // Ingredients list
-  const scale = rawWeight / r.basePortion;
+  const scale = calcScaleFactor(r, pieces); // no bake_loss
   const SUB_CFG = [
     {key:'flour',   label:'🌾 Száraz (liszt/korpa)', cls:'dry'},
     {key:'other_dry',label:'🧂 Egyéb száraz',        cls:'dry'},

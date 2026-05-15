@@ -68,6 +68,12 @@ function subTypeHeadClass(subType) {
   return {flour:'dry', other_dry:'other-dry', wet:'wet', starter:'levain'}[subType] || 'other-dry';
 }
 
+// Scale factor for ingredient calculation - NO bake_loss (recipe amounts already include it)
+function calcScaleFactor(recipe, pieces) {
+  const unitWeight = recipe.unitWeight || recipe.basePortion;
+  return (pieces * unitWeight) / (recipe.basePortion || 1000);
+}
+
 function calcRawWeight(recipe, pieces) {
   const unitWeight = recipe.unitWeight || recipe.basePortion;
   const totalBaked = pieces * unitWeight;

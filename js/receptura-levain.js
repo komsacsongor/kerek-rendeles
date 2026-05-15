@@ -18,17 +18,73 @@ function getBakingDaysRange(fromDate, numDays) {
   return result;
 }
 
+let _levainSelectedMonth = null;
+
 function initLevainDaily() {
   const now = new Date();
-  const days = getBakingDaysRange(now, 30);
-  const DAYS_HU = ['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'];
+  _levainSelectedMonth = { year: now.getFullYear(), month: now.getMonth() };
+  renderLevainMonthSelector();
+}
+
+async function renderLevainMonthSelector() {
+  const { year, month } = _levainSelectedMonth;
   const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
-  document.getElementById('levain-day-selector').innerHTML = days.map(d =>
-    `<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.82rem;background:white;transition:all 0.2s">
-      <input type="checkbox" value="${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}" style="accent-color:var(--teal)">
-      ${DAYS_HU[d.getDay()]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}
-    </label>`
-  ).join('') || '<p class="text-soft text-sm">Nincs sütési nap beállítva (alap: kedd + péntek).</p>';
+  const DAYS_HU = ['V','H','K','Sz','Cs','P','Szo'];
+
+  // Load orders for this month
+  let ordersForMonth = [];
+  try {
+    ordersForMonth = await sb.query('orders', {
+      filter: `year=eq.${year},month=eq.${month}`,
+      limit: 5000
+    });
+  } catch(e) {}
+
+  const daysWithOrders = [...new Set((ordersForMonth||[]).map(o=>o.day))].sort((a,b)=>a-b);
+
+  // Baking days in this month
+  const bakingDef = (R.settings && R.settings.bakingDaysDefault) || DEFAULT_BAKING_DAYS;
+  const endOfMonth = new Date(year, month + 1, 0).getDate();
+  const bakingDaysWithOrders = [];
+  for (let d = 1; d <= endOfMonth; d++) {
+    const dow = new Date(year, month, d).getDay();
+    if (bakingDef.includes(dow) && daysWithOrders.includes(d)) bakingDaysWithOrders.push(d);
+  }
+
+  // Admin-style month tabs
+  const monthNav = document.getElementById('levain-month-selector');
+  if (monthNav) monthNav.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <button onclick="_levainSelectedMonth={year:${year-1},month:${month}};renderLevainMonthSelector()"
+        class="btn btn-ghost btn-sm" style="font-size:0.78rem">◀ ${year-1}</button>
+      <span style="font-weight:700;color:var(--teal-dark);font-size:0.9rem;flex:1;text-align:center">${year}</span>
+      <button onclick="_levainSelectedMonth={year:${year+1},month:${month}};renderLevainMonthSelector()"
+        class="btn btn-ghost btn-sm" style="font-size:0.78rem">${year+1} ▶</button>
+    </div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px">
+      ${MONTHS_SHORT.map((m, i) => `<button onclick="_levainSelectedMonth={year:${year},month:${i}};renderLevainMonthSelector()"
+        style="padding:5px 8px;border-radius:16px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+        background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
+        font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
+    </div>`;
+
+  // Day selector - only days with orders
+  const dayEl = document.getElementById('levain-day-selector');
+  if (!dayEl) return;
+  if (bakingDaysWithOrders.length === 0) {
+    dayEl.innerHTML = '<p class="text-soft text-sm">Ebben a hónapban nincs rendelés sütési napokon.</p>';
+    return;
+  }
+  dayEl.innerHTML = bakingDaysWithOrders.map(d => {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(year, month, d).getDay();
+    return `<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+      border:1.5px solid var(--teal);border-radius:20px;cursor:pointer;font-size:0.82rem;
+      background:var(--teal-pale);transition:all 0.2s">
+      <input type="checkbox" value="${dateStr}" checked style="accent-color:var(--teal)">
+      ${DAYS_HU[dow]} ${d}. 📦
+    </label>`;
+  }).join('');
 }
 
 async function calcLevainDaily() {
@@ -85,8 +141,8 @@ async function calcLevainDaily() {
             (prod.name||'').toLowerCase().includes(r.name.toLowerCase().slice(0,6))
           ) : null);
         if(!recipe || !recipe.levainAmount) return;
-        const rawWeight = calcRawWeight(recipe, qty);
-        const scale = rawWeight / (recipe.basePortion||1000);
+        const rawWeight = calcRawWeight(recipe, qty); // display only
+        const scale = calcScaleFactor(recipe, qty); // no bake_loss
         totalLevainNeeded += recipe.levainAmount * scale;
       });
     });
