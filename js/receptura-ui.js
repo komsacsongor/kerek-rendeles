@@ -30,14 +30,17 @@ function getIng(id) { return R.ingredients.find(i=>i.id===id); }
 // FIFO price: use oldest batch first
 function getFifoPrice(ing) {
   if (!ing) return 0;
-  if (!ing.suppliers || ing.suppliers.length === 0) return ing.pricePerG || 0;
-  // Sort by date ascending (oldest first = FIFO)
-  const sorted = [...ing.suppliers].sort((a,b) => new Date(a.date) - new Date(b.date));
-  // Use first batch with stock > 0, else use latest
-  const active = sorted.find(s => (s.stock||0) > 0) || sorted[sorted.length-1];
-  return active.priceNet / active.package;
+  // 1. FIFO from batches (best)
+  if (ing.fifoPrice && ing.fifoPrice > 0) return ing.fifoPrice;
+  // 2. Manual base price fallback
+  if (ing.basePriceG && ing.basePriceG > 0) return ing.basePriceG;
+  // 3. Legacy suppliers
+  if (ing.suppliers && ing.suppliers.length > 0) {
+    const s = ing.suppliers.find(s => (s.stock || 0) > 0) || ing.suppliers[0];
+    return s ? (s.pricePerKg || 0) / 1000 : 0;
+  }
+  return 0;
 }
-
 // Get current effective price per gram (FIFO)
 function getIngPricePerG(ingId) {
   const ing = getIng(ingId);

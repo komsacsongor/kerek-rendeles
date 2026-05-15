@@ -153,6 +153,7 @@ async function initApp() {
         minStockOverrideG: i.min_stock_override_g ?? null,
         maxStockOverrideG: i.max_stock_override_g ?? null,
         autoUpdatedAt: i.auto_updated_at || null,
+        basePriceG: i.base_price_per_g || 0,
         notes: i.notes || '',
         // Effective min/max (override ?? auto)
         get minStock() { return this.minStockOverrideG ?? this.minStockAutoG; },

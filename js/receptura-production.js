@@ -174,28 +174,64 @@ async function calcProductionPrep() {
 
   let html = '';
 
-  // === PER-RECIPE BREAKDOWN ===
-  html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📋 Termékenkénti összesítő</div></div><div class="card-body-np">`;
+  // === PER-RECIPE SCALED BREAKDOWN ===
+  const DAYS_HU_S = ['V','H','K','Sz','Cs','P','Szo'];
+  html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📋 Termékenkénti recept összesítő</div></div><div class="card-body-np">`;
+  
   Object.values(recipeBreakdown).forEach(({ recipe, totalPieces, rawWeight, days }) => {
-    html += `<div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="font-weight:700;font-size:0.9rem;color:var(--teal-dark)">${esc(recipe.name)}</div>
-        <div style="display:flex;gap:12px">
-          <span class="badge badge-teal" style="font-size:0.8rem">${totalPieces} db</span>
-          <span class="badge badge-gold" style="font-size:0.8rem">${(rawWeight/1000).toFixed(2)} kg nyers</span>
+    const scale = totalPieces; // pieces count as scale factor
+    const basePortion = recipe.basePortion || 1000;
+    const scaleFactor = (totalPieces * (recipe.unitWeight || basePortion)) / basePortion;
+    
+    html += `<div style="padding:14px 16px;border-bottom:2px solid var(--teal-pale)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;font-size:0.95rem;color:var(--teal-dark)">${esc(recipe.name)}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge badge-teal">${totalPieces} db</span>
+          <span class="badge badge-gold">${(rawWeight/1000).toFixed(2)} kg nyers</span>
+          <span style="font-size:0.72rem;color:var(--text-soft)">szorzó: ×${scaleFactor.toFixed(2)}</span>
         </div>
       </div>`;
-    // Per-day breakdown for this recipe
-    html += `<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+    
+    // Per-day summary
+    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
     Object.entries(days).sort().forEach(([ds, pieces]) => {
       const [dy,dm,dd] = ds.split('-').map(Number);
       const dow = new Date(dy,dm-1,dd).getDay();
-      const DAYS_HU_S = ['V','H','K','Sz','Cs','P','Szo'];
-      html += `<span style="font-size:0.75rem;padding:2px 8px;background:var(--bg-soft);border-radius:12px;color:var(--teal-dark)">
+      html += `<span style="font-size:0.75rem;padding:2px 10px;background:var(--teal-pale);border-radius:12px;color:var(--teal-dark)">
         ${DAYS_HU_S[dow]} ${dd}.: <b>${pieces} db</b>
       </span>`;
     });
-    html += `</div></div>`;
+    html += `</div>`;
+    
+    // Scaled ingredient list for this recipe
+    const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
+      ? recipe.allIngredients
+      : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
+         ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+    
+    if (allIng.length > 0) {
+      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px;font-size:0.78rem">`;
+      allIng.forEach(ing => {
+        const scaled = Math.round(ing.amount * scaleFactor);
+        const ingMaster = ing.ingredientId ? getIng(ing.ingredientId) : null;
+        const displayName = ingMaster?.name || ing.name;
+        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--teal-dark)">${esc(displayName)}</span>
+          <span style="font-weight:600;color:var(--gold-dark)">${scaled.toLocaleString()} g</span>
+        </div>`;
+      });
+      // Levain
+      if (recipe.levainAmount > 0) {
+        const lev = calcLevain(recipe.levainAmount * scaleFactor);
+        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-style:italic">
+          <span style="color:var(--teal-dark)">🧫 Kovász (starter)</span>
+          <span style="font-weight:600;color:var(--gold-dark)">${Math.round(lev.starter).toLocaleString()} g</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
   });
   html += `</div></div>`;
 

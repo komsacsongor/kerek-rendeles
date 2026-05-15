@@ -76,7 +76,7 @@ function renderStock() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:0.9rem">${esc(ing.name)}</div>
-            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}</div>
+            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}${ing.basePriceG>0&&fifoP===0?' · <span style="color:#b45309">📌 Alap: '+(ing.basePriceG*1000).toFixed(2)+' lej/kg</span>':''}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${stock.toLocaleString()}g</div>
@@ -96,6 +96,8 @@ function renderStock() {
             ${batches.length > 0 ? `<span style="background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:10px;font-size:0.7rem">${batches.length} batch</span>` : ''}
             <button onclick="openStockIntakeModal(${ing.id})" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem;font-weight:600">📦 Bevételezés</button>
             <button onclick="openMinMaxEditor(${ing.id})" style="background:${ing.isOverride?'#7c3aed':'var(--bg-soft)'};color:${ing.isOverride?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">✏️ Min/Max</button>
+            <button onclick="openPriceEditor(${ing.id})" style="background:${ing.basePriceG>0?'#b45309':'var(--bg-soft)'};color:${ing.basePriceG>0?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">💰 Ár</button>
+            <button onclick="deleteIngredient(${ing.id})" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:0.75rem;padding:3px 6px" title="Törlés">🗑️</button>
           </div>
         </div>
 
@@ -158,6 +160,73 @@ function openMinMaxEditor(ingId) {
   </div>`;
 
   modal.style.display = 'flex';
+}
+
+
+function openPriceEditor(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const modal = document.getElementById('price-edit-modal') || (() => {
+    const m = document.createElement('div');
+    m.id = 'price-edit-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(m); return m;
+  })();
+
+  const fifoP = (ing.fifoPrice || 0) * 1000;
+  const baseP = (ing.basePriceG || 0) * 1000;
+
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:400px">
+    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">💰 Alap ár beállítás</h3>
+    <div style="font-weight:600;margin-bottom:12px">${esc(ing.name)}</div>
+    <div style="background:var(--bg-soft);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem">
+      ${fifoP > 0 ? `🔄 FIFO ár (legutóbbi batch): <b>${fifoP.toFixed(2)} lej/kg</b>` : '⚠️ Nincs batch bevételezés, ezért nincs FIFO ár.'}
+      <div style="font-size:0.75rem;color:var(--text-soft);margin-top:4px">Az alap ár a kalkuláció fallback-je ha nincs batch.</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Alap ár (lej/kg)</label>
+      <input type="number" id="pe-price" min="0" step="0.1" value="${baseP > 0 ? baseP.toFixed(2) : ''}" placeholder="pl. 12.50"
+        style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveBasePrice(${ingId})" class="btn btn-primary" style="flex:1">✅ Mentés</button>
+      <button onclick="document.getElementById('price-edit-modal').style.display='none'" style="padding:8px 16px;background:none;border:1px solid var(--border);border-radius:8px;cursor:pointer">Mégse</button>
+    </div>
+  </div>`;
+  modal.style.display = 'flex';
+  setTimeout(() => modal.querySelector('#pe-price')?.focus(), 100);
+}
+
+async function saveBasePrice(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const pricePerKg = parseFloat(document.getElementById('pe-price')?.value) || 0;
+  ing.basePriceG = pricePerKg / 1000;
+  try {
+    await sb.update('ingredients', { base_price_per_g: ing.basePriceG }, `id=eq.\${ingId}`);
+    document.getElementById('price-edit-modal').style.display = 'none';
+    toast(`✅ Alap ár mentve: \${pricePerKg.toFixed(2)} lej/kg`);
+    renderStock();
+  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
+}
+
+async function deleteIngredient(ingId) {
+  const ing = getIng(ingId);
+  if (!ing) return;
+  const hasRecipes = R.recipes.some(r =>
+    [...(r.allIngredients||[]), ...(r.dryIngredients||[]), ...(r.wetIngredients||[])].some(i => i.ingredientId === ingId)
+  );
+  if (hasRecipes) {
+    toast('⚠️ Ez az alapanyag receptekben van használatban. Előbb vedd ki a receptekből!', true);
+    return;
+  }
+  if (!confirm(`Törlöd: "\${ing.name}"? Ez nem visszavonható!`)) return;
+  try {
+    await sb.delete('ingredients', `id=eq.\${ingId}`);
+    R.ingredients = R.ingredients.filter(i => i.id !== ingId);
+    toast('✅ Alapanyag törölve.');
+    renderStock();
+  } catch(e) { toast('⚠️ Törlés sikertelen: ' + e.message, true); }
 }
 
 function exportShoppingListCSV() {
