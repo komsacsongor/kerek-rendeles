@@ -110,9 +110,10 @@ async function initApp() {
         productPrice: r.product_price||0,
         // Összetevők
         dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
-        otherDryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='other_dry').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        otherDryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&(i.sub_type==='other_dry'||i.sub_type==='spice'||i.sub_type==='additive')).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
         wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
         starterIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='starter').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        allIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type||'other_dry'})),
         steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
       }));
       // Kód enrichment: products táblából (product_id alapján)
@@ -130,10 +131,17 @@ async function initApp() {
 
   // Alapanyagok betöltése Supabase-ből (felváltja a hardkódolt listát)
   try {
-    const [dbIngList, dbBatches] = await Promise.all([
-      sb.query('ingredients', {order:'category,name', limit:500}),
-      sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
-    ]);
+    let dbIngList = [], dbBatches = [];
+    try {
+      [dbIngList, dbBatches] = await Promise.all([
+        sb.query('ingredients', {order:'category,name', limit:500}),
+        sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+      ]);
+    } catch(batchErr) {
+      // ingredient_batches might not exist yet - try ingredients only
+      try { dbIngList = await sb.query('ingredients', {order:'category,name', limit:500}); } catch(e) {}
+      console.warn('ingredient_batches nem elérhető - futtasd a DB migrációt!');
+    }
     if(dbIngList && dbIngList.length > 0) {
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,

@@ -16,7 +16,7 @@ function nav(id) {
   const renders = {
     recipes: renderRecipes, 'op-select': renderOpSelect,
     ingredients: renderIngredients, 'settings-r': renderSettings,
-    'cost-analysis': renderCostAnalysis, stock: () => { renderStock(); renderStockAlerts(); },
+    'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
