@@ -137,11 +137,11 @@ async function calcProductionPrep() {
 
       const scale = rawWeight / recipe.basePortion;
 
-      // Ingredient needs (teljes rendelési igény)
-      const lev = calcLevain(recipe.levainAmount * scale);
-      addNeed(needs, 4, lev.starter);
-      addNeed(needs, 9, lev.flour);
-      addNeed(needs, 1, lev.water);
+      // Levain egységként (Kész levain ID=105) – nem bontjuk víz+lisztre
+      // A levain előkészítés a Napi levain igény nézetben történik
+      if (recipe.levainAmount > 0) {
+        addNeed(needs, 105, recipe.levainAmount * scale, 'Kész levain');
+      }
 
       // Use allIngredients (all sub_types with ingredient_id links) if available
       const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
@@ -231,15 +231,15 @@ async function calcProductionPrep() {
       : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
          ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
 
-    // Add levain as starter ingredient
+    // Levain: egyetlen "Kész levain" sor (nem bontjuk víz+liszt összetevőkre)
+    // A levain előkészítés külön flow (Napi levain igény nézet)
     const levIng = [];
     if (recipe.levainAmount > 0) {
-      const lev = calcLevain(recipe.levainAmount * scaleFactor);
-      levIng.push({name:'Kovász (starter)', ingredientId:4, amount:recipe.levainAmount, subType:'starter', _scaledG: Math.round(lev.starter)});
-      levIng.push({name:'Víz (levainhez)', ingredientId:1, amount:0, subType:'wet', _scaledG: Math.round(lev.water)});
+      const levTotal = Math.round(recipe.levainAmount * scaleFactor);
+      levIng.push({name:'Kész levain', ingredientId:105, amount:recipe.levainAmount, subType:'starter', _scaledG: levTotal});
     }
 
-    const allWithLev = [...allIng, ...levIng];
+    const allWithLev = [...allIng.filter(i => i.ingredientId !== 105), ...levIng];
     const grouped = {};
     allWithLev.forEach(ing => {
       const st = ing.subType || 'other_dry';

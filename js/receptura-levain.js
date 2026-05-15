@@ -152,5 +152,54 @@ async function calcLevainDaily() {
     </div>`;
   }
 
+  // Add "Levain rögzítése" button at the bottom
+  const totalLevainG = grandTotal.starter + grandTotal.water + grandTotal.flour;
+  if (totalLevainG > 0) {
+    html += `<div style="margin-top:16px;text-align:center">
+      <button onclick="recordLevainBatch(${totalLevainG})"
+        style="padding:12px 28px;background:var(--teal-dark);color:var(--gold);border:none;
+        border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;
+        font-family:'Kodchasan',sans-serif">
+        🧫 Levain rögzítése készletbe (${totalLevainG.toLocaleString()}g)
+      </button>
+      <div style="font-size:0.75rem;color:var(--text-soft);margin-top:6px">
+        Ez hozzáadja a kész levaint a félkész készlethez (FIFO)
+      </div>
+    </div>`;
+  }
+
   document.getElementById('levain-daily-result').innerHTML = html;
+}
+
+async function recordLevainBatch(totalG) {
+  if (!confirm(`Rögzíted ${totalG.toLocaleString()}g kész levaint a készletbe?\n\nEz bevételezésként kerül a Kész levain alapanyaghoz.`)) return;
+  try {
+    const today = new Date();
+    const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    await sb.insert('ingredient_batches', {
+      ingredient_id: 105,
+      received_date: dateStr,
+      qty_received_g: totalG,
+      qty_remaining_g: totalG,
+      price_per_g: 0,
+      supplier_name: 'Saját előállítás',
+      source_type: 'processing',
+      notes: 'Napi levain – ' + dateStr
+    });
+    // Update local R.batches
+    if (!R.batches) R.batches = [];
+    R.batches.push({
+      ingredientId: 105,
+      receivedDate: dateStr,
+      qtyReceivedG: totalG,
+      qtyRemainingG: totalG,
+      pricePerG: 0,
+      supplierName: 'Saját előállítás',
+      sourceType: 'processing',
+    });
+    // Update ingredient totalStockG
+    const ing = R.ingredients?.find(i => i.id === 105);
+    if (ing) ing.totalStockG = (ing.totalStockG || 0) + totalG;
+    toast(`✅ ${totalG.toLocaleString()}g kész levain rögzítve!`);
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
