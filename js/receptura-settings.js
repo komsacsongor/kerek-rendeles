@@ -61,7 +61,8 @@ async function refreshR() {
   const btn = document.getElementById('r-btn-refresh');
   if(btn) { btn.textContent = '⏳'; btn.disabled = true; }
   try {
-    await loadAllData();
+    // receptura modulban initApp() a data loader
+    await initApp();
     const views = ['recipes','stock','production','settings-r','ingredients'];
     const active = views.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
     if(active) nav(active);
