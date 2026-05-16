@@ -124,15 +124,15 @@ async function calcLevainDaily() {
     const d = new Date(dy, dm-1, dd);
     const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
 
-    // Sum all orders for this day
+    // Sum all orders for this day + per-product breakdown
     let totalLevainNeeded = 0;
+    const productBreakdown = []; // [{name, qty, levainG}]
     (mainData.clients||[]).forEach(c => {
       const key = `${c.id}-${y}-${m}-${day}`;
       const order = mainData.orders?.[key];
       if(!order) return;
       Object.entries(order).forEach(([prodId, qty]) => {
         if(!qty) return;
-        // Match recipe: product_id first, then name fallback
         const pid = parseInt(prodId);
         const prod = (mainData.products||[]).find(p => p.id === pid);
         const recipe = R.recipes.find(r => r.product_id === pid) ||
@@ -141,9 +141,13 @@ async function calcLevainDaily() {
             (prod.name||'').toLowerCase().includes(r.name.toLowerCase().slice(0,6))
           ) : null);
         if(!recipe || !recipe.levainAmount) return;
-        const rawWeight = calcRawWeight(recipe, qty); // display only
-        const scale = calcScaleFactor(recipe, qty); // no bake_loss
-        totalLevainNeeded += recipe.levainAmount * scale;
+        const scale = calcScaleFactor(recipe, qty);
+        const levainG = Math.round(recipe.levainAmount * scale);
+        totalLevainNeeded += levainG;
+        // Accumulate per product (merge same recipe)
+        const existing = productBreakdown.find(p => p.recipeId === recipe.id);
+        if (existing) { existing.qty += qty; existing.levainG += levainG; }
+        else productBreakdown.push({ recipeId: recipe.id, name: recipe.name, qty, levainG });
       });
     });
 
@@ -165,6 +169,23 @@ async function calcLevainDaily() {
     grandTotal.refillWater += refill.water;
 
     const dateDisplay = `${DAYS_HU[d.getDay()]}, ${dy}. ${MONTHS_HU[dm-1]} ${dd}.`;
+    // Product breakdown HTML
+    const prodBreakdownHtml = productBreakdown.length > 0
+      ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:0.78rem;font-weight:700;color:var(--teal-dark);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em">Termékenkénti lebontás</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            ${productBreakdown.sort((a,b)=>b.levainG-a.levainG).map(p => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--teal-pale);border-radius:8px;font-size:0.82rem">
+                <span style="color:var(--teal-dark);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px">${esc(p.name)}</span>
+                <div style="display:flex;gap:8px;flex-shrink:0;align-items:center">
+                  <span style="color:var(--text-soft);font-size:0.75rem">${p.qty} db</span>
+                  <span style="font-weight:700;color:var(--teal-dark)">${p.levainG.toLocaleString()} g</span>
+                </div>
+              </div>`).join('')}
+            ${productBreakdown.length % 2 !== 0 ? '<div></div>' : ''}
+          </div>
+        </div>`
+      : '';
     html += `<div class="card mb-16">
       <div class="card-head"><div class="card-title">🧫 ${dateDisplay}</div><span class="badge badge-gold">${totalLevainNeeded}g levain</span></div>
       <div class="card-body">
@@ -184,6 +205,7 @@ async function calcLevainDaily() {
             </div>
           </div>
         </div>
+        ${prodBreakdownHtml}
       </div>
     </div>`;
   });
