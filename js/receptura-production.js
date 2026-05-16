@@ -339,6 +339,10 @@ async function calcProductionPrep() {
   document.getElementById('prod-prep-result').innerHTML = html;
   window._lastProductionNeeds = needs;
   window._lastProductionDays = selected;
+
+  // Show 'Sütés elvégezve' button in top bar
+  const doneBtnTop = document.getElementById('prod-done-btn-top');
+  if (doneBtnTop) doneBtnTop.style.display = 'inline-block';
 }
 
 // ===== SÜTÉS ELVÉGEZVE – FIFO LEVONAT =====
@@ -414,7 +418,9 @@ async function confirmBakingDone() {
       notes: `Sütési napok: ${days?.join(', ') || '—'}`
     });
 
-    if (btn) { btn.style.display = 'none'; btn.textContent = '✅ Sütés elvégezve → Készlet levonása'; btn.disabled = false; }
+    const topBtn = document.getElementById('prod-done-btn-top');
+    if (topBtn) { topBtn.style.display = 'none'; }
+    if (btn) { btn.style.display = 'none'; btn.textContent = '✅ Sütés elvégezve'; btn.disabled = false; }
     toast(`✅ Sütés rögzítve! ${usage.length} alapanyag levonva. Önköltség: ${totalCost.toFixed(2)} lej`);
     renderStock();
     renderStockAlerts();
