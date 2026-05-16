@@ -18,6 +18,7 @@ function nav(id) {
     ingredients: renderIngredients, 'settings-r': renderSettings,
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
+    'processing': () => { initProcessingView(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
   };

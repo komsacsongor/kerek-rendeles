@@ -61,7 +61,12 @@ function renderOrderTable() {
 
       // Is this baking day locked (< 24h)?
       const hoursLeft = hoursUntil(d);
-      const isLocked = hoursLeft >= 0 && hoursLeft < 24;
+      // Use actual deadline from order_status if available
+      const orderStDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
+      const deadlineHoursLeft = orderStDeadline ? (orderStDeadline - new Date()) / 36e5 : null;
+      const isLocked = deadlineHoursLeft !== null
+        ? deadlineHoursLeft <= 0   // deadline passed
+        : (hoursLeft >= 0 && hoursLeft < 24); // fallback: 24h before baking
       const isOver = d < now;
 
       const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
@@ -393,7 +398,10 @@ function renderMobileOrderCards() {
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
     const isOver = d < now && !isSameDay(d, now);
     const hoursLeft = hoursUntil(d);
-    const isLocked = baking && hoursLeft >= 0 && hoursLeft < 24;
+    const mobOrderSt = (appData.orderStatus && appData.orderStatus[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]) || {};
+    const mobDeadline = mobOrderSt.deadline ? new Date(mobOrderSt.deadline) : null;
+    const mobDeadlineLeft = mobDeadline ? (mobDeadline - new Date()) / 36e5 : null;
+    const isLocked = baking && (mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24));
     const rowOrders = appData.orders[key] || {};
     const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
     const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
