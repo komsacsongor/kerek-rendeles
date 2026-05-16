@@ -260,12 +260,13 @@ async function calcProductionPrep() {
         if (dedupMap[key]) { dedupMap[key].scaledG += scaledG; }
         else { dedupMap[key] = { displayName, scaledG, ingMaster }; }
       });
-      const stBg = {flour:'rgba(251,191,36,0.14)', other_dry:'rgba(139,92,246,0.10)', wet:'rgba(59,130,246,0.10)', starter:'rgba(20,184,166,0.14)', raw_grain:'rgba(107,114,128,0.10)'}[st] || 'rgba(0,0,0,0.04)';
+      const stBg = {flour:'#fffbeb', other_dry:'#f5f3ff', wet:'#eff6ff', starter:'#f0fdfa', raw_grain:'#f9fafb'}[st] || '#f9fafb';
+      const stBorder = {flour:'#fde68a', other_dry:'#ddd6fe', wet:'#bfdbfe', starter:'#99f6e4', raw_grain:'#e5e7eb'}[st] || '#e5e7eb';
       const stColor = {flour:'#92400e', other_dry:'#5b21b6', wet:'#1d4ed8', starter:'var(--teal-dark)', raw_grain:'#374151'}[st] || 'var(--teal-dark)';
       const totalSectionG = Object.values(dedupMap).reduce((s,i) => s+i.scaledG, 0);
       const pctOfTotal = rawWeight > 0 ? (totalSectionG/rawWeight*100).toFixed(1) : 0;
-      html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,0.06)">
-        <div style="background:${stBg};padding:6px 12px;display:flex;justify-content:space-between;align-items:center">
+      html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1.5px solid ${stBorder}">
+        <div style="background:${stBg};padding:7px 12px;display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:0.78rem;font-weight:700;color:${stColor}">${SUB_LABELS[st]||st}</span>
           <span style="font-size:0.78rem;color:${stColor}">${pctOfTotal}%</span>
         </div>`;
@@ -298,14 +299,15 @@ async function calcProductionPrep() {
     const groups = {flour:[], other_dry:[], wet:[], starter:[]};
     Object.values(needs).forEach(n => { if(!groups[n.subType]) groups[n.subType]=[]; groups[n.subType].push(n); });
     let grandCost = 0;
-    const stBgSum = {flour:'rgba(251,191,36,0.14)', other_dry:'rgba(139,92,246,0.10)', wet:'rgba(59,130,246,0.10)', starter:'rgba(20,184,166,0.14)'};
+    const stBgSum = {flour:'#fffbeb', other_dry:'#f5f3ff', wet:'#eff6ff', starter:'#f0fdfa'};
+    const stBorderSum = {flour:'#fde68a', other_dry:'#ddd6fe', wet:'#bfdbfe', starter:'#99f6e4'};
     const stColorSum = {flour:'#92400e', other_dry:'#5b21b6', wet:'#1d4ed8', starter:'var(--teal-dark)'};
     ['flour','other_dry','wet','starter'].forEach(st => {
       if(!groups[st] || groups[st].length === 0) return;
       const stItems = groups[st].sort((a,b)=>b.total-a.total);
       const stTotal = stItems.reduce((s,n)=>s+Math.round(n.total),0);
-      html += `<div style="margin:0 16px 10px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,0.06)">
-        <div style="background:${stBgSum[st]||'#f9fafb'};padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,0,0,0.06)">
+      html += `<div style="margin:0 0 10px;border-radius:8px;overflow:hidden;border:1.5px solid ${stBorderSum[st]||'#e5e7eb'}">
+        <div style="background:${stBgSum[st]||'#f9fafb'};padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${stBorderSum[st]||'#e5e7eb'}">
           <span style="font-size:0.78rem;font-weight:700;color:${stColorSum[st]||'var(--teal-dark)'}">${subTypeLabel(st)}</span>
           <span style="font-size:0.78rem;color:${stColorSum[st]||'var(--teal-dark)'};font-weight:600">${stTotal.toLocaleString()} g</span>
         </div>
