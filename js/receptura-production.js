@@ -444,6 +444,28 @@ async function confirmBakingDone() {
       notes: `Sütési napok: ${days?.join(', ') || '—'}`
     });
 
+    // Set FULFILLED on all orders for baked days (per client)
+    let fulfilledCount = 0;
+    try {
+      const allClients = await sb.query('clients', { limit: 500 });
+      for (const dateStr of (days || [])) {
+        const [dy, dm, dd] = dateStr.split('-').map(Number);
+        for (const client of (allClients || [])) {
+          // Check if client has order on this day
+          const orderKey = `${client.id}-${dy}-${dm-1}-${dd}`;
+          // Try to upsert fulfilled status for all clients with orders
+          try {
+            await sb.upsert('order_status', {
+              client_id: client.id, year: dy, month: dm-1, day: dd,
+              status: 'fulfilled',
+              admin_note: `Sütés elvégezve: ${now}`
+            }, 'client_id,year,month,day');
+            fulfilledCount++;
+          } catch(e2) { /* skip if no order */ }
+        }
+      }
+    } catch(e) { console.warn('fulfilled status write:', e.message); }
+
     const topBtn = document.getElementById('prod-done-btn-top');
     if (topBtn) { topBtn.style.display = 'none'; }
     if (btn) { btn.style.display = 'none'; btn.textContent = '✅ Sütés elvégezve'; btn.disabled = false; }

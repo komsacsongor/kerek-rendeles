@@ -67,19 +67,19 @@ function renderOrderTable() {
       const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
       const stNote = orderSt.admin_note || '';
-      const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
+      const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'fulfilled' ? 'background:#ecfdf5' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
       const colCount = prods.length + 2; // date + products + total
 
       html += `<tr class="baking-row" id="row-${day}" style="${rowBg}">
         <td class="col-date">
           ${day}. <b>${dayName}</b>
           <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
-          ${stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">✅ Jóváhagyva</span>' : ''}
+          ${stStatus === 'fulfilled' ? '<span style="background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">🎉 Elkészült</span>' : stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">✅ Jóváhagyva</span>' : ''}
           ${stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">❌ Visszavonva</span>' : ''}
         </td>`;
       prods.forEach(p => {
         const val = rowOrders[p.id] || '';
-        const disabled = isOver || isLocked || stStatus === 'cancelled' ? 'disabled' : '';
+        const disabled = isOver || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled' ? 'disabled' : '';
         const isModifiedProd = stStatus === 'modified' && val !== '' && parseInt(val) !== ((appData._origOrders && appData._origOrders[key] && appData._origOrders[key][p.id]) || parseInt(val));
         const cls = (val ? 'has-value' : '') + (stStatus === 'modified' ? ' mod-cell' : '');
         if (!isCancelled0) colTotals[p.id] += (rowOrders[p.id]||0);
@@ -411,7 +411,8 @@ function renderMobileOrderCards() {
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
       const stNote = orderSt.admin_note || '';
       let statusBanner = '';
-      if (stStatus === 'confirmed') statusBanner = '<div style="background:#dcfce7;color:#166534;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">✅ Rendelésed jóváhagyva</div>';
+      if (stStatus === 'fulfilled') statusBanner = '<div style="background:#d1fae5;color:#065f46;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:700">🎉 Rendelésed elkészült!</div>';
+      else if (stStatus === 'confirmed') statusBanner = '<div style="background:#dcfce7;color:#166534;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">✅ Rendelésed jóváhagyva</div>';
       else if (stStatus === 'modified') statusBanner = '<div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem">' +
         '<div style="font-weight:700;margin-bottom:4px">✏️ Az adminisztrátor módosította a rendelésedet</div>' +
         (stNote ? '<div style="font-size:0.8rem;margin-bottom:8px">' + esc(stNote) + '</div>' : '') +
@@ -419,7 +420,8 @@ function renderMobileOrderCards() {
         '</div>';
       else if (stStatus === 'cancelled') statusBanner = '<div style="background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">❌ Rendelésed visszavonva</div>';
       const bodyAutoOpen = rowTotal > 0 || stStatus === 'modified' || stStatus === 'cancelled';
-      const headStatusBadge = stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✅</span>'
+      const headStatusBadge = stStatus === 'fulfilled' ? '<span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">🎉 Elkészült</span>'
+        : stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✅</span>'
         : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✏️ Módosítva</span>'
         : stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">❌</span>'
         : '';

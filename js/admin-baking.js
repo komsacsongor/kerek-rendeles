@@ -9,7 +9,8 @@ function statusBadge(status) {
     pending:   '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">⏳ Vár</span>',
     confirmed: '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">✅ Jóváhagyva</span>',
     modified:  '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">✏️ Módosítva</span>',
-    cancelled: '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">❌ Visszavonva</span>',
+    cancelled:  '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">❌ Visszavonva</span>',
+    fulfilled:  '<span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">🎉 Elkészült</span>',
   };
   return map[status] || map.pending;
 }
@@ -189,6 +190,7 @@ function renderBaking(){
     });
 
     const allConfirmed = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='confirmed';});
+    const allFulfilled = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='fulfilled';});
     const hasPending = dayClients.some(function(x){return x.st.status==='pending';});
     const hasNoOrders = totalQty === 0;
 
@@ -196,6 +198,8 @@ function renderBaking(){
     var headerBadge;
     if (hasNoOrders) {
       headerBadge = '<span style="background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);border-radius:6px;padding:3px 10px;font-size:0.75rem">Üres</span>';
+    } else if (allFulfilled) {
+      headerBadge = '<span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700">🎉 Elkészült</span>';
     } else if (allConfirmed) {
       headerBadge = '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700">✅ Rendben</span>';
     } else if (hasPending) {
