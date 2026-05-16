@@ -57,11 +57,18 @@ function renderOpDetail() {
     if (!grouped[key] || grouped[key].length === 0) return;
     html += `<div class="ing-section" style="margin-top:12px">
       <div class="ing-section-head ${cls}">${label}</div>`;
+    // Dedup by ingredient_id
+    const dedupOp = {};
     grouped[key].forEach(ing => {
+      const k = ing.ingredientId ? 'id:'+ing.ingredientId : 'name:'+ing.name;
       const masterIng = ing.ingredientId ? R.ingredients?.find(i=>i.id===ing.ingredientId) : null;
       const displayName = masterIng?.name || ing.name;
       const scaled = Math.round(ing.amount * scale * 10) / 10;
-      html += `<div class="op-ing-item"><span>${displayName}</span><span class="op-ing-amount">${scaled} g</span></div>`;
+      if (dedupOp[k]) dedupOp[k].scaled += scaled;
+      else dedupOp[k] = { displayName, scaled };
+    });
+    Object.values(dedupOp).forEach(item => {
+      html += `<div class="op-ing-item"><span>${item.displayName}</span><span class="op-ing-amount">${item.scaled} g</span></div>`;
     });
     html += '</div>';
   });

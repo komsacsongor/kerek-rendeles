@@ -143,21 +143,34 @@ function renderLevainBox(containerId, levainTotal, levainBase) {
 
 function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
   scale = scale || calcScaleFactor(recipe, pieces); // no bake_loss
-  const allIngs = [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])];
+  // Use allIngredients if available (all sub_types), fallback to dry+wet
+  const rawIngs = recipe.allIngredients && recipe.allIngredients.length > 0
+    ? recipe.allIngredients
+    : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
+       ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+
+  // Dedup by ingredient_id (merge same master ingredient)
+  const dedupMap = {};
+  rawIngs.forEach(ing => {
+    const key = ing.ingredientId ? 'id:'+ing.ingredientId : 'name:'+ing.name;
+    if (dedupMap[key]) { dedupMap[key].amount += ing.amount; }
+    else { dedupMap[key] = { ...ing }; }
+  });
+  const allIngs = Object.values(dedupMap);
   const totalBase = allIngs.reduce((a,i)=>a+i.amount, 0) + recipe.levainAmount;
 
   // Group by subType
   const groups = {};
   allIngs.forEach(ing => {
     const baseIng = getIng(ing.ingredientId);
-    const subType = baseIng ? getIngSubType(baseIng) : (recipe.dryIngredients?.includes(ing) ? 'flour' : 'wet');
+    const subType = baseIng ? getIngSubType(baseIng) : (ing.subType || 'other_dry');
     if (!groups[subType]) groups[subType] = {items:[], total:0};
     groups[subType].items.push(ing);
     groups[subType].total += ing.amount;
   });
 
   // Display order
-  const order = ['flour', 'other_dry', 'wet'];
+  const order = ['flour', 'other_dry', 'wet', 'starter', 'raw_grain'];
   let html = '';
   let grandIngCost = 0;
 
