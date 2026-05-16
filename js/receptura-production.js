@@ -36,19 +36,19 @@ async function renderProdMonthSelector() {
   }
 
   // Admin-style month selector
-  const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
+  const MONTHS_FULL = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
   let html = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
     <button onclick="_prodSelectedMonth={year:${year-1},month:${month}};renderProdMonthSelector()"
-      style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">◀ ${year-1}</button>
-    <span style="font-weight:700;color:var(--teal-dark);font-size:0.95rem;min-width:40px;text-align:center">${year}</span>
+      style="padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:var(--teal-dark)">◀ ${year-1}</button>
+    <span style="font-weight:700;color:var(--teal-dark);font-size:1rem;min-width:44px;text-align:center">${year}</span>
     <button onclick="_prodSelectedMonth={year:${year+1},month:${month}};renderProdMonthSelector()"
-      style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">${year+1} ▶</button>
+      style="padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:var(--teal-dark)">${year+1} ▶</button>
   </div>
-  <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:10px">
-    ${MONTHS_SHORT.map((m, i) => `<button onclick="_prodSelectedMonth={year:${year},month:${i}};renderProdMonthSelector()"
-      style="padding:4px 8px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+  <div style="display:flex;gap:3px;margin-bottom:10px;width:100%">
+    ${MONTHS_FULL.map((m, i) => `<button onclick="_prodSelectedMonth={year:${year},month:${i}};renderProdMonthSelector()"
+      style="flex:1;padding:6px 2px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
       background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
-      font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
+      font-weight:${i===month?'700':'400'};font-size:0.72rem;cursor:pointer;font-family:'Kodchasan',sans-serif;min-width:0;text-align:center">${m}</button>`).join('')}
   </div>`;
 
   if (bakingDays.length === 0) {
@@ -249,19 +249,36 @@ async function calcProductionPrep() {
 
     ['flour','other_dry','wet','starter','raw_grain'].forEach(st => {
       if (!grouped[st] || grouped[st].length === 0) return;
-      html += `<div style="margin-bottom:10px">
-        <div style="font-size:0.72rem;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--border)">${SUB_LABELS[st]||st}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 20px">`;
+      // Deduplicate by ingredient_id
+      const dedupMap = {};
       grouped[st].forEach(ing => {
+        const key = ing.ingredientId ? 'id:'+ing.ingredientId : 'name:'+ing.name;
         const scaledG = ing._scaledG !== undefined ? ing._scaledG : Math.round(ing.amount * scaleFactor);
         const ingMaster = ing.ingredientId ? getIng(ing.ingredientId) : null;
         const displayName = ingMaster?.name || ing.name;
-        html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:0.8rem">
-          <span style="color:var(--teal-dark)">${esc(displayName)}</span>
-          <span style="font-weight:700;color:var(--gold-dark);margin-left:8px">${scaledG.toLocaleString()} g</span>
+        if (dedupMap[key]) { dedupMap[key].scaledG += scaledG; }
+        else { dedupMap[key] = { displayName, scaledG, ingMaster }; }
+      });
+      const stBg = {flour:'rgba(251,191,36,0.08)', other_dry:'rgba(139,92,246,0.06)', wet:'rgba(59,130,246,0.06)', starter:'rgba(20,184,166,0.08)', raw_grain:'rgba(107,114,128,0.06)'}[st] || 'transparent';
+      const stColor = {flour:'#92400e', other_dry:'#5b21b6', wet:'#1d4ed8', starter:'var(--teal-dark)', raw_grain:'#374151'}[st] || 'var(--teal-dark)';
+      const totalSectionG = Object.values(dedupMap).reduce((s,i) => s+i.scaledG, 0);
+      const pctOfTotal = rawWeight > 0 ? (totalSectionG/rawWeight*100).toFixed(1) : 0;
+      html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,0.06)">
+        <div style="background:${stBg};padding:6px 12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:0.78rem;font-weight:700;color:${stColor}">${SUB_LABELS[st]||st}</span>
+          <span style="font-size:0.78rem;color:${stColor}">${pctOfTotal}%</span>
+        </div>`;
+      Object.values(dedupMap).forEach(item => {
+        const pct = rawWeight > 0 ? (item.scaledG/rawWeight*100).toFixed(1) : '—';
+        const cost = item.ingMaster && getFifoPrice(item.ingMaster) > 0 ? (getFifoPrice(item.ingMaster) * item.scaledG).toFixed(2) : null;
+        html += `<div style="display:flex;align-items:center;padding:5px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.8rem">
+          <span style="color:var(--text-soft);font-size:0.72rem;width:36px;flex-shrink:0">${pct}%</span>
+          <span style="flex:1;color:var(--teal-dark)">${esc(item.displayName)}</span>
+          <span style="font-weight:700;color:var(--teal-dark);min-width:68px;text-align:right">${item.scaledG.toLocaleString()} g</span>
+          <span style="color:var(--gold-dark);font-size:0.72rem;min-width:56px;text-align:right;margin-left:8px">${cost ? cost+' lej' : '—'}</span>
         </div>`;
       });
-      html += `</div></div>`;
+      html += `</div>`;
     });
 
     html += `</div></div>`;
@@ -397,14 +414,31 @@ async function confirmBakingDone() {
 
 // ===== KÍSÉRLETI SÜTÉS =====
 async function openExperimentalBake(recipeId) {
-  // If no recipeId (called from nav without open recipe), show recipe picker
+  // If no recipeId, show proper recipe picker modal
   if (!recipeId) {
     const active = R.recipes.filter(r => !r.archived);
     if (active.length === 0) { toast('Nincs aktív recept!', true); return; }
-    const opts = active.map(r => `${r.id}: ${r.name}`).join('\n');
-    const choice = prompt(`Válassz receptet:\n${opts}\n\nAdd meg a recept ID-ját:`);
-    if (!choice) return;
-    recipeId = parseInt(choice);
+    // Show picker modal
+    const picker = document.getElementById('exp-recipe-picker') || (() => {
+      const m = document.createElement('div');
+      m.id = 'exp-recipe-picker';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+      document.body.appendChild(m); return m;
+    })();
+    picker.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:420px">
+      <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 16px">🧪 Kísérleti sütés – recept választás</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto">
+        ${active.map(r => `<button onclick="document.getElementById('exp-recipe-picker').style.display='none';openExperimentalBake(${r.id})"
+          style="text-align:left;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:white;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.9rem;color:var(--teal-dark);font-weight:600;transition:all 0.15s"
+          onmouseover="this.style.background='var(--teal-pale)'" onmouseout="this.style.background='white'">
+          ${esc(r.name)}
+        </button>`).join('')}
+      </div>
+      <button onclick="document.getElementById('exp-recipe-picker').style.display='none'"
+        style="width:100%;margin-top:12px;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;color:var(--text-soft)">Mégse</button>
+    </div>`;
+    picker.style.display = 'flex';
+    return; // Will be called again with recipeId
   }
   const recipe = R.recipes.find(r => r.id === recipeId);
   if (!recipe) { toast('Recept nem található!', true); return; }

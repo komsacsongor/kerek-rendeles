@@ -53,21 +53,21 @@ async function renderLevainMonthSelector() {
 
   // Admin-style month tabs
   const monthNav = document.getElementById('levain-month-selector');
+  const MONTHS_FULL_L = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
   if (monthNav) monthNav.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
       <button onclick="_levainSelectedMonth={year:${year-1},month:${month}};renderLevainMonthSelector()"
-        style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">◀ ${year-1}</button>
-      <span style="font-weight:700;color:var(--teal-dark);font-size:0.95rem;min-width:40px;text-align:center">${year}</span>
+        style="padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:var(--teal-dark)">◀ ${year-1}</button>
+      <span style="font-weight:700;color:var(--teal-dark);font-size:1rem;min-width:44px;text-align:center">${year}</span>
       <button onclick="_levainSelectedMonth={year:${year+1},month:${month}};renderLevainMonthSelector()"
-        style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">${year+1} ▶</button>
+        style="padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:var(--teal-dark)">${year+1} ▶</button>
     </div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:10px">
-      ${MONTHS_SHORT.map((m, i) => `<button onclick="_levainSelectedMonth={year:${year},month:${i}};renderLevainMonthSelector()"
-        style="padding:4px 8px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+    <div style="display:flex;gap:3px;margin-bottom:10px;width:100%">
+      ${MONTHS_FULL_L.map((m, i) => `<button onclick="_levainSelectedMonth={year:${year},month:${i}};renderLevainMonthSelector()"
+        style="flex:1;padding:6px 2px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
         background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
-        font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
+        font-weight:${i===month?'700':'400'};font-size:0.72rem;cursor:pointer;font-family:'Kodchasan',sans-serif;min-width:0;text-align:center">${m}</button>`).join('')}
     </div>`;
-
   // Day selector - only days with orders
   const dayEl = document.getElementById('levain-day-selector');
   if (!dayEl) return;
