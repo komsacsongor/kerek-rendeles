@@ -207,20 +207,21 @@ async function calcProductionPrep() {
     const dayBadges = Object.entries(days).sort().map(([ds, pieces]) => {
       const [dy,dm,dd] = ds.split('-').map(Number);
       const dow = new Date(dy,dm-1,dd).getDay();
-      return `<span style="font-size:0.72rem;padding:2px 8px;background:rgba(255,255,255,0.15);border-radius:10px">${DAYS_HU_S[dow]} ${dd}.: ${pieces} db</span>`;
+      return `<span style="font-size:0.72rem;padding:2px 8px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.2);border-radius:10px;white-space:nowrap">${DAYS_HU_S[dow]} ${dd}.: ${pieces} db</span>`;
     }).join('');
 
-    html += `<div style="border-bottom:2px solid var(--teal-pale)">
-      <div onclick="const b=document.getElementById('${rid}');b.style.display=b.style.display==='none'?'block':'none'"
-        style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;background:var(--teal-pale);user-select:none">
-        <div>
-          <span style="font-weight:700;font-size:0.92rem;color:var(--teal-dark)">${esc(recipe.name)}</span>
-          <span style="font-size:0.78rem;color:var(--text-soft);margin-left:10px">${dayBadges}</span>
+    html += `<div style="margin-bottom:8px;border-radius:10px;overflow:hidden;border:1.5px solid rgba(6,76,72,0.15);box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+      <div onclick="const b=document.getElementById('${rid}');const arr=b.parentElement.querySelector('.prod-arr');b.style.display=b.style.display==='none'?'block':'none';arr.textContent=b.style.display==='none'?'▾':'▴'"
+        style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px;cursor:pointer;
+        background:linear-gradient(135deg,var(--teal-dark) 0%,#0a6460 100%);user-select:none">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
+          <span style="font-weight:700;font-size:0.92rem;color:var(--gold);font-family:'Fraunces',serif">${esc(recipe.name)}</span>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${dayBadges}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-          <span class="badge badge-teal">${totalPieces} db</span>
-          <span class="badge badge-gold">${(rawWeight/1000).toFixed(2)} kg nyers</span>
-          <span style="color:var(--text-soft);font-size:0.9rem">${openDefault ? '▴' : '▾'}</span>
+          <span style="background:rgba(239,176,54,0.2);color:var(--gold);border:1px solid rgba(239,176,54,0.4);border-radius:12px;padding:2px 10px;font-size:0.78rem;font-weight:700">${totalPieces} db</span>
+          <span style="background:rgba(255,255,255,0.15);color:white;border-radius:12px;padding:2px 10px;font-size:0.78rem">${(rawWeight/1000).toFixed(2)} kg nyers</span>
+          <span class="prod-arr" style="color:var(--gold);font-size:0.9rem">${openDefault ? '▴' : '▾'}</span>
         </div>
       </div>
       <div id="${rid}" class="prod-recipe-body" style="display:${openDefault ? 'block' : 'none'};padding:12px 16px">`;
@@ -274,11 +275,11 @@ async function calcProductionPrep() {
       dedupItems.forEach(item => {
         const pct = rawWeight > 0 ? (item.scaledG/rawWeight*100).toFixed(1) : '—';
         const cost = item.ingMaster && getFifoPrice(item.ingMaster) > 0 ? (getFifoPrice(item.ingMaster) * item.scaledG).toFixed(2) : null;
-        html += `<div style="display:flex;align-items:center;padding:4px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.79rem;gap:4px">
-          <span style="color:var(--text-soft);font-size:0.7rem;width:32px;flex-shrink:0">${pct}%</span>
+        html += `<div style="display:flex;align-items:center;padding:4px 10px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.79rem;gap:4px">
           <span style="flex:1;color:var(--teal-dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.displayName)}</span>
-          <span style="font-weight:700;color:var(--teal-dark);min-width:54px;text-align:right;flex-shrink:0">${item.scaledG.toLocaleString()} g</span>
-          <span style="color:var(--gold-dark);font-size:0.7rem;min-width:46px;text-align:right;flex-shrink:0">${cost ? cost+' lej' : '—'}</span>
+          <span style="font-weight:700;color:var(--teal-dark);min-width:50px;text-align:right;flex-shrink:0">${item.scaledG.toLocaleString()} g</span>
+          <span style="color:var(--text-soft);font-size:0.68rem;width:30px;text-align:right;flex-shrink:0">${pct}%</span>
+          <span style="color:var(--gold-dark);font-size:0.7rem;min-width:44px;text-align:right;flex-shrink:0">${cost ? cost+' lej' : '—'}</span>
         </div>`;
       });
       // If odd number, add empty cell for grid alignment
@@ -297,28 +298,34 @@ async function calcProductionPrep() {
     const groups = {flour:[], other_dry:[], wet:[], starter:[]};
     Object.values(needs).forEach(n => { if(!groups[n.subType]) groups[n.subType]=[]; groups[n.subType].push(n); });
     let grandCost = 0;
+    const stBgSum = {flour:'rgba(251,191,36,0.08)', other_dry:'rgba(139,92,246,0.06)', wet:'rgba(59,130,246,0.06)', starter:'rgba(20,184,166,0.08)'};
+    const stColorSum = {flour:'#92400e', other_dry:'#5b21b6', wet:'#1d4ed8', starter:'var(--teal-dark)'};
     ['flour','other_dry','wet','starter'].forEach(st => {
       if(!groups[st] || groups[st].length === 0) return;
-      html += `<div style="padding:10px 16px;background:${st==='flour'?'#fffbf0':st==='wet'?'#eff8ff':st==='starter'?'var(--teal-pale)':'#f5f0fb'};border-bottom:1px solid var(--border)">
-        <div style="font-weight:600;font-size:0.82rem;color:var(--teal-dark);margin-bottom:6px">${subTypeLabel(st)}</div>`;
-      groups[st].sort((a,b)=>b.total-a.total).forEach(n => {
+      const stItems = groups[st].sort((a,b)=>b.total-a.total);
+      const stTotal = stItems.reduce((s,n)=>s+Math.round(n.total),0);
+      html += `<div style="margin:0 16px 10px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,0.06)">
+        <div style="background:${stBgSum[st]||'#f9fafb'};padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,0,0,0.06)">
+          <span style="font-size:0.78rem;font-weight:700;color:${stColorSum[st]||'var(--teal-dark)'}">${subTypeLabel(st)}</span>
+          <span style="font-size:0.78rem;color:${stColorSum[st]||'var(--teal-dark)'};font-weight:600">${stTotal.toLocaleString()} g</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">`;
+      stItems.forEach((n,idx) => {
         const ing = getIng(n.ingId);
         const stock = getTotalStock(ing);
         const enough = stock >= Math.round(n.total);
-        const critical = !enough && stock > (ing?.criticalStock||0);
+        const critical = !enough && stock > 0;
         grandCost += n.cost;
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.04)">
-          <span style="font-size:0.82rem">${n.name}</span>
-          <div style="display:flex;gap:12px;align-items:center">
-            <span style="font-weight:700;color:var(--teal-dark)">${Math.round(n.total).toLocaleString()} g</span>
-            <span style="font-size:0.75rem;color:var(--gold-dark)">${n.cost.toFixed(2)} lej</span>
-            <span class="badge ${enough?'badge-green':critical?'badge-gold':'badge-red'}" style="font-size:0.68rem">
-              ${enough?'✓ Elegendő':critical?'⚠ Kritikus':'✗ Hiány'}
-            </span>
-          </div>
+        const statusColor = enough ? '#059669' : critical ? '#d97706' : '#dc2626';
+        const statusIcon = enough ? '✓' : critical ? '⚠' : '✗';
+        html += `<div style="display:flex;align-items:center;padding:5px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.79rem;gap:4px;${idx%2===1?'border-left:1px solid rgba(0,0,0,0.04)':''}">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--teal-dark)">${n.name}</span>
+          <span style="font-weight:700;color:var(--teal-dark);min-width:54px;text-align:right;flex-shrink:0">${Math.round(n.total).toLocaleString()} g</span>
+          <span style="color:${statusColor};font-size:0.72rem;margin-left:4px;flex-shrink:0">${statusIcon}</span>
         </div>`;
       });
-      html += `</div>`;
+      if (stItems.length % 2 !== 0) html += `<div></div>`;
+      html += `</div></div>`;
     });
     html += `<div style="padding:14px 16px;background:var(--teal-pale);display:flex;justify-content:space-between;font-weight:700">
       <span>Összes nyersanyagköltség</span>
