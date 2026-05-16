@@ -17,7 +17,7 @@ async function renderProdMonthSelector() {
   let ordersForMonth = [];
   try {
     ordersForMonth = await sb.query('orders', {
-      filter: `year=eq.${year},month=eq.${month}`,
+      filter: `year=eq.${year}&month=eq.${month}`,
       limit: 5000
     });
   } catch(e) {}
@@ -37,16 +37,16 @@ async function renderProdMonthSelector() {
 
   // Admin-style month selector
   const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
-  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-    <button onclick="_prodSelectedMonth={year:${year-1},month:${month}};renderProdMonthSelector()" 
-      class="btn btn-ghost btn-sm" style="font-size:0.78rem">◀ ${year-1}</button>
-    <span style="font-weight:700;color:var(--teal-dark);font-size:0.9rem;flex:1;text-align:center">${year}</span>
+  let html = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <button onclick="_prodSelectedMonth={year:${year-1},month:${month}};renderProdMonthSelector()"
+      style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">◀ ${year-1}</button>
+    <span style="font-weight:700;color:var(--teal-dark);font-size:0.95rem;min-width:40px;text-align:center">${year}</span>
     <button onclick="_prodSelectedMonth={year:${year+1},month:${month}};renderProdMonthSelector()"
-      class="btn btn-ghost btn-sm" style="font-size:0.78rem">${year+1} ▶</button>
+      style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">${year+1} ▶</button>
   </div>
-  <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px">
+  <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:10px">
     ${MONTHS_SHORT.map((m, i) => `<button onclick="_prodSelectedMonth={year:${year},month:${i}};renderProdMonthSelector()"
-      style="padding:5px 8px;border-radius:16px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+      style="padding:4px 8px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
       background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
       font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
   </div>`;
@@ -59,7 +59,7 @@ async function renderProdMonthSelector() {
     const bakingDaysWithOrders = bakingDays.filter(d => daysWithOrders.includes(d));
     
     if (bakingDaysWithOrders.length === 0) {
-      html += '<p class="text-soft text-sm" style="margin-top:4px">Ebben a hónapban nincs rendelés a sütési napokon.</p>';
+      html += '';
     } else {
       html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
       bakingDaysWithOrders.forEach(d => {
@@ -397,8 +397,17 @@ async function confirmBakingDone() {
 
 // ===== KÍSÉRLETI SÜTÉS =====
 async function openExperimentalBake(recipeId) {
+  // If no recipeId (called from nav without open recipe), show recipe picker
+  if (!recipeId) {
+    const active = R.recipes.filter(r => !r.archived);
+    if (active.length === 0) { toast('Nincs aktív recept!', true); return; }
+    const opts = active.map(r => `${r.id}: ${r.name}`).join('\n');
+    const choice = prompt(`Válassz receptet:\n${opts}\n\nAdd meg a recept ID-ját:`);
+    if (!choice) return;
+    recipeId = parseInt(choice);
+  }
   const recipe = R.recipes.find(r => r.id === recipeId);
-  if (!recipe) return;
+  if (!recipe) { toast('Recept nem található!', true); return; }
 
   const modal = document.getElementById('exp-bake-modal') || (() => {
     const m = document.createElement('div');

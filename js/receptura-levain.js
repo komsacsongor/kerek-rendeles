@@ -35,7 +35,7 @@ async function renderLevainMonthSelector() {
   let ordersForMonth = [];
   try {
     ordersForMonth = await sb.query('orders', {
-      filter: `year=eq.${year},month=eq.${month}`,
+      filter: `year=eq.${year}&month=eq.${month}`,
       limit: 5000
     });
   } catch(e) {}
@@ -54,16 +54,16 @@ async function renderLevainMonthSelector() {
   // Admin-style month tabs
   const monthNav = document.getElementById('levain-month-selector');
   if (monthNav) monthNav.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
       <button onclick="_levainSelectedMonth={year:${year-1},month:${month}};renderLevainMonthSelector()"
-        class="btn btn-ghost btn-sm" style="font-size:0.78rem">◀ ${year-1}</button>
-      <span style="font-weight:700;color:var(--teal-dark);font-size:0.9rem;flex:1;text-align:center">${year}</span>
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">◀ ${year-1}</button>
+      <span style="font-weight:700;color:var(--teal-dark);font-size:0.95rem;min-width:40px;text-align:center">${year}</span>
       <button onclick="_levainSelectedMonth={year:${year+1},month:${month}};renderLevainMonthSelector()"
-        class="btn btn-ghost btn-sm" style="font-size:0.78rem">${year+1} ▶</button>
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:0.8rem;font-family:'Kodchasan',sans-serif">${year+1} ▶</button>
     </div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:10px">
       ${MONTHS_SHORT.map((m, i) => `<button onclick="_levainSelectedMonth={year:${year},month:${i}};renderLevainMonthSelector()"
-        style="padding:5px 8px;border-radius:16px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
+        style="padding:4px 8px;border-radius:14px;border:1.5px solid ${i===month?'var(--teal)':'var(--border)'};
         background:${i===month?'var(--teal-pale)':'white'};color:${i===month?'var(--teal-dark)':'var(--text-soft)'};
         font-weight:${i===month?'700':'400'};font-size:0.78rem;cursor:pointer;font-family:'Kodchasan',sans-serif">${m}</button>`).join('')}
     </div>`;
