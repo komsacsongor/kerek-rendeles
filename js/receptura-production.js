@@ -356,12 +356,35 @@ async function confirmBakingDone() {
     toast('⚠️ Előbb számítsd ki az előkészítést!', true); return;
   }
 
-  const confirmed = confirm(
-    'Rögzíted a sütést elvégezve?\n\n' +
-    'Ez levonja az alapanyagokat a készletből (FIFO):\n' +
-    Object.values(needs).filter(n=>n.ingId).map(n => `• ${n.name}: ${Math.round(n.total).toLocaleString()}g`).join('\n') +
-    '\n\nA művelet nem visszavonható!'
-  );
+  // Check for missing/insufficient ingredients
+  const missing = Object.values(needs).filter(n => {
+    if (!n.ingId) return false;
+    const ing = getIng(n.ingId);
+    const stock = getTotalStock(ing);
+    return stock < Math.round(n.total);
+  });
+
+  const hasMissing = missing.length > 0;
+
+  let confirmMsg = 'Rögzíted a sütést elvégezve?\n\n';
+
+  if (hasMissing) {
+    confirmMsg += '⚠️ FIGYELEM – HIÁNYZÓ ALAPANYAGOK:\n';
+    confirmMsg += missing.map(n => {
+      const ing = getIng(n.ingId);
+      const stock = Math.round(getTotalStock(ing));
+      const need = Math.round(n.total);
+      return `  ✗ ${n.name}: ${stock.toLocaleString()}g van, ${need.toLocaleString()}g kell (${(need-stock).toLocaleString()}g hiány)`;
+    }).join('\n');
+    confirmMsg += '\n\nA hiányzó alapanyagokat 0-ra csökkenti, a sütés részlegesen kerül rögzítésre.\n\nBiztosan folytatod?\n\n';
+  }
+
+  confirmMsg += 'Levonja az alapanyagokat a készletből (FIFO):\n';
+  confirmMsg += Object.values(needs).filter(n=>n.ingId && !missing.find(m=>m.ingId===n.ingId))
+    .map(n => `  ✓ ${n.name}: ${Math.round(n.total).toLocaleString()}g`).join('\n');
+  confirmMsg += '\n\nA művelet nem visszavonható!';
+
+  const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
 
   const btn = document.getElementById('prod-done-btn');
