@@ -68,7 +68,7 @@ async function renderProdMonthSelector() {
         html += `<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
           border:1.5px solid var(--teal);border-radius:20px;cursor:pointer;font-size:0.82rem;
           background:var(--teal-pale);transition:all 0.2s">
-          <input type="checkbox" value="${dateStr}" checked style="accent-color:var(--teal)">
+          <input type="checkbox" value="${dateStr}" style="accent-color:var(--teal)">
           ${DAYS_HU[dow]} ${d}. 📦
         </label>`;
       });
@@ -319,11 +319,12 @@ async function calcProductionPrep() {
         const critical = !enough && stock > 0;
         grandCost += n.cost;
         const statusColor = enough ? '#059669' : critical ? '#d97706' : '#dc2626';
-        const statusIcon = enough ? '✓' : critical ? '⚠' : '✗';
+        const statusBg = enough ? '#f0fdf4' : critical ? '#fffbeb' : '#fef2f2';
+        const statusText = enough ? '✓ Elegendő' : critical ? '⚠ Kritikus' : '✗ Hiány';
         html += `<div style="display:flex;align-items:center;padding:5px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.79rem;gap:4px;${idx%2===1?'border-left:1px solid rgba(0,0,0,0.04)':''}">
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--teal-dark)">${n.name}</span>
           <span style="font-weight:700;color:var(--teal-dark);min-width:54px;text-align:right;flex-shrink:0">${Math.round(n.total).toLocaleString()} g</span>
-          <span style="color:${statusColor};font-size:0.72rem;margin-left:4px;flex-shrink:0">${statusIcon}</span>
+          <span style="color:${statusColor};background:${statusBg};font-size:0.68rem;padding:1px 6px;border-radius:8px;margin-left:4px;flex-shrink:0;white-space:nowrap">${statusText}</span>
         </div>`;
       });
       if (stItems.length % 2 !== 0) html += `<div></div>`;

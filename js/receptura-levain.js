@@ -81,7 +81,7 @@ async function renderLevainMonthSelector() {
     return `<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
       border:1.5px solid var(--teal);border-radius:20px;cursor:pointer;font-size:0.82rem;
       background:var(--teal-pale);transition:all 0.2s">
-      <input type="checkbox" value="${dateStr}" checked style="accent-color:var(--teal)">
+      <input type="checkbox" value="${dateStr}" style="accent-color:var(--teal)">
       ${DAYS_HU[dow]} ${d}. 📦
     </label>`;
   }).join('');
