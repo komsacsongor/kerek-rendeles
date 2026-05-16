@@ -268,16 +268,22 @@ async function calcProductionPrep() {
           <span style="font-size:0.78rem;font-weight:700;color:${stColor}">${SUB_LABELS[st]||st}</span>
           <span style="font-size:0.78rem;color:${stColor}">${pctOfTotal}%</span>
         </div>`;
-      Object.values(dedupMap).forEach(item => {
+      // 2-column grid inside section
+      const dedupItems = Object.values(dedupMap);
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">`;
+      dedupItems.forEach(item => {
         const pct = rawWeight > 0 ? (item.scaledG/rawWeight*100).toFixed(1) : '—';
         const cost = item.ingMaster && getFifoPrice(item.ingMaster) > 0 ? (getFifoPrice(item.ingMaster) * item.scaledG).toFixed(2) : null;
-        html += `<div style="display:flex;align-items:center;padding:5px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.8rem">
-          <span style="color:var(--text-soft);font-size:0.72rem;width:36px;flex-shrink:0">${pct}%</span>
-          <span style="flex:1;color:var(--teal-dark)">${esc(item.displayName)}</span>
-          <span style="font-weight:700;color:var(--teal-dark);min-width:68px;text-align:right">${item.scaledG.toLocaleString()} g</span>
-          <span style="color:var(--gold-dark);font-size:0.72rem;min-width:56px;text-align:right;margin-left:8px">${cost ? cost+' lej' : '—'}</span>
+        html += `<div style="display:flex;align-items:center;padding:4px 12px;border-top:1px solid rgba(0,0,0,0.04);font-size:0.79rem;gap:4px">
+          <span style="color:var(--text-soft);font-size:0.7rem;width:32px;flex-shrink:0">${pct}%</span>
+          <span style="flex:1;color:var(--teal-dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.displayName)}</span>
+          <span style="font-weight:700;color:var(--teal-dark);min-width:54px;text-align:right;flex-shrink:0">${item.scaledG.toLocaleString()} g</span>
+          <span style="color:var(--gold-dark);font-size:0.7rem;min-width:46px;text-align:right;flex-shrink:0">${cost ? cost+' lej' : '—'}</span>
         </div>`;
       });
+      // If odd number, add empty cell for grid alignment
+      if (dedupItems.length % 2 !== 0) html += `<div></div>`;
+      html += `</div>`;
       html += `</div>`;
     });
 
