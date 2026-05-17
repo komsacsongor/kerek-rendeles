@@ -4,18 +4,7 @@ const BAKING_DAYS=[2,5];
 // ===== SUPABASE DATA LAYER =====
 
 let D = { _v: 'supabase', seenMsgs: {},
-  products:[
-    {id:1,name:'Kovászos prémium kenyér',weight:'500 g',price:23,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
-    {id:2,name:'Kovászos prémium kenyér',weight:'1000 g',price:35,category:'Kenyér',desc:'Összetevők: rizsliszt, hajdinaliszt, kovász, só, psyllium.\nAllergenek: GLUTÉNMENTES.',image:null},
-    {id:3,name:'„Diabétesz" kenyér',weight:'1000 g',price:38,category:'Kenyér',desc:'Alacsony glikémiás indexű. GLUTÉNMENTES.',image:null},
-    {id:4,name:'Fehér kenyér',weight:'1000 g',price:32,category:'Kenyér',desc:'Gluténmentes fehér kenyér.',image:null},
-    {id:5,name:'Kovászos bagett',weight:'360 g',price:16,category:'Bagett / zsömle',desc:'Ropogós héjú bagett. GLUTÉNMENTES.',image:null},
-    {id:6,name:'Kovászos zsömle',weight:'100 g',price:6,category:'Bagett / zsömle',desc:'Kis méretű zsömle. GLUTÉNMENTES.',image:null},
-    {id:7,name:'Guilt free kuglóf',weight:'260 g',price:29,category:'Sütemény',desc:'Cukor- és gluténmentes kuglóf.',image:null},
-    {id:8,name:'Sós sütemény',weight:'100 g',price:12,category:'Sütemény',desc:'Ropogós sós sütemény. GLUTÉNMENTES.',image:null},
-    {id:9,name:'Mákos/diós kifli',weight:'100 g',price:12,category:'Sütemény',desc:'Gluténmentes kifli.',image:null},
-    {id:10,name:'Szilvás gombóc',weight:'60 g',price:6,category:'Sütemény',desc:'Gluténmentes gombóc.',image:null},
-  ],
+  products:[], // Loaded from Supabase (B14)
   monthlyActiveProducts:{'2026-3':[1,2,3,4,5,6,7,8,9,10],'2026-4':[1,2,3,5,6,7,8,9],'2026-5':[1,2,4,5,7,8,10]},
   clients:[
     {id:'anna',name:'Kovács Anna',email:'anna@example.com',phone:'+40 740 111 222',note:'',joinDate:'2025-09-01'},
@@ -170,7 +159,18 @@ function loginClearError() {
   const pw = document.getElementById('login-pw');
   if(pw) pw.style.border='';
 }
+// S2: Rate limiting – max 5 attempts per 60 seconds
+const _adminLoginAttempts = { count: 0, resetAt: 0 };
+
 async function doLogin(){
+  const _now = Date.now();
+  if (_now > _adminLoginAttempts.resetAt) { _adminLoginAttempts.count = 0; _adminLoginAttempts.resetAt = _now + 60000; }
+  _adminLoginAttempts.count++;
+  if (_adminLoginAttempts.count > 5) {
+    const _waitSec = Math.ceil((_adminLoginAttempts.resetAt - _now) / 1000);
+    toast(`⚠️ Túl sok próbálkozás. Várj ${_waitSec} másodpercet.`, true);
+    return;
+  }
   loginClearError();
   const pw = document.getElementById('login-pw').value;
   if(!pw){ loginError('⚠️ Add meg a jelszót!'); return; }

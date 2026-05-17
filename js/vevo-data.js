@@ -3,18 +3,7 @@
 
 // ===== DATA =====
 let appData = JSON.parse(localStorage.getItem('kerek_vevo_data') || 'null') || {
-  products: [
-    { id:1, name:'Kovászos prémium kenyér', weight:'500 g', price:23, category:'Kenyér', desc:'Összetevők: rizsliszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
-    { id:2, name:'Kovászos prémium kenyér', weight:'1000 g', price:35, category:'Kenyér', desc:'Összetevők: rizsiszt, hajdinaliszt, kukoricakeményítő, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.\n\nTárolás: szobahőmérsékleten 3-4 nap, fagyasztva 3 hónap.', image:null },
-    { id:3, name:'„Diabétesz" kenyér', weight:'1000 g', price:38, category:'Kenyér', desc:'Alacsony glikémiás indexű kenyér. Összetevők: mandulaliszt, hajdinaliszt, len, psyllium, kovász, só.\n\nAllergenek: GLUTÉNMENTES, tojásmentes.\n\nDiabéteszeseknek ajánlott.', image:null },
-    { id:4, name:'Fehér kenyér', weight:'1000 g', price:32, category:'Kenyér', desc:'Ízletes gluténmentes fehér kenyér. Összetevők: rizsiszt, tapioka, víz, kovász, só, psyllium.\n\nAllergenek: GLUTÉNMENTES, tojásmentes, tejtermékmentes.', image:null },
-    { id:5, name:'Kovászos bagett', weight:'360 g', price:16, category:'Bagett / zsömle', desc:'Ropogós héjú kovászos bagett. Összetevők: rizsiszt, hajdina, víz, kovász, só.\n\nAllergenek: GLUTÉNMENTES.\n\nTárolás: 2 nap szobahőn, fagyasztható.', image:null },
-    { id:6, name:'Kovászos zsömle', weight:'100 g', price:6, category:'Bagett / zsömle', desc:'Kis méretű kovászos zsömle szendvicsekhez ideális.\n\nAllergenek: GLUTÉNMENTES, tojásmentes.', image:null },
-    { id:7, name:'Guilt free kuglóf', weight:'260 g', price:29, category:'Sütemény', desc:'Cukor- és gluténmentes kuglóf. Összetevők: mandulaliszt, kókuszliszt, tojás, kókuszolaj, eritrit, vanília.\n\nAllergenek: tojást tartalmaz, GLUTÉNMENTES.', image:null },
-    { id:8, name:'Sós sütemény', weight:'100 g', price:12, category:'Sütemény', desc:'Ropogós gluténmentes sós sütemény köménymaggal vagy szezámmaggal.\n\nAllergenek: GLUTÉNMENTES.', image:null },
-    { id:9, name:'Mákos/diós kifli', weight:'100 g', price:12, category:'Sütemény', desc:'Hagyományos ízek gluténmentes változatban. Mákos vagy diós töltelékkel.\n\nAllergenek: diót tartalmaz, GLUTÉNMENTES.', image:null },
-    { id:10, name:'Szilvás gombóc', weight:'60 g', price:6, category:'Sütemény', desc:'Szilvás töltelékű gombóc, gluténmentes tésztával.\n\nAllergenek: GLUTÉNMENTES, tejtermékmentes.\n\nFrissen a legjobb, fagyasztható.', image:null },
-  ],
+  products: [], // Loaded from Supabase – no hardcoded fallback (B14)
   monthlyActiveProducts: {
     '2026-3': [1,2,3,4,5,6,7,8,9,10],
     '2026-4': [1,2,3,5,6,7,8,9],
@@ -48,7 +37,19 @@ let selectedYear = new Date().getFullYear();
 let summaryMonth = selectedMonth;
 
 // ===== AUTH =====
+// S2: Rate limiting – max 5 attempts per 60 seconds
+const _loginAttempts = { count: 0, resetAt: 0 };
+
 async function doLogin() {
+  const now = Date.now();
+  if (now > _loginAttempts.resetAt) { _loginAttempts.count = 0; _loginAttempts.resetAt = now + 60000; }
+  _loginAttempts.count++;
+  if (_loginAttempts.count > 5) {
+    const waitSec = Math.ceil((_loginAttempts.resetAt - now) / 1000);
+    document.getElementById('login-error').textContent = `⚠️ Túl sok próbálkozás. Várj ${waitSec} másodpercet.`;
+    document.getElementById('login-error').style.display = 'block';
+    return;
+  }
   showVersionBadge();
   const val = document.getElementById('login-input').value.trim().toLowerCase();
   const errEl2 = document.getElementById('login-error');

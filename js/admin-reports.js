@@ -23,12 +23,12 @@ function renderAnnualSummary() {
   MONTHS.forEach((mo, m) => {
     let monthRev = 0, monthOrders = 0;
     D.clients.forEach(c => {
-      D.products.forEach(p => {
+      Object.values(fullProductMap).forEach(p => {
         getDaysForMonth(year, m).forEach(d => {
           const key = `${c.id}-${year}-${m}-${d}`;
           const qty = D.orders[key]?.[p.id] || 0;
           if(qty > 0) {
-            const rev = qty * p.price;
+            const rev = qty * (p.price || 0);
             monthRev += rev;
             monthOrders += qty;
             totalRevenue += rev;
@@ -96,6 +96,19 @@ function renderAnnualSummary() {
 }
 
 function renderReports(){
+  // A2: Build complete product map including archived products referenced in orders
+  const allProductIds = new Set();
+  Object.values(D.orders).forEach(dayOrders => {
+    Object.keys(dayOrders).forEach(pid => allProductIds.add(parseInt(pid)));
+  });
+  const activeProductMap = {};
+  D.products.forEach(p => activeProductMap[p.id] = p);
+  const fullProductMap = {...activeProductMap};
+  allProductIds.forEach(pid => {
+    if (!fullProductMap[pid]) {
+      fullProductMap[pid] = { id: pid, name: `(archivált #${pid})`, price: 0, archived: true };
+    }
+  });
   const sel=document.getElementById('reports-month-sel');
   sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
   const y=selYear,m=selMonth;
