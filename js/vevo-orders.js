@@ -61,6 +61,7 @@ function renderOrderTable() {
 
       // Is this baking day locked (< 24h)?
       const hoursLeft = hoursUntil(d);
+      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
       // Use actual deadline from order_status if available
       const orderStDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
       const deadlineHoursLeft = orderStDeadline ? (orderStDeadline - new Date()) / 36e5 : null;
@@ -68,8 +69,6 @@ function renderOrderTable() {
         ? deadlineHoursLeft <= 0   // deadline passed
         : (hoursLeft >= 0 && hoursLeft < 24); // fallback: 24h before baking
       const isOver = d < now;
-
-      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
       const stNote = orderSt.admin_note || '';
       const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'fulfilled' ? 'background:#ecfdf5' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
