@@ -181,8 +181,9 @@ async function doLogin(){
     const storedPw = await sb.getSetting('admin_password');
     const pwHash = await hashPassword(pw);
     // Support both plain (legacy) and hashed passwords
-    const correctPw = storedPw || 'admin';
-    const isCorrect = (pw === correctPw) || (pwHash === correctPw);
+    // S1: No plaintext fallback - if no stored password, block login
+    if (!storedPw) { toast('⚠️ Nincs beállított jelszó! Állítsd be a Supabase settings táblában.', true); return; }
+    const isCorrect = (pw === storedPw) || (pwHash === storedPw);
     if(isCorrect){
       document.getElementById('login-screen').style.display='none';
       await loadAllData();

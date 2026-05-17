@@ -25,7 +25,7 @@ function isBakingDay(d) {
   const key=`${y}-${m}`;
   const defaults=appData.bakingDaysDefault||[2,5];
   const cal=appData.bakingCalendar?.[key]||{extra:[],removed:[]};
-  const dateStr=d.toISOString().slice(0,10);
+  const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const isDefault=defaults.includes(d.getDay());
   const isExtra=cal.extra&&cal.extra.includes(dateStr);
   const isRemoved=cal.removed&&cal.removed.includes(dateStr);
@@ -58,7 +58,7 @@ function selectSummaryMonth(m) {
 
 // ===== DEADLINE CHECK =====
 function checkDeadline(day) {
-  const bakingDate = new Date(selectedYear, selectedMonth, day, 8, 0); // assume 8am baking
+  const bakingDate = new Date(selectedYear, selectedMonth, day - 1, 18, 0); // assume 8am baking
   const hours = hoursUntil(bakingDate);
   const noticeEl = document.getElementById('deadline-notice');
   const textEl = document.getElementById('deadline-text');

@@ -137,7 +137,7 @@ function renderMessages(){
       const dt = new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
       const isAdmin = (msg.text||'').startsWith('📨 Admin:');
       const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
-      const who = isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + c.name + ' &nbsp;·&nbsp; ' + (c.email||'');
+      const who = isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + esc(c.name) + ' · ' + esc(c.email||'');
       const msgIdx = msgs.indexOf(msg);
       html += '<div class="message-item" style="' + bg + 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
       html += '<div style="flex:1"><div class="message-meta"><span>' + esc(who) + '</span><span>📅 ' + dt + '</span></div>';

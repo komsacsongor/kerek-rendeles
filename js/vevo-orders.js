@@ -139,7 +139,14 @@ function handleOrderChange(day, pid, input) {
   const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
   if (!appData.orders[key]) appData.orders[key] = {};
   if (qty > 0) { appData.orders[key][pid] = qty; input.classList.add('has-value'); }
-  else { delete appData.orders[key][pid]; input.classList.remove('has-value'); }
+  else {
+    delete appData.orders[key][pid];
+    input.classList.remove('has-value');
+    // A3: Delete from Supabase immediately on qty=0
+    sb.delete('orders',
+      `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
+    ).catch(e => console.warn('qty0 delete:', e.message));
+  }
   if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
   updateHeroTotal();
   updateRowTotal(day);
@@ -250,8 +257,14 @@ async function saveOrder() {
   document.getElementById('order-message').value = '';
 }
 
-function clearOrder() {
+async function clearOrder() {
   if (!confirm('Biztosan törlöd az összes rendelést ebben a hónapban?')) return;
+  // Delete from Supabase
+  try {
+    await sb.delete('orders',
+      `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`);
+  } catch(e) { console.warn('clearOrder delete:', e.message); }
+  // Clear locally
   const days = getDays(selectedYear, selectedMonth);
   days.forEach(d => { delete appData.orders[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]; });
   localStorage.setItem('kerek_vevo_data', JSON.stringify(appData));
@@ -587,4 +600,66 @@ async function vevoConfirmOrder(year, month, day) {
     toast('✅ Módosítás elfogadva!');
     renderOrderTable();
   } catch(e) { toast('⚠️ Hiba: ' + e.message); }
+}
+
+// U1: Copy last order
+async function copyLastOrder() {
+  const days = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
+  if (days.length === 0) { toast('Nincs sütési nap ebben a hónapban.', true); return; }
+
+  // Find the last day with an order (previous month or current)
+  let srcKey = null, srcDay = null, srcLabel = '';
+  // First check current month backward
+  for (let i = days.length - 1; i >= 0; i--) {
+    const d = days[i];
+    const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
+    if (appData.orders[k] && Object.keys(appData.orders[k]).length > 0) {
+      srcKey = k; srcDay = d;
+      srcLabel = `${d.getDate()}. ${['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'][d.getDay()]}`;
+      break;
+    }
+  }
+
+  // If nothing in current month, check previous month from Supabase
+  if (!srcKey) {
+    try {
+      const prevM = selectedMonth === 0 ? 11 : selectedMonth - 1;
+      const prevY = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+      const prevOrders = await sb.query('orders', {
+        filter: `client_id=eq.${currentUser.id}&year=eq.${prevY}&month=eq.${prevM}`,
+        order: 'day.desc', limit: 50
+      });
+      if (prevOrders && prevOrders.length > 0) {
+        const lastDay = prevOrders[0].day;
+        const dayOrders = prevOrders.filter(o => o.day === lastDay);
+        const MONTHS_HU = ['jan','feb','már','ápr','máj','jún','júl','aug','sze','okt','nov','dec'];
+        srcLabel = `${prevY}. ${MONTHS_HU[prevM]}. ${lastDay}.`;
+        srcKey = '__prev__';
+        // Build order map
+        const tempMap = {};
+        dayOrders.forEach(o => { tempMap[o.product_id] = o.quantity; });
+        if (!confirm(`Másoljuk a(z) ${srcLabel} rendelést az aktuális napokra?`)) return;
+        // Apply to all days in current month
+        const targetDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
+        for (const td of targetDays) {
+          const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
+          appData.orders[tk] = {...tempMap};
+        }
+        renderOrderTable(); updateHeroTotal();
+        toast(`✅ Előző rendelés (${srcLabel}) másolva ${targetDays.length} napra!`);
+        return;
+      }
+    } catch(e) { console.warn('copyLastOrder prev month:', e.message); }
+    toast('Nincs korábbi rendelés amit másolni lehetne.', true); return;
+  }
+
+  if (!confirm(`Másoljuk a(z) ${srcLabel}-i rendelést az összes sütési napra?`)) return;
+  const srcOrders = {...appData.orders[srcKey]};
+  const targetDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
+  for (const td of targetDays) {
+    const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
+    appData.orders[tk] = {...srcOrders};
+  }
+  renderOrderTable(); updateHeroTotal();
+  toast(`✅ Rendelés másolva ${targetDays.length} napra!`);
 }

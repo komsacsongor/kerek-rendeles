@@ -34,7 +34,7 @@ async function renderLevainMonthSelector() {
   // Load orders for this month
   let ordersForMonth = [];
   try {
-    ordersForMonth = await sb.query('orders', {
+    ordersForMonth = await sb.query('orders', {limit:5000,
       filter: `year=eq.${year}&month=eq.${month}`,
       limit: 5000
     });
@@ -98,9 +98,9 @@ async function calcLevainDaily() {
   let mainData = JSON.parse(localStorage.getItem('kerek_admin_data') || '{}');
   try {
     const [clients, products, ordersRaw] = await Promise.all([
-      sb.query('clients'),
-      sb.query('products'),
-      sb.query('orders'),
+      sb.query('clients', {limit:5000}),
+      sb.query('products', {limit:5000}),
+      sb.query('orders', {limit:5000}),
     ]);
     mainData.clients = clients;
     mainData.products = products;

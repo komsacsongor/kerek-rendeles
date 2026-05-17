@@ -95,7 +95,7 @@ function renderDashboard(){
   const rev=getRevenue(mo,y,m);
   const qty=getTotalQty(mo);
   const bdays=getBakingDays(y,m);
-  let msgCount=0; Object.values(D.messages).forEach(a=>msgCount+=a.length);
+  const msgCount = typeof getUnreadCount === "function" ? getUnreadCount() : (() => { let n=0; Object.values(D.messages).forEach(a=>n+=a.length); return n; })();
 
   document.getElementById('dash-stats').innerHTML=[
     {val:D.clients.length,label:'Aktív vevő',icon:'👥',sub:''},

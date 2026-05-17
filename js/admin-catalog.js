@@ -385,7 +385,7 @@ async function saveProduct(){
     let realProdId;
     if(editingProductId) {
       // UPDATE – meglévő termék, kód nem változik
-      await sb.update('products', {name,weight,price,category,description:desc,product_family_id:familyId}, 'id=eq.'+editingProductId);
+      await sb.update('products', {name,weight,price,category,description:desc,product_family_id:familyId,marketing_desc:marketingDesc,ingredient_label:ingredientLabel,allergens,nutrition,image,code}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
