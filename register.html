@@ -254,6 +254,22 @@ async function submitRegistration() {
   btn.disabled = true; btn.textContent = '⏳ Feldolgozás...';
 
   try {
+    // Check if email already registered
+    const existing = await sb.query('clients', {
+      filter: `email=eq.${encodeURIComponent(email)}`,
+      limit: 1
+    });
+    if (existing && existing.length > 0) {
+      const ex = existing[0];
+      if (ex.name.startsWith('[DELETED]')) {
+        showError('⚠️ Ez az email cím egy deaktivált fiókhoz tartozik. Vedd fel a kapcsolatot a KEREK pékséggel.');
+      } else {
+        showError('⚠️ Ez az email cím már regisztrálva van! Ha elfelejtted a kódodat, keresd fel a KEREK pékséget.');
+      }
+      btn.disabled = false; btn.textContent = 'Regisztráció →';
+      return;
+    }
+
     const code = genCode();
     await sb.insert('clients', {
       id: code,
@@ -269,7 +285,13 @@ async function submitRegistration() {
     document.getElementById('success-box').style.display = 'block';
 
   } catch(e) {
-    showError('⚠️ Hiba a regisztráció során: ' + (e.message || JSON.stringify(e)));
+    // Handle unique constraint violation
+    const errMsg = e.message || JSON.stringify(e);
+    if (errMsg.includes('unique') || errMsg.includes('duplicate') || errMsg.includes('23505')) {
+      showError('⚠️ Ez az email cím már regisztrálva van! Ha elfelejtted a kódodat, keresd fel a KEREK pékséget.');
+    } else {
+      showError('⚠️ Hiba a regisztráció során: ' + errMsg);
+    }
     btn.disabled = false;
     btn.textContent = 'Regisztráció →';
   }
