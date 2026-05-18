@@ -115,8 +115,13 @@ async function doLogin() {
     c.id === val ||
     c.id.toLowerCase() === val ||
     c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
-    c.name.toLowerCase() === val
+    c.name.toLowerCase() === val ||
+    (c.access_code && c.access_code === val)  // Registration code
   );
+  if (client && client.active === false) {
+    showError('A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!');
+    return;
+  }
   if (client) {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
