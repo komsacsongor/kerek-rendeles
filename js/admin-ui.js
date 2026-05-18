@@ -128,12 +128,34 @@ function renderDashboard(){
   document.getElementById('monthly-chart').innerHTML=vals.map((v,i)=>`<div class="bar-col"><div class="bar-v">${v>0?v:''}</div><div class="bar" style="height:${Math.max(v/maxV*90,3)}px;background:${i===5?'var(--gold)':'var(--teal-light)'}"></div></div>`).join('');
   document.getElementById('monthly-chart-labels').innerHTML=months.map((x,i)=>`<div style="flex:1;text-align:center;font-size:0.68rem;color:var(--text-soft);font-weight:${i===5?700:400}">${MONTHS_SHORT[x.m]}</div>`).join('');
 
-  // Next baking
+  // Next baking + U6: levain calculation per day
   const upcoming=bdays.filter(d=>d>=now).slice(0,8);
   document.getElementById('next-baking').innerHTML=upcoming.map(d=>{
     const day=d.getDate(); const dayO=mo[day]||{}; const q=Object.values(dayO).reduce((a,b)=>a+b,0);
+
+    // U6: Calculate levain needed for this day
+    let levainG = 0;
+    if (q > 0 && typeof D.recipes !== 'undefined' && D.recipes) {
+      Object.entries(dayO).forEach(([pid, qty]) => {
+        const recipe = D.recipes.find(r => r.product_id == pid);
+        if (!recipe || !recipe.levain_amount) return;
+        const basePortion = recipe.base_portion || 1000;
+        const unitWeight = recipe.unit_weight || basePortion;
+        const scale = (qty * unitWeight) / basePortion;
+        levainG += Math.round(recipe.levain_amount * scale);
+      });
+    }
+
+    const levainBadge = levainG > 0
+      ? `<span style="font-size:0.72rem;color:var(--teal-dark);background:var(--teal-pale);border-radius:6px;padding:1px 7px;margin-top:3px;display:inline-block">🧫 ${levainG.toLocaleString()}g levain</span>`
+      : '';
+
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div><div style="font-weight:600;font-size:0.88rem">${DAYS_HU[d.getDay()]}, ${MONTHS[m]} ${day}.</div><div class="text-xs text-soft">${q>0?q+' db rendelés':'Még nincs rendelés'}</div></div>
+      <div>
+        <div style="font-weight:600;font-size:0.88rem">${DAYS_HU[d.getDay()]}, ${MONTHS[m]} ${day}.</div>
+        <div class="text-xs text-soft">${q>0?q+' db rendelés':'Még nincs rendelés'}</div>
+        ${levainBadge}
+      </div>
       <span class="badge ${q>0?'badge-green':'badge-gray'}">${q>0?q+' db':'üres'}</span></div>`;
   }).join('')||'<p class="text-sm text-soft">Nincs több sütési nap ebben a hónapban.</p>';
 

@@ -115,6 +115,12 @@ async function loadAllData() {
     });
   } catch(e) { console.error('loadAllData [messages]:', e.message); }
 
+  // U6: Load recipes for levain calculation on dashboard
+  try {
+    const recipes = await sb.query('recipes', { limit: 500 });
+    D.recipes = (recipes||[]).filter(r => r.activated_at);
+  } catch(e) { D.recipes = []; console.error('loadAllData [recipes]:', e.message); }
+
   try {
     const cal = await sb.query('baking_calendar', { limit: 200 });
     D.bakingCalendar = {};
