@@ -110,13 +110,15 @@ async function doLogin() {
 
   if(btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
 
-  const normalizedVal = val.replace(/-/g,'').toLowerCase();
+  const normalizedVal = val.replace(/-/g,'').toLowerCase().trim();
+  const valLower = val.toLowerCase().trim();
   const client = appData.clients.find(c =>
     c.id === val ||
-    c.id.toLowerCase() === val ||
+    c.id === val.toUpperCase() ||
+    c.id.toLowerCase() === valLower ||
     c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
-    c.name.toLowerCase() === val ||
-    c.id === code  // Generated code is the client ID
+    (c.email && c.email.toLowerCase() === valLower) ||
+    c.name.toLowerCase() === valLower
   );
   if (client && client.name && client.name.startsWith('[PENDING]')) {
     const _errEl = document.getElementById('login-error');
