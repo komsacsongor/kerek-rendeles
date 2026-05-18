@@ -113,13 +113,15 @@ async function submitRegistration() {
     const clientId = `${baseId}-${code.slice(-4).toLowerCase()}`;
 
     // Insert client - use generated code as ID (KER-XXXX-XXXX format)
+    // Note: pending status stored in name prefix until admin approves
     await sb.insert('clients', {
-      id: code,           // A belépési kód egyben az ID
-      name,
+      id: code,
+      name: '[PENDING] ' + name,
       email: email || null,
       phone: phone || null,
-      active: false       // Admin jóváhagyásra vár
     });
+    // Store real name for display
+    window._regRealName = name;
 
     // Show success
     document.getElementById('reg-form').style.display = 'none';

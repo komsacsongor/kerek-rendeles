@@ -118,7 +118,7 @@ async function doLogin() {
     c.name.toLowerCase() === val ||
     c.id === code  // Generated code is the client ID
   );
-  if (client && client.active === false) {
+  if (client && client.name && client.name.startsWith('[PENDING]')) {
     showError('A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!');
     return;
   }

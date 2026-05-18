@@ -41,7 +41,7 @@ function renderClients(){
           <span>⏳ Jóváhagyásra vár</span>
           <button onclick="event.stopPropagation();approveClient('${c.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button>
          </div>` : '';
-    return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${c.active === false ? 'border:2px dashed var(--gold)' : ''}">
+    return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : ''}">
       ${pendingBanner}
       <div class="client-card-head">
         <div class="client-avatar">${initials}</div>
@@ -273,10 +273,11 @@ function renderClientTrend(clientId) {
 
 async function approveClient(clientId) {
   try {
-    await sb.update('clients', { active: true }, `id=eq.${clientId}`);
     const cl = D.clients.find(c => c.id === clientId);
-    if (cl) cl.active = true;
-    toast(`✅ ${cl?.name || clientId} jóváhagyva!`);
+    const realName = cl?.name?.replace(/^\[PENDING\]\s*/, '') || cl?.name || clientId;
+    await sb.update('clients', { name: realName }, `id=eq.${clientId}`);
+    if (cl) cl.name = realName;
+    toast(`✅ ${realName} jóváhagyva!`);
     renderClients();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
