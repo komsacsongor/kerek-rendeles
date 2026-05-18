@@ -1,45 +1,31 @@
 // ===== CLIENTS =====
-// Generate invitation link
-async function generateInvitation() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  const token = `KER-INV-${seg()}-${seg()}`;
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  try {
-    await sb.insert('invitations', { token, used: false, expires_at: expiresAt });
-    const baseUrl = location.origin + location.pathname.replace('admin.html', 'register.html');
-    const link = `${baseUrl}?inv=${token}`;
-
-    // Show modal with link
-    const modal = document.getElementById('inv-modal') || (() => {
-      const m = document.createElement('div');
-      m.id = 'inv-modal';
-      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
-      document.body.appendChild(m); return m;
-    })();
-    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:480px">
-      <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">🔗 Meghívó link generálva</h3>
-      <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:16px">Küldd el ezt a linket a vevőnek. 7 napig érvényes, egyszer használható.</p>
-      <div style="background:var(--bg-soft);border-radius:8px;padding:12px;font-family:monospace;font-size:0.78rem;word-break:break-all;color:var(--teal-dark);margin-bottom:12px">${link}</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="navigator.clipboard.writeText('${link}').then(()=>toast('✅ Link másolva!'))"
-          style="flex:1;padding:10px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:700">
-          📋 Másolás
-        </button>
-        <button onclick="document.getElementById('inv-modal').style.display='none'"
-          style="padding:10px 16px;border:1px solid var(--border);background:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif">
-          Bezár
-        </button>
-      </div>
-      <p style="font-size:0.72rem;color:var(--text-soft);margin-top:12px;margin-bottom:0">
-        Lejár: ${new Date(expiresAt).toLocaleDateString('hu-HU')} · Token: ${token}
-      </p>
-    </div>`;
-    modal.style.display = 'flex';
-  } catch(e) {
-    toast('⚠️ Hiba: ' + e.message, true);
-  }
+function showRegLink() {
+  const base = location.origin + location.pathname.replace('admin.html', 'register.html');
+  const modal = document.getElementById('inv-modal') || (() => {
+    const m = document.createElement('div');
+    m.id = 'inv-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(m); return m;
+  })();
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:480px">
+    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">🔗 Regisztrációs link</h3>
+    <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:16px">Küldd el ezt a linket a vevőknek. Regisztráció után te hagyod jóvá a hozzáférést.</p>
+    <div style="background:var(--bg-soft);border-radius:8px;padding:12px;font-family:monospace;font-size:0.82rem;word-break:break-all;color:var(--teal-dark);margin-bottom:12px">${base}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="navigator.clipboard.writeText('${base}').then(()=>toast('✅ Link másolva!'))"
+        style="flex:1;padding:10px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:700">
+        📋 Link másolása
+      </button>
+      <button onclick="document.getElementById('inv-modal').style.display='none'"
+        style="padding:10px 16px;border:1px solid var(--border);background:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif">
+        Bezár
+      </button>
+    </div>
+    <p style="font-size:0.72rem;color:var(--text-soft);margin-top:12px;margin-bottom:0">
+      💡 Küldheted csoportosan is – bárki regisztrálhat, de te hagyod jóvá.
+    </p>
+  </div>`;
+  modal.style.display = 'flex';
 }
 
 function renderClients(){
