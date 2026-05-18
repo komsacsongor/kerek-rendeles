@@ -112,14 +112,13 @@ async function submitRegistration() {
     const code = genCode();
     const clientId = `${baseId}-${code.slice(-4).toLowerCase()}`;
 
-    // Insert client
+    // Insert client - use generated code as ID (KER-XXXX-XXXX format)
     await sb.insert('clients', {
-      id: clientId,
+      id: code,           // A belépési kód egyben az ID
       name,
       email: email || null,
       phone: phone || null,
-      access_code: code,
-      active: false  // Admin jóváhagyásra vár
+      active: false       // Admin jóváhagyásra vár
     });
 
     // Show success
