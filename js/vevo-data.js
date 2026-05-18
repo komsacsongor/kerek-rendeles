@@ -119,7 +119,8 @@ async function doLogin() {
     c.id === code  // Generated code is the client ID
   );
   if (client && client.name && client.name.startsWith('[PENDING]')) {
-    showError('A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!');
+    const _errEl = document.getElementById('login-error');
+    if(_errEl) { _errEl.textContent = '⏳ A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!'; _errEl.style.display='block'; }
     return;
   }
   if (client) {

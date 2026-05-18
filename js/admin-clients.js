@@ -36,17 +36,14 @@ function renderClients(){
       if(!key.startsWith(c.id+'-')) return;
       Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
     });
-    const pendingBanner = c.active === false
-      ? `<div style="background:#fffbeb;color:#92400e;font-size:0.72rem;font-weight:700;padding:4px 12px;display:flex;justify-content:space-between;align-items:center">
-          <span>⏳ Jóváhagyásra vár</span>
-          <button onclick="event.stopPropagation();approveClient('${c.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button>
-         </div>` : '';
+    const isPending = c.name && c.name.startsWith('[PENDING]');
+    const pendingBanner = isPending ? `<div style="background:#fffbeb;color:#92400e;font-size:0.72rem;font-weight:700;padding:4px 12px;display:flex;justify-content:space-between;align-items:center"><span>⏳ Jóváhagyásra vár</span><button onclick="event.stopPropagation();approveClient('${c.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button></div>` : '';
     return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : ''}">
       ${pendingBanner}
       <div class="client-card-head">
         <div class="client-avatar">${initials}</div>
         <div>
-          <div class="client-name">${esc(c.name)}</div>
+          <div class="client-name">${esc(c.name.replace(/^\[PENDING\]\s*/, ''))}</div>
           <div class="client-meta">Kód: <b>${c.id}</b></div>
           <div class="client-meta" style="margin-top:2px">📅 Kliens: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
         </div>
