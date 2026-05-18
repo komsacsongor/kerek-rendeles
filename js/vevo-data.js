@@ -125,12 +125,18 @@ async function doLogin() {
     if(_errEl) { _errEl.textContent = '⏳ A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!'; _errEl.style.display='block'; }
     return;
   }
+  if (client && client.name && client.name.startsWith('[DELETED]')) {
+    const _errEl = document.getElementById('login-error');
+    if(_errEl) { _errEl.textContent = '❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'; _errEl.style.display='block'; }
+    return;
+  }
   if (client) {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
     auditLog('login', currentUser.name||currentUser.id, 'Vevő belépés');
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
-    document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(client.name.split(' ')[1]) + '! 👋';
+    const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
+    document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';
     // Vevő rendelései + üzenetei Supabase-ből
     try {
       const [userOrders, userMsgs, calData, userStatuses] = await Promise.all([

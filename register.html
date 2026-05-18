@@ -6,77 +6,220 @@
 <title>KEREK – Regisztráció</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,700;1,400&family=Kodchasan:wght@300;400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.21.0">
+<link rel="stylesheet" href="kerek-styles.css?v=2.21.6">
 <style>
-  body { min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--teal-dark); padding:16px; }
-  .reg-card { background:white; border-radius:20px; padding:36px 32px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-  .reg-logo { text-align:center; margin-bottom:24px; }
-  .reg-logo img { width:72px; }
-  .reg-logo .brand { font-family:'Fraunces',serif; font-size:2rem; color:var(--teal-dark); letter-spacing:0.05em; display:block; margin-top:8px; }
-  .reg-logo .sub { font-size:0.78rem; color:var(--text-soft); letter-spacing:0.12em; text-transform:uppercase; }
-  .field { margin-bottom:16px; }
-  .field label { font-size:0.82rem; font-weight:600; color:var(--teal-dark); display:block; margin-bottom:6px; }
-  .field input { width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:0.95rem; font-family:'Kodchasan',sans-serif; box-sizing:border-box; transition:border-color 0.2s; }
-  .field input:focus { outline:none; border-color:var(--teal); }
-  .btn-reg { width:100%; padding:14px; background:var(--teal-dark); color:var(--gold); border:none; border-radius:12px; font-size:1rem; font-weight:700; font-family:'Kodchasan',sans-serif; cursor:pointer; margin-top:8px; transition:opacity 0.2s; }
-  .btn-reg:hover { opacity:0.9; }
-  .btn-reg:disabled { opacity:0.5; cursor:not-allowed; }
-  .error { background:#fef2f2; color:#dc2626; border-radius:8px; padding:10px 14px; font-size:0.85rem; margin-bottom:14px; display:none; }
-  .success-box { text-align:center; }
-  .success-box .code { font-family:monospace; font-size:1.8rem; font-weight:700; color:var(--teal-dark); background:var(--teal-pale); border:2px dashed var(--teal); border-radius:12px; padding:16px 24px; margin:16px 0; letter-spacing:0.1em; }
-  .success-box .copy-btn { background:var(--teal-pale); border:1.5px solid var(--teal); color:var(--teal-dark); border-radius:8px; padding:8px 20px; cursor:pointer; font-family:'Kodchasan',sans-serif; font-weight:600; font-size:0.85rem; }
-  .success-box .note { font-size:0.8rem; color:var(--text-soft); margin-top:12px; line-height:1.5; }
-  .invalid-inv { text-align:center; padding:20px; }
-  .invalid-inv .icon { font-size:3rem; margin-bottom:12px; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--teal-dark);
+    padding: 16px;
+    font-family: 'Kodchasan', sans-serif;
+  }
+  .login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 36px 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  .login-logo {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .login-logo img { width: 68px; }
+  .login-logo .logo-text {
+    font-family: 'Kodchasan', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--teal-dark);
+    letter-spacing: 0.12em;
+    display: block;
+    margin-top: 8px;
+  }
+  .login-logo .logo-sub {
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    display: block;
+  }
+  .field-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    display: block;
+    margin-bottom: 8px;
+    margin-top: 16px;
+  }
+  .field-label:first-of-type { margin-top: 0; }
+  .login-input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-family: 'Kodchasan', sans-serif;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+    color: var(--text);
+    background: white;
+  }
+  .login-input:focus { outline: none; border-color: var(--teal); }
+  .login-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Kodchasan', sans-serif;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .login-btn:hover { background: var(--teal-dark); }
+  .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .login-version {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-soft);
+    margin-top: 20px;
+  }
+  .login-hint {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    margin-top: 6px;
+  }
+  .login-hint a { color: var(--teal); text-decoration: none; }
+  .error-box {
+    background: #fef2f2;
+    color: #dc2626;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    margin-top: 14px;
+    display: none;
+  }
+  /* Success state */
+  .success-box { display: none; text-align: center; }
+  .code-display {
+    font-family: monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--teal-dark);
+    background: var(--teal-pale);
+    border: 2px dashed var(--teal);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin: 16px 0;
+    letter-spacing: 0.1em;
+    word-break: break-all;
+  }
+  .copy-btn {
+    background: var(--bg-soft);
+    border: 1.5px solid var(--border);
+    color: var(--teal-dark);
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: 'Kodchasan', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { background: var(--teal-pale); border-color: var(--teal); }
+  .success-note {
+    font-size: 0.8rem;
+    color: var(--text-soft);
+    margin-top: 14px;
+    line-height: 1.6;
+  }
+  .go-btn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 12px 28px;
+    background: var(--teal-dark);
+    color: var(--gold);
+    border-radius: 10px;
+    font-weight: 700;
+    font-family: 'Kodchasan', sans-serif;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .go-btn:hover { opacity: 0.85; }
 </style>
 </head>
 <body>
-<div class="reg-card" id="reg-card">
-  <div class="reg-logo">
+<div class="login-card">
+  <div class="login-logo">
     <img src="Asset_63x.png" alt="KEREK">
-    <span class="brand">KEREK</span>
-    <span class="sub">Vevői regisztráció</span>
+    <span class="logo-text">KEREK</span>
+    <span class="logo-sub">Regisztráció</span>
   </div>
-  <div id="error-box" class="error"></div>
+
+  <!-- Registration form -->
   <div id="reg-form">
-    <div class="field">
-      <label>Teljes neve *</label>
-      <input type="text" id="reg-name" placeholder="pl. Kovács Anna" autocomplete="name">
-    </div>
-    <div class="field">
-      <label>Email cím (opcionális)</label>
-      <input type="email" id="reg-email" placeholder="pl. anna@email.com" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Telefonszám (opcionális)</label>
-      <input type="tel" id="reg-phone" placeholder="pl. +40 745 289 063" autocomplete="tel">
-    </div>
-    <button class="btn-reg" id="reg-btn" onclick="submitRegistration()">
-      Regisztráció & Belépési kód igénylése →
+    <label class="field-label">Teljes neve *</label>
+    <input type="text" id="reg-name" class="login-input" placeholder="pl. Kovács Anna" autocomplete="name">
+
+    <label class="field-label">Email cím *</label>
+    <input type="email" id="reg-email" class="login-input" placeholder="pl. anna@email.com" autocomplete="email">
+
+    <label class="field-label">Telefonszám (opcionális)</label>
+    <input type="tel" id="reg-phone" class="login-input" placeholder="pl. +40 745 289 063" autocomplete="tel">
+
+    <div id="error-box" class="error-box"></div>
+
+    <button id="reg-btn" class="login-btn" onclick="submitRegistration()">
+      Regisztráció →
     </button>
   </div>
-  <div id="success-box" class="success-box" style="display:none">
-    <div style="font-size:2rem;margin-bottom:8px">🎉</div>
+
+  <!-- Success state -->
+  <div id="success-box" class="success-box">
+    <div style="font-size:2.5rem;margin-bottom:6px">🎉</div>
     <div style="font-weight:700;font-size:1.1rem;color:var(--teal-dark);font-family:'Fraunces',serif">Sikeresen regisztráltál!</div>
-    <div style="font-size:0.85rem;color:var(--text-soft);margin:8px 0 4px">Ez a te belépési kódod:</div>
-    <div class="code" id="success-code"></div>
+    <div style="font-size:0.82rem;color:var(--text-soft);margin-top:6px">A KEREK pékség hamarosan jóváhagyja a hozzáférésedet.</div>
+
+    <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-soft);margin-top:18px;text-align:left">Belépési kódod</div>
+    <div class="code-display" id="success-code"></div>
     <button class="copy-btn" onclick="copyCode()">📋 Kód másolása</button>
-    <div class="note">
-      Mentsd el ezt a kódot – ezzel tudsz bejelentkezni a KEREK megrendelő felületre.<br><br>
-      A KEREK pékség hamarosan jóváhagyja a hozzáférésedet.
+
+    <div class="success-note">
+      Belépni tudsz:<br>
+      <b>• Ezzel a kóddal</b><br>
+      <b>• Email címeddel:</b> <span id="success-email" style="color:var(--teal-dark)"></span><br>
+      <br>
+      Mentsd el a kódot biztonságos helyre – emailben is megkapod.
     </div>
-    <a href="vevo.html" style="display:inline-block;margin-top:16px;color:var(--teal-dark);font-weight:600;font-size:0.9rem">→ Megrendelő megnyitása</a>
+
+    <a href="vevo.html" class="go-btn">→ Megrendelő megnyitása</a>
   </div>
 
+  <div class="login-version" id="reg-version"></div>
+  <div class="login-hint">
+    Már van fiókod? <a href="vevo.html">Belépés →</a>
+  </div>
 </div>
 
-<script src="supabase.js?v=2.21.0"></script>
-<script src="kerek-constants.js?v=2.21.0"></script>
+<script src="supabase.js?v=2.21.6"></script>
+<script src="kerek-constants.js?v=2.21.6"></script>
 <script>
-async function init() {
-  // Open registration - no token needed
-  // Admin approves after registration (active=false gate)
-}
+document.getElementById('reg-version').textContent = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '';
+
+// Rate limiting
+const _attempts = { count: 0, resetAt: 0 };
 
 function showError(msg) {
   const el = document.getElementById('error-box');
@@ -91,59 +234,60 @@ function genCode() {
 }
 
 async function submitRegistration() {
-  const name = document.getElementById('reg-name').value.trim();
+  const now = Date.now();
+  if (now > _attempts.resetAt) { _attempts.count = 0; _attempts.resetAt = now + 60000; }
+  if (++_attempts.count > 5) {
+    showError(`⚠️ Túl sok próbálkozás. Várj ${Math.ceil((_attempts.resetAt - now)/1000)} másodpercet.`);
+    return;
+  }
+
+  const name  = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
   const phone = document.getElementById('reg-phone').value.trim();
 
-  if (!name) { showError('Kérjük add meg a neved!'); return; }
+  document.getElementById('error-box').style.display = 'none';
+  if (!name)  { showError('⚠️ Kérjük add meg a nevedet!'); return; }
+  if (!email) { showError('⚠️ Kérjük add meg az email címedet!'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('⚠️ Érvénytelen email cím!'); return; }
 
   const btn = document.getElementById('reg-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Feldolgozás...';
-  document.getElementById('error-box').style.display = 'none';
+  btn.disabled = true; btn.textContent = '⏳ Feldolgozás...';
 
   try {
-    // Generate unique client ID from name
-    const baseId = name.toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
-      .replace(/[íì]/g, 'i').replace(/[óöő]/g, 'o').replace(/[úüű]/g, 'u')
-      .replace(/[^a-z0-9-]/g, '').substring(0, 20);
     const code = genCode();
-    const clientId = `${baseId}-${code.slice(-4).toLowerCase()}`;
-
-    // Insert client - use generated code as ID (KER-XXXX-XXXX format)
-    // Note: pending status stored in name prefix until admin approves
     await sb.insert('clients', {
       id: code,
       name: '[PENDING] ' + name,
       email: email || null,
       phone: phone || null,
     });
-    // Store real name for display
-    window._regRealName = name;
 
     // Show success
     document.getElementById('reg-form').style.display = 'none';
     document.getElementById('success-code').textContent = code;
+    document.getElementById('success-email').textContent = email;
     document.getElementById('success-box').style.display = 'block';
 
   } catch(e) {
-    showError('Hiba a regisztráció során: ' + e.message);
+    showError('⚠️ Hiba a regisztráció során: ' + (e.message || JSON.stringify(e)));
     btn.disabled = false;
-    btn.textContent = 'Regisztráció & Belépési kód igénylése →';
+    btn.textContent = 'Regisztráció →';
   }
 }
 
 function copyCode() {
   const code = document.getElementById('success-code').textContent;
   navigator.clipboard.writeText(code).then(() => {
-    document.querySelector('.copy-btn').textContent = '✅ Másolva!';
-    setTimeout(() => document.querySelector('.copy-btn').textContent = '📋 Kód másolása', 2000);
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Másolva!';
+    setTimeout(() => btn.textContent = '📋 Kód másolása', 2000);
   });
 }
 
-init();
+// Allow Enter key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('reg-form').style.display !== 'none') submitRegistration();
+});
 </script>
 </body>
 </html>

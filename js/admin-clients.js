@@ -37,9 +37,11 @@ function renderClients(){
       Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
     });
     const isPending = c.name && c.name.startsWith('[PENDING]');
+    const isDeleted = c.name && c.name.startsWith('[DELETED]');
+    const deletedBanner = isDeleted ? `<div style="background:#fef2f2;color:#dc2626;font-size:0.72rem;font-weight:700;padding:4px 12px;text-align:center">🗑 Deaktivált vevő – nem tud belépni</div>` : '';
     const pendingBanner = isPending ? `<div style="background:#fffbeb;color:#92400e;font-size:0.72rem;font-weight:700;padding:4px 12px;display:flex;justify-content:space-between;align-items:center"><span>⏳ Jóváhagyásra vár</span><button onclick="event.stopPropagation();approveClient('${c.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button></div>` : '';
-    return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : ''}">
-      ${pendingBanner}
+    return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : isDeleted ? 'border:2px dashed #dc2626;opacity:0.6' : ''}">
+      ${deletedBanner}${pendingBanner}
       <div class="client-card-head">
         <div class="client-avatar">${initials}</div>
         <div>
@@ -99,16 +101,18 @@ async function saveClient(){
     console.error('saveClient error:', e);
   }
 }
-async function deleteClient(id){
-  if(!confirm('Biztosan törlöd? Az összes rendelése is törlődik!')) return;
-  D.clients=D.clients.filter(c=>c.id!==id);
-  Object.keys(D.orders).forEach(k=>{if(k.startsWith(id+'-'))delete D.orders[k];});
+async function deleteClient(id) {
+  const cl = D.clients.find(c => c.id === id);
+  const realName = (cl?.name||id).replace(/^\[(PENDING|DELETED)\]\s*/,'');
+  if (!confirm(`Biztosan deaktiválod "${realName}"?
+
+A vevő nem fog tudni belépni, de a rendelési előzmények megmaradnak.`)) return;
   try {
-    await sb.delete('orders',`client_id=eq.${id}`);
-    await sb.delete('clients',`id=eq.${id}`);
-  } catch(e){ console.warn('deleteClient Supabase error:',e); }
-  auditLog('client_delete', id, 'Kliens törölve');
-  save(); renderClients(); toast('Kliens törölve.');
+    await sb.update('clients', { name: '[DELETED] ' + realName }, `id=eq.${id}`);
+    if (cl) cl.name = '[DELETED] ' + realName;
+    renderClients();
+    toast(`✅ ${realName} deaktiválva – adatok megmaradtak.`);
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
 
 // ===== CLIENT DETAIL =====
