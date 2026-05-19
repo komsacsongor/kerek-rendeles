@@ -36,7 +36,7 @@ function nav(id){
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   // Hide month bar for views with own selector or no months needed
   const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export'];
-  const HIDE_MONTHS = ['clients','client-detail','settings'];
+  const HIDE_MONTHS = ['clients','client-detail','settings','admin-help'];
   const monthBar = document.getElementById('month-bar');
   if(monthBar) monthBar.style.display = (HAS_OWN_MONTHS.includes(id)||HIDE_MONTHS.includes(id)) ? 'none' : 'flex';
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
