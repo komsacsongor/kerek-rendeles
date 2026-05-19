@@ -19,6 +19,7 @@ function nav(id) {
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
     'processing': () => { initProcessingView(); },
+    'receptura-help': () => { renderRecepturaHelp(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
   };

@@ -9,8 +9,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.21.7"></script>
-<script src="supabase.js?v=2.21.7"></script>
+<script src="kerek-constants.js?v=2.21.8"></script>
+<script src="supabase.js?v=2.21.8"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -1015,35 +1015,96 @@ table.order-tbl {
 
   <!-- ===== HELP VIEW ===== -->
   <div id="view-help" class="view">
+
+    <div class="help-section">
+      <div class="help-section-head">🔑 Belépés & Fiók</div>
+      <div class="help-body">
+        <h4>Hogyan léphetek be?</h4>
+        <p>Háromféleképpen léphetsz be a megrendelő felületre:</p>
+        <ul style="margin:8px 0 0 16px;line-height:1.9">
+          <li><b>Belépési kóddal</b> – a regisztrációkor kapott kód (pl. <span class="help-badge">KER-XXXX-XXXX</span>)</li>
+          <li><b>Email címeddel</b> – amit regisztrációkor megadtál</li>
+          <li><b>Neveddel</b> – a teljes neved ahogy regisztráltál</li>
+        </ul>
+        <h4>Regisztráció</h4>
+        <p>Ha még nincs fiókod, a KEREK pékségtől kapott <span class="help-badge">regisztrációs linken</span> tudod elvégezni. Add meg a neved és email címed – kapsz egy belépési kódot. A pékség jóváhagyása után tudsz belépni.</p>
+        <h4>Elfelejtett kód</h4>
+        <p>Ha elveszítetted a belépési kódodat, az email cím vagy a neved alapján szintén be tudsz lépni. Ha arra sem emlékszel, vedd fel a kapcsolatot a pékséggel.</p>
+      </div>
+    </div>
+
     <div class="help-section">
       <div class="help-section-head">📖 Hogyan kell megrendelni?</div>
       <div class="help-body">
         <h4>1. Válaszd ki a hónapot</h4>
-        <p>A <span class="help-badge">Megrendelő</span> fülön a hónapválasztóban kattints a kívánt hónapra. Minden hónapban friss terméklista elérhető.</p>
-        <h4>2. Töltsd ki a mennyiségeket</h4>
-        <p>A táblázatban csak a <span class="help-badge" style="background:#e8f8f6;color:var(--teal-dark)">🔥 sütési napokon</span> (Kedd és Péntek) lehet megrendelni – ezeken a sorokon van beviteli mező. A többi nap szürke.</p>
-        <h4>3. Termék adatlap</h4>
-        <p>Ha rákattintasz egy <span class="help-badge">termékre az oszlopfejlécben</span>, megjelenik az összetevők, allergének és egyéb infók. A képre kattintva megnövelheted.</p>
-        <h4>4. Mentés</h4>
-        <p>A kitöltés után nyomd meg a <span class="help-badge gold">💾 Mentés & Elküldés</span> gombot. Opcionálisan üzenetet is hagyhatsz nekünk.</p>
-        <h4>5. Módosítás</h4>
-        <p>A rendelésedet bármikor módosíthatod. Ha a <b>sütési nap előtt kevesebb mint 24 óra</b> van, a módosítás csak a következő sütéskor lép érvénybe – erről a rendszer tájékoztat.</p>
-        <h4>6. Összesítő</h4>
-        <p>Az <span class="help-badge">Összesítő</span> fülön termékenkénti és dátumonkénti bontásban láthatod a rendeléseidet.</p>
+        <p>A <span class="help-badge">Megrendelő</span> fülön a hónapválasztóban (Január–December) kattints a kívánt hónapra. Mindig az aktuális hónap van alapból kijelölve.</p>
+        <h4>2. Sütési napok</h4>
+        <p>A táblázatban csak a <span class="help-badge" style="background:#e8f8f6;color:var(--teal-dark)">🔥 sütési napokon</span> lehet megrendelni – ezeken a sorokon van beviteli mező. A többi nap szürke és nem szerkeszthető. A sütési napokat a pékség határozza meg (általában Kedd · Péntek · Szombat).</p>
+        <h4>3. Töltsd ki a mennyiségeket</h4>
+        <p>Kattints a táblázat megfelelő cellájába és írd be a kívánt darabszámot. A sor jobb szélén megjelenik a sor összértéke lejben. A lap tetején folyamatosan láthatod a havi összeget.</p>
+        <h4>4. Termék adatlap</h4>
+        <p>Ha rákattintasz egy <span class="help-badge">termék nevére az oszlopfejlécben</span>, megjelenik a termék részletes adatlapja: összetevők · allergének · tápérték táblázat · marketing leírás. A képre kattintva nagyíthatod.</p>
+        <h4>5. Mentés & Elküldés</h4>
+        <p>A kitöltés után nyomd meg a <span class="help-badge gold">💾 Mentés & Elküldés</span> gombot a lap alján. Opcionálisan üzenetet is hagyhatsz a pékségnek (pl. szállítási kérés, megjegyzés).</p>
+        <h4>6. 📋 Előző rendelés másolása</h4>
+        <p>Ha rendszeresen ugyanazt rendeled, használd az <span class="help-badge">Előző rendelés másolása</span> gombot. Ez betölti az előző hónap (vagy az előző sütési nap) rendelési adatait az összes sütési napra – csak a változtatásokat kell módosítanod.</p>
+        <h4>7. Üzenet küldése</h4>
+        <p>Mentés nélkül is küldhetsz üzenetet a pékségnek a <span class="help-badge">Üzenet küldése (rendelés mentése nélkül)</span> gombbal. Az admin válaszát a megrendelő felületen olvashatod.</p>
       </div>
     </div>
+
+    <div class="help-section">
+      <div class="help-section-head">📊 Rendelés státuszok</div>
+      <div class="help-body">
+        <p>Minden sütési nap rendelésének van egy státusza:</p>
+        <div style="display:grid;gap:6px;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:3px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">⏳ Vár</span><span style="font-size:0.85rem;color:var(--text-soft)">Beérkezett, pékség jóváhagyása folyamatban</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="background:#dcfce7;color:#166534;border-radius:6px;padding:3px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">✅ Jóváhagyva</span><span style="font-size:0.85rem;color:var(--text-soft)">A pékség visszaigazolta a rendelést</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:3px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">✏️ Módosítva</span><span style="font-size:0.85rem;color:var(--text-soft)">A pékség módosított a rendelésen – ellenőrizd</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:3px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">🎉 Elkészült</span><span style="font-size:0.85rem;color:var(--text-soft)">A terméked elkészült, átvehető / kiszállítás alatt</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:3px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">❌ Visszavonva</span><span style="font-size:0.85rem;color:var(--text-soft)">A rendelés visszavonva</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-head">⏰ Módosítás & Határidők</div>
+      <div class="help-body">
+        <h4>Mikor módosíthatok?</h4>
+        <p>A rendelésedet szabadon módosíthatod a <b>sütési nap előtti nap 18:00-ig</b>. Ezután a rendelés lezárul.</p>
+        <h4>Mi történik módosítás után?</h4>
+        <p>Ha módosítasz egy jóváhagyott rendelést, az visszakerül <span class="help-badge" style="background:#fef9c3;color:#854d0e">⏳ Vár</span> státuszba és a pékség újra jóváhagyja.</p>
+        <h4>Rendelés törlése</h4>
+        <p>A <span class="help-badge">🗑 Törlés</span> gombbal az egész hónap rendeléseit törölheted. Ez a művelet visszafordíthatatlan.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-head">📋 Összesítő & PDF</div>
+      <div class="help-body">
+        <p>Az <span class="help-badge">Összesítő & PDF</span> fülön megtekintheted és letöltheted a havi rendeléseidet:</p>
+        <ul style="margin:8px 0 0 16px;line-height:1.9">
+          <li>Termékenkénti és dátumonkénti bontás</li>
+          <li>Havi összesített értékek</li>
+          <li>PDF letöltés saját nyilvántartáshoz</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="help-section">
       <div class="help-section-head">📦 Rendelési feltételek</div>
       <div class="help-body" id="help-conditions">
-        <p style="color:var(--teal-mid);font-style:italic">Az admin által megadott rendelési feltételek itt jelennek meg.</p>
+        <p style="color:var(--teal-mid);font-style:italic">A pékség által megadott rendelési feltételek itt jelennek meg.</p>
       </div>
     </div>
+
     <div class="help-section">
       <div class="help-section-head">🚚 Szállítás & Átvétel</div>
       <div class="help-body" id="help-delivery">
-        <p style="color:var(--teal-mid);font-style:italic">Az admin által megadott szállítási/átvételi infók itt jelennek meg.</p>
+        <p style="color:var(--teal-mid);font-style:italic">Szállítási és átvételi információk itt jelennek meg.</p>
       </div>
     </div>
+
   </div>
 </main>
 
@@ -1087,8 +1148,8 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.21.7"></script>
-<script src="js/vevo-ui.js?v=2.21.7"></script>
-<script src="js/vevo-orders.js?v=2.21.7"></script>
+<script src="js/vevo-data.js?v=2.21.8"></script>
+<script src="js/vevo-ui.js?v=2.21.8"></script>
+<script src="js/vevo-orders.js?v=2.21.8"></script>
 </body>
 </html>
