@@ -9,8 +9,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.21.8"></script>
-<script src="supabase.js?v=2.21.8"></script>
+<script src="kerek-constants.js?v=2.21.9"></script>
+<script src="supabase.js?v=2.21.9"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -901,7 +901,8 @@ table.order-tbl {
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doLogin()">Belépés →</button>
     <div id="login-error" style="color:#ef4444;font-size:0.82rem;margin-top:10px;text-align:center;min-height:20px;font-weight:600;display:none"></div>
-    <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px">v1.5 (2026-05-03)</div>
+    <div id="vevo-version" style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px"></div>
+    <script>document.getElementById('vevo-version').textContent = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '';</script>
     <div class="login-hint">A belépési kódot a KEREK péksègtől kaptad.</div>
   </div>
 </div>
@@ -1148,8 +1149,8 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.21.8"></script>
-<script src="js/vevo-ui.js?v=2.21.8"></script>
-<script src="js/vevo-orders.js?v=2.21.8"></script>
+<script src="js/vevo-data.js?v=2.21.9"></script>
+<script src="js/vevo-ui.js?v=2.21.9"></script>
+<script src="js/vevo-orders.js?v=2.21.9"></script>
 </body>
 </html>

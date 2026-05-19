@@ -23,7 +23,7 @@ const VIEW_TITLES = {
 };
 // Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
 const RENDERS = {
-  dashboard:()=>renderDashboard(), messages:()=>renderMessages(), baking:()=>renderBaking(),
+  dashboard:()=>renderDashboard(),'admin-help':()=>renderAdminHelp(), messages:()=>renderMessages(), baking:()=>renderBaking(),
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
   export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); }
