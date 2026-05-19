@@ -35,9 +35,9 @@ description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez.
 | Szolgáltatás | Adat |
 |---|---|
 | GitHub | komsacsongor/kerek-rendeles (publikus) |
-| Token | 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 (lejár: 2026-08-09) |
+| Token | GITHUB_TOKEN_PLACEHOLDER (lejár: 2026-08-09) |
 | Supabase | lfaxeihrmiylggahougl.supabase.co |
-| Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
+| Anon key | SUPABASE_ANON_KEY_PLACEHOLDER |
 | Hosting | komsacsongor.github.io/kerek-rendeles |
 | Deploy | GitHub push → GitHub Actions → automatikus |
 | Jelenlegi verzió | v2.21.8 (2026-05-19) |
@@ -49,7 +49,7 @@ Ha push blokkolva: bypass URL-t használj, ne rewrite-old a history-t.
 ## Minden session elején (KÖTELEZŐ)
 
 ```bash
-cd /home/claude && rm -rf kerek-rendeles && git clone https://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@github.com/komsacsongor/kerek-rendeles.git
+cd /home/claude && rm -rf kerek-rendeles && git clone https://GITHUB_TOKEN_PLACEHOLDER@github.com/komsacsongor/kerek-rendeles.git
 cd kerek-rendeles && git config user.email "kerek@deploy.bot" && git config user.name "KEREK Deploy"
 npm install && npx jest --no-coverage
 ```
@@ -221,7 +221,7 @@ for f in ['admin.html', 'receptura.html', 'vevo.html', 'index.html', 'register.h
 ```
 
 ```bash
-git add -A && git commit -m "feat/fix: leírás (vX.Y.Z)" && git push https://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@github.com/komsacsongor/kerek-rendeles.git main
+git add -A && git commit -m "feat/fix: leírás (vX.Y.Z)" && git push https://GITHUB_TOKEN_PLACEHOLDER@github.com/komsacsongor/kerek-rendeles.git main
 ```
 
 ## Kulcs formátumok
