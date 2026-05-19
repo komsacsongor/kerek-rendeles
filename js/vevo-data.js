@@ -197,7 +197,7 @@ async function doLogin() {
   }
 }
 function logout() { localStorage.removeItem('kerek_vevo_data');
-  localStorage.removeItem('kerek_data'); window.location.href = 'index.html'; }
+  localStorage.removeItem('kerek_data'); window.location.href = 'vevo.html'; }
 
 // ===== WEB PUSH =====
 const VAPID_PUBLIC_KEY = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';

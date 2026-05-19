@@ -1,0 +1,34 @@
+{
+  "name": "KEREK Pékség",
+  "short_name": "KEREK",
+  "description": "KEREK gluténmentes pékség megrendelő felület",
+  "start_url": "/kerek-rendeles/vevo.html",
+  "scope": "/kerek-rendeles/",
+  "display": "standalone",
+  "background_color": "#064C48",
+  "theme_color": "#064C48",
+  "orientation": "portrait-primary",
+  "lang": "hu",
+  "icons": [
+    {
+      "src": "/kerek-rendeles/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/kerek-rendeles/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "shopping"],
+  "shortcuts": [
+    {
+      "name": "Megrendelő",
+      "url": "/kerek-rendeles/vevo.html",
+      "icons": [{ "src": "/kerek-rendeles/img/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

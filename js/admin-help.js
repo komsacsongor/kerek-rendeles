@@ -3,6 +3,8 @@ function renderAdminHelp() {
   const el = document.getElementById('view-admin-help');
   if (!el) return;
 
+  // Remove extra gap from hidden month-bar
+  el.style.marginTop = '-24px';
   el.innerHTML = `
   <div style="max-width:820px;margin:0 auto">
 
