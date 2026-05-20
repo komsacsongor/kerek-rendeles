@@ -1,15 +1,104 @@
 
+// ===== AUTH TABS =====
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('auth-login-panel').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('auth-reg-panel').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('reg-success').style.display = 'none';
+  document.getElementById('login-error').style.display = 'none';
+  // Tab button styles
+  const loginBtn = document.getElementById('tab-login-btn');
+  const regBtn = document.getElementById('tab-reg-btn');
+  if (loginBtn) {
+    loginBtn.style.background = isLogin ? 'white' : 'transparent';
+    loginBtn.style.color = isLogin ? 'var(--teal-dark)' : 'var(--text-soft)';
+    loginBtn.style.fontWeight = isLogin ? '700' : '400';
+    loginBtn.style.boxShadow = isLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
+  }
+  if (regBtn) {
+    regBtn.style.background = !isLogin ? 'white' : 'transparent';
+    regBtn.style.color = !isLogin ? 'var(--teal-dark)' : 'var(--text-soft)';
+    regBtn.style.fontWeight = !isLogin ? '700' : '400';
+    regBtn.style.boxShadow = !isLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
+  }
+}
+
+function _genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  return `KER-${seg()}-${seg()}`;
+}
+
+const _regAttempts = { count: 0, resetAt: 0 };
+
+async function doRegister() {
+  const now = Date.now();
+  if (now > _regAttempts.resetAt) { _regAttempts.count = 0; _regAttempts.resetAt = now + 60000; }
+  if (++_regAttempts.count > 5) {
+    _showLoginError(`⚠️ Túl sok próbálkozás. Várj ${Math.ceil((_regAttempts.resetAt - now)/1000)} másodpercet.`);
+    return;
+  }
+  const name  = (document.getElementById('reg-name')?.value || '').trim();
+  const email = (document.getElementById('reg-email')?.value || '').trim();
+  const phone = (document.getElementById('reg-phone')?.value || '').trim();
+  _showLoginError('');
+  if (!name)  { _showLoginError('⚠️ Add meg a nevedet!'); return; }
+  if (!email) { _showLoginError('⚠️ Add meg az email címedet!'); return; }
+  if (!email.includes('@') || !email.includes('.')) { _showLoginError('⚠️ Érvénytelen email cím!'); return; }
+
+  const btn = document.getElementById('reg-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Feldolgozás...'; }
+
+  try {
+    // Check duplicate email
+    const existing = await sb.query('clients', { filter: `email=eq.${encodeURIComponent(email)}`, limit: 1 });
+    if (existing && existing.length > 0) {
+      const ex = existing[0];
+      _showLoginError(ex.name.startsWith('[DELETED]')
+        ? '⚠️ Ez az email cím egy deaktivált fiókhoz tartozik. Keresd fel a pékséget.'
+        : '⚠️ Ez az email cím már regisztrálva van! Lépj be az email címeddel.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Regisztráció →'; }
+      return;
+    }
+    const code = _genCode();
+    await sb.insert('clients', { id: code, name: '[PENDING] ' + name, email, phone: phone || null });
+    // Show success
+    document.getElementById('auth-reg-panel').style.display = 'none';
+    document.getElementById('reg-code-display').textContent = code;
+    document.getElementById('reg-email-display').textContent = email;
+    document.getElementById('reg-success').style.display = 'block';
+  } catch(e) {
+    const msg = e.message || JSON.stringify(e);
+    _showLoginError(msg.includes('unique') || msg.includes('23505')
+      ? '⚠️ Ez az email cím már regisztrálva van!'
+      : '⚠️ Hiba: ' + msg);
+    if (btn) { btn.disabled = false; btn.textContent = 'Regisztráció →'; }
+  }
+}
+
+function _showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+
 // ===== PWA INSTALL =====
 let _pwaInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _pwaInstallPrompt = e;
-  const bar = document.getElementById('pwa-install-bar');
-  if (bar) bar.style.display = 'block';
+  ['pwa-install-bar','footer-install-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === 'footer-install-btn' ? 'inline-flex' : 'block';
+  });
 });
 window.addEventListener('appinstalled', () => {
-  const bar = document.getElementById('pwa-install-bar');
-  if (bar) bar.style.display = 'none';
+  ['pwa-install-bar','footer-install-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   _pwaInstallPrompt = null;
 });
 async function installPWA() {
@@ -154,8 +243,9 @@ async function doLogin() {
   }
   if (client && client.name && client.name.startsWith('[DELETED]')) {
     const _errEl = document.getElementById('login-error');
-    if(_errEl) { _errEl.textContent = '❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'; _errEl.style.display='block'; }
-    return;
+    if(true) { _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'); }
+
+    if(true) { _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'); }
   }
   if (client) {
     currentUser = client;
@@ -295,3 +385,9 @@ async function updatePushBtn() {
   else if (sub) { btn.style.opacity = '1'; btn.title = 'Értesítések bekapcsolva – kattints a kikapcsoláshoz'; btn.textContent = '🔔'; }
   else { btn.style.opacity = '0.5'; btn.title = 'Kattints az értesítések bekapcsolásához'; btn.textContent = '🔔'; }
 }
+
+// Footer version + install btn
+document.addEventListener('DOMContentLoaded', () => {
+  const fv = document.getElementById('footer-version');
+  if (fv) fv.textContent = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '';
+});
