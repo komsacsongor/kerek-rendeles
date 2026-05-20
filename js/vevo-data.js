@@ -1,3 +1,30 @@
+
+// ===== PWA INSTALL =====
+let _pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaInstallPrompt = e;
+  const bar = document.getElementById('pwa-install-bar');
+  if (bar) bar.style.display = 'block';
+});
+window.addEventListener('appinstalled', () => {
+  const bar = document.getElementById('pwa-install-bar');
+  if (bar) bar.style.display = 'none';
+  _pwaInstallPrompt = null;
+});
+async function installPWA() {
+  if (!_pwaInstallPrompt) {
+    alert('iOS Safari-n: Megosztás (□↑) gomb → "Hozzáadás a kezdőképernyőhöz"');
+    return;
+  }
+  _pwaInstallPrompt.prompt();
+  const { outcome } = await _pwaInstallPrompt.userChoice;
+  if (outcome === 'accepted') {
+    const bar = document.getElementById('pwa-install-bar');
+    if (bar) bar.style.display = 'none';
+  }
+  _pwaInstallPrompt = null;
+}
 // ===== CONSTANTS =====
 // BAKING_DAYS now dynamic - loaded from shared data
 
