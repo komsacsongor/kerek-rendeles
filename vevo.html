@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.22.6"></script>
-<script src="supabase.js?v=2.22.6"></script>
+<script src="kerek-constants.js?v=2.23.0"></script>
+<script src="supabase.js?v=2.23.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -891,6 +891,47 @@ table.order-tbl {
 .mob-locked .mob-qty-display,
 .mob-locked input { pointer-events: none; opacity: 0.5; }
 .mob-lock-notice { font-size: 0.75rem; color: var(--gold-dark); background: #fef3c7; border-radius: 6px; padding: 5px 10px; margin-bottom: 8px; }
+
+/* Elapsed (past) baking days collapsible section */
+.mob-elapsed-section { margin-bottom: 14px; }
+.mob-elapsed-head {
+  background: #f3f4f6; border-radius: 10px; padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; user-select: none;
+  border: 1px solid #e5e7eb;
+}
+.mob-elapsed-body { display: none; padding: 8px 0 0; }
+.mob-elapsed-body.open { display: block; }
+.mob-elapsed-day {
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 6px; opacity: 0.85;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
+}
+.mob-elapsed-day-name { color: var(--text-soft); font-weight: 600; font-size: 0.82rem; }
+.mob-elapsed-day-items { font-size: 0.72rem; color: var(--text-soft); margin-top: 2px; }
+.mob-elapsed-badge { font-size: 0.68rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.mob-elapsed-empty { color: #bbb; font-style: italic; font-size: 0.72rem; }
+
+/* Per-day category chip filter */
+.mob-cat-chips {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding: 0 0 10px; margin-bottom: 10px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+.mob-cat-chips::-webkit-scrollbar { display: none; }
+.mob-cat-chip {
+  white-space: nowrap; padding: 5px 11px; border-radius: 14px;
+  border: 1.5px solid var(--border); background: #fff;
+  color: var(--text-soft); font-size: 0.72rem; font-weight: 500;
+  cursor: pointer; font-family: 'Kodchasan', sans-serif;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.mob-cat-chip.active {
+  background: var(--teal); color: #fff; border-color: var(--teal);
+  font-weight: 700;
+}
 </style>
 </head>
 <body>
@@ -1225,9 +1266,9 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.22.6"></script>
-<script src="js/vevo-ui.js?v=2.22.6"></script>
-<script src="js/vevo-orders.js?v=2.22.6"></script>
+<script src="js/vevo-data.js?v=2.23.0"></script>
+<script src="js/vevo-ui.js?v=2.23.0"></script>
+<script src="js/vevo-orders.js?v=2.23.0"></script>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
   <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>

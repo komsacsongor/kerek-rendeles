@@ -1,39 +1,25 @@
 // ===== ORDER TABLE =====
 function isMobile() { return window.innerWidth <= 640; }
 
-// Category filter state
-let selectedCategory = 'all';
+// Per-day category filter state: { day: 'category' | 'all' }
+let selectedCategoryByDay = {};
 
 function getCategories(prods) {
   const cats = [...new Set(prods.map(p => p.category).filter(Boolean))];
   return cats;
 }
 
-function renderCategoryTabs(prods) {
-  const existing = document.getElementById('category-tabs');
-  if (existing) existing.remove();
-  if (!isMobile()) return;
-  
-  const cats = getCategories(prods);
-  if (cats.length <= 1) return; // no tabs if single category
-  
-  const container = document.getElementById('mobile-order-cards');
-  if (!container) return;
-  
-  const tabBar = document.createElement('div');
-  tabBar.id = 'category-tabs';
-  tabBar.style.cssText = 'display:flex;gap:6px;overflow-x:auto;padding:10px 14px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:56px;z-index:20;background:var(--bg-soft);border-bottom:1px solid var(--border);';
-  tabBar.innerHTML = ['all', ...cats].map(cat => {
-    const label = cat === 'all' ? '🧺 Összes' : cat;
-    const active = selectedCategory === cat;
-    return `<button onclick="filterCategory('${cat.replace(/'/g,"\'")}')" style="white-space:nowrap;padding:6px 12px;border-radius:20px;border:1.5px solid ${active?'var(--teal)':'var(--border)'};background:${active?'var(--teal)':'white'};color:${active?'white':'var(--text-soft)'};font-size:0.78rem;font-weight:${active?'700':'400'};cursor:pointer;font-family:'Kodchasan',sans-serif;transition:all 0.15s;flex-shrink:0">${label}</button>`;
-  }).join('');
-  container.parentNode.insertBefore(tabBar, container);
+function mobChangeCategoryDay(day, cat) {
+  selectedCategoryByDay[day] = cat;
+  renderMobileOrderCards();
 }
 
-function filterCategory(cat) {
-  selectedCategory = cat;
-  renderMobileOrderCards();
+function toggleElapsedSection() {
+  const body = document.getElementById('mob-elapsed-body');
+  const arrow = document.getElementById('mob-elapsed-arrow');
+  if (!body) return;
+  body.classList.toggle('open');
+  if (arrow) arrow.textContent = body.classList.contains('open') ? '▴' : '▾';
 }
 
 function renderOrderTable() {
@@ -454,25 +440,87 @@ function renderMobileOrderCards() {
   if(desktopCard) desktopCard.style.display = 'none';
   if(!container) return;
 
+  // Remove old sticky category tabs if they exist (legacy cleanup)
+  const oldTabs = document.getElementById('category-tabs');
+  if (oldTabs) oldTabs.remove();
+
   if(prods.length === 0) {
     container.innerHTML = '<div class="mob-day-card" style="padding:20px;text-align:center;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</div>';
     return;
   }
 
-  // B+C: Category tabs + filtered products
-  const filteredProds = selectedCategory === 'all' ? prods : prods.filter(p => p.category === selectedCategory);
-  renderCategoryTabs(prods);
+  // Categories for per-day chip filter
+  const cats = getCategories(prods);
+  const hasMultiCats = cats.length > 1;
+
+  // Split: elapsed baking days (past) vs current/future days
+  const elapsedDays = [];
+  const currentDays = [];
+  days.forEach(d => {
+    const baking = isBakingDay(d);
+    const isPast = d < now && !isSameDay(d, now);
+    if (baking && isPast) elapsedDays.push(d);
+    else currentDays.push(d);
+  });
 
   let html = '';
-  days.forEach(d => {
+
+  // ===== ELAPSED SECTION (top, collapsed by default) =====
+  if (elapsedDays.length > 0) {
+    let elapsedItems = '';
+    elapsedDays.forEach(d => {
+      const day = d.getDate();
+      const dow = d.getDay();
+      const dayName = DAYS_HU[dow];
+      const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+      const rowOrders = appData.orders[key] || {};
+      const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+      const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{
+        const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0);
+      },0);
+      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+      const stStatus = orderSt.status || '';
+
+      let statusBadge = '';
+      if (stStatus === 'fulfilled') statusBadge = '<span class="mob-elapsed-badge" style="background:#d1fae5;color:#065f46">🎉 Elkészült</span>';
+      else if (stStatus === 'confirmed') statusBadge = '<span class="mob-elapsed-badge" style="background:#dcfce7;color:#166534">✅ Jóváhagyva</span>';
+      else if (stStatus === 'cancelled') statusBadge = '<span class="mob-elapsed-badge" style="background:#fee2e2;color:#b91c1c">❌ Visszavonva</span>';
+      else if (stStatus === 'pending' || stStatus === 'modified') statusBadge = '<span class="mob-elapsed-badge" style="background:#fef3c7;color:#92400e">⚠️ Feldolgozás alatt</span>';
+      else statusBadge = '<span class="mob-elapsed-empty">— nem rendeltél —</span>';
+
+      const summary = rowTotal > 0
+        ? `<div class="mob-elapsed-day-items">${rowTotal} db · ${rowVal} lej</div>`
+        : '';
+
+      elapsedItems += `<div class="mob-elapsed-day">
+        <div>
+          <div class="mob-elapsed-day-name">🔥 ${dayName}, ${day}.</div>
+          ${summary}
+        </div>
+        ${statusBadge}
+      </div>`;
+    });
+
+    html += `<div class="mob-elapsed-section">
+      <div class="mob-elapsed-head" onclick="toggleElapsedSection()">
+        <span style="font-weight:600;color:var(--text-soft);font-size:0.85rem">🕰 Eltelt sütési napok (${elapsedDays.length})</span>
+        <span id="mob-elapsed-arrow" style="color:var(--text-soft);font-size:0.9rem">▾</span>
+      </div>
+      <div class="mob-elapsed-body" id="mob-elapsed-body">
+        ${elapsedItems}
+      </div>
+    </div>`;
+  }
+
+  // ===== CURRENT / FUTURE DAYS =====
+  currentDays.forEach(d => {
     const day = d.getDate();
     const dow = d.getDay();
     const baking = isBakingDay(d);
     const dayName = DAYS_HU[dow];
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
-    const isOver = d < now && !isSameDay(d, now);
     const hoursLeft = hoursUntil(d);
-    const mobOrderSt = (appData.orderStatus && appData.orderStatus[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]) || {};
+    const mobOrderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
     const mobDeadline = mobOrderSt.deadline ? new Date(mobOrderSt.deadline) : null;
     const mobDeadlineLeft = mobDeadline ? (mobDeadline - new Date()) / 36e5 : null;
     const isLocked = baking && (mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24));
@@ -488,8 +536,8 @@ function renderMobileOrderCards() {
         </div>
       </div>`;
     } else {
-      const lockedClass = (isOver || isLocked) ? 'mob-locked' : '';
-      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+      const lockedClass = isLocked ? 'mob-locked' : '';
+      const orderSt = mobOrderSt;
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
       const stNote = orderSt.admin_note || '';
       let statusBanner = '';
@@ -507,6 +555,21 @@ function renderMobileOrderCards() {
         : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✏️ Módosítva</span>'
         : stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">❌</span>'
         : '';
+
+      // Per-day category filter chips
+      const dayCat = selectedCategoryByDay[day] || 'all';
+      const dayFilteredProds = dayCat === 'all' ? prods : prods.filter(p => p.category === dayCat);
+
+      let catChips = '';
+      if (hasMultiCats) {
+        catChips = '<div class="mob-cat-chips">' + ['all', ...cats].map(cat => {
+          const label = cat === 'all' ? '🧺 Összes' : cat;
+          const active = dayCat === cat;
+          const safeCat = cat.replace(/'/g,"\\'");
+          return `<button class="mob-cat-chip ${active?'active':''}" onclick="event.stopPropagation();mobChangeCategoryDay(${day},'${safeCat}')">${label}</button>`;
+        }).join('') + '</div>';
+      }
+
       html += `<div class="mob-day-card" id="mob-card-${day}">
         <div class="mob-day-head baking" onclick="toggleMobCard(${day})">
           <div>
@@ -522,8 +585,9 @@ function renderMobileOrderCards() {
         <div class="mob-day-body ${bodyAutoOpen ? 'open' : ''}" id="mob-body-${day}">
           ${statusBanner}
           ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
+          ${catChips}
           <div class="${lockedClass}">
-            ${filteredProds.map(p => {
+            ${dayFilteredProds.map(p => {
               const qty = rowOrders[p.id] || 0;
               return `<div class="mob-product-row">
                 <div class="mob-prod-info" onclick="showProductModal(${p.id})">
