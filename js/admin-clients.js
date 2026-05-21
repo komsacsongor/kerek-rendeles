@@ -28,40 +28,71 @@ function showRegLink() {
   modal.style.display = 'flex';
 }
 
+function _clientCard(cl) {
+  const initials = cl.name.replace(/^\[(PENDING|DELETED)\]\s*/,'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
+  let totalQty=0,totalRev=0;
+  Object.entries(D.orders).forEach(([key,o])=>{
+    if(!key.startsWith(cl.id+'-')) return;
+    Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
+  });
+  const isPending = cl.name && cl.name.startsWith('[PENDING]');
+  const displayName = esc(cl.name.replace(/^\[(PENDING|DELETED)\]\s*/,''));
+  const pendingBanner = isPending ? `<div style="background:#fffbeb;color:#92400e;font-size:0.72rem;font-weight:700;padding:4px 12px;display:flex;justify-content:space-between;align-items:center"><span>⏳ Jóváhagyásra vár</span><button onclick="event.stopPropagation();approveClient('${cl.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button></div>` : '';
+  const deleteLabel = cl.name.startsWith('[DELETED]') ? '↩ Visszaállít' : '✕';
+  const deleteFn = cl.name.startsWith('[DELETED]') ? `restoreClient('${cl.id}')` : `deleteClient('${cl.id}')`;
+  return `<div class="client-card" onclick="openClientDetail('${cl.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : ''}">
+    ${pendingBanner}
+    <div class="client-card-head">
+      <div class="client-avatar">${initials}</div>
+      <div>
+        <div class="client-name">${displayName}</div>
+        <div class="client-meta">Kód: <b>${cl.id}</b></div>
+        <div class="client-meta" style="margin-top:2px">📅 Kliens: ${cl.joinDate ? new Date(cl.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
+      </div>
+    </div>
+    <div class="client-card-body">
+      <div class="client-stat"><span>📧 Email</span><span>${cl.email||'—'}</span></div>
+      <div class="client-stat"><span>📱 Telefon</span><span>${cl.phone||'—'}</span></div>
+      <div class="client-stat"><span>📦 Összes rendelés</span><span class="bold">${totalQty} db</span></div>
+      <div class="client-stat"><span>💰 Összes forgalom</span><span style="color:var(--gold-dark);font-weight:700">${totalRev} lej</span></div>
+    </div>
+    <div style="padding:10px 16px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${cl.id}')">Adatlap</button>
+      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();${deleteFn}">${deleteLabel}</button>
+    </div>
+  </div>`;
+}
+
+async function restoreClient(id) {
+  const cl = D.clients.find(c => c.id === id);
+  const realName = (cl?.name||'').replace(/^\[DELETED\]\s*/,'');
+  if (!confirm('Visszaállítod "' + realName + '" vevőt? Be tud majd lépni.')) return;
+  try {
+    await sb.update('clients', { name: realName }, 'id=eq.' + id);
+    if (cl) cl.name = realName;
+    renderClients();
+    toast('✅ ' + realName + ' visszaállítva.');
+  } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
 function renderClients(){
-  document.getElementById('clients-grid').innerHTML=D.clients.map(c=>{
-    const initials=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    let totalQty=0,totalRev=0;
-    Object.entries(D.orders).forEach(([key,o])=>{
-      if(!key.startsWith(c.id+'-')) return;
-      Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
-    });
-    const isPending = c.name && c.name.startsWith('[PENDING]');
-    const isDeleted = c.name && c.name.startsWith('[DELETED]');
-    const deletedBanner = isDeleted ? `<div style="background:#fef2f2;color:#dc2626;font-size:0.72rem;font-weight:700;padding:4px 12px;text-align:center">🗑 Deaktivált vevő – nem tud belépni</div>` : '';
-    const pendingBanner = isPending ? `<div style="background:#fffbeb;color:#92400e;font-size:0.72rem;font-weight:700;padding:4px 12px;display:flex;justify-content:space-between;align-items:center"><span>⏳ Jóváhagyásra vár</span><button onclick="event.stopPropagation();approveClient('${c.id}')" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.72rem;font-family:'Kodchasan',sans-serif">✅ Jóváhagyás</button></div>` : '';
-    return `<div class="client-card" onclick="openClientDetail('${c.id}')" style="${isPending ? 'border:2px dashed var(--gold)' : isDeleted ? 'border:2px dashed #dc2626;opacity:0.6' : ''}">
-      ${deletedBanner}${pendingBanner}
-      <div class="client-card-head">
-        <div class="client-avatar">${initials}</div>
-        <div>
-          <div class="client-name">${esc(c.name.replace(/^\[PENDING\]\s*/, ''))}</div>
-          <div class="client-meta">Kód: <b>${c.id}</b></div>
-          <div class="client-meta" style="margin-top:2px">📅 Kliens: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
-        </div>
-      </div>
-      <div class="client-card-body">
-        <div class="client-stat"><span>📧 Email</span><span>${c.email||'—'}</span></div>
-        <div class="client-stat"><span>📱 Telefon</span><span>${c.phone||'—'}</span></div>
-        <div class="client-stat"><span>📦 Összes rendelés</span><span class="bold">${totalQty} db</span></div>
-        <div class="client-stat"><span>💰 Összes forgalom</span><span style="color:var(--gold-dark);font-weight:700">${totalRev} lej</span></div>
-      </div>
-      <div style="padding:10px 16px;display:flex;gap:8px">
-        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${c.id}')">Adatlap</button>
-        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button>
-      </div>
-    </div>`;
-  }).join('');
+  const active = D.clients.filter(c => !c.name.startsWith('[DELETED]'));
+  const deleted = D.clients.filter(c => c.name.startsWith('[DELETED]'));
+
+  document.getElementById('clients-grid').innerHTML = active.map(c => _clientCard(c)).join('');
+
+  // Deaktivált szekció
+  let delEl = document.getElementById('clients-deleted-section');
+  if (!delEl) {
+    delEl = document.createElement('div');
+    delEl.id = 'clients-deleted-section';
+    document.getElementById('clients-grid').parentNode.appendChild(delEl);
+  }
+  if (deleted.length > 0) {
+    delEl.innerHTML = '<div style="margin-top:28px"><div style="font-weight:700;color:#dc2626;font-size:0.82rem;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span>🗑 Deaktivált vevők (' + deleted.length + ')</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;opacity:0.7">' + deleted.map(c => _clientCard(c)).join('') + '</div></div>';
+  } else {
+    delEl.innerHTML = '';
+  }
 }
 
 function openClientModal(){
@@ -280,5 +311,6 @@ async function approveClient(clientId) {
     if (cl) cl.name = realName;
     toast(`✅ ${realName} jóváhagyva!`);
     renderClients();
+    if(typeof updatePendingBadge==='function') updatePendingBadge();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }

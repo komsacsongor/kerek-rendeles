@@ -31,6 +31,7 @@ async function confirmDay(year, month, day) {
       D.orderStatus[ok(c.id, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now, admin_note: null };
     }
     toast('✅ Összes rendelés jóváhagyva!');
+    if(typeof updatePendingBadge==='function') updatePendingBadge();
     await auditLog('order_confirm_day', `${year}-${month}-${day}`, `${clients.length} rendelés`);
     clients.forEach(c => sendPushToClient(c.id, 'confirmed', 'Rendelés visszaigazolva ✅', MONTHS[month] + ' ' + day + '. – rendelésedet jóváhagytuk.'));
     renderBaking();
@@ -46,6 +47,7 @@ async function confirmSingleOrder(clientId, year, month, day) {
     if (!D.orderStatus) D.orderStatus = {};
     D.orderStatus[ok(clientId, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now };
     toast('✅ Rendelés jóváhagyva!');
+    if(typeof updatePendingBadge==='function') updatePendingBadge();
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
