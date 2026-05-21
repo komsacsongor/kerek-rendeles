@@ -34,7 +34,6 @@ function isBakingDay(d) {
 function hoursUntil(date) { return (date - new Date()) / 36e5; }
 
 // ===== MONTH SELECTORS =====
-const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
 function buildMonthSelectors() {
   ['month-selector','summary-month-sel'].forEach(id => {
     const el = document.getElementById(id);
