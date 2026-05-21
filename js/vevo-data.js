@@ -386,8 +386,9 @@ async function updatePushBtn() {
   else { btn.style.opacity = '0.5'; btn.title = 'Kattints az értesítések bekapcsolásához'; btn.textContent = '🔔'; }
 }
 
-// Footer version + install btn
-document.addEventListener('DOMContentLoaded', () => {
+// Footer version + install btn - run after all scripts loaded
+function _fillFooterVersion() {
   const fv = document.getElementById('footer-version');
-  if (fv) fv.textContent = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '';
-});
+  if (fv && typeof APP_VERSION !== 'undefined' && APP_VERSION) fv.textContent = APP_VERSION;
+}
+window.addEventListener('load', _fillFooterVersion);

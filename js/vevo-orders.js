@@ -464,9 +464,13 @@ function renderMobileOrderCards() {
             ${prods.map(p => {
               const qty = rowOrders[p.id] || 0;
               return `<div class="mob-product-row">
-                <div class="mob-prod-info" onclick="showProductModal(${p.id})" style="display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px">
-                  <div><div class="mob-prod-name">${esc(p.name)}</div><div class="mob-prod-weight">${esc(p.weight)}</div><div class="mob-prod-price">${p.price} lej/db</div></div>
-                  <span style="font-size:1.1rem;flex-shrink:0;padding:4px;color:var(--teal)">ℹ️</span>
+                <div class="mob-prod-info" onclick="showProductModal(${p.id})">
+                  <div class="mob-prod-name-row">
+                    <span class="mob-prod-name">${esc(p.name)}</span>
+                    <button class="mob-info-btn" onclick="event.stopPropagation();showProductModal(${p.id})">ℹ</button>
+                  </div>
+                  <div class="mob-prod-weight">${esc(p.weight)}</div>
+                  <div class="mob-prod-price">${p.price} lej/db</div>
                 </div>
                 <div class="mob-qty-control">
                   <button class="mob-qty-btn" onclick="mobChangeQty(${day},${p.id},-1)">−</button>

@@ -6,6 +6,7 @@ async function refreshAll() {
     const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
     if (activeView && RENDERS[activeView]) RENDERS[activeView]();
     updateMsgBadge();
+    updatePendingBadge();
     toast('✅ Minden frissítve!');
   } catch(e) {
     toast('⚠️ Frissítés sikertelen: ' + e.message, true);
@@ -28,6 +29,46 @@ const RENDERS = {
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
   export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); }
 };
+function updatePendingBadge() {
+  var pendingClients = 0;
+  (D.clients || []).forEach(function(cl) {
+    if (cl.name && cl.name.indexOf('[PENDING]') === 0) pendingClients++;
+  });
+  var pb = document.getElementById('pending-badge');
+  if (!pb) {
+    var navEls = document.querySelectorAll('.nav-item');
+    var clientNav = null;
+    navEls.forEach(function(el) { if ((el.getAttribute('onclick') || '').indexOf('clients') > -1) clientNav = el; });
+    if (clientNav) {
+      pb = document.createElement('span');
+      pb.id = 'pending-badge';
+      pb.style.cssText = 'background:var(--gold);color:var(--teal-dark);border-radius:10px;font-size:0.65rem;font-weight:700;padding:1px 6px;margin-left:4px;vertical-align:middle';
+      clientNav.appendChild(pb);
+    }
+  }
+  if (pb) { pb.textContent = pendingClients; pb.style.display = pendingClients > 0 ? 'inline' : 'none'; }
+
+  var pendingOrders = 0;
+  var m = new Date().getMonth(); var y = new Date().getFullYear();
+  Object.keys(D.orderStatus || {}).forEach(function(k) {
+    var v = D.orderStatus[k];
+    if (v.status === 'pending' && k.indexOf('-' + y + '-' + m + '-') > -1) pendingOrders++;
+  });
+  var ob = document.getElementById('orders-badge');
+  if (!ob) {
+    var navEls2 = document.querySelectorAll('.nav-item');
+    var bakingNav = null;
+    navEls2.forEach(function(el) { if ((el.getAttribute('onclick') || '').indexOf('baking') > -1) bakingNav = el; });
+    if (bakingNav) {
+      ob = document.createElement('span');
+      ob.id = 'orders-badge';
+      ob.style.cssText = 'background:var(--gold);color:var(--teal-dark);border-radius:10px;font-size:0.65rem;font-weight:700;padding:1px 6px;margin-left:4px;vertical-align:middle';
+      bakingNav.appendChild(ob);
+    }
+  }
+  if (ob) { ob.textContent = pendingOrders; ob.style.display = pendingOrders > 0 ? 'inline' : 'none'; }
+}
+
 function nav(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
