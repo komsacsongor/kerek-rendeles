@@ -231,6 +231,8 @@ const AUDIT_ACTION_LABELS = {
   recipe_delete:'🗑 Recept törölve', recipe_archive:'🗃 Recept archiválva', recipe_restore:'↩ Recept visszaállítva',
   order_save:'📋 Rendelés mentve', client_create:'👤 Kliens létrehozva', client_delete:'🗑 Kliens törölve',
   setting_change:'⚙️ Beállítás módosítva', password_change:'🔒 Jelszó módosítva',
+  vevo_session:'📱 Vevő session', vevo_qty_change:'🔄 Mennyiség változás',
+  vevo_cat_filter:'🏷️ Kategória szűrő', vevo_month_switch:'📅 Hónap váltás',
 };
 
 const AUDIT_TYPE_GROUPS = {
@@ -241,6 +243,7 @@ const AUDIT_TYPE_GROUPS = {
   order: ['order_save'],
   client: ['client_create','client_delete'],
   settings: ['setting_change','password_change'],
+  analytics: ['vevo_session','vevo_qty_change','vevo_cat_filter','vevo_month_switch'],
 };
 
 async function renderAuditLog() {
@@ -295,6 +298,7 @@ function renderAuditLogTable() {
               <option value="order" ${_auditFilter.type==='order'?'selected':''}>📋 Rendelések</option>
               <option value="client" ${_auditFilter.type==='client'?'selected':''}>👤 Kliensek</option>
               <option value="settings" ${_auditFilter.type==='settings'?'selected':''}>⚙️ Beállítások</option>
+              <option value="analytics" ${_auditFilter.type==='analytics'?'selected':''}>📊 Vevő analytics</option>
             </select>
           </div>
           <div class="form-group" style="margin:0;min-width:130px">
@@ -319,6 +323,7 @@ function renderAuditLogTable() {
         <div style="font-size:.75rem;color:var(--text-soft);margin-top:8px">${filtered.length} / ${_auditLogs.length} bejegyzés</div>
       </div>
     </div>
+    ${_auditFilter.type === 'analytics' ? renderAnalyticsDashboard(filtered) : ''}
     <div class="card">
       <div class="card-body-np">
         <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
@@ -348,6 +353,97 @@ function renderAuditLogTable() {
               }).join('')}
           </tbody>
         </table>
+      </div>
+    </div>`;
+}
+
+// ===== ANALYTICS DASHBOARD (Vevő events aggregátum) =====
+function renderAnalyticsDashboard(filtered) {
+  if (!filtered.length) {
+    return `<div class="card mb-20"><div class="card-body" style="text-align:center;color:var(--text-soft);padding:20px">
+      📊 Még nincs analytics adat a kiválasztott időszakra. Vevő-események akkor érkeznek, ha vevő használja a rendelési felületet.
+    </div></div>`;
+  }
+
+  // Aggregátumok kiszámítása
+  const sessions = filtered.filter(l => l.action === 'vevo_session');
+  const qtyChanges = filtered.filter(l => l.action === 'vevo_qty_change');
+  const catFilters = filtered.filter(l => l.action === 'vevo_cat_filter');
+  const monthSwitches = filtered.filter(l => l.action === 'vevo_month_switch');
+
+  // Parsel details (JSON string)
+  const parseDetails = (s) => { try { return JSON.parse(s||'{}'); } catch(e) { return {}; } };
+
+  // Mobil vs Desktop session arány
+  let mobileCount = 0, desktopCount = 0;
+  sessions.forEach(s => {
+    const d = parseDetails(s.details);
+    if (d.mobile === true) mobileCount++;
+    else if (d.mobile === false) desktopCount++;
+  });
+  const totalDevSessions = mobileCount + desktopCount;
+  const mobilePct = totalDevSessions ? Math.round((mobileCount/totalDevSessions)*100) : 0;
+
+  // Egyedi vevők
+  const uniqueClients = new Set(filtered.map(l => l.entity_name).filter(n => n && n !== '?'));
+
+  // Top vevők qty_change-ek alapján
+  const clientQtyCount = {};
+  qtyChanges.forEach(l => {
+    const n = l.entity_name || '?';
+    clientQtyCount[n] = (clientQtyCount[n]||0) + 1;
+  });
+  const topClients = Object.entries(clientQtyCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Kategória használat – melyik kategóriát hányszor választották
+  const catUsage = {};
+  catFilters.forEach(l => {
+    const d = parseDetails(l.details);
+    const c = d.cat || '?';
+    catUsage[c] = (catUsage[c]||0) + 1;
+  });
+  const topCats = Object.entries(catUsage).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const statCard = (label, value, sub='') => `
+    <div style="flex:1;min-width:140px;background:var(--cream);border-radius:10px;padding:14px;border:1px solid var(--border)">
+      <div style="font-size:.7rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--teal-dark);font-family:'Fraunces',serif;margin-top:4px">${value}</div>
+      ${sub ? `<div style="font-size:.72rem;color:var(--text-soft);margin-top:2px">${sub}</div>` : ''}
+    </div>`;
+
+  const topList = (items, fmt) => items.length === 0
+    ? '<div style="color:var(--text-soft);font-size:.85rem;padding:6px">— még nincs adat —</div>'
+    : items.map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:.85rem">
+        <span>${esc(k)}</span><span style="color:var(--teal);font-weight:600">${fmt(v)}</span>
+      </div>`).join('');
+
+  return `
+    <div class="card mb-20">
+      <div class="card-body">
+        <h3 style="margin:0 0 12px;color:var(--teal-dark);font-family:'Fraunces',serif">📊 Vevő analytics – aggregátum</h3>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+          ${statCard('Sessions', sessions.length, `${uniqueClients.size} egyedi vevő`)}
+          ${statCard('Mobil arány', totalDevSessions ? mobilePct+'%' : '—', `${mobileCount} mobil / ${desktopCount} desktop`)}
+          ${statCard('Qty változás', qtyChanges.length, sessions.length ? `${Math.round(qtyChanges.length/sessions.length)} / session átlag` : '')}
+          ${statCard('Kategória használat', catFilters.length, catFilters.length===0 ? 'Még nem használták' : 'kattintás')}
+          ${statCard('Hónap váltás', monthSwitches.length, 'navigáció más hónapra')}
+        </div>
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:240px">
+            <div style="font-size:.78rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🏆 Top 5 aktív vevő</div>
+            ${topList(topClients, v => v+' kattintás')}
+          </div>
+          <div style="flex:1;min-width:240px">
+            <div style="font-size:.78rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🏷️ Top kategóriák</div>
+            ${topList(topCats, v => v+' szűrés')}
+          </div>
+        </div>
+
+        <div style="margin-top:12px;font-size:.72rem;color:var(--text-soft);font-style:italic">
+          Tipp: a táblázatban lent minden nyers esemény részleteit látod. CSV exporttal részletes elemzés készíthető.
+        </div>
       </div>
     </div>`;
 }

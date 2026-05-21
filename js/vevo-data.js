@@ -251,6 +251,7 @@ async function doLogin() {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
     auditLog('login', currentUser.name||currentUser.id, 'Vevő belépés');
+    if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
     const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';

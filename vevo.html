@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.23.0"></script>
-<script src="supabase.js?v=2.23.0"></script>
+<script src="kerek-constants.js?v=2.23.1"></script>
+<script src="supabase.js?v=2.23.1"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -915,12 +915,10 @@ table.order-tbl {
 
 /* Per-day category chip filter */
 .mob-cat-chips {
-  display: flex; gap: 6px; overflow-x: auto;
+  display: flex; gap: 6px; flex-wrap: wrap;
   padding: 0 0 10px; margin-bottom: 10px;
-  -webkit-overflow-scrolling: touch; scrollbar-width: none;
   border-bottom: 1px solid var(--border);
 }
-.mob-cat-chips::-webkit-scrollbar { display: none; }
 .mob-cat-chip {
   white-space: nowrap; padding: 5px 11px; border-radius: 14px;
   border: 1.5px solid var(--border); background: #fff;
@@ -1266,9 +1264,10 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.23.0"></script>
-<script src="js/vevo-ui.js?v=2.23.0"></script>
-<script src="js/vevo-orders.js?v=2.23.0"></script>
+<script src="js/vevo-data.js?v=2.23.1"></script>
+<script src="js/vevo-ui.js?v=2.23.1"></script>
+<script src="js/vevo-analytics.js?v=2.23.1"></script>
+<script src="js/vevo-orders.js?v=2.23.1"></script>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
   <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>

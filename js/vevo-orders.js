@@ -4,6 +4,9 @@ function isMobile() { return window.innerWidth <= 640; }
 // Per-day category filter state: { day: 'category' | 'all' }
 let selectedCategoryByDay = {};
 
+// Tracks days manually toggled OPEN by the user (persists across renders)
+let openDaysManual = new Set();
+
 function getCategories(prods) {
   const cats = [...new Set(prods.map(p => p.category).filter(Boolean))];
   return cats;
@@ -11,6 +14,7 @@ function getCategories(prods) {
 
 function mobChangeCategoryDay(day, cat) {
   selectedCategoryByDay[day] = cat;
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.categoryFilter(day, cat);
   renderMobileOrderCards();
 }
 
@@ -195,6 +199,7 @@ function handleOrderChange(day, pid, input) {
   updateHeroTotal();
   updateRowTotal(day);
   checkDeadlineForDay(day);
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, qty);
 }
 
 function updateRowTotal(day) {
@@ -549,7 +554,7 @@ function renderMobileOrderCards() {
         '<button onclick="vevoConfirmOrder(' + selectedYear + ',' + selectedMonth + ',' + day + ')" style="background:var(--teal-dark);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:600;cursor:pointer;width:100%">✅ Elfogadom a módosítást</button>' +
         '</div>';
       else if (stStatus === 'cancelled') statusBanner = '<div style="background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 12px;margin:8px 0;font-size:0.82rem;font-weight:600">❌ Rendelésed visszavonva</div>';
-      const bodyAutoOpen = rowTotal > 0 || stStatus === 'modified' || stStatus === 'cancelled';
+      const bodyAutoOpen = openDaysManual.has(day) || rowTotal > 0 || stStatus === 'modified' || stStatus === 'cancelled';
       const headStatusBadge = stStatus === 'fulfilled' ? '<span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">🎉 Elkészült</span>'
         : stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✅</span>'
         : stStatus === 'modified' ? '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.68rem;font-weight:600">✏️ Módosítva</span>'
@@ -621,7 +626,10 @@ function toggleMobCard(day) {
   const arrow = document.getElementById('mob-arrow-' + day);
   if(!body) return;
   body.classList.toggle('open');
-  if(arrow) arrow.textContent = body.classList.contains('open') ? '▴' : '▾';
+  const isOpen = body.classList.contains('open');
+  if (isOpen) openDaysManual.add(day);
+  else openDaysManual.delete(day);
+  if(arrow) arrow.textContent = isOpen ? '▴' : '▾';
 }
 
 function mobChangeQty(day, pid, delta) {
@@ -677,6 +685,7 @@ function mobChangeQty(day, pid, delta) {
   }
 
   updateHeroTotal();
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, newVal);
 }
 
 // Handle resize

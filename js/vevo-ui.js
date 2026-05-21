@@ -48,9 +48,13 @@ function buildMonthSelectors() {
 }
 function selectMonth(m) {
   selectedMonth = m;
+  // Clear manual open state (different month = different days)
+  if (typeof openDaysManual !== 'undefined') openDaysManual.clear();
+  if (typeof selectedCategoryByDay !== 'undefined') selectedCategoryByDay = {};
   buildMonthSelectors();
   renderOrderTable();
   updateHeroTotal();
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.monthSwitch(selectedYear, m);
 }
 function selectSummaryMonth(m) {
   summaryMonth = m;
