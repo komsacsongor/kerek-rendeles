@@ -34,12 +34,15 @@ function isBakingDay(d) {
 function hoursUntil(date) { return (date - new Date()) / 36e5; }
 
 // ===== MONTH SELECTORS =====
+const MONTHS_SHORT = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Sze','Okt','Nov','Dec'];
 function buildMonthSelectors() {
   ['month-selector','summary-month-sel'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const isSummary = id.includes('summary');
-    el.innerHTML = MONTHS.map((m,i) =>
+    const useMobile = window.innerWidth <= 640;
+    const labels = useMobile ? MONTHS_SHORT : MONTHS;
+    el.innerHTML = labels.map((m,i) =>
       `<button class="month-btn ${i===(isSummary?summaryMonth:selectedMonth)?'active':''}" onclick="${isSummary?'selectSummaryMonth':'selectMonth'}(${i})">${m}</button>`
     ).join('');
   });
@@ -82,6 +85,8 @@ function checkDeadline(day) {
 function showProductModal(pid) {
   const p = appData.products.find(p=>p.id===pid);
   if (!p) return;
+  // Push state so Android back button closes modal
+  history.pushState({ modal: 'product' }, '');
   document.getElementById('pm-name').textContent = p.name;
   document.getElementById('pm-price').textContent = p.price + ' lej / db';
   document.getElementById('pm-weight').textContent = p.weight + ' · ' + p.category;
@@ -130,8 +135,18 @@ function showProductModal(pid) {
 
   document.getElementById('product-modal').classList.add('open');
 }
-function closeModal() { document.getElementById('product-modal').classList.remove('open'); }
-document.getElementById('product-modal').addEventListener('click', e => { if (e.target === document.getElementById('product-modal')) closeModal(); });
+function closeModal() {
+  document.getElementById('product-modal').classList.remove('open');
+}
+// Android back button closes modal
+window.addEventListener('popstate', e => {
+  if (document.getElementById('product-modal').classList.contains('open')) {
+    closeModal();
+  }
+});
+document.getElementById('product-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('product-modal')) closeModal();
+});
 
 function openLightbox(src) {
   document.getElementById('lightbox-img').src = src;

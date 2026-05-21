@@ -1,6 +1,41 @@
 // ===== ORDER TABLE =====
 function isMobile() { return window.innerWidth <= 640; }
 
+// Category filter state
+let selectedCategory = 'all';
+
+function getCategories(prods) {
+  const cats = [...new Set(prods.map(p => p.category).filter(Boolean))];
+  return cats;
+}
+
+function renderCategoryTabs(prods) {
+  const existing = document.getElementById('category-tabs');
+  if (existing) existing.remove();
+  if (!isMobile()) return;
+  
+  const cats = getCategories(prods);
+  if (cats.length <= 1) return; // no tabs if single category
+  
+  const container = document.getElementById('mobile-order-cards');
+  if (!container) return;
+  
+  const tabBar = document.createElement('div');
+  tabBar.id = 'category-tabs';
+  tabBar.style.cssText = 'display:flex;gap:6px;overflow-x:auto;padding:10px 14px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:56px;z-index:20;background:var(--bg-soft);border-bottom:1px solid var(--border);';
+  tabBar.innerHTML = ['all', ...cats].map(cat => {
+    const label = cat === 'all' ? '🧺 Összes' : cat;
+    const active = selectedCategory === cat;
+    return `<button onclick="filterCategory('${cat.replace(/'/g,"\'")}')" style="white-space:nowrap;padding:6px 12px;border-radius:20px;border:1.5px solid ${active?'var(--teal)':'var(--border)'};background:${active?'var(--teal)':'white'};color:${active?'white':'var(--text-soft)'};font-size:0.78rem;font-weight:${active?'700':'400'};cursor:pointer;font-family:'Kodchasan',sans-serif;transition:all 0.15s;flex-shrink:0">${label}</button>`;
+  }).join('');
+  container.parentNode.insertBefore(tabBar, container);
+}
+
+function filterCategory(cat) {
+  selectedCategory = cat;
+  renderMobileOrderCards();
+}
+
 function renderOrderTable() {
   if(!currentUser) return; // null guard
   if(isMobile()) { renderMobileOrderCards(); return; }
@@ -22,13 +57,36 @@ function renderOrderTable() {
 
   // Header
   let html = '<thead><tr><th class="col-date">Dátum</th>';
+  // D: Group products by category for desktop headers
+  const catGroups = {};
   prods.forEach(p => {
-    html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
-      <span class="prod-name">${esc(p.name)}</span>
-      <span class="prod-weight">${esc(p.weight)}</span>
-      <span class="prod-price">${p.price} lej</span>
-    </th>`;
+    const cat = p.category || 'Egyéb';
+    if (!catGroups[cat]) catGroups[cat] = [];
+    catGroups[cat].push(p);
   });
+  const hasCats = Object.keys(catGroups).length > 1;
+  
+  if (hasCats) {
+    // Category header rows
+    Object.entries(catGroups).forEach(([cat, catProds]) => {
+      html += `<th class="col-cat-header" colspan="1" style="background:var(--teal-dark);color:var(--gold);font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px;text-align:center" title="${esc(cat)}">${esc(cat)}</th>`;
+      catProds.forEach(p => {
+        html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
+          <span class="prod-name">${esc(p.name)}</span>
+          <span class="prod-weight">${esc(p.weight)}</span>
+          <span class="prod-price">${p.price} lej</span>
+        </th>`;
+      });
+    });
+  } else {
+    prods.forEach(p => {
+      html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
+        <span class="prod-name">${esc(p.name)}</span>
+        <span class="prod-weight">${esc(p.weight)}</span>
+        <span class="prod-price">${p.price} lej</span>
+      </th>`;
+    });
+  }
   html += '<th style="min-width:70px">Összesen</th></tr></thead><tbody>';
 
   // Rows
@@ -401,6 +459,10 @@ function renderMobileOrderCards() {
     return;
   }
 
+  // B+C: Category tabs + filtered products
+  const filteredProds = selectedCategory === 'all' ? prods : prods.filter(p => p.category === selectedCategory);
+  renderCategoryTabs(prods);
+
   let html = '';
   days.forEach(d => {
     const day = d.getDate();
@@ -461,7 +523,7 @@ function renderMobileOrderCards() {
           ${statusBanner}
           ${isLocked ? '<div class="mob-lock-notice">⏰ Ez a nap már zárolva van. A módosítás a következő sütésnél érvényes.</div>' : ''}
           <div class="${lockedClass}">
-            ${prods.map(p => {
+            ${filteredProds.map(p => {
               const qty = rowOrders[p.id] || 0;
               return `<div class="mob-product-row">
                 <div class="mob-prod-info" onclick="showProductModal(${p.id})">
