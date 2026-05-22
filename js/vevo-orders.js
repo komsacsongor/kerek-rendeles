@@ -75,10 +75,19 @@ function renderOrderTable() {
     if (pivotDiv) pivotDiv.style.display = 'block';
     if (desktopTblDiv) desktopTblDiv.style.display = 'none';
     if (mobileCardsDiv) mobileCardsDiv.style.display = 'none';
+    // Hide A-view-only widgets (elapsed section + global chip bar)
+    const elDiv = document.getElementById('desktop-elapsed-section');
+    const chDiv = document.getElementById('desktop-cat-chips-wrap');
+    if (elDiv) elDiv.style.display = 'none';
+    if (chDiv) chDiv.style.display = 'none';
     renderProductPivot();
     return;
   }
-  // Day view
+  // Day view: show A-view widgets again
+  const elDiv2 = document.getElementById('desktop-elapsed-section');
+  const chDiv2 = document.getElementById('desktop-cat-chips-wrap');
+  if (elDiv2) elDiv2.style.display = '';
+  if (chDiv2) chDiv2.style.display = '';
   if (pivotDiv) pivotDiv.style.display = 'none';
   if (isMobile()) {
     if (desktopTblDiv) desktopTblDiv.style.display = 'none';
