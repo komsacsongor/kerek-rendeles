@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.25.2 (2026-05-22)';
+const APP_VERSION = 'v2.26.0 (2026-05-22)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -77,4 +77,36 @@ async function sendPushToClient(clientId, type, title, body) {
       body: JSON.stringify({ client_id: clientId, type, title, body, url: '/kerek-rendeles/vevo.html' })
     });
   } catch(e) { console.warn('Push send failed:', e.message); }
+}
+
+// ===== UNIFIED POLLING (Page Visibility-aware) =====
+// Used by all 3 modules (admin, vevo, receptura) for consistent 30s data refresh.
+// - Pauses when tab is hidden (saves bandwidth)
+// - Runs immediately on tab becoming visible again
+// - Returns a stop function (clears interval and visibility listener)
+function startUnifiedPolling(callback, intervalMs) {
+  intervalMs = intervalMs || 30000;
+  let timer = null;
+  let visListener = null;
+  const tick = async () => {
+    if (document.hidden) return;
+    try { await callback(); } catch(e) { console.warn('Polling tick failed:', e.message); }
+  };
+  const start = () => {
+    if (timer) clearInterval(timer);
+    timer = setInterval(tick, intervalMs);
+  };
+  start();
+  visListener = () => {
+    if (!document.hidden) {
+      // Immediate poll when tab becomes visible
+      tick();
+    }
+  };
+  document.addEventListener('visibilitychange', visListener);
+  return function stop() {
+    if (timer) clearInterval(timer);
+    if (visListener) document.removeEventListener('visibilitychange', visListener);
+    timer = null;
+  };
 }

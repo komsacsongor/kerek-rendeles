@@ -294,23 +294,56 @@ async function doLogin() {
     loadMessage();
     renderHelpConditions();
     initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
-    // Üzenetek auto-frissítése 30 másodpercenként
-    if(window._msgPollTimer) clearInterval(window._msgPollTimer);
-    window._msgPollTimer = setInterval(async ()=>{
-      if(!currentUser) return;
+    // v2.26.0: Unified 30s polling (Page Visibility aware) - broader scope than before
+    if (window._kerekStopPoll) { try { window._kerekStopPoll(); } catch(e){} }
+    window._kerekStopPoll = startUnifiedPolling(async () => {
+      if (!currentUser) return;
+      let changed = false;
+      // 1. Messages
       loadMessage();
+      // 2. Order status (admin modifications)
       try {
         const st = await sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500});
-        if(!appData.orderStatus) appData.orderStatus = {};
-        let changed = false;
+        if (!appData.orderStatus) appData.orderStatus = {};
         (st||[]).forEach(r => {
           const k = getOrderKey(r.client_id, r.year, r.month, r.day);
           const prev = (appData.orderStatus[k]||{}).status;
-          appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note};
+          appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
           if (prev !== r.status) changed = true;
         });
-        if (changed) renderOrderTable();
       } catch(e) {}
+      // 3. Products (prices, new items, archive)
+      try {
+        const prods = await sb.query('products', { order: 'id', limit: 500 });
+        const newJson = JSON.stringify((prods||[]).map(p=>({id:p.id,price:p.price,name:p.name})));
+        const oldJson = JSON.stringify(appData.products.map(p=>({id:p.id,price:p.price,name:p.name})));
+        if (newJson !== oldJson) {
+          appData.products = (prods||[]).map(p => ({
+            id: p.id, name: p.name, weight: p.weight || '', price: p.price,
+            category: p.category || 'Egyéb', desc: p.description || '',
+            image: p.image || null, code: p.code || '',
+            marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
+            allergens: p.allergens || '', nutrition: p.nutrition || null,
+            familyId: p.product_family_id || null
+          }));
+          changed = true;
+        }
+      } catch(e) {}
+      // 4. Monthly active products (admin may toggle availability)
+      try {
+        const maps = await sb.query('monthly_active_products', { limit: 2000 });
+        const grouped = {};
+        (maps||[]).forEach(r => {
+          const k = `${r.year}-${r.month}`;
+          if (!grouped[k]) grouped[k] = [];
+          grouped[k].push(r.product_id);
+        });
+        if (JSON.stringify(grouped) !== JSON.stringify(appData.monthlyActiveProducts||{})) {
+          appData.monthlyActiveProducts = grouped;
+          changed = true;
+        }
+      } catch(e) {}
+      if (changed) { renderOrderTable(); updateHeroTotal(); }
     }, 30000);
   } else {
     const errEl = document.getElementById('login-error');

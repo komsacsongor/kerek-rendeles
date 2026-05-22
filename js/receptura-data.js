@@ -196,4 +196,36 @@ async function initApp() {
 
   auditLog('login', 'Receptúra', 'Sikeres belépés');
   nav('recipes');
+
+  // v2.26.0: Unified 30s polling for receptura module
+  // Tables that affect receptura views: orders, order_status, ingredient_batches, recipes
+  startUnifiedPolling(async () => {
+    try {
+      // Re-fetch ingredient batches (FIFO stock changes from purchases/baking)
+      const batches = await sb.query('ingredient_batches', { limit: 2000 });
+      const newBatchesJson = JSON.stringify((batches||[]).map(b=>({i:b.ingredient_id,r:b.qty_remaining_g})));
+      const oldBatchesJson = JSON.stringify((R.batches||[]).map(b=>({i:b.ingredientId,r:b.qtyRemainingG})));
+      if (newBatchesJson !== oldBatchesJson) {
+        R.batches = (batches||[]).map(b => ({
+          id: b.id, ingredientId: b.ingredient_id, receivedDate: b.received_date,
+          qtyReceivedG: b.qty_received_g, qtyRemainingG: b.qty_remaining_g,
+          pricePerG: b.price_per_g, supplierName: b.supplier_name,
+          sourceType: b.source_type, processingId: b.processing_id, notes: b.notes
+        }));
+        // Recompute per-ingredient stock
+        if (R.ingredients) {
+          R.ingredients.forEach(ing => {
+            const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
+            ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+            const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
+            ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
+          });
+        }
+        // Re-render active view
+        const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+        if (activeView === 'stock') { if (typeof renderStock === 'function') renderStock(); if (typeof renderStockAlerts === 'function') renderStockAlerts(); }
+        else if (activeView === 'production-prep') { /* user must click recalc, but stock display updates */ }
+      }
+    } catch(e) { console.warn('Receptura polling:', e.message); }
+  }, 30000);
 }

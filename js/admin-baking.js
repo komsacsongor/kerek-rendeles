@@ -4,6 +4,87 @@ function getOrderStatus(clientId, year, month, day) {
   return (D.orderStatus && D.orderStatus[k]) || { status: 'pending' };
 }
 
+// v2.26.0: Stock check helpers for baking list
+
+// Total stock for an ingredient (sum of all batches with remaining qty)
+function getIngredientTotalStock(ingId) {
+  if (!D.ingredientBatches) return 0;
+  return D.ingredientBatches
+    .filter(b => b.ingredient_id === ingId && b.qty_remaining_g > 0)
+    .reduce((sum, b) => sum + b.qty_remaining_g, 0);
+}
+
+// Minimum stock level for an ingredient
+function getIngredientMinStock(ingId) {
+  const ing = (D.ingredients||[]).find(i => i.id === ingId);
+  if (!ing) return 0;
+  return ing.minStockOverrideG || ing.minStockAutoG || 0;
+}
+
+// Check stock availability for a product on a baking day
+// Returns: { status: 'ok'|'critical'|'shortage', shortages: [...], criticals: [...] }
+function checkProductStockForBaking(productId, totalPieces) {
+  if (!totalPieces || totalPieces <= 0) return { status: 'ok', shortages: [], criticals: [] };
+  if (!D.recipes || !D.recipeIngredients || !D.ingredients) return { status: 'ok', shortages: [], criticals: [] };
+
+  // Find active recipe for this product
+  const recipe = D.recipes.find(r => r.product_id == productId && !r.archived);
+  if (!recipe) return { status: 'ok', shortages: [], criticals: [] };
+
+  const ingredientsForRecipe = D.recipeIngredients[recipe.id] || [];
+  if (ingredientsForRecipe.length === 0) return { status: 'ok', shortages: [], criticals: [] };
+
+  // Scale factor (NO bake loss - same as receptura calcScaleFactor)
+  const unitWeight = recipe.unit_weight || recipe.base_portion || 1000;
+  const basePortion = recipe.base_portion || 1000;
+  const scale = (totalPieces * unitWeight) / basePortion;
+
+  const shortages = [];
+  const criticals = [];
+
+  ingredientsForRecipe.forEach(ri => {
+    if (!ri.ingredientId) return;
+    const needed = (ri.amount || 0) * scale;
+    if (needed <= 0) return;
+    const stock = getIngredientTotalStock(ri.ingredientId);
+    const minStock = getIngredientMinStock(ri.ingredientId);
+    if (stock < needed) {
+      shortages.push({ name: ri.name, needed: Math.round(needed), stock: Math.round(stock) });
+    } else if (stock - needed < minStock) {
+      criticals.push({ name: ri.name, needed: Math.round(needed), stock: Math.round(stock), minStock: Math.round(minStock) });
+    }
+  });
+
+  if (shortages.length > 0) return { status: 'shortage', shortages, criticals };
+  if (criticals.length > 0) return { status: 'critical', shortages: [], criticals };
+  return { status: 'ok', shortages: [], criticals: [] };
+}
+
+// Stock status badge HTML (red ! / yellow ! / nothing)
+function stockBadgeHtml(stockCheck) {
+  if (stockCheck.status === 'ok') return '';
+  if (stockCheck.status === 'shortage') {
+    const tooltip = stockCheck.shortages.map(s => `${s.name}: ${s.stock}g van, ${s.needed}g kell`).join(' · ');
+    return `<span title="${esc(tooltip)}" style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🔴 Hiány</span>`;
+  }
+  // critical
+  const tooltip = stockCheck.criticals.map(c => `${c.name}: ${c.stock}g van, ${c.needed}g kell, min ${c.minStock}g`).join(' · ');
+  return `<span title="${esc(tooltip)}" style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🟡 Kritikus</span>`;
+}
+
+// Track which client preview rows are open (per-session)
+window._openClientPreviews = window._openClientPreviews || new Set();
+function toggleClientPreview(rowId) {
+  const el = document.getElementById('preview-' + rowId);
+  const arrow = document.getElementById('arrow-' + rowId);
+  if (!el) return;
+  const isOpen = el.style.display === 'block';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
+  if (isOpen) window._openClientPreviews.delete(rowId);
+  else window._openClientPreviews.add(rowId);
+}
+
 function statusBadge(status) {
   const map = {
     pending:   '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600">⏳ Vár</span>',
@@ -231,7 +312,10 @@ function renderBaking(){
     activeP.forEach(function(p){
       const totalForP=aggr[p.id]||0;
       if(!totalForP) return;
-      html+='<div class="baking-line"><span style="font-weight:600">' + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db</span></div>';
+      // v2.26.0: Stock availability check
+      const stockCheck = checkProductStockForBaking(p.id, totalForP);
+      const stockBadge = stockBadgeHtml(stockCheck);
+      html+='<div class="baking-line"><span style="font-weight:600">' + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db' + stockBadge + '</span></div>';
     });
 
     if(totalQty===0){
@@ -245,18 +329,31 @@ function renderBaking(){
         const cRev=Object.entries(o).reduce(function(a,e){ const pid=e[0],q=e[1]; const p=D.products.find(function(p){return p.id==pid;}); return a+(p?p.price*q:0); },0);
         const safeId=c.id.replace(/'/g,"\\'");
         const safeName=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);flex-wrap:wrap">';
-        html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + '</span>';
+        const rowId = c.id + '-' + y + '-' + m + '-' + day;
+        const isOpen = window._openClientPreviews.has(rowId);
+        // Build product preview list (visible only when expanded)
+        const previewItems = Object.entries(o).map(function(e){
+          const pid=e[0], q=e[1]; const p=D.products.find(function(p){return p.id==pid;});
+          return p ? (esc(p.name) + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
+        }).filter(Boolean).join(' · ');
+
+        html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px">';
+        // Header row (clickable)
+        html+='<div onclick="toggleClientPreview(\'' + rowId + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none">';
+        html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + ' <span id="arrow-' + rowId + '" style="color:var(--text-soft);font-size:0.75rem">' + (isOpen?'▴':'▾') + '</span></span>';
         html+='<span style="font-size:0.82rem;color:var(--text-soft)">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
         html+=statusBadge(st.status);
         if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';
         if(st.status !== 'cancelled') {
-          html+='<div style="display:flex;gap:6px;margin-left:auto">';
+          html+='<div style="display:flex;gap:6px;margin-left:auto" onclick="event.stopPropagation()">';
           if(st.status !== 'confirmed') html+='<button onclick="confirmSingleOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ')" style="background:#dcfce7;color:#166534;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Jóváhagyás">✅</button>';
           html+='<button onclick="openModifyDialog(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Módosítás">✏️</button>';
           html+='<button onclick="cancelOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Visszavonás">❌</button>';
           html+='</div>';
         }
+        html+='</div>';
+        // Expandable product preview
+        html+='<div id="preview-' + rowId + '" style="display:' + (isOpen?'block':'none') + ';padding:6px 8px 4px 28px;font-size:0.78rem;color:var(--text-soft);line-height:1.6">' + previewItems + '</div>';
         html+='</div>';
       });
       html+='</div>';

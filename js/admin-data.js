@@ -121,6 +121,34 @@ async function loadAllData() {
     D.recipes = (recipes||[]).filter(r => r.activated_at);
   } catch(e) { D.recipes = []; console.error('loadAllData [recipes]:', e.message); }
 
+  // v2.26.0: Load recipe_ingredients to enable stock check on baking list
+  try {
+    const recIngs = await sb.query('recipe_ingredients', { limit: 5000 });
+    D.recipeIngredients = {};
+    (recIngs||[]).forEach(ri => {
+      if (!D.recipeIngredients[ri.recipe_id]) D.recipeIngredients[ri.recipe_id] = [];
+      D.recipeIngredients[ri.recipe_id].push({
+        name: ri.name, amount: ri.amount, ingredientId: ri.ingredient_id, subType: ri.sub_type || 'other_dry'
+      });
+    });
+  } catch(e) { D.recipeIngredients = {}; console.error('loadAllData [recipe_ingredients]:', e.message); }
+
+  // v2.26.0: Load ingredients (for stock check on baking list)
+  try {
+    const ings = await sb.query('ingredients', { limit: 500 });
+    D.ingredients = (ings||[]).map(i => ({
+      id: i.id, name: i.name, category: i.category, subType: i.sub_type,
+      minStockOverrideG: i.min_stock_override_g, minStockAutoG: i.min_stock_auto_g,
+      maxStockOverrideG: i.max_stock_override_g, maxStockAutoG: i.max_stock_auto_g
+    }));
+  } catch(e) { D.ingredients = []; console.error('loadAllData [ingredients]:', e.message); }
+
+  // v2.26.0: Load ingredient_batches (FIFO stock)
+  try {
+    const batches = await sb.query('ingredient_batches', { limit: 2000 });
+    D.ingredientBatches = batches || [];
+  } catch(e) { D.ingredientBatches = []; console.error('loadAllData [ingredient_batches]:', e.message); }
+
   try {
     const cal = await sb.query('baking_calendar', { limit: 200 });
     D.bakingCalendar = {};
@@ -218,16 +246,15 @@ function initApp(){
   showVersionBadge();
   buildTopbarMonths();
 
-  // ===== SUPABASE REALTIME =====
-  // Azonnali frissítés polling helyett – WebSocket push értesítés
-  const LIVE_TABLES = ['orders','messages','clients','products','monthly_active_products'];
+  // ===== SUPABASE REALTIME (instant push when available) =====
+  const LIVE_TABLES = ['orders','messages','clients','products','monthly_active_products','order_status','ingredient_batches'];
   sb.subscribe(LIVE_TABLES, async ({ table, event }) => {
     try {
       await loadAllData();
       updateMsgBadge();
+      if (typeof updatePendingBadge === 'function') updatePendingBadge();
       const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
       RENDERS[activeView]?.();
-      // Ha üzenet érkezett és nem az üzenetek nézetben vagyunk – badge pulzál
       if (table === 'messages' && event === 'INSERT' && activeView !== 'messages') {
         const badge = document.getElementById('msg-badge');
         if (badge) { badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = 'pulse 0.6s 3'; }
@@ -235,17 +262,15 @@ function initApp(){
     } catch(e) {}
   });
 
-  // Fallback polling 5 percenként ha WebSocket nem elérhető
-  setInterval(async () => {
-    if (!sb._ws || sb._ws.readyState !== WebSocket.OPEN) {
-      try {
-        await loadAllData();
-        updateMsgBadge();
-        const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-        RENDERS[activeView]?.();
-      } catch(e) {}
-    }
-  }, 60000); // 1 perc – gyorsabb szinkron receptúra modullal
+  // v2.26.0: Unified 30s polling (always runs, Page Visibility aware)
+  // Realtime WS is bonus - if it works, you get instant updates; if not, polling covers
+  startUnifiedPolling(async () => {
+    await loadAllData();
+    updateMsgBadge();
+    if (typeof updatePendingBadge === 'function') updatePendingBadge();
+    const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+    RENDERS[activeView]?.();
+  }, 30000);
 
   renderDashboard();
   updateMsgBadge();
