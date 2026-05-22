@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.25.0"></script>
-<script src="supabase.js?v=2.25.0"></script>
+<script src="kerek-constants.js?v=2.25.1"></script>
+<script src="supabase.js?v=2.25.1"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -958,6 +958,26 @@ table.order-tbl {
   box-shadow: 0 1px 4px rgba(6,76,72,0.2);
 }
 
+/* Persistent banner above order cards (after "copy previous month" action) */
+#copy-result-banner { max-width: 760px; margin: 0 auto 14px; padding: 0 4px; }
+.copy-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 16px; border-radius: 10px; font-size: .88rem; line-height: 1.4;
+  border-left: 4px solid;
+  position: relative;
+}
+.copy-banner.success { background: #ecfdf5; border-left-color: #10b981; color: #065f46; }
+.copy-banner.warning { background: #fffbeb; border-left-color: #f59e0b; color: #92400e; }
+.copy-banner.error   { background: #fef2f2; border-left-color: #ef4444; color: #991b1b; }
+.copy-banner-icon { font-size: 1.2rem; flex-shrink: 0; }
+.copy-banner button {
+  background: transparent; border: none; color: inherit;
+  font-size: 1.1rem; cursor: pointer; padding: 0 4px;
+  opacity: 0.6; align-self: flex-start;
+}
+.copy-banner button:hover { opacity: 1; }
+@media (max-width: 640px) { #copy-result-banner { max-width: 100%; padding: 0; } }
+
 /* Today highlight on day cards (both desktop and mobile) */
 .mob-day-card.today {
   box-shadow: 0 0 0 2px var(--gold), 0 2px 8px rgba(239,176,54,0.15);
@@ -1237,6 +1257,9 @@ table.order-tbl {
       <div id="product-pivot-view" class="product-pivot-view" style="display:none"></div>
     </div>
 
+    <!-- Copy-result persistent banner (above order cards) -->
+    <div id="copy-result-banner"></div>
+
     <!-- ORDER CARDS (day view A model, both desktop & mobile via unified renderer) -->
     <div class="mobile-order-cards" id="mobile-order-cards"></div>
 
@@ -1430,10 +1453,10 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.25.0"></script>
-<script src="js/vevo-ui.js?v=2.25.0"></script>
-<script src="js/vevo-analytics.js?v=2.25.0"></script>
-<script src="js/vevo-orders.js?v=2.25.0"></script>
+<script src="js/vevo-data.js?v=2.25.1"></script>
+<script src="js/vevo-ui.js?v=2.25.1"></script>
+<script src="js/vevo-analytics.js?v=2.25.1"></script>
+<script src="js/vevo-orders.js?v=2.25.1"></script>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
   <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>

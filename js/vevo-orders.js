@@ -184,7 +184,7 @@ function renderProductPivot() {
       const hoursLeft = hoursUntil(d);
       const stDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
       const dlLeft = stDeadline ? (stDeadline - new Date()) / 36e5 : null;
-      const isLocked = dlLeft !== null ? dlLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24);
+      const isLocked = dlLeft !== null ? dlLeft <= 0 : defaultDeadlinePassed(d);
       const stStatus = orderSt.status || '';
       const disabled = isPast || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled';
       const stIcon = stStatus === 'fulfilled' ? '🎉' : stStatus === 'confirmed' ? '✅' : stStatus === 'modified' ? '✏️' : stStatus === 'cancelled' ? '❌' : '';
@@ -233,6 +233,14 @@ function pivotChangeQty(day, pid, delta) {
 
 function isSameDay(a, b) {
   return a.getDate()===b.getDate() && a.getMonth()===b.getMonth() && a.getFullYear()===b.getFullYear();
+}
+
+// Default deadline: previous day 18:00 (when admin hasn't set custom deadline)
+function defaultDeadlinePassed(bakingDate) {
+  const dl = new Date(bakingDate);
+  dl.setDate(dl.getDate() - 1);
+  dl.setHours(18, 0, 0, 0);
+  return new Date() >= dl;
 }
 
 function handleOrderChange(day, pid, input) {
@@ -494,8 +502,6 @@ function renderMobileOrderCards() {
   const days = getDays(selectedYear, selectedMonth);
   const now = new Date();
   const container = document.getElementById('mobile-order-cards');
-  const desktopCard = document.querySelector('.card');
-  if(desktopCard) desktopCard.style.display = 'none';
   if(!container) return;
 
   // Remove old sticky category tabs if they exist (legacy cleanup)
@@ -582,7 +588,7 @@ function renderMobileOrderCards() {
     const mobOrderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
     const mobDeadline = mobOrderSt.deadline ? new Date(mobOrderSt.deadline) : null;
     const mobDeadlineLeft = mobDeadline ? (mobDeadline - new Date()) / 36e5 : null;
-    const isLocked = mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24);
+    const isLocked = mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : defaultDeadlinePassed(d);
     const rowOrders = appData.orders[key] || {};
     const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
     const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
@@ -738,17 +744,8 @@ function mobChangeQty(day, pid, delta) {
 
 // Handle resize
 window.addEventListener('resize', () => {
-  const mob = document.getElementById('mobile-order-cards');
-  const desktopCard = document.querySelector('.card');
-  if(isMobile()) {
-    if(mob) mob.style.display = 'block';
-    if(desktopCard) desktopCard.style.display = 'none';
-    renderMobileOrderCards();
-  } else {
-    if(mob) mob.style.display = 'none';
-    if(desktopCard) desktopCard.style.display = '';
-    renderOrderTable();
-  }
+  // Unified renderer adapts via CSS - just re-render whatever view is active
+  renderOrderTable();
 });
 
 async function sendMessageOnly() {
@@ -788,64 +785,131 @@ async function vevoConfirmOrder(year, month, day) {
   } catch(e) { toast('⚠️ Hiba: ' + e.message); }
 }
 
-// U1: Copy last order
+// U1: Copy previous month's order pattern by weekday
+// Logic: for each baking day this month, copy the order from the previous month's
+// LAST baking day matching the same weekday. Current month baking days that have
+// no matching weekday source are left empty and reported in a persistent banner.
 async function copyLastOrder() {
-  const days = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
-  if (days.length === 0) { toast('Nincs sütési nap ebben a hónapban.', true); return; }
-
-  // Find the last day with an order (previous month or current)
-  let srcKey = null, srcDay = null, srcLabel = '';
-  // First check current month backward
-  for (let i = days.length - 1; i >= 0; i--) {
-    const d = days[i];
-    const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
-    if (appData.orders[k] && Object.keys(appData.orders[k]).length > 0) {
-      srcKey = k; srcDay = d;
-      srcLabel = `${d.getDate()}. ${['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'][d.getDay()]}`;
-      break;
-    }
-  }
-
-  // If nothing in current month, check previous month from Supabase
-  if (!srcKey) {
-    try {
-      const prevM = selectedMonth === 0 ? 11 : selectedMonth - 1;
-      const prevY = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
-      const prevOrders = await sb.query('orders', {
-        filter: `client_id=eq.${currentUser.id}&year=eq.${prevY}&month=eq.${prevM}`,
-        order: 'day.desc', limit: 50
-      });
-      if (prevOrders && prevOrders.length > 0) {
-        const lastDay = prevOrders[0].day;
-        const dayOrders = prevOrders.filter(o => o.day === lastDay);
-        const MONTHS_HU = ['jan','feb','már','ápr','máj','jún','júl','aug','sze','okt','nov','dec'];
-        srcLabel = `${prevY}. ${MONTHS_HU[prevM]}. ${lastDay}.`;
-        srcKey = '__prev__';
-        // Build order map
-        const tempMap = {};
-        dayOrders.forEach(o => { tempMap[o.product_id] = o.quantity; });
-        if (!confirm(`Másoljuk a(z) ${srcLabel} rendelést az aktuális napokra?`)) return;
-        // Apply to all days in current month
-        const targetDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
-        for (const td of targetDays) {
-          const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
-          appData.orders[tk] = {...tempMap};
-        }
-        renderOrderTable(); updateHeroTotal();
-        toast(`✅ Előző rendelés (${srcLabel}) másolva ${targetDays.length} napra!`);
-        return;
-      }
-    } catch(e) { console.warn('copyLastOrder prev month:', e.message); }
-    toast('Nincs korábbi rendelés amit másolni lehetne.', true); return;
-  }
-
-  if (!confirm(`Másoljuk a(z) ${srcLabel}-i rendelést az összes sütési napra?`)) return;
-  const srcOrders = {...appData.orders[srcKey]};
+  if (!currentUser) return;
   const targetDays = getDays(selectedYear, selectedMonth).filter(d => isBakingDay(d));
-  for (const td of targetDays) {
-    const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
-    appData.orders[tk] = {...srcOrders};
+  if (targetDays.length === 0) { toast('Nincs sütési nap ebben a hónapban.', true); return; }
+
+  // Fetch previous month's full orders
+  const prevM = selectedMonth === 0 ? 11 : selectedMonth - 1;
+  const prevY = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+  const MONTHS_HU = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+
+  let prevOrders = [];
+  try {
+    prevOrders = await sb.query('orders', {
+      filter: `client_id=eq.${currentUser.id}&year=eq.${prevY}&month=eq.${prevM}`,
+      order: 'day.asc', limit: 200
+    }) || [];
+  } catch(e) {
+    toast('⚠️ Nem sikerült lekérdezni a múlt havi rendelést: ' + e.message, true);
+    return;
   }
-  renderOrderTable(); updateHeroTotal();
-  toast(`✅ Rendelés másolva ${targetDays.length} napra!`);
+  if (prevOrders.length === 0) {
+    toast(`⚠️ Nincs ${MONTHS_HU[prevM]} havi rendelésed, amit átemelhetnénk.`, true);
+    return;
+  }
+
+  // Group prev month orders by day → {dayNum: {pid: qty}}
+  const prevByDay = {};
+  prevOrders.forEach(o => {
+    if (!prevByDay[o.day]) prevByDay[o.day] = {};
+    prevByDay[o.day][o.product_id] = o.quantity;
+  });
+
+  // Build weekday → last day mapping in prev month
+  // (we want LAST instance of each weekday, since it's most recent intent)
+  const prevDaysInMonth = new Date(prevY, prevM+1, 0).getDate();
+  const lastByDow = {}; // {dow: dayNum}
+  for (let dayNum = 1; dayNum <= prevDaysInMonth; dayNum++) {
+    if (!prevByDay[dayNum]) continue;
+    const dow = new Date(prevY, prevM, dayNum).getDay();
+    lastByDow[dow] = dayNum; // overwrites = keeps last occurrence
+  }
+
+  // Pre-compute mapping result for confirm dialog
+  const mappedDays = [];
+  const unmappedDays = [];
+  targetDays.forEach(td => {
+    const dow = td.getDay();
+    if (lastByDow[dow] !== undefined) mappedDays.push(td);
+    else unmappedDays.push(td);
+  });
+
+  if (mappedDays.length === 0) {
+    showCopyResultBanner(0, targetDays.length, MONTHS_HU[prevM], 'NO_MATCH');
+    toast(`⚠️ A múlt havi (${MONTHS_HU[prevM]}) rendelésed sütési napjai nem egyeznek a mostani sütési napokkal.`, true);
+    return;
+  }
+
+  const confirmMsg = `Átemelem a ${MONTHS_HU[prevM]} havi rendelési mintát:\n\n` +
+    `✅ ${mappedDays.length} nap kap rendelést (hét napja szerint)\n` +
+    (unmappedDays.length > 0 ? `⚠️ ${unmappedDays.length} nap üres marad (nincs múlt havi megfelelő nap)\n` : '') +
+    `\nFolytatod?`;
+  if (!confirm(confirmMsg)) return;
+
+  // Apply mapping
+  mappedDays.forEach(td => {
+    const dow = td.getDay();
+    const srcDay = lastByDow[dow];
+    const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
+    appData.orders[tk] = {...prevByDay[srcDay]};
+  });
+
+  // Show persistent banner about unmapped days (toast not enough per user request)
+  showCopyResultBanner(mappedDays.length, unmappedDays.length, MONTHS_HU[prevM], unmappedDays.length > 0 ? 'PARTIAL' : 'OK', unmappedDays);
+  renderOrderTable();
+  updateHeroTotal();
+}
+
+// Persistent banner shown above the order list after a copy operation.
+// Replaces the toast (which disappears too quickly) for this important info.
+function showCopyResultBanner(mappedCount, unmappedCount, monthName, mode, unmappedDays) {
+  const wrap = document.getElementById('copy-result-banner');
+  if (!wrap) return;
+  if (mode === 'NO_MATCH') {
+    wrap.innerHTML = `<div class="copy-banner error">
+      <span class="copy-banner-icon">⚠️</span>
+      <div>
+        <strong>${monthName} havi minta nem alkalmazható.</strong>
+        A múlt havi sütési napok hét napjai nem egyeznek a mostani sütési napokkal.
+      </div>
+      <button onclick="dismissCopyBanner()" aria-label="Bezár">✕</button>
+    </div>`;
+    return;
+  }
+  if (mode === 'OK') {
+    wrap.innerHTML = `<div class="copy-banner success">
+      <span class="copy-banner-icon">✅</span>
+      <div>
+        <strong>${monthName} havi rendelési minta átemelve!</strong>
+        ${mappedCount} nap kapott rendelést. Ellenőrizd és mentsd a végén.
+      </div>
+      <button onclick="dismissCopyBanner()" aria-label="Bezár">✕</button>
+    </div>`;
+    return;
+  }
+  // PARTIAL
+  const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+  const unmappedList = (unmappedDays||[]).map(d => `${d.getDate()}. ${DAYS_HU[d.getDay()]}`).join(', ');
+  wrap.innerHTML = `<div class="copy-banner warning">
+    <span class="copy-banner-icon">⚠️</span>
+    <div>
+      <strong>${monthName} havi minta részben átemelve.</strong>
+      ${mappedCount} napra rendelést kaptál a hét napja szerint.
+      <br>
+      <span style="margin-top:4px;display:block"><strong>${unmappedCount} nap üres marad</strong> – ezekre múlt hónapban nem volt megfelelő sütési nap, kérjük rendeld meg külön:</span>
+      <em style="color:var(--gold-dark);font-weight:600">${unmappedList}</em>
+    </div>
+    <button onclick="dismissCopyBanner()" aria-label="Bezár">✕</button>
+  </div>`;
+}
+
+function dismissCopyBanner() {
+  const wrap = document.getElementById('copy-result-banner');
+  if (wrap) wrap.innerHTML = '';
 }
