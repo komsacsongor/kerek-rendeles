@@ -287,6 +287,10 @@ async function doLogin() {
     if (typeof loadViewPref === 'function') loadViewPref();
     renderOrderTable();
     updateHeroTotal();
+    // Show sticky bottom total bar after successful login
+    const sticky = document.getElementById('sticky-month-total');
+    if (sticky) sticky.style.display = 'flex';
+    document.body.classList.add('has-sticky-total');
     loadMessage();
     renderHelpConditions();
     initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());

@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.25.1"></script>
-<script src="supabase.js?v=2.25.1"></script>
+<script src="kerek-constants.js?v=2.25.2"></script>
+<script src="supabase.js?v=2.25.2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -958,6 +958,46 @@ table.order-tbl {
   box-shadow: 0 1px 4px rgba(6,76,72,0.2);
 }
 
+/* Sticky havi totál bottom bar (always visible after login) */
+#sticky-month-total {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--teal-dark);
+  color: #fff;
+  padding: 12px 20px;
+  display: flex; align-items: center; gap: 14px;
+  z-index: 100;
+  box-shadow: 0 -4px 16px rgba(6,76,72,0.25);
+  font-family: 'Kodchasan', sans-serif;
+}
+#sticky-month-total .sticky-label {
+  font-size: 0.82rem;
+  color: var(--teal-light);
+  font-weight: 500;
+}
+#sticky-month-total .sticky-qty {
+  font-size: 0.92rem;
+  color: #fff;
+  font-weight: 600;
+}
+#sticky-month-total .sticky-val {
+  margin-left: auto;
+  font-family: 'Fraunces', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+@media (max-width: 640px) {
+  #sticky-month-total { padding: 10px 14px; gap: 8px; }
+  #sticky-month-total .sticky-label { font-size: 0.72rem; }
+  #sticky-month-total .sticky-qty { font-size: 0.82rem; }
+  #sticky-month-total .sticky-val { font-size: 1.15rem; }
+}
+/* When sticky bar visible, add bottom padding to body so content isn't covered */
+body.has-sticky-total { padding-bottom: 64px; }
+@media (max-width: 640px) {
+  body.has-sticky-total { padding-bottom: 56px; }
+}
+
 /* Persistent banner above order cards (after "copy previous month" action) */
 #copy-result-banner { max-width: 760px; margin: 0 auto 14px; padding: 0 4px; }
 .copy-banner {
@@ -1453,10 +1493,16 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.25.1"></script>
-<script src="js/vevo-ui.js?v=2.25.1"></script>
-<script src="js/vevo-analytics.js?v=2.25.1"></script>
-<script src="js/vevo-orders.js?v=2.25.1"></script>
+<script src="js/vevo-data.js?v=2.25.2"></script>
+<script src="js/vevo-ui.js?v=2.25.2"></script>
+<script src="js/vevo-analytics.js?v=2.25.2"></script>
+<script src="js/vevo-orders.js?v=2.25.2"></script>
+<!-- STICKY HAVI TOTÁL BOTTOM BAR (shown after login) -->
+<div id="sticky-month-total" style="display:none">
+  <div class="sticky-label">🧺 Havi össz:</div>
+  <div class="sticky-qty" id="sticky-qty">0 db</div>
+  <div class="sticky-val" id="sticky-val">0<span style="font-size:.72em;margin-left:3px;color:var(--gold-light)">lej</span></div>
+</div>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
   <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>

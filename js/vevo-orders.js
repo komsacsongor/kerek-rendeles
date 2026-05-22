@@ -282,17 +282,23 @@ function checkDeadlineForDay(day) {
 function updateHeroTotal() {
   const prods = getActiveProds(selectedYear, selectedMonth);
   const days = getDays(selectedYear, selectedMonth);
-  let total = 0;
+  let total = 0, qtyTotal = 0;
   days.forEach(d => {
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
     if (appData.orders[key]) {
       Object.entries(appData.orders[key]).forEach(([pid,qty]) => {
         const p = appData.products.find(p=>p.id==pid);
         if (p) total += p.price * qty;
+        qtyTotal += qty;
       });
     }
   });
   document.getElementById('hero-amount').innerHTML = `${total}<span class="currency">lej</span>`;
+  // Sticky bottom bar
+  const stickyQty = document.getElementById('sticky-qty');
+  const stickyVal = document.getElementById('sticky-val');
+  if (stickyQty) stickyQty.textContent = qtyTotal + ' db';
+  if (stickyVal) stickyVal.innerHTML = total + '<span style="font-size:.72em;margin-left:3px;color:var(--gold-light)">lej</span>';
 }
 
 async function saveOrder() {
