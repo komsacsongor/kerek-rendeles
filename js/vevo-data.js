@@ -284,6 +284,7 @@ async function doLogin() {
       });
     } catch(e) { console.warn('User data load:', e.message); }
     buildMonthSelectors();
+    if (typeof loadViewPref === 'function') loadViewPref();
     renderOrderTable();
     updateHeroTotal();
     loadMessage();

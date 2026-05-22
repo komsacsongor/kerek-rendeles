@@ -1,11 +1,39 @@
 // ===== ORDER TABLE =====
 function isMobile() { return window.innerWidth <= 640; }
 
-// Per-day category filter state: { day: 'category' | 'all' }
+// Per-day category filter state: { day: 'category' | 'all' } (only used in mobile A day view)
 let selectedCategoryByDay = {};
 
-// Tracks days manually toggled OPEN by the user (persists across renders)
+// Tracks days manually toggled OPEN by the user (persists across renders) - mobile A
 let openDaysManual = new Set();
+
+// View toggle state ('day' = A model, 'product' = C model)
+let vevoView = 'day';
+
+// Global category filter (used in C product-pivot view, both desktop and mobile)
+let selectedCategoryGlobal = 'all';
+
+// Elapsed section open state for desktop A view
+let elapsedOpenDesktop = false;
+
+// Load view preference from localStorage
+function loadViewPref() {
+  try {
+    const v = localStorage.getItem('kerek_view_pref');
+    if (v === 'day' || v === 'product') vevoView = v;
+  } catch(e) {}
+}
+function saveViewPref(v) {
+  try { localStorage.setItem('kerek_view_pref', v); } catch(e) {}
+}
+
+function switchView(v) {
+  if (v !== 'day' && v !== 'product') return;
+  vevoView = v;
+  saveViewPref(v);
+  renderOrderTable();
+  updateHeroTotal();
+}
 
 function getCategories(prods) {
   const cats = [...new Set(prods.map(p => p.category).filter(Boolean))];
@@ -27,41 +55,139 @@ function toggleElapsedSection() {
 }
 
 function renderOrderTable() {
-  if(!currentUser) return; // null guard
-  if(isMobile()) { renderMobileOrderCards(); return; }
+  if(!currentUser) return;
+  // Dispatcher based on viewport + vevoView
+  const pivotDiv = document.getElementById('product-pivot-view');
+  const desktopTblDiv = document.getElementById('order-table-wrap');
+  const mobileCardsDiv = document.getElementById('mobile-order-cards');
+  const updateToggle = () => {
+    const tb = document.getElementById('view-toggle-bar');
+    if (tb) {
+      const dBtn = document.getElementById('view-btn-day');
+      const pBtn = document.getElementById('view-btn-product');
+      if (dBtn) dBtn.classList.toggle('active', vevoView === 'day');
+      if (pBtn) pBtn.classList.toggle('active', vevoView === 'product');
+    }
+  };
+  updateToggle();
+
+  if (vevoView === 'product') {
+    if (pivotDiv) pivotDiv.style.display = 'block';
+    if (desktopTblDiv) desktopTblDiv.style.display = 'none';
+    if (mobileCardsDiv) mobileCardsDiv.style.display = 'none';
+    renderProductPivot();
+    return;
+  }
+  // Day view
+  if (pivotDiv) pivotDiv.style.display = 'none';
+  if (isMobile()) {
+    if (desktopTblDiv) desktopTblDiv.style.display = 'none';
+    if (mobileCardsDiv) mobileCardsDiv.style.display = 'block';
+    renderMobileOrderCards();
+  } else {
+    if (desktopTblDiv) desktopTblDiv.style.display = 'block';
+    if (mobileCardsDiv) mobileCardsDiv.style.display = 'none';
+    renderDesktopDayTable();
+  }
+}
+
+function renderDesktopDayTable() {
+  if(!currentUser) return;
   const prods = getActiveProds(selectedYear, selectedMonth);
-  const days = getDays(selectedYear, selectedMonth);
+  const allDays = getDays(selectedYear, selectedMonth);
   const now = new Date();
 
   document.getElementById('order-month-label').textContent = MONTHS[selectedMonth] + ' ' + selectedYear;
 
   // Check if any baking day is within 24h
-  const urgentDay = days.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
+  const urgentDay = allDays.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
   if (urgentDay) checkDeadline(urgentDay.getDate());
   else document.getElementById('deadline-notice').classList.remove('show');
 
   if (prods.length === 0) {
     document.getElementById('order-table').innerHTML = '<tr><td style="padding:20px;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</td></tr>';
+    const elapsedDiv = document.getElementById('desktop-elapsed-section');
+    if (elapsedDiv) elapsedDiv.innerHTML = '';
     return;
   }
 
-  // Header
-  let html = '<thead><tr><th class="col-date">Dátum</th>';
-  // D: Group products by category for desktop headers
+  // Filter only baking days
+  const bakingDays = allDays.filter(d => isBakingDay(d));
+  // Split: elapsed (past) vs current/future
+  const elapsedDays = bakingDays.filter(d => d < now && !isSameDay(d, now));
+  const currentDays = bakingDays.filter(d => !(d < now && !isSameDay(d, now)));
+
+  // Categories
+  const cats = getCategories(prods);
+  const hasMultiCats = cats.length > 1;
+  const filteredProds = selectedCategoryGlobal === 'all' ? prods : prods.filter(p => p.category === selectedCategoryGlobal);
+
+  // ===== ELAPSED SECTION (above table) =====
+  const elapsedDiv = document.getElementById('desktop-elapsed-section');
+  if (elapsedDiv) {
+    if (elapsedDays.length === 0) {
+      elapsedDiv.innerHTML = '';
+    } else {
+      let elapsedRows = '';
+      elapsedDays.forEach(d => {
+        const day = d.getDate();
+        const dayName = DAYS_HU[d.getDay()];
+        const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+        const rowOrders = appData.orders[key] || {};
+        const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
+        const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{
+          const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0);
+        },0);
+        const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+        const stStatus = orderSt.status || '';
+        let badge = '<span style="color:#bbb;font-style:italic;font-size:.78rem">— nem rendeltél —</span>';
+        if (stStatus === 'fulfilled') badge = '<span style="background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:600">🎉 Elkészült</span>';
+        else if (stStatus === 'confirmed') badge = '<span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:600">✅ Jóváhagyva</span>';
+        else if (stStatus === 'cancelled') badge = '<span style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:600">❌ Visszavonva</span>';
+        else if (stStatus === 'pending' || stStatus === 'modified') badge = '<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:600">⚠️ Feldolgozás alatt</span>';
+
+        elapsedRows += `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin-bottom:6px;opacity:.88">
+          <div>
+            <span style="font-weight:600;color:var(--text-soft)">🔥 ${dayName}, ${day}.</span>
+            ${rowTotal>0 ? `<span style="margin-left:12px;color:var(--text-soft);font-size:.78rem">${rowTotal} db · ${rowVal} lej</span>` : ''}
+          </div>
+          ${badge}
+        </div>`;
+      });
+      elapsedDiv.innerHTML = `<div class="desktop-elapsed-head" onclick="toggleElapsedDesktop()">
+          <span style="font-weight:600;color:var(--text-soft);font-size:.88rem">🕰 Eltelt sütési napok (${elapsedDays.length})</span>
+          <span id="desktop-elapsed-arrow" style="color:var(--text-soft)">${elapsedOpenDesktop?'▴':'▾'}</span>
+        </div>
+        <div class="desktop-elapsed-body ${elapsedOpenDesktop?'open':''}">${elapsedRows}</div>`;
+    }
+  }
+
+  // ===== CATEGORY CHIP FILTER (above table) =====
+  let chipBar = '';
+  if (hasMultiCats) {
+    chipBar = '<div class="desktop-cat-chips">' + ['all', ...cats].map(c => {
+      const label = c === 'all' ? '🧺 Összes' : c;
+      const active = selectedCategoryGlobal === c;
+      return `<button class="desktop-cat-chip ${active?'active':''}" onclick="setGlobalCategory('${c.replace(/'/g,"\\'")}')">${label}</button>`;
+    }).join('') + '</div>';
+  }
+
+  // ===== MAIN TABLE =====
+  let html = '<thead><tr><th class="col-date sticky-col">Dátum</th>';
   const catGroups = {};
-  prods.forEach(p => {
+  filteredProds.forEach(p => {
     const cat = p.category || 'Egyéb';
     if (!catGroups[cat]) catGroups[cat] = [];
     catGroups[cat].push(p);
   });
-  const hasCats = Object.keys(catGroups).length > 1;
-  
-  if (hasCats) {
-    // Category header rows
+  const hasCatsInFiltered = Object.keys(catGroups).length > 1;
+
+  if (hasCatsInFiltered) {
     Object.entries(catGroups).forEach(([cat, catProds]) => {
-      html += `<th class="col-cat-header" colspan="1" style="background:var(--teal-dark);color:var(--gold);font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px;text-align:center" title="${esc(cat)}">${esc(cat)}</th>`;
-      catProds.forEach(p => {
+      catProds.forEach((p, idx) => {
+        const catLabel = idx === 0 ? `<span style="display:block;font-size:.6rem;color:var(--gold);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">${esc(cat)}</span>` : '';
         html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
+          ${catLabel}
           <span class="prod-name">${esc(p.name)}</span>
           <span class="prod-weight">${esc(p.weight)}</span>
           <span class="prod-price">${p.price} lej</span>
@@ -69,7 +195,7 @@ function renderOrderTable() {
       });
     });
   } else {
-    prods.forEach(p => {
+    filteredProds.forEach(p => {
       html += `<th class="col-product" onclick="showProductModal(${p.id})" title="Kattints a termék adatlapjáért">
         <span class="prod-name">${esc(p.name)}</span>
         <span class="prod-weight">${esc(p.weight)}</span>
@@ -79,103 +205,249 @@ function renderOrderTable() {
   }
   html += '<th style="min-width:70px">Összesen</th></tr></thead><tbody>';
 
-  // Rows
+  // Rows: csak aktív/jövőbeli sütési napok
   let grandTotal = 0;
   const colTotals = {};
-  prods.forEach(p => colTotals[p.id] = 0);
+  filteredProds.forEach(p => colTotals[p.id] = 0);
+  // Helper: today flag for highlighting
+  const isToday = (d) => isSameDay(d, now);
 
-  days.forEach(d => {
+  currentDays.forEach(d => {
     const day = d.getDate();
     const dow = d.getDay();
-    const baking = isBakingDay(d);
     const dayName = DAYS_HU[dow];
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
-    const isPast = d < now && !isSameDay(d, now);
+    const rowOrders = appData.orders[key] || {};
+    const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
+    const isCancelled = orderSt.status === 'cancelled';
+    let rowTotal = 0;
+    if (!isCancelled) filteredProds.forEach(p => rowTotal += (rowOrders[p.id]||0));
+    grandTotal += rowTotal;
 
-    if (!baking) {
-      html += `<tr class="no-bake">
-        <td class="col-date">${day}. ${dayName}</td>
-        ${prods.map(() => '<td>—</td>').join('')}
-        <td>—</td>
+    const hoursLeft = hoursUntil(d);
+    const orderStDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
+    const deadlineHoursLeft = orderStDeadline ? (orderStDeadline - new Date()) / 36e5 : null;
+    const isLocked = deadlineHoursLeft !== null ? deadlineHoursLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24);
+    const isOver = d < now;
+    const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
+    const stNote = orderSt.admin_note || '';
+    const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'fulfilled' ? 'background:#ecfdf5' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
+    const todayHighlight = isToday(d) ? 'box-shadow:inset 4px 0 0 var(--gold);' : '';
+    const colCount = filteredProds.length + 2;
+
+    html += `<tr class="baking-row" id="row-${day}" style="${rowBg}${todayHighlight}">
+      <td class="col-date sticky-col">
+        ${day}. <b>${dayName}</b>
+        <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}${isToday(d)?' · MA':''}</span>
+        ${stStatus === 'fulfilled' ? '<span style="background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">🎉 Elkészült</span>' : stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">✅ Jóváhagyva</span>' : ''}
+        ${stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">❌ Visszavonva</span>' : ''}
+      </td>`;
+    filteredProds.forEach(p => {
+      const val = rowOrders[p.id] || '';
+      const disabled = isOver || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled' ? 'disabled' : '';
+      if (!isCancelled) colTotals[p.id] += (rowOrders[p.id]||0);
+      html += `<td style="${stStatus==='modified'&&val?'background:#fffbeb':''}"><input type="number" min="0" max="99" value="${val}" placeholder="0"
+        class="${val?'has-value':''}" ${disabled}
+        data-day="${day}" data-pid="${p.id}"
+        onchange="handleOrderChange(${day},${p.id},this)"
+        oninput="handleOrderChange(${day},${p.id},this)"></td>`;
+    });
+    html += `<td style="font-weight:700;color:var(--teal-dark)">${rowTotal||'—'}</td></tr>`;
+
+    if(stStatus === 'modified') {
+      html += `<tr style="background:#fffbeb">
+        <td colspan="${colCount}" style="padding:0">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-left:3px solid #f59e0b;border-bottom:1px solid #fde68a">
+            <span style="font-size:0.88rem;color:#92400e;font-weight:600">✏️ A pékség módosította ezt a napot${stNote ? ': ' + esc(stNote) : ''}</span>
+            <button onclick="vevoConfirmOrder(${selectedYear},${selectedMonth},${day})" style="margin-left:auto;background:#064C48;color:#EFB036;border:none;border-radius:8px;padding:7px 20px;font-size:0.84rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.02em">✅ Elfogadom a módosítást</button>
+          </div>
+        </td>
       </tr>`;
-    } else {
-      const rowOrders = appData.orders[key] || {};
-      const orderSt0 = (appData.orderStatus && appData.orderStatus[key]) || {};
-      // Cancelled rendelés nem számít az összesítőbe
-      const isCancelled0 = orderSt0.status === 'cancelled';
-      let rowTotal = 0;
-      if (!isCancelled0) prods.forEach(p => rowTotal += (rowOrders[p.id]||0));
-      grandTotal += rowTotal;
-
-      // Is this baking day locked (< 24h)?
-      const hoursLeft = hoursUntil(d);
-      const orderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
-      // Use actual deadline from order_status if available
-      const orderStDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
-      const deadlineHoursLeft = orderStDeadline ? (orderStDeadline - new Date()) / 36e5 : null;
-      const isLocked = deadlineHoursLeft !== null
-        ? deadlineHoursLeft <= 0   // deadline passed
-        : (hoursLeft >= 0 && hoursLeft < 24); // fallback: 24h before baking
-      const isOver = d < now;
-      const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');
-      const stNote = orderSt.admin_note || '';
-      const rowBg = stStatus === 'cancelled' ? 'background:#fff1f2' : stStatus === 'fulfilled' ? 'background:#ecfdf5' : stStatus === 'confirmed' ? 'background:#f0fdf4' : '';
-      const colCount = prods.length + 2; // date + products + total
-
-      html += `<tr class="baking-row" id="row-${day}" style="${rowBg}">
-        <td class="col-date">
-          ${day}. <b>${dayName}</b>
-          <span class="baking-label">🔥 Sütési nap${isLocked?' · ⏰ 24h':''}</span>
-          ${stStatus === 'fulfilled' ? '<span style="background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">🎉 Elkészült</span>' : stStatus === 'confirmed' ? '<span style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">✅ Jóváhagyva</span>' : ''}
-          ${stStatus === 'cancelled' ? '<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:600;display:inline-block;margin-top:3px">❌ Visszavonva</span>' : ''}
-        </td>`;
-      prods.forEach(p => {
-        const val = rowOrders[p.id] || '';
-        const disabled = isOver || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled' ? 'disabled' : '';
-        const isModifiedProd = stStatus === 'modified' && val !== '' && parseInt(val) !== ((appData._origOrders && appData._origOrders[key] && appData._origOrders[key][p.id]) || parseInt(val));
-        const cls = (val ? 'has-value' : '') + (stStatus === 'modified' ? ' mod-cell' : '');
-        if (!isCancelled0) colTotals[p.id] += (rowOrders[p.id]||0);
-        html += `<td style="${stStatus==='modified'&&val?'background:#fffbeb':''}""><input type="number" min="0" max="99" value="${val}" placeholder="0"
-          class="${val?'has-value':''}" ${disabled}
-          data-day="${day}" data-pid="${p.id}"
-          onchange="handleOrderChange(${day},${p.id},this)"
-          oninput="handleOrderChange(${day},${p.id},this)"></td>`;
-      });
-      html += `<td style="font-weight:700;color:var(--teal-dark)">${rowTotal||'—'}</td></tr>`;
-
-      // Option A: slim info sáv módosított sorok után
-      if(stStatus === 'modified') {
-        html += `<tr style="background:#fffbeb">
-          <td colspan="${colCount}" style="padding:0">
-            <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-left:3px solid #f59e0b;border-bottom:1px solid #fde68a">
-              <span style="font-size:0.88rem;color:#92400e;font-weight:600">✏️ A pékség módosította ezt a napot${stNote ? ': ' + esc(stNote) : ''}</span>
-              <button onclick="vevoConfirmOrder(${selectedYear},${selectedMonth},${day})" style="margin-left:auto;background:#064C48;color:#EFB036;border:none;border-radius:8px;padding:7px 20px;font-size:0.84rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.02em">✅ Elfogadom a módosítást</button>
-            </div>
-          </td>
-        </tr>`;
-      }
     }
   });
 
-  // Column totals row
+  if (currentDays.length === 0) {
+    html += `<tr><td colspan="${filteredProds.length + 2}" style="padding:20px;color:var(--text-soft);text-align:center">Ebben a hónapban már nincs aktív sütési nap. Nézd meg az eltelt szakaszt vagy válts hónapot.</td></tr>`;
+  }
+
   html += `<tr class="total-row">
-    <td class="col-date">Havi összesen</td>`;
-  prods.forEach(p => html += `<td>${colTotals[p.id]||'—'}</td>`);
+    <td class="col-date sticky-col">Havi összesen</td>`;
+  filteredProds.forEach(p => html += `<td>${colTotals[p.id]||'—'}</td>`);
   html += `<td class="grand-total">${grandTotal} db</td></tr>`;
 
-  // Value row
   let totalValue = 0;
-  prods.forEach(p => totalValue += colTotals[p.id] * p.price);
+  filteredProds.forEach(p => totalValue += colTotals[p.id] * p.price);
   html += `<tr class="total-row" style="background:#f0faf8">
-    <td class="col-date" style="color:var(--teal-dark)">Érték összesen</td>`;
-  prods.forEach(p => {
+    <td class="col-date sticky-col" style="color:var(--teal-dark)">Érték összesen</td>`;
+  filteredProds.forEach(p => {
     const val = colTotals[p.id] * p.price;
     html += `<td style="color:var(--gold-dark);font-weight:700">${val > 0 ? val + ' lej' : '—'}</td>`;
   });
   html += `<td style="background:var(--gold);color:var(--teal-dark);font-weight:800;font-family:'Fraunces',serif">${totalValue} lej</td></tr>`;
-
   html += '</tbody>';
+
+  // Update chip bar
+  const chipDiv = document.getElementById('desktop-cat-chips-wrap');
+  if (chipDiv) chipDiv.innerHTML = chipBar;
   document.getElementById('order-table').innerHTML = html;
+}
+
+function toggleElapsedDesktop() {
+  elapsedOpenDesktop = !elapsedOpenDesktop;
+  renderOrderTable();
+}
+
+function setGlobalCategory(cat) {
+  selectedCategoryGlobal = cat;
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.categoryFilter(0, cat);
+  renderOrderTable();
+}
+
+// ===== PRODUCT PIVOT VIEW (C model) =====
+// Used both on desktop and mobile via responsive CSS grid.
+function renderProductPivot() {
+  if(!currentUser) return;
+  const prods = getActiveProds(selectedYear, selectedMonth);
+  const allDays = getDays(selectedYear, selectedMonth);
+  const now = new Date();
+  const container = document.getElementById('product-pivot-view');
+  if (!container) return;
+
+  document.getElementById('order-month-label').textContent = MONTHS[selectedMonth] + ' ' + selectedYear;
+
+  // Check if any baking day is within 24h
+  const urgentDay = allDays.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
+  if (urgentDay) checkDeadline(urgentDay.getDate());
+  else document.getElementById('deadline-notice').classList.remove('show');
+
+  if (prods.length === 0) {
+    container.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</div>';
+    return;
+  }
+
+  // All baking days in current month
+  const bakingDays = allDays.filter(d => isBakingDay(d));
+  if (bakingDays.length === 0) {
+    container.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-soft)">Ebben a hónapban nincs beállított sütési nap.</div>';
+    return;
+  }
+
+  // Categories
+  const cats = getCategories(prods);
+  const hasMultiCats = cats.length > 1;
+  const filteredProds = selectedCategoryGlobal === 'all' ? prods : prods.filter(p => p.category === selectedCategoryGlobal);
+
+  // Find any modified-status days (banner trigger)
+  let hasModified = false;
+  bakingDays.forEach(d => {
+    const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
+    const st = (appData.orderStatus && appData.orderStatus[k]) || {};
+    if (st.status === 'modified') hasModified = true;
+  });
+
+  // Category chips
+  let chipBar = '';
+  if (hasMultiCats) {
+    chipBar = '<div class="pivot-cat-chips">' + ['all', ...cats].map(c => {
+      const label = c === 'all' ? '🧺 Összes' : c;
+      const active = selectedCategoryGlobal === c;
+      return `<button class="pivot-cat-chip ${active?'active':''}" onclick="setGlobalCategory('${c.replace(/'/g,"\\'")}')">${label}</button>`;
+    }).join('') + '</div>';
+  }
+
+  // Modified banner
+  const modBanner = hasModified
+    ? `<div class="pivot-mod-banner">
+        <span>✏️ Egy vagy több napon az adminisztrátor módosította a rendelésedet.</span>
+        <button onclick="switchView('day')">Megnyitás Napi nézetben →</button>
+      </div>` : '';
+
+  // Empty state filtered
+  if (filteredProds.length === 0) {
+    container.innerHTML = chipBar + modBanner + '<div style="padding:30px;text-align:center;color:var(--text-soft)">Ebben a kategóriában nincs aktív termék.</div>';
+    return;
+  }
+
+  // Render product cards
+  let html = chipBar + modBanner;
+  html += '<div class="pivot-grid">';
+  filteredProds.forEach(p => {
+    // Total qty for this product across all baking days (excluding cancelled)
+    let prodTotalQty = 0;
+    bakingDays.forEach(d => {
+      const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
+      const st = (appData.orderStatus && appData.orderStatus[k]) || {};
+      if (st.status === 'cancelled') return;
+      prodTotalQty += (appData.orders[k] || {})[p.id] || 0;
+    });
+
+    html += `<div class="pivot-prod-card">
+      <div class="pivot-prod-head" onclick="showProductModal(${p.id})">
+        <div class="pivot-prod-info">
+          <div class="pivot-prod-name">${esc(p.name)}</div>
+          <div class="pivot-prod-meta">${esc(p.weight)} · ${p.price} lej/db ${p.category ? '· '+esc(p.category) : ''}</div>
+        </div>
+        ${prodTotalQty > 0 ? `<div class="pivot-prod-total">${prodTotalQty} db<br><span class="sub">${prodTotalQty*p.price} lej</span></div>` : '<button class="pivot-info-btn" onclick="event.stopPropagation();showProductModal('+p.id+')">ℹ</button>'}
+      </div>
+      <div class="pivot-day-grid">`;
+
+    bakingDays.forEach(d => {
+      const day = d.getDate();
+      const dow = d.getDay();
+      const dayShort = DAYS_SHORT[dow] || DAYS_HU[dow].slice(0,2);
+      const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+      const qty = (appData.orders[k] || {})[p.id] || 0;
+      const orderSt = (appData.orderStatus && appData.orderStatus[k]) || {};
+      const isPast = d < now && !isSameDay(d, now);
+      const isTodayFlag = isSameDay(d, now);
+      const hoursLeft = hoursUntil(d);
+      const stDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
+      const dlLeft = stDeadline ? (stDeadline - new Date()) / 36e5 : null;
+      const isLocked = dlLeft !== null ? dlLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24);
+      const stStatus = orderSt.status || '';
+      const disabled = isPast || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled';
+      const stIcon = stStatus === 'fulfilled' ? '🎉' : stStatus === 'confirmed' ? '✅' : stStatus === 'modified' ? '✏️' : stStatus === 'cancelled' ? '❌' : '';
+
+      const cellCls = ['pivot-day-cell'];
+      if (isPast) cellCls.push('past');
+      if (isLocked) cellCls.push('locked');
+      if (isTodayFlag) cellCls.push('today');
+      if (qty > 0) cellCls.push('has-qty');
+
+      html += `<div class="${cellCls.join(' ')}">
+        <div class="pivot-cell-label">${dayShort} ${stIcon}</div>
+        <div class="pivot-cell-date">${day}</div>
+        ${disabled
+          ? `<div class="pivot-cell-readonly">${qty || '—'}</div>`
+          : `<div class="pivot-cell-ctrl">
+              <button class="pivot-qty-btn" onclick="pivotChangeQty(${day},${p.id},-1)" ${qty<=0?'disabled':''}>−</button>
+              <span class="pivot-cell-qty">${qty}</span>
+              <button class="pivot-qty-btn" onclick="pivotChangeQty(${day},${p.id},1)">＋</button>
+            </div>`
+        }
+      </div>`;
+    });
+
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+  updateHeroTotal();
+}
+
+function pivotChangeQty(day, pid, delta) {
+  if (!currentUser) return;
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  if (!appData.orders[key]) appData.orders[key] = {};
+  const current = appData.orders[key][pid] || 0;
+  const newVal = Math.max(0, current + delta);
+  if (newVal > 0) appData.orders[key][pid] = newVal;
+  else delete appData.orders[key][pid];
+  if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+  // Re-render the pivot fully (cheaper than surgical update; only ~150 cells)
+  renderProductPivot();
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, newVal);
 }
 
 function isSameDay(a, b) {
@@ -458,13 +730,15 @@ function renderMobileOrderCards() {
   const cats = getCategories(prods);
   const hasMultiCats = cats.length > 1;
 
-  // Split: elapsed baking days (past) vs current/future days
+  // Split: elapsed baking days (past) vs current/future baking days
+  // Non-baking days are now completely hidden (user decision: long-term goal is to bake every day)
   const elapsedDays = [];
   const currentDays = [];
   days.forEach(d => {
     const baking = isBakingDay(d);
+    if (!baking) return; // skip non-baking days entirely
     const isPast = d < now && !isSameDay(d, now);
-    if (baking && isPast) elapsedDays.push(d);
+    if (isPast) elapsedDays.push(d);
     else currentDays.push(d);
   });
 
@@ -517,30 +791,22 @@ function renderMobileOrderCards() {
     </div>`;
   }
 
-  // ===== CURRENT / FUTURE DAYS =====
+  // ===== CURRENT / FUTURE DAYS (only baking days) =====
   currentDays.forEach(d => {
     const day = d.getDate();
     const dow = d.getDay();
-    const baking = isBakingDay(d);
     const dayName = DAYS_HU[dow];
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
     const hoursLeft = hoursUntil(d);
     const mobOrderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
     const mobDeadline = mobOrderSt.deadline ? new Date(mobOrderSt.deadline) : null;
     const mobDeadlineLeft = mobDeadline ? (mobDeadline - new Date()) / 36e5 : null;
-    const isLocked = baking && (mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24));
+    const isLocked = mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : (hoursLeft >= 0 && hoursLeft < 24);
     const rowOrders = appData.orders[key] || {};
     const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
     const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
 
-    if(!baking) {
-      html += `<div class="mob-day-card">
-        <div class="mob-day-head no-bake">
-          <div><div class="mob-day-name" style="color:#bbb;font-weight:400">${day}. ${dayName}</div></div>
-          <span style="font-size:0.7rem;color:#ccc">Nincs sütés</span>
-        </div>
-      </div>`;
-    } else {
+    {
       const lockedClass = isLocked ? 'mob-locked' : '';
       const orderSt = mobOrderSt;
       const stStatus = orderSt.status || (rowTotal > 0 ? 'pending' : '');

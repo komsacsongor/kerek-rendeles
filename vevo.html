@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.23.1"></script>
-<script src="supabase.js?v=2.23.1"></script>
+<script src="kerek-constants.js?v=2.24.0"></script>
+<script src="supabase.js?v=2.24.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -255,6 +255,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; position: relative
   align-items: center;
   justify-content: space-between;
 }
+.card-body { padding: 16px 20px; }
 .card-title {
   font-family: 'Fraunces', serif;
   color: var(--gold-light);
@@ -930,6 +931,183 @@ table.order-tbl {
   background: var(--teal); color: #fff; border-color: var(--teal);
   font-weight: 700;
 }
+
+/* ============================
+   v2.24.0 – Toggle View + Desktop adaptation
+   ============================ */
+
+/* View toggle bar (desktop + mobile) */
+.view-toggle-bar {
+  display: flex; gap: 6px; margin-bottom: 14px;
+  background: var(--cream); padding: 4px; border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.view-toggle-btn {
+  flex: 1; padding: 9px 12px; background: transparent; border: none;
+  border-radius: 7px; cursor: pointer; font-family: 'Kodchasan', sans-serif;
+  font-size: 0.86rem; font-weight: 500; color: var(--text-soft);
+  transition: all 0.15s;
+}
+.view-toggle-btn:hover { color: var(--teal-dark); }
+.view-toggle-btn.active {
+  background: var(--teal); color: #fff; font-weight: 700;
+  box-shadow: 0 1px 4px rgba(6,76,72,0.2);
+}
+
+/* Desktop elapsed section (day view) */
+.desktop-elapsed-section { margin-bottom: 12px; }
+.desktop-elapsed-head {
+  background: #f3f4f6; border-radius: 10px; padding: 11px 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; user-select: none; border: 1px solid #e5e7eb;
+}
+.desktop-elapsed-body { display: none; padding: 8px 0 0; }
+.desktop-elapsed-body.open { display: block; }
+
+/* Desktop global category chip filter */
+.desktop-cat-chips {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding-bottom: 10px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.desktop-cat-chip {
+  padding: 5px 13px; border-radius: 16px; border: 1.5px solid var(--border);
+  background: #fff; color: var(--text-soft); font-size: 0.78rem;
+  font-weight: 500; cursor: pointer; font-family: 'Kodchasan', sans-serif;
+  transition: all 0.15s;
+}
+.desktop-cat-chip:hover { border-color: var(--teal-mid); }
+.desktop-cat-chip.active {
+  background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 700;
+}
+
+/* Sticky first column (Date) and header in desktop table */
+@media (min-width: 641px) {
+  .table-scroll { position: relative; overflow: auto; max-height: 70vh; }
+  .order-tbl thead th { position: sticky; top: 0; z-index: 4; }
+  .order-tbl .sticky-col {
+    position: sticky; left: 0; z-index: 3;
+    background: #f5fbfa;
+  }
+  .order-tbl thead th.sticky-col { z-index: 5; background: var(--teal-dark); }
+  .order-tbl tr.baking-row td.sticky-col { background: #e8f8f6; }
+  .order-tbl tr.total-row td.sticky-col { background: var(--teal-pale); }
+}
+
+/* Product pivot view (C model) – responsive grid */
+.product-pivot-view {
+  padding: 12px 18px 20px;
+}
+.pivot-cat-chips {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding-bottom: 12px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pivot-cat-chip {
+  padding: 5px 13px; border-radius: 16px; border: 1.5px solid var(--border);
+  background: #fff; color: var(--text-soft); font-size: 0.78rem;
+  font-weight: 500; cursor: pointer; font-family: 'Kodchasan', sans-serif;
+  transition: all 0.15s;
+}
+.pivot-cat-chip:hover { border-color: var(--teal-mid); }
+.pivot-cat-chip.active { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 700; }
+
+.pivot-mod-banner {
+  background: #fffbeb; border-left: 4px solid #f59e0b;
+  padding: 10px 14px; margin-bottom: 14px; border-radius: 6px;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; flex-wrap: wrap; font-size: 0.85rem; color: #92400e;
+}
+.pivot-mod-banner button {
+  background: var(--teal-dark); color: var(--gold); border: none;
+  padding: 7px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
+  font-family: 'Kodchasan', sans-serif; font-size: 0.82rem;
+}
+
+.pivot-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.pivot-prod-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; transition: box-shadow 0.15s;
+}
+.pivot-prod-card:hover { box-shadow: 0 4px 12px rgba(6,76,72,0.08); }
+.pivot-prod-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 10px; margin-bottom: 12px; cursor: pointer;
+}
+.pivot-prod-info { flex: 1; min-width: 0; }
+.pivot-prod-name {
+  font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 600;
+  color: var(--teal-dark); line-height: 1.2;
+}
+.pivot-prod-meta {
+  font-size: 0.72rem; color: var(--text-soft); margin-top: 4px;
+}
+.pivot-prod-total {
+  font-family: 'Fraunces', serif; color: var(--teal-dark);
+  font-weight: 700; font-size: 0.95rem; text-align: right;
+  white-space: nowrap; line-height: 1.2;
+}
+.pivot-prod-total .sub {
+  font-family: 'Kodchasan', sans-serif; font-weight: 600;
+  font-size: 0.72rem; color: var(--gold-dark);
+}
+.pivot-info-btn {
+  background: transparent; border: 1.5px solid var(--border); border-radius: 50%;
+  width: 28px; height: 28px; cursor: pointer; color: var(--teal); font-weight: 700;
+}
+
+.pivot-day-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 6px;
+}
+.pivot-day-cell {
+  background: var(--cream); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 4px; text-align: center;
+  transition: all 0.15s;
+}
+.pivot-day-cell.has-qty { background: var(--teal-pale); border-color: var(--teal-mid); }
+.pivot-day-cell.past { opacity: 0.55; background: #f3f4f6; }
+.pivot-day-cell.locked { background: #fef9e7; }
+.pivot-day-cell.today { box-shadow: 0 0 0 2px var(--gold); }
+.pivot-cell-label {
+  font-size: 0.62rem; color: var(--text-soft);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  display: flex; justify-content: center; align-items: center; gap: 2px;
+}
+.pivot-cell-date {
+  font-family: 'Fraunces', serif; font-weight: 700;
+  color: var(--teal-dark); font-size: 0.95rem; margin: 2px 0 4px;
+}
+.pivot-cell-ctrl {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+}
+.pivot-qty-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--teal); background: #fff; color: var(--teal);
+  font-weight: 700; cursor: pointer; padding: 0; line-height: 1;
+  font-family: 'Kodchasan', sans-serif; font-size: 0.85rem;
+}
+.pivot-qty-btn:hover:not(:disabled) { background: var(--teal); color: #fff; }
+.pivot-qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.pivot-cell-qty { min-width: 18px; font-weight: 700; font-size: 0.88rem; color: var(--teal-dark); }
+.pivot-cell-readonly {
+  font-weight: 700; color: var(--text-soft); font-size: 0.9rem;
+  padding: 3px 0;
+}
+
+/* Mobile-only adjustments for pivot */
+@media (max-width: 640px) {
+  .product-pivot-view { padding: 8px 4px 16px; }
+  .pivot-grid { grid-template-columns: 1fr; gap: 10px; }
+  .pivot-prod-card { padding: 10px; }
+  .pivot-cat-chips {
+    position: sticky; top: 0; background: #fff; z-index: 10;
+    padding: 8px 4px 10px; margin: -8px -4px 12px; padding-top: 8px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1066,12 +1244,25 @@ table.order-tbl {
         <div class="card-title">📝 Megrendelő lap – <span id="order-month-label" style="color:var(--gold-light);margin-left:6px"></span></div>
         <div style="font-size:0.75rem;color:var(--teal-light)">Kattints egy termékre az oszlopfejlécben az adatlapjáért</div>
       </div>
-      <div class="table-scroll">
+      <div class="card-body">
+        <!-- View toggle (Day/Product) -->
+        <div id="view-toggle-bar" class="view-toggle-bar">
+          <button id="view-btn-day" class="view-toggle-btn active" onclick="switchView('day')">📅 Napi nézet</button>
+          <button id="view-btn-product" class="view-toggle-btn" onclick="switchView('product')">📦 Termék nézet</button>
+        </div>
+        <!-- Elapsed days collapsible section (desktop only, day view) -->
+        <div id="desktop-elapsed-section" class="desktop-elapsed-section"></div>
+        <!-- Global category chip filter (desktop only, day view) -->
+        <div id="desktop-cat-chips-wrap"></div>
+      </div>
+      <div class="table-scroll" id="order-table-wrap">
         <table class="order-tbl" id="order-table"></table>
       </div>
+      <!-- Product pivot view (desktop + mobile, C model) -->
+      <div id="product-pivot-view" class="product-pivot-view" style="display:none"></div>
     </div>
 
-    <!-- MOBILE ORDER CARDS -->
+    <!-- MOBILE ORDER CARDS (day view A model) -->
     <div class="mobile-order-cards" id="mobile-order-cards"></div>
 
     <div class="msg-box">
@@ -1264,10 +1455,10 @@ table.order-tbl {
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.23.1"></script>
-<script src="js/vevo-ui.js?v=2.23.1"></script>
-<script src="js/vevo-analytics.js?v=2.23.1"></script>
-<script src="js/vevo-orders.js?v=2.23.1"></script>
+<script src="js/vevo-data.js?v=2.24.0"></script>
+<script src="js/vevo-ui.js?v=2.24.0"></script>
+<script src="js/vevo-analytics.js?v=2.24.0"></script>
+<script src="js/vevo-orders.js?v=2.24.0"></script>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
   <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>
