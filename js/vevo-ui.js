@@ -51,7 +51,6 @@ function selectMonth(m) {
   // Clear manual open state (different month = different days)
   if (typeof openDaysManual !== 'undefined') openDaysManual.clear();
   if (typeof selectedCategoryByDay !== 'undefined') selectedCategoryByDay = {};
-  if (typeof elapsedOpenDesktop !== 'undefined') elapsedOpenDesktop = false;
   buildMonthSelectors();
   renderOrderTable();
   updateHeroTotal();

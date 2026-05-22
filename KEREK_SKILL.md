@@ -218,6 +218,11 @@ for f in ['admin.html', 'receptura.html', 'vevo.html', 'index.html', 'register.h
     c = open(f).read()
     c = re.sub(r'(\?v=)[\d.]+"', rf'\g<1>{NEW_VER}"', c)
     open(f, 'w').write(c)
+# CRITICAL: sw.js CACHE_NAME bump – without this, PWA users won't get updates!
+# The activate event clears old caches ONLY if CACHE_NAME differs.
+sw = open('sw.js').read()
+sw = re.sub(r"const CACHE_NAME = 'kerek-v[\d.]+'", f"const CACHE_NAME = 'kerek-v{NEW_VER}'", sw)
+open('sw.js', 'w').write(sw)
 ```
 
 ```bash
