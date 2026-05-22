@@ -446,14 +446,23 @@ async function confirmBakingDone() {
 
     // Set FULFILLED on all orders for baked days (per client)
     let fulfilledCount = 0;
+    // v2.27.0: track actually fulfilled (clientId, day) pairs for push notification
+    const fulfilledClients = new Set();
     try {
       const allClients = await sb.query('clients', { limit: 500 });
       for (const dateStr of (days || [])) {
         const [dy, dm, dd] = dateStr.split('-').map(Number);
+        // First, fetch actual orders for this day to only update real clients
+        let actualOrders = [];
+        try {
+          actualOrders = await sb.query('orders', {
+            filter: `year=eq.${dy}&month=eq.${dm-1}&day=eq.${dd}`,
+            limit: 500
+          }) || [];
+        } catch(e) {}
+        const clientsWithOrders = new Set(actualOrders.map(o => o.client_id));
         for (const client of (allClients || [])) {
-          // Check if client has order on this day
-          const orderKey = `${client.id}-${dy}-${dm-1}-${dd}`;
-          // Try to upsert fulfilled status for all clients with orders
+          if (!clientsWithOrders.has(client.id)) continue;
           try {
             await sb.upsert('order_status', {
               client_id: client.id, year: dy, month: dm-1, day: dd,
@@ -461,10 +470,18 @@ async function confirmBakingDone() {
               admin_note: `Sütés elvégezve: ${now}`
             }, 'client_id,year,month,day');
             fulfilledCount++;
-          } catch(e2) { /* skip if no order */ }
+            fulfilledClients.add(client.id);
+          } catch(e2) { /* skip on error */ }
         }
       }
     } catch(e) { console.warn('fulfilled status write:', e.message); }
+
+    // v2.27.0: Push notification to all fulfilled clients
+    if (typeof sendPushToClient === 'function') {
+      fulfilledClients.forEach(cid => {
+        sendPushToClient(cid, 'fulfilled', '🎉 Rendelésed elkészült!', 'Átveheted a pékségben (Str. Főutca 1).').catch(()=>{});
+      });
+    }
 
     const topBtn = document.getElementById('prod-done-btn-top');
     if (topBtn) { topBtn.style.display = 'none'; }

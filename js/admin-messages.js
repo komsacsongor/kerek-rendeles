@@ -78,6 +78,10 @@ async function sendAdminReply(clientId, month, inputId) {
       month: month,
       text: fullText,
     });
+    // v2.27.0: Push notification to client
+    if (typeof sendPushToClient === 'function') {
+      sendPushToClient(clientId, 'message', '💬 Új üzenet a pékségtől', text.substring(0, 80)).catch(()=>{});
+    }
     // Lokális cache frissítése hogy azonnal látsszon
     if(!D.messages[key]) D.messages[key] = [];
     D.messages[key].push({ text: fullText, ts });
