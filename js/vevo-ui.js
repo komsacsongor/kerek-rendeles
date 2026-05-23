@@ -8,17 +8,12 @@ function showView(id) {
 }
 
 // ===== HELPERS =====
-function getKey(month, year) { return `${year}-${month}`; } // NOTE: params are (month, year) intentionally - matches admin mk(year,month) output
-function getOrderKey(cid, y, m, d) { return `${cid}-${y}-${m}-${d}`; }
+// NOTE: getKey signature swap is intentional (matches admin mk(year,month))
+function getKey(month, year) { return `${year}-${month}`; }
+// M1+M2: getOrderKey + getDays removed (deduped to kerek-constants.js)
 function getActiveProds(year, month) {
   const ids = appData.monthlyActiveProducts[getKey(month, year)] || [];
   return appData.products.filter(p => ids.includes(p.id) && !p.deleted_at);
-}
-function getDays(year, month) {
-  const days = [];
-  const d = new Date(year, month, 1);
-  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate()+1); }
-  return days;
 }
 function isBakingDay(d) {
   const y=d.getFullYear(), m=d.getMonth();

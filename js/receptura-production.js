@@ -445,33 +445,35 @@ async function confirmBakingDone() {
     });
 
     // Set FULFILLED on all orders for baked days (per client)
+    // H3+H5 fix: single OR-query for all days, then 1 bulk upsert (was N+1 nested loops)
     let fulfilledCount = 0;
-    // v2.27.0: track actually fulfilled (clientId, day) pairs for push notification
     const fulfilledClients = new Set();
     try {
-      const allClients = await sb.query('clients', { limit: 500 });
-      for (const dateStr of (days || [])) {
-        const [dy, dm, dd] = dateStr.split('-').map(Number);
-        // First, fetch actual orders for this day to only update real clients
-        let actualOrders = [];
-        try {
-          actualOrders = await sb.query('orders', {
-            filter: `year=eq.${dy}&month=eq.${dm-1}&day=eq.${dd}`,
-            limit: 500
-          }) || [];
-        } catch(e) {}
-        const clientsWithOrders = new Set(actualOrders.map(o => o.client_id));
-        for (const client of (allClients || [])) {
-          if (!clientsWithOrders.has(client.id)) continue;
-          try {
-            await sb.upsert('order_status', {
-              client_id: client.id, year: dy, month: dm-1, day: dd,
-              status: 'fulfilled',
-              admin_note: `Sütés elvégezve: ${now}`
-            }, 'client_id,year,month,day');
-            fulfilledCount++;
-            fulfilledClients.add(client.id);
-          } catch(e2) { /* skip on error */ }
+      if (days && days.length > 0) {
+        // Build OR filter for all baking days
+        const dayFilters = days.map(dateStr => {
+          const [dy, dm, dd] = dateStr.split('-').map(Number);
+          return `and(year.eq.${dy},month.eq.${dm-1},day.eq.${dd})`;
+        });
+        const orFilter = `or=(${dayFilters.join(',')})`;
+        const allRelevantOrders = await sb.query('orders', { filter: orFilter, limit: 5000 }) || [];
+
+        // Deduplicate to (client_id, year, month, day) unique rows
+        const uniqueRows = new Map();
+        allRelevantOrders.forEach(o => {
+          const key = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+          if (!uniqueRows.has(key)) {
+            uniqueRows.set(key, {
+              client_id: o.client_id, year: o.year, month: o.month, day: o.day,
+              status: 'fulfilled', admin_note: `Sütés elvégezve: ${now}`
+            });
+            fulfilledClients.add(o.client_id);
+          }
+        });
+        const rows = Array.from(uniqueRows.values());
+        if (rows.length > 0) {
+          await sb.upsert('order_status', rows, 'client_id,year,month,day');
+          fulfilledCount = rows.length;
         }
       }
     } catch(e) { console.warn('fulfilled status write:', e.message); }

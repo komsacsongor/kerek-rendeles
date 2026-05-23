@@ -242,10 +242,8 @@ async function doLogin() {
     return;
   }
   if (client && client.name && client.name.startsWith('[DELETED]')) {
-    const _errEl = document.getElementById('login-error');
-    if(true) { _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'); }
-
-    if(true) { _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.'); }
+    _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.');
+    return;
   }
   if (client) {
     currentUser = client;
@@ -283,6 +281,36 @@ async function doLogin() {
         appData.bakingCalendar[k] = {extra: r.extra_dates||[], removed: r.removed_dates||[]};
       });
     } catch(e) { console.warn('User data load:', e.message); }
+
+    // H8 fix: Auto-confirm PENDING/MODIFIED orders past deadline (no cron available)
+    try {
+      const now = new Date();
+      const expiredKeys = [];
+      Object.entries(appData.orderStatus || {}).forEach(([k, st]) => {
+        if ((st.status === 'pending' || st.status === 'modified') && st.deadline) {
+          if (new Date(st.deadline) <= now) expiredKeys.push(k);
+        }
+      });
+      if (expiredKeys.length > 0) {
+        const expiredRows = expiredKeys.map(k => {
+          const parts = k.split('-'); // clientId-year-month-day
+          const cid = parts.slice(0, -3).join('-'); // clientId may contain -
+          return {
+            client_id: cid,
+            year: parseInt(parts[parts.length-3]),
+            month: parseInt(parts[parts.length-2]),
+            day: parseInt(parts[parts.length-1]),
+            status: 'confirmed',
+            confirmed_at: now.toISOString()
+          };
+        });
+        await sb.upsert('order_status', expiredRows, 'client_id,year,month,day');
+        expiredKeys.forEach(k => {
+          appData.orderStatus[k] = { ...appData.orderStatus[k], status: 'confirmed' };
+        });
+      }
+    } catch(e) { console.warn('Auto-confirm:', e.message); }
+
     buildMonthSelectors();
     if (typeof loadViewPref === 'function') loadViewPref();
     renderOrderTable();

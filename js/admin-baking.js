@@ -105,12 +105,16 @@ async function confirmDay(year, month, day) {
   const deadline = new Date(year, month, day - 1, 18, 0, 0).toISOString();
   const now = new Date().toISOString();
   try {
-    for (const c of clients) {
-      const row = { client_id: c.id, year, month, day, status: 'confirmed', deadline, confirmed_at: now, admin_note: null };
-      await sb.upsert('order_status', row, 'client_id,year,month,day');
-      if (!D.orderStatus) D.orderStatus = {};
+    // H1 fix: bulk upsert instead of N+1 loop
+    const rows = clients.map(c => ({
+      client_id: c.id, year, month, day, status: 'confirmed',
+      deadline, confirmed_at: now, admin_note: null
+    }));
+    await sb.upsert('order_status', rows, 'client_id,year,month,day');
+    if (!D.orderStatus) D.orderStatus = {};
+    clients.forEach(c => {
       D.orderStatus[ok(c.id, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now, admin_note: null };
-    }
+    });
     toast('✅ Összes rendelés jóváhagyva!');
     if(typeof updatePendingBadge==='function') updatePendingBadge();
     await auditLog('order_confirm_day', `${year}-${month}-${day}`, `${clients.length} rendelés`);
@@ -202,21 +206,25 @@ async function saveModify() {
   });
 
   try {
-    // Orders frissítése ahol változott a mennyiség
+    // H2 fix: bulk operations instead of per-product loop
     const k = ok(clientId, year, month, day);
     if (!D.orders[k]) D.orders[k] = {};
+    const upserts = [];
+    const deletes = [];
     for (const ch of changes) {
       if (ch.newQty === 0) {
-        // qty=0: sor törlése az orders-ből (DB constraint miatt 0 nem tárolható)
-        await sb.delete('orders', `client_id=eq.${clientId}&year=eq.${year}&month=eq.${month}&day=eq.${day}&product_id=eq.${ch.pid}`);
+        deletes.push(sb.delete('orders', `client_id=eq.${clientId}&year=eq.${year}&month=eq.${month}&day=eq.${day}&product_id=eq.${ch.pid}`));
         delete D.orders[k][ch.pid];
       } else {
-        await sb.upsert('orders', { client_id: clientId, year, month, day, product_id: parseInt(ch.pid), quantity: ch.newQty }, 'client_id,year,month,day,product_id');
+        upserts.push({ client_id: clientId, year, month, day, product_id: parseInt(ch.pid), quantity: ch.newQty });
         D.orders[k][ch.pid] = ch.newQty;
       }
     }
+    const ops = [...deletes];
+    if (upserts.length > 0) ops.push(sb.upsert('orders', upserts, 'client_id,year,month,day,product_id'));
+    if (ops.length > 0) await Promise.all(ops);
 
-    // Státusz mentése
+    // Status update
     const row = { client_id: clientId, year, month, day, status: 'modified', admin_note: trimmed, deadline };
     await sb.upsert('order_status', row, 'client_id,year,month,day');
     if (!D.orderStatus) D.orderStatus = {};

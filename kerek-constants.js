@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.28.0 (2026-05-23)';
+const APP_VERSION = 'v2.29.0 (2026-05-23)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -15,6 +15,22 @@ const DAYS_HU = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek',
 const DAYS_SHORT = ['V','H','K','Sze','Cs','P','Szo'];
 
 const DEFAULT_BAKING_DAYS = [2, 5]; // Kedd, Péntek (0=Vasárnap)
+
+// ===== M4: KÖZÖS MAGIC NUMBER KONSTANSOK =====
+const POLLING_INTERVAL_MS = 30000;      // Unified polling all 3 modules
+const MSG_RATE_LIMIT_MS = 30000;        // 30s between messages per client
+const LOGIN_LOCKOUT_MS = 60000;         // 1 min lockout window
+const LOGIN_MAX_ATTEMPTS = 5;
+const QUERY_LIMIT_ORDERS = 5000;
+const QUERY_LIMIT_STATUSES = 2000;
+const QUERY_LIMIT_CLIENTS = 500;
+const QUERY_LIMIT_PRODUCTS = 500;
+const URL_REVOKE_TIMEOUT_MS = 5000;
+const REALTIME_DEBOUNCE_MS = 500;       // C5: WS callback debounce
+const WS_RECONNECT_MIN_MS = 5000;       // H6: Exponential backoff bounds
+const WS_RECONNECT_MAX_MS = 300000;     // 5 min max
+const DEBUG = false;                    // M3: production-ban false legyen
+function debugLog(...args) { if (DEBUG) console.log('[KEREK]', ...args); }
 
 // ===== EGYSÉGES TERMÉKKÓD GENERÁLÁS =====
 const PRODUCT_CAT_CODES = {
@@ -48,20 +64,19 @@ function ok(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }
 function getKey(month, year){ return `${year}-${month}`; }
 // Vevő rendelés kulcs
 function getOrderKey(cid,y,m,d){ return `${cid}-${y}-${m}-${d}`; }
+// M1+M2: Shared helper (deduped from admin-ui.js + vevo-ui.js)
+function getDays(year, month) {
+  const days = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate()+1); }
+  return days;
+}
 
 // ===== SC11: AUDIT LOG =====
 async function auditLog(action, entityName='', details='') {
+  if (typeof sb === 'undefined') return;
   try {
-    await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/audit_log`, {
-      method: 'POST',
-      headers: {
-        'apikey': 'SUPABASE_ANON_KEY_PLACEHOLDER',
-        'Authorization': 'Bearer SUPABASE_ANON_KEY_PLACEHOLDER',
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({action, entity_name: entityName, details})
-    });
+    await sb.insert('audit_log', { action, entity_name: entityName, details });
   } catch(e) { console.warn('Audit log hiba:', e.message); }
 }
 

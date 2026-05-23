@@ -146,6 +146,7 @@ const sb = {
 
     this._ws.onopen = () => {
       clearTimeout(this._reconnectTimer);
+      this._reconnectDelay = 0; // H6: reset exponential backoff on success
       Object.values(this._channels).forEach(ch => {
         ch.tables.forEach(table => {
           this._ws.send(JSON.stringify({
@@ -182,6 +183,9 @@ const sb = {
   _scheduleReconnect() {
     if (Object.keys(this._channels).length === 0) return;
     clearTimeout(this._reconnectTimer);
-    this._reconnectTimer = setTimeout(() => this._connectWS(), 5000);
+    // H6: Exponential backoff (5s, 10s, 20s, 40s, 80s, 160s, max 300s = 5min)
+    if (!this._reconnectDelay) this._reconnectDelay = 5000;
+    else this._reconnectDelay = Math.min(this._reconnectDelay * 2, 300000);
+    this._reconnectTimer = setTimeout(() => this._connectWS(), this._reconnectDelay);
   }
 };

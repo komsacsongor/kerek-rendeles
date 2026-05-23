@@ -53,127 +53,108 @@ async function save() {
 
 async function loadAllData() {
   localStorage.removeItem('kerek_data'); // legacy kulcs törlése
-  // Táblánkénti try/catch – egy hiba nem akadályozza a többit
-  try {
-    const products = await sb.query('products', { order: 'id', limit: 500 });
-    if (products?.length) {
-      D.products = products.map(p => ({
-        id: p.id, name: p.name, weight: p.weight || '',
-        price: p.price, category: p.category || 'Egyéb',
-        desc: p.description || '', image: p.image || null, code: p.code || '',
-        marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
-        allergens: p.allergens || '', nutrition: p.nutrition || null,
-        familyId: p.product_family_id || null
+  // H4 fix: parallel queries via Promise.allSettled (was sequential, ~2-3s -> ~400ms)
+  const tasks = [
+    sb.query('products', { order: 'id', limit: QUERY_LIMIT_PRODUCTS }).then(products => {
+      if (products?.length) {
+        D.products = products.map(p => ({
+          id: p.id, name: p.name, weight: p.weight || '',
+          price: p.price, category: p.category || 'Egyéb',
+          desc: p.description || '', image: p.image || null, code: p.code || '',
+          marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
+          allergens: p.allergens || '', nutrition: p.nutrition || null,
+          familyId: p.product_family_id || null
+        }));
+      } else { D.products = []; }
+    }),
+    sb.query('clients', { order: 'name', limit: QUERY_LIMIT_CLIENTS }).then(clients => {
+      D.clients = (clients||[]).map(c => ({
+        id: c.id, name: c.name, email: c.email || '',
+        phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
       }));
-    } else { D.products = []; } // Üres DB = üres lista (seed eltávolítva)
-  } catch(e) { console.error('loadAllData [products]:', e.message); }
-
-  try {
-    const clients = await sb.query('clients', { order: 'name', limit: 500 });
-    D.clients = (clients||[]).map(c => ({
-      id: c.id, name: c.name, email: c.email || '',
-      phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
-    }));
-  } catch(e) { console.error('loadAllData [clients]:', e.message); }
-
-  try {
-    const maps = await sb.query('monthly_active_products', { limit: 2000 });
-    D.monthlyActiveProducts = {};
-    (maps||[]).forEach(r => {
-      const k = `${r.year}-${r.month}`;
-      if (!D.monthlyActiveProducts[k]) D.monthlyActiveProducts[k] = [];
-      D.monthlyActiveProducts[k].push(r.product_id);
-    });
-  } catch(e) { console.error('loadAllData [monthly_active_products]:', e.message); }
-
-  try {
-    const orders = await sb.query('orders', { limit: 5000 });
-    D.orders = {};
-    (orders||[]).forEach(r => {
-      const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
-      if (!D.orders[k]) D.orders[k] = {};
-      D.orders[k][r.product_id] = r.quantity;
-    });
-  } catch(e) { console.error('loadAllData [orders]:', e.message); }
-
-  try {
-    const statuses = await sb.query('order_status', { limit: 2000 });
-    D.orderStatus = {};
-    (statuses||[]).forEach(r => {
-      const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
-      D.orderStatus[k] = { status: r.status, admin_note: r.admin_note, deadline: r.deadline, confirmed_at: r.confirmed_at };
-    });
-  } catch(e) { D.orderStatus = {}; console.error('loadAllData [order_status]:', e.message); }
-
-  try {
-    const messages = await sb.query('messages', { order: 'created_at', limit: 500 });
-    D.messages = {};
-    (messages||[]).forEach(r => {
-      const k = `${r.client_id}-${r.year}-${r.month}`;
-      if (!D.messages[k]) D.messages[k] = [];
-      D.messages[k].push({ text: r.text, ts: r.created_at });
-    });
-  } catch(e) { console.error('loadAllData [messages]:', e.message); }
-
-  // U6: Load recipes for levain calculation on dashboard
-  try {
-    const recipes = await sb.query('recipes', { limit: 500 });
-    D.recipes = (recipes||[]).filter(r => r.activated_at);
-  } catch(e) { D.recipes = []; console.error('loadAllData [recipes]:', e.message); }
-
-  // v2.26.0: Load recipe_ingredients to enable stock check on baking list
-  try {
-    const recIngs = await sb.query('recipe_ingredients', { limit: 5000 });
-    D.recipeIngredients = {};
-    (recIngs||[]).forEach(ri => {
-      if (!D.recipeIngredients[ri.recipe_id]) D.recipeIngredients[ri.recipe_id] = [];
-      D.recipeIngredients[ri.recipe_id].push({
-        name: ri.name, amount: ri.amount, ingredientId: ri.ingredient_id, subType: ri.sub_type || 'other_dry'
+    }),
+    sb.query('monthly_active_products', { limit: 2000 }).then(maps => {
+      D.monthlyActiveProducts = {};
+      (maps||[]).forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        if (!D.monthlyActiveProducts[k]) D.monthlyActiveProducts[k] = [];
+        D.monthlyActiveProducts[k].push(r.product_id);
       });
-    });
-  } catch(e) { D.recipeIngredients = {}; console.error('loadAllData [recipe_ingredients]:', e.message); }
+    }),
+    sb.query('orders', { limit: QUERY_LIMIT_ORDERS }).then(orders => {
+      D.orders = {};
+      (orders||[]).forEach(r => {
+        const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
+        if (!D.orders[k]) D.orders[k] = {};
+        D.orders[k][r.product_id] = r.quantity;
+      });
+    }),
+    sb.query('order_status', { limit: QUERY_LIMIT_STATUSES }).then(statuses => {
+      D.orderStatus = {};
+      (statuses||[]).forEach(r => {
+        const k = `${r.client_id}-${r.year}-${r.month}-${r.day}`;
+        D.orderStatus[k] = { status: r.status, admin_note: r.admin_note, deadline: r.deadline, confirmed_at: r.confirmed_at };
+      });
+    }),
+    sb.query('messages', { order: 'created_at', limit: 500 }).then(messages => {
+      D.messages = {};
+      (messages||[]).forEach(r => {
+        const k = `${r.client_id}-${r.year}-${r.month}`;
+        if (!D.messages[k]) D.messages[k] = [];
+        D.messages[k].push({ text: r.text, ts: r.created_at });
+      });
+    }),
+    sb.query('recipes', { limit: 500 }).then(recipes => {
+      D.recipes = (recipes||[]).filter(r => r.activated_at);
+    }),
+    sb.query('recipe_ingredients', { limit: 5000 }).then(recIngs => {
+      D.recipeIngredients = {};
+      (recIngs||[]).forEach(ri => {
+        if (!D.recipeIngredients[ri.recipe_id]) D.recipeIngredients[ri.recipe_id] = [];
+        D.recipeIngredients[ri.recipe_id].push({
+          name: ri.name, amount: ri.amount, ingredientId: ri.ingredient_id, subType: ri.sub_type || 'other_dry'
+        });
+      });
+    }),
+    sb.query('ingredients', { limit: QUERY_LIMIT_PRODUCTS }).then(ings => {
+      D.ingredients = (ings||[]).map(i => ({
+        id: i.id, name: i.name, category: i.category, subType: i.sub_type,
+        minStockOverrideG: i.min_stock_override_g, minStockAutoG: i.min_stock_auto_g,
+        maxStockOverrideG: i.max_stock_override_g, maxStockAutoG: i.max_stock_auto_g
+      }));
+    }),
+    sb.query('ingredient_batches', { limit: 2000 }).then(batches => {
+      D.ingredientBatches = batches || [];
+    }),
+    sb.query('baking_calendar', { limit: 200 }).then(cal => {
+      D.bakingCalendar = {};
+      (cal||[]).forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        D.bakingCalendar[k] = { extra: r.extra_dates || [], removed: r.removed_dates || [] };
+      });
+    }),
+  ];
+  const results = await Promise.allSettled(tasks);
+  results.forEach((r, idx) => {
+    if (r.status === 'rejected') console.error(`loadAllData task ${idx}:`, r.reason?.message || r.reason);
+  });
 
-  // v2.26.0: Load ingredients (for stock check on baking list)
-  try {
-    const ings = await sb.query('ingredients', { limit: 500 });
-    D.ingredients = (ings||[]).map(i => ({
-      id: i.id, name: i.name, category: i.category, subType: i.sub_type,
-      minStockOverrideG: i.min_stock_override_g, minStockAutoG: i.min_stock_auto_g,
-      maxStockOverrideG: i.max_stock_override_g, maxStockAutoG: i.max_stock_auto_g
-    }));
-  } catch(e) { D.ingredients = []; console.error('loadAllData [ingredients]:', e.message); }
-
-  // v2.26.0: Load ingredient_batches (FIFO stock)
-  try {
-    const batches = await sb.query('ingredient_batches', { limit: 2000 });
-    D.ingredientBatches = batches || [];
-  } catch(e) { D.ingredientBatches = []; console.error('loadAllData [ingredient_batches]:', e.message); }
-
-  try {
-    const cal = await sb.query('baking_calendar', { limit: 200 });
-    D.bakingCalendar = {};
-    (cal||[]).forEach(r => {
-      const k = `${r.year}-${r.month}`;
-      D.bakingCalendar[k] = { extra: r.extra_dates || [], removed: r.removed_dates || [] };
-    });
-  } catch(e) { console.error('loadAllData [baking_calendar]:', e.message); }
-
+  // Settings still sequential (small and depend on each other potentially)
   try {
     const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery', 'admin_seen_msgs'];
-    for (const key of settingKeys) {
-      try {
-        const val = await sb.getSetting(key);
-        if (val !== null) {
-          if (key === 'baking_days_default') D.bakingDaysDefault = val;
-          else if (key === 'categories') D.categories = val;
-          else if (key === 'lang') D.settings.lang = val;
-          else if (key === 'currency') D.settings.currency = val;
-          else if (key === 'help_conditions') D.helpConditions = val;
-          else if (key === 'help_delivery') D.helpDelivery = val;
-          else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
-        }
-      } catch(e) { console.error('loadAllData [settings:'+key+']:', e.message); }
-    }
+    const settingTasks = settingKeys.map(key => sb.getSetting(key).then(val => ({ key, val })));
+    const settingResults = await Promise.allSettled(settingTasks);
+    settingResults.forEach(r => {
+      if (r.status !== 'fulfilled' || r.value.val === null) return;
+      const { key, val } = r.value;
+      if (key === 'baking_days_default') D.bakingDaysDefault = val;
+      else if (key === 'categories') D.categories = val;
+      else if (key === 'lang') D.settings.lang = val;
+      else if (key === 'currency') D.settings.currency = val;
+      else if (key === 'help_conditions') D.helpConditions = val;
+      else if (key === 'help_delivery') D.helpDelivery = val;
+      else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
+    });
   } catch(e) { console.error('loadAllData [settings]:', e.message); }
 
   localStorage.setItem('kerek_admin_data', JSON.stringify(D));
@@ -248,18 +229,25 @@ function initApp(){
 
   // ===== SUPABASE REALTIME (instant push when available) =====
   const LIVE_TABLES = ['orders','messages','clients','products','monthly_active_products','order_status','ingredient_batches'];
-  sb.subscribe(LIVE_TABLES, async ({ table, event }) => {
-    try {
-      await loadAllData();
-      updateMsgBadge();
-      if (typeof updatePendingBadge === 'function') updatePendingBadge();
-      const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-      RENDERS[activeView]?.();
-      if (table === 'messages' && event === 'INSERT' && activeView !== 'messages') {
-        const badge = document.getElementById('msg-badge');
-        if (badge) { badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = 'pulse 0.6s 3'; }
-      }
-    } catch(e) {}
+  // C5 fix: Debounce realtime callback to coalesce bulk inserts (was N× loadAllData per N events)
+  let _wsDebounceTimer = null;
+  let _wsLastEvent = null;
+  sb.subscribe(LIVE_TABLES, ({ table, event }) => {
+    _wsLastEvent = { table, event };
+    if (_wsDebounceTimer) clearTimeout(_wsDebounceTimer);
+    _wsDebounceTimer = setTimeout(async () => {
+      try {
+        await loadAllData();
+        updateMsgBadge();
+        if (typeof updatePendingBadge === 'function') updatePendingBadge();
+        const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+        RENDERS[activeView]?.();
+        if (_wsLastEvent?.table === 'messages' && _wsLastEvent?.event === 'INSERT' && activeView !== 'messages') {
+          const badge = document.getElementById('msg-badge');
+          if (badge) { badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = 'pulse 0.6s 3'; }
+        }
+      } catch(e) {}
+    }, REALTIME_DEBOUNCE_MS);
   });
 
   // v2.26.0: Unified 30s polling (always runs, Page Visibility aware)

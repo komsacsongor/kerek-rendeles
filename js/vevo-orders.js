@@ -224,7 +224,15 @@ function pivotChangeQty(day, pid, delta) {
   const current = appData.orders[key][pid] || 0;
   const newVal = Math.max(0, current + delta);
   if (newVal > 0) appData.orders[key][pid] = newVal;
-  else delete appData.orders[key][pid];
+  else {
+    delete appData.orders[key][pid];
+    // C3 fix: Delete from Supabase immediately on qty=0 (prevent data corruption)
+    if (current > 0) {
+      sb.delete('orders',
+        `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
+      ).catch(e => console.warn('qty0 delete:', e.message));
+    }
+  }
   if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
   // Re-render the pivot fully (cheaper than surgical update; only ~150 cells)
   renderProductPivot();
@@ -429,7 +437,7 @@ function openPdfSummary() {
   if(!bodyHtml){ toast('Nincs rendelés a megjelenítéshez!'); return; }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>KEREK Rendeles ${currentUser.name} ${selectedYear}</title>
+  <title>KEREK Rendeles ${esc(currentUser.name)} ${selectedYear}</title>
   <style>
     body{font-family:Arial,sans-serif;max-width:720px;margin:30px auto;color:#1A2E31;font-size:13px}
     @media print{body{margin:10px}.no-print{display:none}}
@@ -441,7 +449,7 @@ function openPdfSummary() {
   </div>
   <img src="https://komsacsongor.github.io/kerek-rendeles/img/logo_teal_vert.png" style="height:60px;margin-bottom:8px" alt="KEREK">
   <h2 style="color:#064C48;margin:0 0 4px">Rendelés összesítő – ${selectedYear}</h2>
-  <p style="color:#666;font-size:12px;margin-bottom:16px">Vevő: <b>${currentUser.name}</b> &nbsp;|&nbsp; Generálva: ${new Date().toLocaleDateString('hu-HU')}</p>
+  <p style="color:#666;font-size:12px;margin-bottom:16px">Vevő: <b>${esc(currentUser.name)}</b> &nbsp;|&nbsp; Generálva: ${new Date().toLocaleDateString('hu-HU')}</p>
   ${bodyHtml}
   <table style="width:100%;margin-top:20px;border-collapse:collapse">
     <tr style="background:#064C48;color:white">
@@ -698,7 +706,15 @@ function mobChangeQty(day, pid, delta) {
   const current = appData.orders[key][pid] || 0;
   const newVal = Math.max(0, current + delta);
   if(newVal > 0) appData.orders[key][pid] = newVal;
-  else delete appData.orders[key][pid];
+  else {
+    delete appData.orders[key][pid];
+    // C3 fix: Delete from Supabase immediately on qty=0 (prevent data corruption)
+    if (current > 0) {
+      sb.delete('orders',
+        `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
+      ).catch(e => console.warn('qty0 delete:', e.message));
+    }
+  }
   if(Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
 
   // Update display

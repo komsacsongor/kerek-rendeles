@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.28.0';
+const CACHE_NAME = 'kerek-v2.29.0';
 const CACHE_URLS = [
   '/kerek-rendeles/vevo.html',
   '/kerek-rendeles/kerek-styles.css',
@@ -30,22 +30,24 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch: network-first, fallback to cache
+// Fetch: network-first, fallback to cache (with 5xx safety)
 self.addEventListener('fetch', event => {
   // Skip Supabase API calls – always network
   if (event.request.url.includes('supabase.co')) return;
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
 
   event.respondWith(
     fetch(event.request)
       .then(res => {
+        // H7 fix: if server returned 5xx, treat as failure and use cache
+        if (!res || !res.ok) throw new Error('Network response not ok: ' + (res?.status || 'unknown'));
         // Cache successful GET responses
-        if (res.ok && event.request.method === 'GET') {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return res;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request).then(cached => cached || new Response('Offline', { status: 503 })))
   );
 });
 
