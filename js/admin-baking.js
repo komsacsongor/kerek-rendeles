@@ -465,29 +465,58 @@ function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
   if(!D.bakingCalendar[key]) D.bakingCalendar[key]={extra:[],removed:[]};
   const cal=D.bakingCalendar[key];
 
+  // v2.28.0: track the event type for optional broadcast push
+  let pushTitle = null, pushBody = null;
+  const dateLabel = formatDateForPush(dateStr);
+
   if(isDefault && !isRemoved){
-    // Default baking day → remove it
     cal.removed.push(dateStr);
     toast('Nap kihagyva – nem lesz sütés ezen a napon.');
+    pushTitle = '⚠️ Elmarad a sütés';
+    pushBody = `${dateLabel} - nem lesz sütés ezen a napon.`;
   } else if(isDefault && isRemoved){
-    // Removed default → restore
     cal.removed=cal.removed.filter(d=>d!==dateStr);
     toast('Nap visszaállítva – ismét sütési nap.');
+    pushTitle = '🔥 Sütési nap visszaállítva';
+    pushBody = `${dateLabel} - ismét sütési nap.`;
   } else if(isExtra){
-    // Extra → remove extra
     cal.extra=cal.extra.filter(d=>d!==dateStr);
     toast('Extra sütési nap eltávolítva.');
+    pushTitle = '⚠️ Elmarad a sütés';
+    pushBody = `${dateLabel} - extra sütési nap eltávolítva.`;
   } else {
-    // Normal day → add as extra
     cal.extra.push(dateStr);
     toast('Extra sütési nap hozzáadva! 🎉');
+    pushTitle = '🔥 Új sütési nap';
+    pushBody = `${dateLabel} - extra sütési nap.`;
   }
   save();
-  // Supabase sync
   const [calY, calM] = key.split('-').map(Number);
   sb.upsert('baking_calendar',{year:calY,month:calM,extra_dates:cal.extra,removed_dates:cal.removed}, 'year,month')
     .then(()=>console.log('Cal saved OK:', {extra:cal.extra,removed:cal.removed}))
     .catch(e=>{ console.error('cal save err:', e.message); toast('⚠️ Naptár mentés sikertelen: '+e.message, true); });
   renderBakingCalendar();
+
+  // v2.28.0: Ask admin if they want to broadcast a push notification
+  if (pushTitle && typeof sendPushBroadcast === 'function') {
+    setTimeout(() => {
+      if (confirm(`Küldjek push értesítést a vevőknek?\n\n"${pushTitle}"\n${pushBody}`)) {
+        sendPushBroadcast('baking_day', pushTitle, pushBody, 'all').then(r => {
+          toast(`✅ Push elküldve ${r.sent}/${r.total} vevőnek.`);
+        });
+      }
+    }, 200);
+  }
+}
+
+// Helper: format date string (YYYY-MM-DD) for push notification body
+function formatDateForPush(dateStr) {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const DAYS = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+    const MONTHS_HU = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+    return `${MONTHS_HU[m-1]} ${d}. (${DAYS[dt.getDay()]})`;
+  } catch(e) { return dateStr; }
 }
 

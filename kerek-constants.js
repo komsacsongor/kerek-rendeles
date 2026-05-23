@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.27.0 (2026-05-22)';
+const APP_VERSION = 'v2.28.0 (2026-05-23)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -77,6 +77,52 @@ async function sendPushToClient(clientId, type, title, body) {
       body: JSON.stringify({ client_id: clientId, type, title, body, url: '/kerek-rendeles/vevo.html' })
     });
   } catch(e) { console.warn('Push send failed:', e.message); }
+}
+
+// v2.28.0: Broadcast push to multiple clients
+// filter: 'all' (default - all non-deleted clients), 'active' (clients with orders in last 90d), or array of clientIds
+// Returns { sent, failed } counts
+async function sendPushBroadcast(type, title, body, filter) {
+  filter = filter || 'all';
+  let clientIds = [];
+  try {
+    if (Array.isArray(filter)) {
+      clientIds = filter;
+    } else if (filter === 'active') {
+      // Active = had at least one order in last 90 days
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+      const cutoffStr = cutoff.toISOString();
+      const recentOrders = await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/orders?created_at=gte.${cutoffStr}&select=client_id`, {
+        headers: { 'apikey': PUSH_ANON, 'Authorization': 'Bearer ' + PUSH_ANON }
+      }).then(r => r.json());
+      clientIds = [...new Set((recentOrders||[]).map(o => o.client_id))];
+    } else {
+      // All non-deleted/non-pending clients
+      const allClients = await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/clients?select=id,name`, {
+        headers: { 'apikey': PUSH_ANON, 'Authorization': 'Bearer ' + PUSH_ANON }
+      }).then(r => r.json());
+      clientIds = (allClients||[])
+        .filter(c => !(c.name||'').startsWith('[DELETED]') && !(c.name||'').startsWith('[PENDING]'))
+        .map(c => c.id);
+    }
+  } catch(e) {
+    console.warn('Broadcast client lookup failed:', e.message);
+    return { sent: 0, failed: 0 };
+  }
+
+  // Parallel push to all clients
+  const results = await Promise.allSettled(
+    clientIds.map(cid => sendPushToClient(cid, type, title, body))
+  );
+  const sent = results.filter(r => r.status === 'fulfilled').length;
+  const failed = results.length - sent;
+
+  // Audit log
+  try {
+    await auditLog('push_broadcast', title, `Type: ${type}, Cél: ${filter}, Küldve: ${sent}/${clientIds.length}, Szöveg: ${body.substring(0, 100)}`);
+  } catch(e) {}
+
+  return { sent, failed, total: clientIds.length };
 }
 
 // ===== UNIFIED POLLING (Page Visibility-aware) =====

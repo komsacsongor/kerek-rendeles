@@ -27,7 +27,8 @@ const RENDERS = {
   dashboard:()=>renderDashboard(),'admin-help':()=>renderAdminHelp(), messages:()=>renderMessages(), baking:()=>renderBaking(),
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
-  export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); }
+  export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); },
+  push:()=>renderPushBroadcast()
 };
 function updatePendingBadge() {
   var pendingClients = 0;
