@@ -43,12 +43,6 @@ function getFifoPrice(ing) {
   }
   return 0;
 }
-// Get current effective price per gram (FIFO)
-function getIngPricePerG(ingId) {
-  const ing = getIng(ingId);
-  if (!ing) return 0;
-  return getFifoPrice(ing);
-}
 
 // Determine ingredient display category
 function getIngSubType(ing) {
@@ -94,9 +88,6 @@ function calcRefill(starterTaken) {
     flour: Math.round(starterTaken * s.flour / 100),
     water: Math.round(starterTaken * s.water / 100),
   };
-}
-function scaleIngredient(baseAmount, basePortion, targetRaw) {
-  return Math.round(baseAmount * targetRaw / basePortion * 10) / 10;
 }
 function calcIngCost(ingId, amount) {
   const ing = getIng(ingId);
@@ -296,7 +287,7 @@ async function calcAutoMinMax() {
   }
 
   if (updates.length > 0) {
-    console.log(`Auto min/max frissítve: ${updates.length} alapanyag`);
+    debugLog(`Auto min/max frissítve: ${updates.length} alapanyag`);
     // Re-render stock if visible
     if(typeof renderStock === 'function') renderStock();
     if(typeof renderStockAlerts === 'function') renderStockAlerts();

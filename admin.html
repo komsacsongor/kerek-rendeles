@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.32.0"></script>
-<script src="supabase.js?v=2.32.0"></script>
+<script src="kerek-constants.js?v=2.33.0"></script>
+<script src="supabase.js?v=2.33.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -305,7 +305,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       <label>Admin jelszó</label>
       <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Belépés →</button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" data-action="doLogin">Belépés →</button>
     <div id="login-error" class="login-error"></div>
     <div id="login-version" style="text-align:center;margin-top:16px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px"><script>document.currentScript.parentElement.textContent=APP_VERSION</script></div>
   </div>
@@ -322,42 +322,42 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <div class="nav-section">
     <div class="nav-section-label">Áttekintő</div>
-    <button class="nav-item active" onclick="nav('dashboard')"><span class="icon">📊</span>Dashboard</button>
-    <button class="nav-item" onclick="nav('messages')"><span class="icon">💬</span>Üzenetek <span id="msg-badge" style="margin-left:auto;background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:700;display:none"></span></button>
+    <button class="nav-item active" data-action="nav" data-arg1="dashboard"><span class="icon">📊</span>Dashboard</button>
+    <button class="nav-item" data-action="nav" data-arg1="messages"><span class="icon">💬</span>Üzenetek <span id="msg-badge" style="margin-left:auto;background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:700;display:none"></span></button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Rendelések</div>
-    <button class="nav-item" onclick="nav('baking')"><span class="icon">🔥</span>Sütési lista</button>
-    <button class="nav-item" onclick="nav('orders')"><span class="icon">📋</span>Összesítő</button>
+    <button class="nav-item" data-action="nav" data-arg1="baking"><span class="icon">🔥</span>Sütési lista</button>
+    <button class="nav-item" data-action="nav" data-arg1="orders"><span class="icon">📋</span>Összesítő</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Törzsadatok</div>
-    <button class="nav-item" onclick="nav('catalog')"><span class="icon">📦</span>Termékkatalógus</button>
-    <button class="nav-item" onclick="nav('clients')"><span class="icon">👥</span>Kliensek</button>
+    <button class="nav-item" data-action="nav" data-arg1="catalog"><span class="icon">📦</span>Termékkatalógus</button>
+    <button class="nav-item" data-action="nav" data-arg1="clients"><span class="icon">👥</span>Kliensek</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Elemzések</div>
-    <button class="nav-item" onclick="nav('reports')"><span class="icon">📈</span>Kimutatások</button>
-    <button class="nav-item" onclick="nav('export')"><span class="icon">📤</span>Export</button>
-    <button class="nav-item" onclick="nav('categories')"><span class="icon">🏷</span>Kategória bontás</button>
+    <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📈</span>Kimutatások</button>
+    <button class="nav-item" data-action="nav" data-arg1="export"><span class="icon">📤</span>Export</button>
+    <button class="nav-item" data-action="nav" data-arg1="categories"><span class="icon">🏷</span>Kategória bontás</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Modulok</div>
-    <button class="nav-item" onclick="nav('push')"><span class="icon">📢</span>Push üzenet</button>
+    <button class="nav-item" data-action="nav" data-arg1="push"><span class="icon">📢</span>Push üzenet</button>
     <a class="nav-item" href="receptura.html" target="_blank"><span class="icon">📋</span>Receptúra modul</a>
-    <button class="nav-item" onclick="nav('admin-help')"><span class="icon">❓</span>Súgó</button>
-    <button class="nav-item" onclick="openVevoPreview()"><span class="icon">👤</span>Vevői nézet</button>
+    <button class="nav-item" data-action="nav" data-arg1="admin-help"><span class="icon">❓</span>Súgó</button>
+    <button class="nav-item" data-action="openVevoPreview"><span class="icon">👤</span>Vevői nézet</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Rendszer</div>
-    <button class="nav-item" onclick="nav('settings')"><span class="icon">⚙️</span>Beállítások</button>
-    <button class="nav-item" onclick="nav('audit-log')"><span class="icon">📋</span>Napló</button>
+    <button class="nav-item" data-action="nav" data-arg1="settings"><span class="icon">⚙️</span>Beállítások</button>
+    <button class="nav-item" data-action="nav" data-arg1="audit-log"><span class="icon">📋</span>Napló</button>
   </div>
 
   <div class="sidebar-footer">
     <div class="admin-badge">👩‍💼 Admin belépve</div>
-    <button id="btn-refresh-all" onclick="refreshAll()" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:all 0.2s">🔄 Frissítés</button>
-    <button class="btn-logout" onclick="logout()">Kilépés</button>
+    <button id="btn-refresh-all" data-action="refreshAll" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:all 0.2s">🔄 Frissítés</button>
+    <button class="btn-logout" data-action="logout">Kilépés</button>
   </div>
 </aside>
 
@@ -439,12 +439,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       <div class="month-row" id="catalog-month-sel" style="margin:0"></div>
       <div style="flex:1"></div>
       <div class="flex gap-8">
-        <button class="btn btn-ghost btn-sm" id="catalog-tab-products" onclick="switchCatalogTab('products')" style="border-bottom:2px solid var(--teal-dark)">📦 Termékek</button>
-        <button class="btn btn-ghost btn-sm" id="catalog-tab-families" onclick="switchCatalogTab('families')">🔗 Termékcsaládok</button>
-        <button class="btn btn-ghost btn-sm" id="catalog-tab-archive" onclick="switchCatalogTab('archive')">🗂️ Archívum</button>
-        <button class="btn btn-ghost btn-sm" onclick="refreshCatalog()" title="Frissítés Supabase-ből" style="margin-left:auto">🔄 Frissítés</button>
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-products" data-action="switchCatalogTab" data-arg1="products" style="border-bottom:2px solid var(--teal-dark)">📦 Termékek</button>
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-families" data-action="switchCatalogTab" data-arg1="families">🔗 Termékcsaládok</button>
+        <button class="btn btn-ghost btn-sm" id="catalog-tab-archive" data-action="switchCatalogTab" data-arg1="archive">🗂️ Archívum</button>
+        <button class="btn btn-ghost btn-sm" data-action="refreshCatalog" title="Frissítés Supabase-ből" style="margin-left:auto">🔄 Frissítés</button>
       </div>
-      <button class="btn btn-primary" onclick="openProductModal()">＋ Új termék</button>
+      <button class="btn btn-primary" data-action="openProductModal">＋ Új termék</button>
     </div>
     <!-- Termékek nézet -->
     <div id="catalog-products-view">
@@ -477,8 +477,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <!-- ===== CLIENTS ===== -->
   <div id="view-clients" class="view">
     <div class="flex gap-12 mb-20">
-      <button class="btn btn-primary" onclick="openClientModal()">＋ Új kliens</button>
-      <button class="btn btn-ghost" onclick="showRegLink()">🔗 Meghívó link generálása</button>
+      <button class="btn btn-primary" data-action="openClientModal">＋ Új kliens</button>
+      <button class="btn btn-ghost" data-action="showRegLink">🔗 Meghívó link generálása</button>
     </div>
     <div id="clients-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
   </div>
@@ -486,14 +486,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <!-- CLIENT DETAIL (sub-view) -->
   <div id="view-client-detail" class="view">
     <div class="flex gap-12 items-center mb-20">
-      <button class="btn btn-ghost btn-sm" onclick="nav('clients')">← Vissza</button>
+      <button class="btn btn-ghost btn-sm" data-action="nav" data-arg1="clients">← Vissza</button>
       <div style="font-family:'Fraunces',serif;font-size:1.2rem;color:var(--teal-dark)" id="client-detail-name"></div>
     </div>
     <div class="grid-3 mb-20" id="client-detail-stats"></div>
     <div class="flex gap-10 mb-16 flex-wrap" id="client-detail-period-btns">
-      <button class="btn btn-sm btn-primary" onclick="setClientPeriod('monthly')">Havi</button>
-      <button class="btn btn-sm btn-ghost" onclick="setClientPeriod('weekly')">Heti</button>
-      <button class="btn btn-sm btn-ghost" onclick="setClientPeriod('yearly')">Éves</button>
+      <button class="btn btn-sm btn-primary" data-action="setClientPeriod" data-arg1="monthly">Havi</button>
+      <button class="btn btn-sm btn-ghost" data-action="setClientPeriod" data-arg1="weekly">Heti</button>
+      <button class="btn btn-sm btn-ghost" data-action="setClientPeriod" data-arg1="yearly">Éves</button>
     </div>
     <div class="grid-2" style="margin-bottom:20px">
       <div class="card">
@@ -514,7 +514,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <!-- ===== REPORTS ===== -->
   <div id="view-reports" class="view">
   <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-    <button class="btn btn-ghost btn-sm" onclick="toggleAnnualSummary()" id="annual-toggle-btn">📊 Éves összesítő</button>
+    <button class="btn btn-ghost btn-sm" data-action="toggleAnnualSummary" id="annual-toggle-btn">📊 Éves összesítő</button>
   </div>
   <div id="annual-summary" style="display:none" class="mb-20"></div>
     <div class="month-row" id="reports-month-sel"></div>
@@ -569,7 +569,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div class="card-head"><div class="card-title">👥 Vevők exportálása</div></div>
         <div class="card-body">
           <p class="text-sm text-soft mb-16">Az összes regisztrált vevő neve, elérhetősége, csatlakozás dátuma és összesített rendelési adatai.</p>
-          <button class="btn btn-primary" onclick="exportClients()">⬇ Vevők letöltése (CSV)</button>
+          <button class="btn btn-primary" data-action="exportClients">⬇ Vevők letöltése (CSV)</button>
         </div>
       </div>
       <div class="card">
@@ -577,7 +577,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div class="card-body">
           <p class="text-sm text-soft mb-16">A kiválasztott hónap összes sütési napjának terméklista összesítője.</p>
           <div class="month-row" id="export-baking-month-sel" style="margin-bottom:14px"></div>
-          <button class="btn btn-primary" onclick="exportBakingList()">⬇ Sütési lista letöltése (CSV)</button>
+          <button class="btn btn-primary" data-action="exportBakingList">⬇ Sütési lista letöltése (CSV)</button>
         </div>
       </div>
     </div>
@@ -588,8 +588,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
           <p class="text-sm text-soft mb-16">A kiválasztott hónap összes rendelése vevőnként és naponként bontva.</p>
           <div class="month-row" id="export-orders-month-sel" style="margin-bottom:14px"></div>
           <div class="flex gap-10 flex-wrap">
-            <button class="btn btn-primary" onclick="exportOrders()">⬇ Rendelések letöltése (CSV)</button>
-            <button class="btn btn-ghost" onclick="exportOrdersDetailed()">⬇ Részletes export (CSV)</button>
+            <button class="btn btn-primary" data-action="exportOrders">⬇ Rendelések letöltése (CSV)</button>
+            <button class="btn btn-ghost" data-action="exportOrdersDetailed">⬇ Részletes export (CSV)</button>
           </div>
         </div>
       </div>
@@ -598,7 +598,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div class="card-body">
           <p class="text-sm text-soft mb-16">Havi összesítő: forgalom, top termékek, kategória bontás.</p>
           <div class="month-row" id="export-report-month-sel" style="margin-bottom:14px"></div>
-          <button class="btn btn-primary" onclick="exportReport()">⬇ Kimutatás letöltése (CSV)</button>
+          <button class="btn btn-primary" data-action="exportReport">⬇ Kimutatás letöltése (CSV)</button>
         </div>
       </div>
     </div>
@@ -606,7 +606,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       <div class="card-head"><div class="card-title">📊 Teljes adatbázis export</div></div>
       <div class="card-body">
         <p class="text-sm text-soft mb-16">Az összes adat egy ZIP fájlban – termékek, vevők, rendelések, beállítások. Biztonsági mentéshez is használható.</p>
-        <button class="btn btn-gold" onclick="exportAll()">⬇ Teljes export (JSON – biztonsági mentés)</button>
+        <button class="btn btn-gold" data-action="exportAll">⬇ Teljes export (JSON – biztonsági mentés)</button>
       </div>
     </div>
   </div>
@@ -652,7 +652,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
             <input type="password" id="s-new-pw2" placeholder="••••••••">
           </div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="changePassword()">Jelszó módosítása</button>
+        <button class="btn btn-primary btn-sm" data-action="changePassword">Jelszó módosítása</button>
       </div>
     </div>
 
@@ -662,7 +662,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div id="categories-list" class="mb-16"></div>
         <div class="flex gap-10">
           <input type="text" id="new-cat-input" placeholder="Új kategória neve..." style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none;flex:1">
-          <button class="btn btn-primary btn-sm" onclick="addCategory()">＋ Hozzáadás</button>
+          <button class="btn btn-primary btn-sm" data-action="addCategory">＋ Hozzáadás</button>
         </div>
       </div>
     </div>
@@ -678,7 +678,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
           <label>Szállítás / Átvétel infók</label>
           <textarea id="s-delivery" rows="4" placeholder="Pl. Átvételi pont, kiszállítás feltételei, stb."></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveHelpTexts()">Mentés</button>
+        <button class="btn btn-primary btn-sm" data-action="saveHelpTexts">Mentés</button>
       </div>
     </div>
 
@@ -741,7 +741,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <div class="modal">
     <div class="modal-head">
       <h3 id="pm-title">Új termék</h3>
-      <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+      <button class="modal-close" data-action="closeModal" data-arg1="product-modal">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -803,7 +803,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div id="p-image-preview" style="display:none;position:relative;margin-bottom:10px">
           <img id="p-image-preview-img" src="" alt="Előnézet"
             style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border)">
-          <button onclick="clearProductImage()" type="button"
+          <button data-action="clearProductImage" type="button"
             style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.78rem">✕ Törlés</button>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -821,8 +821,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div style="color:var(--text-soft)">A recept adatai a Receptúra modulban szerkeszthetők.</div>
       </div>
       <div class="flex gap-10">
-        <button class="btn btn-ghost" onclick="closeModal('product-modal')">Mégse</button>
-        <button class="btn btn-primary" onclick="saveProduct()">Mentés</button>
+        <button class="btn btn-ghost" data-action="closeModal" data-arg1="product-modal">Mégse</button>
+        <button class="btn btn-primary" data-action="saveProduct">Mentés</button>
       </div>
     </div>
   </div>
@@ -833,7 +833,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <div class="modal" style="max-width:560px">
     <div class="modal-head">
       <h3>Új kliens</h3>
-      <button class="modal-close" onclick="closeModal('client-modal')">✕</button>
+      <button class="modal-close" data-action="closeModal" data-arg1="client-modal">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -845,8 +845,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
           <label>Belépési kód *</label>
           <div style="display:flex;gap:6px;align-items:center">
             <input type="text" id="c-id" placeholder="KR-A7X2-9M4P" style="flex:1;font-family:monospace;font-size:0.88rem">
-            <button class="btn btn-gold btn-sm" type="button" onclick="generateClientCode()" title="Generálás">🔄</button>
-            <button class="btn btn-ghost btn-sm" type="button" onclick="copyClientCode()" title="Másolás">📋</button>
+            <button class="btn btn-gold btn-sm" type="button" data-action="generateClientCode" title="Generálás">🔄</button>
+            <button class="btn btn-ghost btn-sm" type="button" data-action="copyClientCode" title="Másolás">📋</button>
           </div>
         </div>
       </div>
@@ -865,8 +865,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <input type="text" id="c-note" placeholder="pl. Gyergyószentmiklós, minden kedden vesz át">
       </div>
       <div class="flex gap-10">
-        <button class="btn btn-ghost" onclick="closeModal('client-modal')">Mégse</button>
-        <button class="btn btn-primary" onclick="saveClient()">Mentés</button>
+        <button class="btn btn-ghost" data-action="closeModal" data-arg1="client-modal">Mégse</button>
+        <button class="btn btn-primary" data-action="saveClient">Mentés</button>
       </div>
     </div>
   </div>
@@ -880,7 +880,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <div style="font-family:'Fraunces',serif;color:var(--gold-light);font-size:0.95rem;font-weight:400;font-style:italic">Vevői felület – előnézet</div>
         <div style="font-size:0.72rem;color:var(--teal-light);margin-top:2px">Válassz egy vevőt az előnézethez</div>
       </div>
-      <button class="modal-close" onclick="closeModal('vevo-preview-modal')">✕</button>
+      <button class="modal-close" data-action="closeModal" data-arg1="vevo-preview-modal">✕</button>
     </div>
     <div style="background:var(--teal-pale);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--border)">
       <label style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);white-space:nowrap">Vevő:</label>
@@ -898,8 +898,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       </div>
     </div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0">
-      <button class="btn btn-ghost btn-sm" onclick="openVevoFullscreen()" style="flex:1;justify-content:center">🔗 Külön ablakban</button>
-      <button class="btn btn-primary btn-sm" onclick="closeModal('vevo-preview-modal')" style="flex:1;justify-content:center">Bezárás</button>
+      <button class="btn btn-ghost btn-sm" data-action="openVevoFullscreen" style="flex:1;justify-content:center">🔗 Külön ablakban</button>
+      <button class="btn btn-primary btn-sm" data-action="closeModal" data-arg1="vevo-preview-modal" style="flex:1;justify-content:center">Bezárás</button>
     </div>
   </div>
 </div>
@@ -907,16 +907,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 <div id="view-push" class="view"></div>
 <div id="toast"></div></div>
 
-<script src="js/admin-data.js?v=2.32.0"></script>
-<script src="js/admin-ui.js?v=2.32.0"></script>
-<script src="js/admin-messages.js?v=2.32.0"></script>
-<script src="js/admin-baking.js?v=2.32.0"></script>
-<script src="js/admin-orders.js?v=2.32.0"></script>
-<script src="js/admin-catalog.js?v=2.32.0"></script>
-<script src="js/admin-clients.js?v=2.32.0"></script>
-<script src="js/admin-reports.js?v=2.32.0"></script>
-<script src="js/admin-help.js?v=2.32.0"></script>
-<script src="js/admin-push.js?v=2.32.0"></script>
-  <script src="js/admin-settings.js?v=2.32.0"></script>
+<script src="js/admin-data.js?v=2.33.0"></script>
+<script src="js/admin-ui.js?v=2.33.0"></script>
+<script src="js/admin-messages.js?v=2.33.0"></script>
+<script src="js/admin-baking.js?v=2.33.0"></script>
+<script src="js/admin-orders.js?v=2.33.0"></script>
+<script src="js/admin-catalog.js?v=2.33.0"></script>
+<script src="js/admin-clients.js?v=2.33.0"></script>
+<script src="js/admin-reports.js?v=2.33.0"></script>
+<script src="js/admin-help.js?v=2.33.0"></script>
+<script src="js/admin-push.js?v=2.33.0"></script>
+  <script src="js/admin-settings.js?v=2.33.0"></script>
 </body>
 </html>

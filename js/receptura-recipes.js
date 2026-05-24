@@ -314,20 +314,6 @@ function changeScale(delta) {
   renderRecipeDetail();
 }
 
-function toggleArchivedSection(btn) {
-  const sec = document.getElementById('archived-recipes-section');
-  if(!sec) return;
-  const visible = sec.style.display !== 'none' && sec.innerHTML !== '';
-  if(visible) {
-    sec.style.display = 'none';
-    btn.style.color = 'var(--text-soft)';
-  } else {
-    renderArchivedRecipes();
-    sec.style.display = 'block';
-    btn.style.color = 'var(--teal)';
-    btn.style.fontWeight = '600';
-  }
-}
 
 function renderArchivView() {
   const archived = R.recipes.filter(r => r.archived);

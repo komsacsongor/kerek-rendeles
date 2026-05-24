@@ -159,7 +159,6 @@ function renderArchive() {
   }).join('');
 }
 
-function deleteProduct(id) { archiveProduct(id); }
 
 
 function openProductModal(id=null){

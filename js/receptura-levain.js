@@ -1,22 +1,3 @@
-// ===== LEVAIN DAILY =====
-function getBakingDaysRange(fromDate, numDays) {
-  const bakingDef = (R.settings && R.settings.bakingDaysDefault) || JSON.parse(localStorage.getItem('kerek_admin_data') || '{}').bakingDaysDefault || DEFAULT_BAKING_DAYS;
-  const result = [];
-  const d = new Date(fromDate);
-  d.setHours(0,0,0,0);
-  for(let i = 0; i < numDays; i++) {
-    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
-    // Build date string using LOCAL date parts (no UTC conversion)
-    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const cal = (JSON.parse(localStorage.getItem('kerek_admin_data')||'{}').bakingCalendar||{})[`${y}-${m}`] || {extra:[],removed:[]};
-    const isDefault = bakingDef.includes(d.getDay());
-    const isExtra = cal.extra?.includes(ds);
-    const isRemoved = cal.removed?.includes(ds);
-    if((isDefault || isExtra) && !isRemoved) result.push(new Date(d));
-    d.setDate(d.getDate()+1);
-  }
-  return result;
-}
 
 let _levainSelectedMonth = null;
 

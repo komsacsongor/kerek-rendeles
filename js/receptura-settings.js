@@ -161,7 +161,7 @@ async function syncRecipeToSupabase(data, existingId) {
       }
     }
 
-    console.log(`✅ Recept Supabase-be mentve: ${data.name}`);
+    debugLog(`✅ Recept Supabase-be mentve: ${data.name}`);
   } catch(e) {
     console.error('syncRecipeToSupabase error:', e);
     toast('⚠️ Supabase mentés sikertelen: '+e.message);

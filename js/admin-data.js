@@ -52,7 +52,6 @@ async function save() {
 
 
 async function loadAllData() {
-  localStorage.removeItem('kerek_data'); // legacy kulcs törlése
   // H4 fix: parallel queries via Promise.allSettled (was sequential, ~2-3s -> ~400ms)
   const tasks = [
     sb.query('products', { order: 'id', limit: QUERY_LIMIT_PRODUCTS }).then(products => {
@@ -158,7 +157,6 @@ async function loadAllData() {
   } catch(e) { console.error('loadAllData [settings]:', e.message); }
 
   localStorage.setItem('kerek_admin_data', JSON.stringify(D));
-  localStorage.removeItem('kerek_data'); // régi kulcs törlése
 }
 
 // ===== AUTH =====

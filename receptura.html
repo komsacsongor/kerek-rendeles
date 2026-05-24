@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.32.0"></script>
-<script src="supabase.js?v=2.32.0"></script>
+<script src="kerek-constants.js?v=2.33.0"></script>
+<script src="supabase.js?v=2.33.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -285,7 +285,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <label>Jelszó</label>
       <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Belépés →</button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" data-action="doLogin">Belépés →</button>
     <div id="login-error" class="login-error"></div>
     <div style="text-align:center;margin-top:14px;font-size:0.62rem;color:#aaa;font-family:Kodchasan,sans-serif;letter-spacing:1px"><script>document.currentScript.parentElement.textContent=APP_VERSION</script></div>
     <p style="font-size:0.7rem;color:var(--text-soft);margin-top:10px;text-align:center"></p>
@@ -300,29 +300,29 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
   <div class="nav-section">
     <div class="nav-label">Receptúrák</div>
-    <button class="nav-item active" onclick="nav('recipes')"><span class="icon">📋</span>Receptek</button>
-    <button class="nav-item" id="nav-archiv" onclick="nav('archiv')"><span class="icon">🗃</span>Archív receptek</button>
-    <button class="nav-item" onclick="nav('op-select')"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
+    <button class="nav-item active" data-action="nav" data-arg1="recipes"><span class="icon">📋</span>Receptek</button>
+    <button class="nav-item" id="nav-archiv" data-action="nav" data-arg1="archiv"><span class="icon">🗃</span>Archív receptek</button>
+    <button class="nav-item" data-action="nav" data-arg1="op-select"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Alapadatok</div>
-    <button class="nav-item" onclick="nav('stock')"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
-    <button class="nav-item" onclick="nav('settings-r')"><span class="icon">⚙️</span>Beállítások</button>
+    <button class="nav-item" data-action="nav" data-arg1="stock"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
+    <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Gyártás</div>
-    <button class="nav-item" onclick="nav('levain-daily')"><span class="icon">🧫</span>Napi levain igény</button>
-    <button class="nav-item" onclick="nav('processing')"><span class="icon">🏭</span>Malom / Feldolgozás</button>
+    <button class="nav-item" data-action="nav" data-arg1="levain-daily"><span class="icon">🧫</span>Napi levain igény</button>
+    <button class="nav-item" data-action="nav" data-arg1="processing"><span class="icon">🏭</span>Malom / Feldolgozás</button>
     <button class="nav-item" id="nav-exp-bake" onclick="openExperimentalBake(currentRecipeId)" style="color:#b45309"><span class="icon">🧪</span>Kísérleti sütés</button>
-    <button class="nav-item" onclick="nav('production-prep')"><span class="icon">🏭</span>Gyártás előkészítés</button>
+    <button class="nav-item" data-action="nav" data-arg1="production-prep"><span class="icon">🏭</span>Gyártás előkészítés</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
-    <button class="nav-item" onclick="nav('cost-analysis')"><span class="icon">💰</span>Önköltség elemzés</button>
+    <button class="nav-item" data-action="nav" data-arg1="cost-analysis"><span class="icon">💰</span>Önköltség elemzés</button>
   </div>
-    <button class="nav-item" onclick="nav('receptura-help')"><span class="icon">❓</span>Súgó</button>
+    <button class="nav-item" data-action="nav" data-arg1="receptura-help"><span class="icon">❓</span>Súgó</button>
   <div class="sidebar-footer">
-    <button id="r-btn-refresh" onclick="refreshR()" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif">🔄 Frissítés</button>
+    <button id="r-btn-refresh" data-action="refreshR" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif">🔄 Frissítés</button>
     <button class="btn-back" onclick="window.location.href='index.html'">← Főmenü</button>
   </div>
 </aside>
@@ -337,7 +337,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="flex gap-10 items-center">
       <span id="version-badge" style="font-size:0.62rem;color:var(--text-soft);font-family:Kodchasan,sans-serif;letter-spacing:0.5px;background:var(--bg-soft);padding:2px 8px;border-radius:20px"></span>
       <span id="user-badge" style="font-size:0.78rem;color:var(--text-soft)"></span>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">Kilépés</button>
+      <button class="btn btn-ghost btn-sm" data-action="logout">Kilépés</button>
     </div>
   </div>
   <div class="main-pad">
@@ -346,7 +346,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-recipes" class="view active">
     <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
       <div class="flex gap-10 flex-wrap" id="recipe-filter-btns"></div>
-      <button class="btn btn-primary" onclick="openRecipeModal()">＋ Új recept</button>
+      <button class="btn btn-primary" data-action="openRecipeModal">＋ Új recept</button>
     </div>
     <div id="recipes-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
     <div id="archived-recipes-section" style="display:none"></div>
@@ -355,13 +355,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <!-- ===== RECIPE DETAIL ===== -->
   <div id="view-recipe-detail" class="view">
     <div class="flex gap-10 items-center mb-20">
-      <button class="btn btn-ghost btn-sm" onclick="nav('recipes')">← Vissza</button>
+      <button class="btn btn-ghost btn-sm" data-action="nav" data-arg1="recipes">← Vissza</button>
       <div style="font-family:'Fraunces',serif;font-size:1.2rem;color:var(--teal-dark)" id="detail-title"></div>
       <div style="flex:1"></div>
-      <button class="btn btn-ghost btn-sm" onclick="editCurrentRecipe()">✏️ Szerkesztés</button>
-      <button class="btn btn-ghost btn-sm" onclick="newRecipeVersion()" title="Új verzió létrehozása – megtartja a terméket, archiválja a jelenlegi receptet">📋 Új verzió</button>
-      <button class="btn btn-ghost btn-sm" onclick="printRecipeDatasheet()">🖨️ Adatlap</button>
-      <button class="btn btn-gold btn-sm" onclick="openOpView()">👨‍🍳 Üzemi nézet</button>
+      <button class="btn btn-ghost btn-sm" data-action="editCurrentRecipe">✏️ Szerkesztés</button>
+      <button class="btn btn-ghost btn-sm" data-action="newRecipeVersion" title="Új verzió létrehozása – megtartja a terméket, archiválja a jelenlegi receptet">📋 Új verzió</button>
+      <button class="btn btn-ghost btn-sm" data-action="printRecipeDatasheet">🖨️ Adatlap</button>
+      <button class="btn btn-gold btn-sm" data-action="openOpView">👨‍🍳 Üzemi nézet</button>
       <button class="btn btn-ghost btn-sm" onclick="openExperimentalBake(currentRecipeId)" style="color:#92400e;border-color:#fde68a;background:#fffbeb">🧪 Kísérleti sütés</button>
     </div>
     <div id="version-history-panel" style="display:none"></div>
@@ -370,7 +370,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="scale-control">
       <div class="scale-label">Sütési mennyiség:</div>
       <div class="scale-input-wrap">
-        <button class="scale-btn" onclick="changeScale(-1)">−</button>
+        <button class="scale-btn" data-action="changeScale" data-arg1="-1">−</button>
         <input type="number" class="scale-input" id="scale-pieces" value="10" min="1" onchange="renderRecipeDetail()">
         <span class="scale-unit">db</span>
       </div>
@@ -424,13 +424,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <!-- ===== OPERATIONAL DETAIL ===== -->
   <div id="view-op-detail" class="view">
     <div class="flex gap-10 items-center mb-16">
-      <button class="btn btn-ghost btn-sm" onclick="nav('op-select')">← Vissza</button>
+      <button class="btn btn-ghost btn-sm" data-action="nav" data-arg1="op-select">← Vissza</button>
       <div style="font-family:'Fraunces',serif;font-size:1.1rem;color:var(--teal-dark)" id="op-title"></div>
     </div>
     <div class="scale-control">
       <div class="scale-label">Sütési mennyiség:</div>
       <div class="scale-input-wrap">
-        <button class="scale-btn" onclick="changeOpScale(-1)">−</button>
+        <button class="scale-btn" data-action="changeOpScale" data-arg1="-1">−</button>
         <input type="number" class="scale-input" id="op-scale-pieces" value="10" min="1" onchange="renderOpDetail()">
         <span class="scale-unit">db</span>
       </div>
@@ -459,7 +459,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-ingredients" class="view">
     <div class="flex justify-between items-center mb-20 flex-wrap gap-10">
       <div class="flex gap-10" id="ing-category-filter"></div>
-      <button class="btn btn-primary" onclick="openIngredientModal()">＋ Új alapanyag</button>
+      <button class="btn btn-primary" data-action="openIngredientModal">＋ Új alapanyag</button>
     </div>
     <div class="card">
       <div class="card-head">
@@ -485,7 +485,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div id="ing-categories-list" style="margin-bottom:12px"></div>
         <div style="display:flex;gap:8px">
           <input type="text" id="ing-new-cat-input" placeholder="Új csoport neve..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem">
-          <button class="btn btn-primary btn-sm" onclick="addIngCategory()">+ Hozzáad</button>
+          <button class="btn btn-primary btn-sm" data-action="addIngCategory">+ Hozzáad</button>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
           <p class="text-sm text-soft mb-8"><b>Fix technológiai osztályok</b> (nem szerkeszthetők, a kalkulációhoz szükségesek):</p>
@@ -512,7 +512,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Eszközkopás (lej/sütés)</label><input type="number" id="s-tool-wear" placeholder="5"></div>
           <div class="form-group"><label>Fogyóeszköz (lej/sütés)</label><input type="number" id="s-consumables" placeholder="0.5"></div>
         </div>
-        <button class="btn btn-primary" onclick="saveFinancialSettings()">Mentés</button>
+        <button class="btn btn-primary" data-action="saveFinancialSettings">Mentés</button>
       </div>
     </div>
     <div class="card mb-16">
@@ -535,7 +535,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Barnarizs liszt (%)</label><input type="number" id="s-refill-flour" value="52" step="0.1"></div>
           <div class="form-group"><label>Víz (%)</label><input type="number" id="s-refill-water" value="48" step="0.1"></div>
         </div>
-        <button class="btn btn-primary" onclick="saveBakingSettings()">Mentés</button>
+        <button class="btn btn-primary" data-action="saveBakingSettings">Mentés</button>
       </div>
     </div>
     <div class="card mb-16">
@@ -564,8 +564,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <label>Modell neve</label>
           <input type="text" id="s-ai-model" placeholder="claude-sonnet-4-20250514">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">💾 Mentés</button>
-        <button class="btn btn-sm" style="margin-left:8px;background:var(--gold);color:#fff" onclick="migrateRecipeProductIds()">🔧 product_id javítás (egyszeri)</button>
+        <button class="btn btn-primary btn-sm" data-action="saveAiSettings">💾 Mentés</button>
+        <button class="btn btn-sm" style="margin-left:8px;background:var(--gold);color:#fff" data-action="migrateRecipeProductIds">🔧 product_id javítás (egyszeri)</button>
         <span id="ai-test-result" style="font-size:0.78rem;margin-left:10px"></span>
       </div>
     </div>
@@ -575,7 +575,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div id="recipe-cats-list" class="mb-16"></div>
         <div class="flex gap-10">
           <input type="text" id="new-recipe-cat" placeholder="Új kategória..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none">
-          <button class="btn btn-primary btn-sm" onclick="addRecipeCat()">＋</button>
+          <button class="btn btn-primary btn-sm" data-action="addRecipeCat">＋</button>
         </div>
       </div>
     </div>
@@ -588,7 +588,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="card-body" style="padding-bottom:8px">
         <div id="levain-month-selector"></div>
         <div id="levain-day-selector" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
-        <button class="btn btn-primary btn-sm" onclick="calcLevainDaily()">🧮 Levain igény kiszámítása</button>
+        <button class="btn btn-primary btn-sm" data-action="calcLevainDaily">🧮 Levain igény kiszámítása</button>
       </div>
     </div>
     <div id="levain-daily-result"></div>
@@ -600,10 +600,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="card-head"><div class="card-title">📅 Sütési nap</div></div>
       <div class="card-body">
         <div id="prod-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
-        <button class="btn btn-primary btn-sm" onclick="calcProductionPrep()">🏭 Előkészítés kiszámítása</button>
-        <button id="prod-done-btn-top" onclick="confirmBakingDone()" style="display:none;margin-left:8px;padding:7px 16px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.82rem;font-family:'Kodchasan',sans-serif">✅ Sütés elvégezve</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportShoppingListCSV()" style="margin-left:8px">📥 CSV export</button>
-        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()" style="margin-left:8px">🛒 Bevásárló lista</button>
+        <button class="btn btn-primary btn-sm" data-action="calcProductionPrep">🏭 Előkészítés kiszámítása</button>
+        <button id="prod-done-btn-top" data-action="confirmBakingDone" style="display:none;margin-left:8px;padding:7px 16px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.82rem;font-family:'Kodchasan',sans-serif">✅ Sütés elvégezve</button>
+        <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV" style="margin-left:8px">📥 CSV export</button>
+        <button class="btn btn-primary btn-sm" data-action="generateShoppingList" style="margin-left:8px">🛒 Bevásárló lista</button>
       </div>
     </div>
     <div id="prod-prep-result"></div>
@@ -631,7 +631,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="card mb-16">
       <div class="card-head">
         <div class="card-title">🏭 Feldolgozás rögzítése</div>
-        <button class="btn btn-primary btn-sm" onclick="openProcessingModal()">+ Új feldolgozás</button>
+        <button class="btn btn-primary btn-sm" data-action="openProcessingModal">+ Új feldolgozás</button>
       </div>
       <div class="card-body">
         <p class="text-sm text-soft mb-12">Mag → Liszt/Dara feldolgozás rögzítése. A kimenetként keletkező alapanyagok automatikusan bevételezésre kerülnek.</p>
@@ -645,8 +645,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div id="stock-alerts"></div>
     <div class="flex justify-between items-center mb-16">
       <div class="flex gap-8 flex-wrap">
-        <button class="btn btn-primary btn-sm" onclick="generateShoppingList()">🛒 Bevásárló lista</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportShoppingListCSV()">📥 CSV export</button>
+        <button class="btn btn-primary btn-sm" data-action="generateShoppingList">🛒 Bevásárló lista</button>
+        <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV">📥 CSV export</button>
         <button class="btn btn-ghost btn-sm" onclick="calcAutoMinMax().then(()=>toast('✅ Min/Max frissítve'))" title="Min/Max újraszámítás rendelésekből">🤖 Auto Min/Max</button>
       </div>
     </div>
@@ -663,7 +663,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="modal modal-lg">
     <div class="modal-head">
       <h3 id="recipe-modal-title">Új recept</h3>
-      <button class="modal-close" onclick="closeModal('recipe-modal')">✕</button>
+      <button class="modal-close" data-action="closeModal" data-arg1="recipe-modal">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-tabs">
@@ -684,12 +684,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
             <label>Kategória</label>
             <div style="display:flex;gap:6px;align-items:center">
               <select id="r-category" onchange="updateRecipeCodePreview()" style="flex:1"></select>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="showAddCategoryInline()" title="Új kategória" style="padding:6px 10px;flex-shrink:0">＋</button>
+              <button class="btn btn-ghost btn-sm" type="button" data-action="showAddCategoryInline" title="Új kategória" style="padding:6px 10px;flex-shrink:0">＋</button>
             </div>
             <div id="new-cat-inline" style="display:none;margin-top:6px;display:none">
               <div style="display:flex;gap:6px">
                 <input type="text" id="new-cat-inline-input" placeholder="Új kategória neve..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem">
-                <button class="btn btn-primary btn-sm" type="button" onclick="addCategoryFromModal()">Hozzáad</button>
+                <button class="btn btn-primary btn-sm" type="button" data-action="addCategoryFromModal">Hozzáad</button>
                 <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('new-cat-inline').style.display='none'">✕</button>
               </div>
             </div>
@@ -739,7 +739,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
               📊 Excel feltöltés
               <input type="file" id="import-xlsx" accept=".xlsx" style="display:none" onchange="handleFileImport(this,'xlsx')">
             </label>
-            <button class="btn btn-gold btn-sm" onclick="parseTextRecipe()">✨ Szöveges feldolgozás</button>
+            <button class="btn btn-gold btn-sm" data-action="parseTextRecipe">✨ Szöveges feldolgozás</button>
           </div>
           <div id="import-status" style="font-size:0.78rem;color:var(--teal-dark);display:none"></div>
         </div>
@@ -756,14 +756,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div id="rtab-dry" class="modal-tab-content" style="display:none">
         <p class="text-sm text-soft mb-16">Száraz összetevők: lisztek, keményítők, magvak, só, sütőpor, stb.</p>
         <div id="dry-ingredients-list"></div>
-        <button class="btn btn-ghost btn-sm mt-16" onclick="addIngredientRow('dry')">＋ Összetevő hozzáadása</button>
+        <button class="btn btn-ghost btn-sm mt-16" data-action="addIngredientRow" data-arg1="dry">＋ Összetevő hozzáadása</button>
       </div>
 
       <!-- TAB: Wet ingredients -->
       <div id="rtab-wet" class="modal-tab-content" style="display:none">
         <p class="text-sm text-soft mb-16">Nedves összetevők: víz, olaj, tojás, tej, stb. (a levaint NE ide add meg)</p>
         <div id="wet-ingredients-list"></div>
-        <button class="btn btn-ghost btn-sm mt-16" onclick="addIngredientRow('wet')">＋ Összetevő hozzáadása</button>
+        <button class="btn btn-ghost btn-sm mt-16" data-action="addIngredientRow" data-arg1="wet">＋ Összetevő hozzáadása</button>
       </div>
 
       <!-- TAB: Levain -->
@@ -783,7 +783,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div id="rtab-process" class="modal-tab-content" style="display:none">
         <p class="text-sm text-soft mb-16">A sütési folyamat lépései. Ezek jelennek meg az üzemi nézetben.</p>
         <div id="process-steps-list"></div>
-        <button class="btn btn-ghost btn-sm mt-16" onclick="addProcessStep()">＋ Lépés hozzáadása</button>
+        <button class="btn btn-ghost btn-sm mt-16" data-action="addProcessStep">＋ Lépés hozzáadása</button>
       </div>
 
       <!-- TAB: Cost -->
@@ -841,12 +841,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="sep"></div>
       <div class="flex gap-10 justify-between">
         <div id="recipe-action-btns" style="display:none;gap:8px;display:none">
-          <button class="btn btn-sm" style="background:#92400e;color:#fff" id="recipe-archive-btn" onclick="archiveCurrentRecipe()">🗃 Archiválás</button>
-          <button class="btn btn-danger btn-sm" id="recipe-delete-btn" onclick="deleteCurrentRecipe()">🗑 Törlés</button>
+          <button class="btn btn-sm" style="background:#92400e;color:#fff" id="recipe-archive-btn" data-action="archiveCurrentRecipe">🗃 Archiválás</button>
+          <button class="btn btn-danger btn-sm" id="recipe-delete-btn" data-action="deleteCurrentRecipe">🗑 Törlés</button>
         </div>
         <div class="flex gap-10">
-          <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Mégse</button>
-          <button class="btn btn-primary" onclick="saveRecipe()">💾 Mentés</button>
+          <button class="btn btn-ghost" data-action="closeModal" data-arg1="recipe-modal">Mégse</button>
+          <button class="btn btn-primary" data-action="saveRecipe">💾 Mentés</button>
         </div>
       </div>
     </div>
@@ -858,7 +858,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="modal">
     <div class="modal-head">
       <h3 id="ing-modal-title">Új alapanyag</h3>
-      <button class="modal-close" onclick="closeModal('ingredient-modal')">✕</button>
+      <button class="modal-close" data-action="closeModal" data-arg1="ingredient-modal">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -881,10 +881,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="sep"></div>
       <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Beszállítók (FIFO sorrendben – legrégebbi kerül felhasználásra)</div>
       <div id="suppliers-list"></div>
-      <button class="btn btn-ghost btn-sm mt-16" onclick="addSupplierRow()">＋ Beszállító hozzáadása</button>
+      <button class="btn btn-ghost btn-sm mt-16" data-action="addSupplierRow">＋ Beszállító hozzáadása</button>
       <div class="flex gap-10 mt-16">
-        <button class="btn btn-ghost" onclick="closeModal('ingredient-modal')">Mégse</button>
-        <button class="btn btn-primary" onclick="saveIngredient()">Mentés</button>
+        <button class="btn btn-ghost" data-action="closeModal" data-arg1="ingredient-modal">Mégse</button>
+        <button class="btn btn-primary" data-action="saveIngredient">Mentés</button>
       </div>
     </div>
   </div>
@@ -892,21 +892,21 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.32.0"></script>
-<script src="js/receptura-ui.js?v=2.32.0"></script>
-<script src="js/receptura-recipes.js?v=2.32.0"></script>
-<script src="js/receptura-operational.js?v=2.32.0"></script>
-<script src="js/receptura-ingredients.js?v=2.32.0"></script>
-<script src="js/receptura-settings.js?v=2.32.0"></script>
-<script src="js/receptura-ing-cats.js?v=2.32.0"></script>
-<script src="js/receptura-recipe-cats.js?v=2.32.0"></script>
-<script src="js/receptura-processing.js?v=2.32.0"></script>
-  <script src="js/receptura-help.js?v=2.32.0"></script>
-  <script src="js/receptura-levain.js?v=2.32.0"></script>
-<script src="js/receptura-production.js?v=2.32.0"></script>
-<script src="js/receptura-stock.js?v=2.32.0"></script>
-<script src="js/receptura-modal.js?v=2.32.0"></script>
-<script src="js/receptura-ai.js?v=2.32.0"></script>
+<script src="js/receptura-data.js?v=2.33.0"></script>
+<script src="js/receptura-ui.js?v=2.33.0"></script>
+<script src="js/receptura-recipes.js?v=2.33.0"></script>
+<script src="js/receptura-operational.js?v=2.33.0"></script>
+<script src="js/receptura-ingredients.js?v=2.33.0"></script>
+<script src="js/receptura-settings.js?v=2.33.0"></script>
+<script src="js/receptura-ing-cats.js?v=2.33.0"></script>
+<script src="js/receptura-recipe-cats.js?v=2.33.0"></script>
+<script src="js/receptura-processing.js?v=2.33.0"></script>
+  <script src="js/receptura-help.js?v=2.33.0"></script>
+  <script src="js/receptura-levain.js?v=2.33.0"></script>
+<script src="js/receptura-production.js?v=2.33.0"></script>
+<script src="js/receptura-stock.js?v=2.33.0"></script>
+<script src="js/receptura-modal.js?v=2.33.0"></script>
+<script src="js/receptura-ai.js?v=2.33.0"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>

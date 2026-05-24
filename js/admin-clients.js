@@ -262,43 +262,6 @@ function renderClientCategoryBreakdown(c, y, m){
     </div>`).join('');
 }
 
-// ===== CLIENT TREND =====
-function renderClientTrend(clientId) {
-  const c = D.clients.find(c=>c.id===clientId);
-  if(!c) return '';
-  
-  const months = [];
-  for(let m=0; m<12; m++) {
-    let rev = 0, orders = 0;
-    D.products.forEach(p => {
-      const days = [];
-      const d = new Date(selYear, m, 1);
-      while(d.getMonth()===m) { days.push(d.getDate()); d.setDate(d.getDate()+1); }
-      days.forEach(day => {
-        const key = `${c.id}-${selYear}-${m}-${day}`;
-        const qty = D.orders[key]?.[p.id]||0;
-        if(qty>0) { rev += qty*p.price; orders += qty; }
-      });
-    });
-    months.push({m, rev, orders});
-  }
-  
-  const maxRev = Math.max(...months.map(d=>d.rev), 1);
-  return `<div class="card mt-16">
-    <div class="card-head"><div class="card-title">📈 ${selYear}. évi trend</div></div>
-    <div class="card-body">
-      <div style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:6px">
-        ${months.map(({m,rev}) => {
-          const h = Math.round((rev/maxRev)*75)+2;
-          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-            <div style="width:100%;height:${h}px;background:${rev>0?'var(--teal)':'var(--border)'};border-radius:3px 3px 0 0;min-height:2px" title="${MONTHS[m]}: ${rev.toFixed(0)} lej"></div>
-            <div style="font-size:0.5rem;color:var(--text-soft)">${MONTHS[m].slice(0,3)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-  </div>`;
-}
 
 
 async function approveClient(clientId) {

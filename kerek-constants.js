@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.32.0 (2026-05-24)';
+const APP_VERSION = 'v2.33.0 (2026-05-24)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -119,6 +119,31 @@ function _createKerekDialog(type, message, opts) {
 
 function confirmDialog(message, opts) { return _createKerekDialog('confirm', message, opts); }
 function alertDialog(message, opts) { return _createKerekDialog('alert', message, opts); }
+
+// ===== M7: GLOBAL CLICK EVENT DELEGATION (data-action pattern) =====
+// HTML: <button data-action="doLogin">Login</button>
+// HTML: <button data-action="showView" data-arg1="summary" data-arg2="summary-tab">View</button>
+// JS: window.doLogin = function() {...}; window.showView = function(v, t) {...}
+// Args: data-arg1, data-arg2, ... data-arg9 (numeric strings stay strings)
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (typeof window[action] !== 'function') return;
+    const args = [];
+    for (let i = 1; i <= 9; i++) {
+      const v = btn.dataset['arg' + i];
+      if (v === undefined) break;
+      // Auto-cast: 'true'/'false' → boolean, numeric → number
+      if (v === 'true') args.push(true);
+      else if (v === 'false') args.push(false);
+      else if (/^-?\d+(\.\d+)?$/.test(v)) args.push(Number(v));
+      else args.push(v);
+    }
+    window[action](...args);
+  });
+}
 
 // ===== EGYSÉGES TERMÉKKÓD GENERÁLÁS =====
 const PRODUCT_CAT_CODES = {

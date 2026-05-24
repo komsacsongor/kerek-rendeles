@@ -15,8 +15,8 @@
 <title>KEREK – Megrendelő</title>
 
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.32.0"></script>
-<script src="supabase.js?v=2.32.0"></script>
+<script src="kerek-constants.js?v=2.33.0"></script>
+<script src="supabase.js?v=2.33.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -1188,11 +1188,11 @@ body.has-sticky-total { padding-bottom: 64px; }
 
     <!-- Tab switches -->
     <div style="display:flex;border-radius:10px;background:var(--bg-soft);padding:3px;margin-bottom:20px;gap:2px">
-      <button id="tab-login-btn" onclick="switchAuthTab('login')"
+      <button id="tab-login-btn" data-action="switchAuthTab" data-arg1="login"
         style="flex:1;padding:8px;border:none;border-radius:8px;font-family:'Kodchasan',sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;background:white;color:var(--teal-dark);box-shadow:0 1px 3px rgba(0,0,0,0.1)">
         Belépés
       </button>
-      <button id="tab-reg-btn" onclick="switchAuthTab('register')"
+      <button id="tab-reg-btn" data-action="switchAuthTab" data-arg1="register"
         style="flex:1;padding:8px;border:none;border-radius:8px;font-family:'Kodchasan',sans-serif;font-weight:400;font-size:0.88rem;cursor:pointer;background:transparent;color:var(--text-soft)">
         Regisztráció
       </button>
@@ -1204,7 +1204,7 @@ body.has-sticky-total { padding-bottom: 64px; }
         <label>Belépési kód, email vagy név</label>
         <input type="text" id="login-input" placeholder="pl. KER-XXXX-XXXX" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="username">
       </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doLogin()">Belépés →</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" data-action="doLogin">Belépés →</button>
     </div>
 
     <!-- Regisztráció panel -->
@@ -1221,7 +1221,7 @@ body.has-sticky-total { padding-bottom: 64px; }
         <label>Telefonszám (opcionális)</label>
         <input type="tel" id="reg-phone" placeholder="+40 745 289 063" autocomplete="tel">
       </div>
-      <button class="btn btn-primary" id="reg-btn" style="width:100%;justify-content:center;padding:13px" onclick="doRegister()">Regisztráció →</button>
+      <button class="btn btn-primary" id="reg-btn" style="width:100%;justify-content:center;padding:13px" data-action="doRegister">Regisztráció →</button>
     </div>
 
     <!-- Shared: error + pwa + version -->
@@ -1236,7 +1236,7 @@ body.has-sticky-total { padding-bottom: 64px; }
       <div style="margin-top:8px;font-size:0.75rem;color:var(--text-soft)">Email: <span id="reg-email-display"></span></div>
     </div>
     <div id="pwa-install-bar" style="display:none;margin-top:14px;text-align:center">
-      <button onclick="installPWA()" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:10px;padding:9px 18px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      <button data-action="installPWA" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:10px;padding:9px 18px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
         📲 Telepítés a telefonra
       </button>
     </div>
@@ -1248,16 +1248,16 @@ body.has-sticky-total { padding-bottom: 64px; }
   <img src="img/logo_white_horiz.png" alt="KEREK" style="height:30px;width:auto;cursor:pointer" onclick="if(currentUser){return false;}location.reload();" title="Frissítés" style="height:30px;width:auto;cursor:default">
   <div class="user-info">
 <span class="user-name" id="user-badge"></span>
-    <button id="push-btn" onclick="togglePushSubscription()" title="Értesítések" style="background:none;border:none;cursor:pointer;font-size:1.2rem;padding:4px 8px;opacity:0.7;display:none">🔔</button>
-    <button class="btn btn-logout" onclick="logout()">Kilépés</button>
+    <button id="push-btn" data-action="togglePushSubscription" title="Értesítések" style="background:none;border:none;cursor:pointer;font-size:1.2rem;padding:4px 8px;opacity:0.7;display:none">🔔</button>
+    <button class="btn btn-logout" data-action="logout">Kilépés</button>
   </div>
 </header>
 
 <!-- TABS -->
 <div class="tab-bar" id="tab-bar">
-  <button class="tab active" onclick="showView('order','order-tab')">🛒 Megrendelő</button>
-  <button class="tab" onclick="showView('summary','summary-tab')">📊 Összesítő & PDF</button>
-  <button class="tab" onclick="showView('help','help-tab')">❓ Súgó</button>
+  <button class="tab active" data-action="showView" data-arg1="order" data-arg2="order-tab">🛒 Megrendelő</button>
+  <button class="tab" data-action="showView" data-arg1="summary" data-arg2="summary-tab">📊 Összesítő & PDF</button>
+  <button class="tab" data-action="showView" data-arg1="help" data-arg2="help-tab">❓ Súgó</button>
 </div>
 
 <main>
@@ -1289,8 +1289,8 @@ body.has-sticky-total { padding-bottom: 64px; }
       <div class="card-body">
         <!-- View toggle (Day/Product) -->
         <div id="view-toggle-bar" class="view-toggle-bar">
-          <button id="view-btn-day" class="view-toggle-btn active" onclick="switchView('day')">📅 Napi nézet</button>
-          <button id="view-btn-product" class="view-toggle-btn" onclick="switchView('product')">📦 Termék nézet</button>
+          <button id="view-btn-day" class="view-toggle-btn active" data-action="switchView" data-arg1="day">📅 Napi nézet</button>
+          <button id="view-btn-product" class="view-toggle-btn" data-action="switchView" data-arg1="product">📦 Termék nézet</button>
         </div>
       </div>
       <!-- Product pivot view (desktop + mobile, C model) -->
@@ -1306,22 +1306,22 @@ body.has-sticky-total { padding-bottom: 64px; }
     <div class="msg-box">
       <label>💬 Üzenet / megjegyzés a pékségnek (opcionális)</label>
       <textarea id="order-message" placeholder="Írj ide bármit – pl. szállítási kérés, allergén, visszajelzés..." style="border-bottom-left-radius:0;border-bottom-right-radius:0"></textarea>
-      <button onclick="sendMessageOnly()" style="width:100%;padding:8px;background:var(--teal-dark);color:var(--gold);border:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;cursor:pointer;font-size:0.84rem;font-weight:600">💬 Üzenet küldése (rendelés mentése nélkül)</button>
+      <button data-action="sendMessageOnly" style="width:100%;padding:8px;background:var(--teal-dark);color:var(--gold);border:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;cursor:pointer;font-size:0.84rem;font-weight:600">💬 Üzenet küldése (rendelés mentése nélkül)</button>
       <div id="order-messages-display" style="margin-top:16px"></div>
     </div>
 
     <div class="action-bar">
-      <button class="btn btn-ghost" onclick="clearOrder()">🗑 Törlés</button>
-      <button class="btn btn-ghost" onclick="copyLastOrder()" style="color:var(--teal-dark);margin-left:8px">📋 Előző rendelés</button>
+      <button class="btn btn-ghost" data-action="clearOrder">🗑 Törlés</button>
+      <button class="btn btn-ghost" data-action="copyLastOrder" style="color:var(--teal-dark);margin-left:8px">📋 Előző rendelés</button>
       <div style="flex:1"></div>
-      <button class="btn btn-gold" onclick="saveOrder()">💾 Mentés &amp; Elküldés</button>
+      <button class="btn btn-gold" data-action="saveOrder">💾 Mentés &amp; Elküldés</button>
     </div>
   </div>
 
   <!-- ===== SUMMARY VIEW ===== -->
   <div id="view-summary" class="view">
     <div style="display:flex;justify-content:flex-end;padding:0 0 12px">
-      <button class="btn btn-primary btn-sm" onclick="showPdfModal()" style="display:flex;align-items:center;gap:6px">📄 Rendelés PDF</button>
+      <button class="btn btn-primary btn-sm" data-action="showPdfModal" style="display:flex;align-items:center;gap:6px">📄 Rendelés PDF</button>
     </div>
     <!-- PDF Modal -->
     <div id="pdf-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;padding:20px">
@@ -1335,7 +1335,7 @@ body.has-sticky-total { padding-bottom: 64px; }
           <p style="margin:0">4️⃣ Nyomtató helyett válaszd: <b>"Mentés PDF-ként"</b> → Mentés</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button onclick="openPdfSummary()" style="flex:1;background:#064C48;color:white;border:none;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.9rem">📋 Összesítő megnyitása</button>
+          <button data-action="openPdfSummary" style="flex:1;background:#064C48;color:white;border:none;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.9rem">📋 Összesítő megnyitása</button>
           <button onclick="document.getElementById('pdf-modal').style.display='none'" style="background:#f5f5f5;color:#666;border:none;padding:12px 16px;border-radius:10px;cursor:pointer;font-size:0.85rem">Mégse</button>
         </div>
       </div>
@@ -1458,7 +1458,7 @@ body.has-sticky-total { padding-bottom: 64px; }
   <div class="modal">
     <div class="modal-head">
       <h3 id="pm-name">Termék neve</h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" data-action="closeModal">✕</button>
     </div>
     <div class="modal-body">
       <div id="pm-img-wrap"></div>
@@ -1493,12 +1493,12 @@ body.has-sticky-total { padding-bottom: 64px; }
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.32.0"></script>
-<script src="js/vevo-ui.js?v=2.32.0"></script>
-<script src="js/vevo-analytics.js?v=2.32.0"></script>
-<script src="js/vevo-orders-render.js?v=2.32.0"></script>
-<script src="js/vevo-orders-actions.js?v=2.32.0"></script>
-<script src="js/vevo-orders-extras.js?v=2.32.0"></script>
+<script src="js/vevo-data.js?v=2.33.0"></script>
+<script src="js/vevo-ui.js?v=2.33.0"></script>
+<script src="js/vevo-analytics.js?v=2.33.0"></script>
+<script src="js/vevo-orders-render.js?v=2.33.0"></script>
+<script src="js/vevo-orders-actions.js?v=2.33.0"></script>
+<script src="js/vevo-orders-extras.js?v=2.33.0"></script>
 <!-- STICKY HAVI TOTÁL BOTTOM BAR (shown after login) -->
 <div id="sticky-month-total" style="display:none">
   <div class="sticky-label">🧺 Havi össz:</div>
@@ -1506,7 +1506,7 @@ body.has-sticky-total { padding-bottom: 64px; }
   <div class="sticky-val" id="sticky-val">0<span style="font-size:.72em;margin-left:3px;color:var(--gold-light)">lej</span></div>
 </div>
 <div id="app-footer" style="display:none;text-align:center;padding:10px 16px 20px;border-top:1px solid var(--border)">
-  <button id="footer-install-btn" onclick="installPWA()" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
+  <button id="footer-install-btn" data-action="installPWA" style="display:none;margin-bottom:8px;font-size:0.78rem;padding:6px 14px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-family:'Kodchasan',sans-serif;font-weight:600">📲 Telepítés a telefonra</button>
   <div id="footer-version" style="font-size:0.65rem;color:var(--text-soft);letter-spacing:0.5px"></div>
 </div>
 </body>

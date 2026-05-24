@@ -96,7 +96,7 @@ function addSupplierRow() {
 }
 function removeSupplier(i) { modalSuppliers.splice(i,1); renderSupplierRows(); }
 
-function calcIngPriceNet() {} // kept for compatibility
+// kept for compatibility
 
 function saveIngredient() {
   const name = document.getElementById('i-name').value.trim();

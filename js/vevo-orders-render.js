@@ -6,7 +6,6 @@
 
 // ===== ORDER TABLE =====
 
-function isMobile() { return window.innerWidth <= 640; }
 
 // Per-day category filter state: { day: 'category' | 'all' } (only used in mobile A day view)
 let selectedCategoryByDay = {};

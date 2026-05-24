@@ -38,25 +38,6 @@ function renderRCategories() {
     </div>`).join('');
 }
 
-async function addRCategory() {
-  const val = document.getElementById('r-new-cat-input')?.value?.trim();
-  if (!val) { toast('Add meg a kategória nevét!', true); return; }
-  const cats = R.settings?.categories || [];
-  if (cats.includes(val)) { toast('Ez a kategória már létezik!', true); return; }
-  cats.push(val);
-  if (!R.settings) R.settings = {};
-  R.settings.categories = cats;
-  try {
-    await sb.setSetting('categories', cats);
-    save();
-    renderRCategories();
-    document.getElementById('r-new-cat-input').value = '';
-    // Update recipe modal category dropdown
-    const sel = document.getElementById('r-category');
-    if (sel) sel.innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
-    toast('✅ Kategória hozzáadva!');
-  } catch(e) { toast('⚠️ Mentés sikertelen: '+e.message, true); }
-}
 
 async function deleteRCategory(i) {
   const cats = R.settings?.categories || [];

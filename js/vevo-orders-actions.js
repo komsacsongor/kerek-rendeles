@@ -39,25 +39,6 @@ function defaultDeadlinePassed(bakingDate) {
   return new Date() >= dl;
 }
 
-function handleOrderChange(day, pid, input) {
-  const qty = parseInt(input.value) || 0;
-  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
-  if (!appData.orders[key]) appData.orders[key] = {};
-  if (qty > 0) { appData.orders[key][pid] = qty; input.classList.add('has-value'); }
-  else {
-    delete appData.orders[key][pid];
-    input.classList.remove('has-value');
-    // A3: Delete from Supabase immediately on qty=0
-    sb.delete('orders',
-      `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
-    ).catch(e => console.warn('qty0 delete:', e.message));
-  }
-  if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
-  updateHeroTotal();
-  updateRowTotal(day);
-  checkDeadlineForDay(day);
-  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, qty);
-}
 
 function updateRowTotal(day) {
   const row = document.getElementById('row-' + day);

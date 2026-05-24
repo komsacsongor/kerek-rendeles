@@ -69,8 +69,6 @@ async function initApp() {
     ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
     ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
     ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
-    ['recipe_categories', v=>{ /* deprecated, categories-t használjuk */ }],
-    // recipe_stock deprecated - stock now from ingredient_batches
   ];
   await Promise.all(settingLoads.map(async ([key, apply]) => {
     try { const val = await sb.getSetting(key); if(val!==null) apply(val); }
