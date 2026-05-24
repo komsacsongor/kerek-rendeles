@@ -193,26 +193,44 @@ async function doLogin(){
   if(btn) { btn.disabled=true; btn.textContent='Betöltés...'; }
 
   try {
-    const storedPw = await sb.getSetting('admin_password');
-    const pwHash = await hashPassword(pw);
-    // Support both plain (legacy) and hashed passwords
-    // S1: No plaintext fallback - if no stored password, block login
-    if (!storedPw) { toast('⚠️ Nincs beállított jelszó! Állítsd be a Supabase settings táblában.', true); return; }
-    const isCorrect = (pw === storedPw) || (pwHash === storedPw);
-    if(isCorrect){
+    // C4 fix (v2.30.0): auth via Edge Function (admin-auth)
+    // The stored password hash is no longer readable by anon role (RLS policy).
+    // Edge Function uses service_role to read settings, hash-compares server-side.
+    const authUrl = `https://lfaxeihrmiylggahougl.supabase.co/functions/v1/admin-auth`;
+    const res = await fetch(authUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+      },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429) {
+      if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
+      loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} másodpercet.`);
+      return;
+    }
+    if (res.status === 500 && data.error === 'not_configured') {
+      if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
+      toast('⚠️ Nincs beállított jelszó! Állítsd be a Supabase settings táblában.', true);
+      return;
+    }
+
+    if (data?.success === true) {
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
       auditLog('login', 'Admin', 'Sikeres belépés');
-      // Badge frissítése loadAllData után (seenMsgs már betöltve)
       updateMsgBadge();
     } else {
       if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
       loginError('❌ Hibás jelszó! Próbáld újra.');
-      auditLog('login_failed', 'Admin', 'Hibás jelszó');
+      // No need to auditLog here - Edge Function does it server-side
     }
   } catch(e) {
-    console.error('doLogin Supabase hiba:', e.message);
+    console.error('doLogin Edge Function hiba:', e.message);
     if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
     loginError('❌ Kapcsolódási hiba. Kérjük próbáld újra.');
   }
