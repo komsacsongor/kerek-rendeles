@@ -68,7 +68,7 @@ async function sendBroadcastFromForm() {
   if (!title) { toast('⚠️ A címet ki kell tölteni!', true); return; }
   if (!body) { toast('⚠️ A szöveget ki kell tölteni!', true); return; }
   const targetLabel = target === 'active' ? 'aktív vevőknek' : 'minden vevőnek';
-  if (!confirm(`Biztos, hogy küldöd a push üzenetet ${targetLabel}?\n\n"${title}"\n${body}`)) return;
+  if (!(await confirmDialog(`Biztos, hogy küldöd a push üzenetet ${targetLabel}?\n\n"${title}"\n${body}`))) return;
 
   if (typeof sendPushBroadcast !== 'function') {
     toast('⚠️ Push funkció nem elérhető.', true);

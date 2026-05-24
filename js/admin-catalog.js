@@ -87,7 +87,7 @@ function toggleProduct(id){
 async function archiveProduct(id) {
   const p = D.products.find(p=>p.id===id);
   if(!p) return;
-  if(!confirm('Archiválod: "' + p.name + '"?\n\nA termék eltűnik a katalógusból, nem rendelhető.\nA múltbeli statisztikákban megmarad.\nVisszaallítí tható az archívumból.')) return;
+  if (!(await confirmDialog('Archiválod: "' + p.name + '"?\n\nA termék eltűnik a katalógusból, nem rendelhető.\nA múltbeli statisztikákban megmarad.\nVisszaallítí tható az archívumból.'))) return;
   const now = new Date().toISOString();
   try {
     await sb.upsert('products', {...p, deleted_at: now}, 'id');
@@ -105,8 +105,8 @@ async function archiveProduct(id) {
     toast('🗂️ Termék archiválva.');
     save(); renderCatalog(); renderArchive();
     // v2.28.0: Ask admin if they want to broadcast push about discontinued product
-    setTimeout(() => {
-      if (typeof sendPushBroadcast === 'function' && confirm(`Küldjek push értesítést a vevőknek a termék kifutásáról?\n\n"⚠️ Termék kifutott: ${p.name}"`)) {
+    setTimeout(async () => {
+      if (typeof sendPushBroadcast === 'function' && (await confirmDialog(`Küldjek push értesítést a vevőknek a termék kifutásáról?\n\n"⚠️ Termék kifutott: ${p.name}"`))) {
         sendPushBroadcast('product_archived', '⚠️ Termék már nem elérhető', `${p.name} - többé nem rendelhető.`, 'all').then(r => {
           toast(`✅ Push elküldve ${r.sent}/${r.total} vevőnek.`);
         });
@@ -132,7 +132,7 @@ async function restoreProduct(id) {
 async function permanentDeleteProduct(id) {
   const p = D.products.find(p=>p.id===id);
   if(!p) return;
-  if(!confirm('VÉGLEGES törlés: "' + p.name + '"?\n\nEz nem visszavonható!')) return;
+  if (!(await confirmDialog('VÉGLEGES törlés: "' + p.name + '"?\n\nEz nem visszavonható!'))) return;
   try {
     await sb.delete('products', 'id=eq.'+id);
     D.products = D.products.filter(x=>x.id!==id);
@@ -429,8 +429,8 @@ async function saveProduct(){
         auditLog('product_create', name, `Ár: ${price} lej, Kategória: ${category}`);
         toast('Új termék hozzáadva!');
         // v2.28.0: Ask admin if they want to broadcast push about the new product
-        setTimeout(() => {
-          if (typeof sendPushBroadcast === 'function' && confirm(`Küldjek push értesítést a vevőknek az új termékről?\n\n"🆕 Új termék: ${name}"\n${price} lej / ${weight}`)) {
+        setTimeout(async () => {
+          if (typeof sendPushBroadcast === 'function' && (await confirmDialog(`Küldjek push értesítést a vevőknek az új termékről?\n\n"🆕 Új termék: ${name}"\n${price} lej / ${weight}`))) {
             sendPushBroadcast('product_new', '🆕 Új termék elérhető!', `${name} - ${price} lej${weight ? ` (${weight})` : ''}`, 'all').then(r => {
               toast(`✅ Push elküldve ${r.sent}/${r.total} vevőnek.`);
             });

@@ -242,7 +242,7 @@ async function saveModify() {
 }
 
 async function cancelOrder(clientId, year, month, day, clientName) {
-  if (!confirm('Visszavonod ' + clientName + ' rendelését (' + MONTHS[month] + ' ' + day + '.)?')) return;
+  if (!(await confirmDialog('Visszavonod ' + clientName + ' rendelését (' + MONTHS[month] + ' ' + day + '.)?'))) return;
   const row = { client_id: clientId, year, month, day, status: 'cancelled', deadline: new Date(year, month, day - 1, 18, 0, 0).toISOString() };
   try {
     await sb.upsert('order_status', row, 'client_id,year,month,day');
@@ -469,7 +469,7 @@ function renderBakingCalendar(){
     (removedCount>0?` · <span style="color:#b91c1c">${removedCount} kihagyva</span>`:'');
 }
 
-function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
+async function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
   if(!D.bakingCalendar[key]) D.bakingCalendar[key]={extra:[],removed:[]};
   const cal=D.bakingCalendar[key];
 
@@ -507,8 +507,8 @@ function toggleCalDay(dateStr, isDefault, isExtra, isRemoved, key){
 
   // v2.28.0: Ask admin if they want to broadcast a push notification
   if (pushTitle && typeof sendPushBroadcast === 'function') {
-    setTimeout(() => {
-      if (confirm(`Küldjek push értesítést a vevőknek?\n\n"${pushTitle}"\n${pushBody}`)) {
+    setTimeout(async () => {
+      if (await confirmDialog(`Küldjek push értesítést a vevőknek?\n\n"${pushTitle}"\n${pushBody}`)) {
         sendPushBroadcast('baking_day', pushTitle, pushBody, 'all').then(r => {
           toast(`✅ Push elküldve ${r.sent}/${r.total} vevőnek.`);
         });

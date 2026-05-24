@@ -47,7 +47,7 @@ async function addIngCategory() {
 }
 
 async function deleteIngCategory(cat) {
-  if (!confirm('Törlöd a "'+cat+'" csoportot? Csak üres csoportot lehet törölni.')) return;
+  if (!(await confirmDialog('Törlöd a "'+cat+'" csoportot? Csak üres csoportot lehet törölni.'))) return;
   const cats = (R.settings?.ingredientCategories || []).filter(c => c !== cat);
   R.settings.ingredientCategories = cats;
   try {
@@ -119,7 +119,7 @@ async function deleteRCategory(i) {
     toast(`⚠️ Nem törölhető: ${linked.length} recept használja. Előbb rendeld át!`, true);
     return;
   }
-  if (!confirm(`Törlöd a(z) "${cat}" kategóriát?`)) return;
+  if (!(await confirmDialog(`Törlöd a(z) "${cat}" kategóriát?`))) return;
   cats.splice(i, 1);
   R.settings.categories = cats;
   try {
@@ -608,7 +608,7 @@ async function deleteRecipeCat(i) {
     toast(`⚠️ Nem törölhető! ${linkedRecipes.length} recept tartozik ide: ${names}${more}. Előbb rendeld át őket más kategóriába.`, true);
     return;
   }
-  if(!confirm(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá recept, biztonságos.`)) return;
+  if (!(await confirmDialog(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá recept, biztonságos.`))) return;
   R.recipeCategories.splice(i,1); save();
   try {
     await sb.setSetting('categories', R.recipeCategories);

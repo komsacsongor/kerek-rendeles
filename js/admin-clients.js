@@ -66,7 +66,7 @@ function _clientCard(cl) {
 async function restoreClient(id) {
   const cl = D.clients.find(c => c.id === id);
   const realName = (cl?.name||'').replace(/^\[DELETED\]\s*/,'');
-  if (!confirm('Visszaállítod "' + realName + '" vevőt? Be tud majd lépni.')) return;
+  if (!(await confirmDialog('Visszaállítod "' + realName + '" vevőt? Be tud majd lépni.'))) return;
   try {
     await sb.update('clients', { name: realName }, 'id=eq.' + id);
     if (cl) cl.name = realName;
@@ -135,9 +135,7 @@ async function saveClient(){
 async function deleteClient(id) {
   const cl = D.clients.find(c => c.id === id);
   const realName = (cl?.name||id).replace(/^\[(PENDING|DELETED)\]\s*/,'');
-  if (!confirm(`Biztosan deaktiválod "${realName}"?
-
-A vevő nem fog tudni belépni, de a rendelési előzmények megmaradnak.`)) return;
+  if (!(await confirmDialog(`Biztosan deaktiválod "${realName}"?\n\nA vevő nem fog tudni belépni, de a rendelési előzmények megmaradnak.`, {danger: true, okText: 'Deaktiválás'}))) return;
   try {
     await sb.update('clients', { name: '[DELETED] ' + realName }, `id=eq.${id}`);
     if (cl) cl.name = '[DELETED] ' + realName;

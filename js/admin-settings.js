@@ -67,7 +67,7 @@ async function addCategory(){
   document.getElementById('new-cat-input').value='';
   toast('Kategória hozzáadva!');
 }
-function deleteCategory(i){
+async function deleteCategory(i){
   const cat = D.categories[i];
   // Ellenőrzés: van-e termék ebben a kategóriában?
   const linkedProducts = D.products.filter(p => p.category === cat);
@@ -77,7 +77,7 @@ function deleteCategory(i){
     toast(`⚠️ Nem törölhető! ${linkedProducts.length} termék tartozik ide: ${names}${more}. Előbb rendeld át őket más kategóriába.`, true);
     return;
   }
-  if(!confirm(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá termék, biztonságos.`)) return;
+  if (!(await confirmDialog(`Törlöd a(z) "${cat}" kategóriát? Nincs hozzá termék, biztonságos.`))) return;
   D.categories.splice(i,1);
   sb.setSetting('categories', D.categories).catch(e=>console.warn(e));
   save(); renderCategoriesList(); toast('Kategória törölve.');

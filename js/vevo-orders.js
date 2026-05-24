@@ -382,7 +382,7 @@ async function saveOrder() {
 }
 
 async function clearOrder() {
-  if (!confirm('Biztosan törlöd az összes rendelést ebben a hónapban?')) return;
+  if (!(await confirmDialog('Biztosan törlöd az összes rendelést ebben a hónapban?'))) return;
   // Delete from Supabase
   try {
     await sb.delete('orders',
@@ -872,7 +872,7 @@ async function copyLastOrder() {
     `✅ ${mappedDays.length} nap kap rendelést (hét napja szerint)\n` +
     (unmappedDays.length > 0 ? `⚠️ ${unmappedDays.length} nap üres marad (nincs múlt havi megfelelő nap)\n` : '') +
     `\nFolytatod?`;
-  if (!confirm(confirmMsg)) return;
+  if (!(await confirmDialog(confirmMsg))) return;
 
   // Apply mapping
   mappedDays.forEach(td => {

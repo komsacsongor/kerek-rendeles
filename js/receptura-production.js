@@ -384,7 +384,7 @@ async function confirmBakingDone() {
     .map(n => `  ✓ ${n.name}: ${Math.round(n.total).toLocaleString()}g`).join('\n');
   confirmMsg += '\n\nA művelet nem visszavonható!';
 
-  const confirmed = confirm(confirmMsg);
+  const confirmed = await confirmDialog(confirmMsg);
   if (!confirmed) return;
 
   const btn = document.getElementById('prod-done-btn');

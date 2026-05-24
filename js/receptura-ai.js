@@ -401,7 +401,7 @@ async function saveRecipe() {
 
 function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
 async function deleteCurrentRecipe() {
-  if (!confirm('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?')) return;
+  if (!(await confirmDialog('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===currentRecipeId);
   const prodId = rec?.product_id;
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
@@ -419,7 +419,7 @@ async function deleteCurrentRecipe() {
 }
 
 async function archiveCurrentRecipe() {
-  if (!confirm('Archiválod ezt a receptet? A termék eltűnik a rendelési rendszerből, de visszahívható.')) return;
+  if (!(await confirmDialog('Archiválod ezt a receptet? A termék eltűnik a rendelési rendszerből, de visszahívható.'))) return;
   const rec = R.recipes.find(r=>r.id===currentRecipeId);
   if(!rec) return;
   rec.archived = true;
@@ -458,7 +458,7 @@ async function restoreRecipe(recipeId) {
 }
 
 async function deleteArchivedRecipe(recipeId) {
-  if (!confirm('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?')) return;
+  if (!(await confirmDialog('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===recipeId);
   const prodId = rec?.product_id;
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
@@ -478,7 +478,7 @@ async function deleteArchivedRecipe(recipeId) {
 async function newRecipeVersion() {
   const r = R.recipes.find(r => r.id === currentRecipeId);
   if (!r) return;
-  if (!confirm(`"${r.name}" v${r.version||1} → v${(r.version||1)+1}\n\nAz aktuális verzió archiválódik, és megnyílik az új verzió szerkesztésre. Folytatod?`)) return;
+  if (!(await confirmDialog(`"${r.name}" v${r.version||1} → v${(r.version||1)+1}\n\nAz aktuális verzió archiválódik, és megnyílik az új verzió szerkesztésre. Folytatod?`))) return;
 
   // Archive current
   r.archived = true;

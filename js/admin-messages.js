@@ -162,7 +162,7 @@ function renderMessages(){
 }
 
 async function deleteMessage(key, idx) {
-  if(!confirm('Törlöd ezt az üzenetet?')) return;
+  if (!(await confirmDialog('Törlöd ezt az üzenetet?'))) return;
   const msgs = D.messages[key];
   if(!msgs || !msgs[idx]) return;
   const msg = msgs[idx];

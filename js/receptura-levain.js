@@ -89,7 +89,7 @@ async function renderLevainMonthSelector() {
 
 async function calcLevainDaily() {
   const selected = [...document.querySelectorAll('#levain-day-selector input:checked')].map(i=>i.value);
-  if(selected.length === 0) { alert('Válassz legalább egy napot!'); return; }
+  if(selected.length === 0) { await alertDialog('Válassz legalább egy napot!'); return; }
 
   // Show loading
   document.getElementById('levain-daily-result').innerHTML = '<p style="color:var(--teal);padding:20px">⏳ Adatok betöltése...</p>';
@@ -250,7 +250,7 @@ async function calcLevainDaily() {
 }
 
 async function recordLevainBatch(totalG) {
-  if (!confirm(`Rögzíted ${totalG.toLocaleString()}g kész levaint a készletbe?\n\nEz bevételezésként kerül a Kész levain alapanyaghoz.`)) return;
+  if (!(await confirmDialog(`Rögzíted ${totalG.toLocaleString()}g kész levaint a készletbe?\n\nEz bevételezésként kerül a Kész levain alapanyaghoz.`))) return;
   try {
     const today = new Date();
     const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');

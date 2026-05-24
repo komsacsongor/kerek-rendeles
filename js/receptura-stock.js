@@ -220,7 +220,7 @@ async function deleteIngredient(ingId) {
     toast('⚠️ Ez az alapanyag receptekben van használatban. Előbb vedd ki a receptekből!', true);
     return;
   }
-  if (!confirm(`Törlöd: "\${ing.name}"? Ez nem visszavonható!`)) return;
+  if (!(await confirmDialog(`Törlöd: "\${ing.name}"? Ez nem visszavonható!`))) return;
   try {
     await sb.delete('ingredients', `id=eq.\${ingId}`);
     R.ingredients = R.ingredients.filter(i => i.id !== ingId);

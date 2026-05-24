@@ -103,7 +103,7 @@ window.addEventListener('appinstalled', () => {
 });
 async function installPWA() {
   if (!_pwaInstallPrompt) {
-    alert('iOS Safari-n: Megosztás (□↑) gomb → "Hozzáadás a kezdőképernyőhöz"');
+    await alertDialog('iOS Safari-n: Megosztás (□↑) gomb → "Hozzáadás a kezdőképernyőhöz"');
     return;
   }
   _pwaInstallPrompt.prompt();

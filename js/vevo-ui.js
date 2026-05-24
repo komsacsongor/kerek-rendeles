@@ -248,7 +248,7 @@ async function loadMessage() {
 }
 
 async function deleteMyMessage(idx) {
-  if(!confirm('Törlöd ezt az üzenetet?')) return;
+  if (!(await confirmDialog('Törlöd ezt az üzenetet?'))) return;
   const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
   const msgs = appData.messages?.[key] || [];
   const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));

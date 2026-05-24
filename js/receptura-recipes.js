@@ -242,7 +242,7 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
 }
 
 // Show ingredient detail popup
-function showIngDetail(ingId) {
+async function showIngDetail(ingId) {
   const ing = getIng(ingId);
   if (!ing) return;
   const suppliers = ing.suppliers || [];
@@ -263,7 +263,7 @@ function showIngDetail(ingId) {
     msg += `${i+1}. ${s.source||'—'}: ${s.priceGross} lej/${s.package}g | ${ppg} lej/kg | Készlet: ${(s.stock||0)}g | ${s.date}
 `;
   });
-  alert(msg);
+  await alertDialog(msg);
 }
 
 function renderCostDetail(r, pieces) {
@@ -554,7 +554,7 @@ async function restoreRecipeVersion(id) {
   );
 
   const activeLabel = currentActive ? `v${currentActive.version||1}` : 'jelenlegi';
-  if (!confirm(`"${toRestore.name}" v${toRestore.version||1} visszaállítása?\n\nA ${activeLabel} verzió archiválódik. Folytatod?`)) return;
+  if (!(await confirmDialog(`"${toRestore.name}" v${toRestore.version||1} visszaállítása?\n\nA ${activeLabel} verzió archiválódik. Folytatod?`))) return;
 
   // Jelenlegi aktív archiválása
   if (currentActive) {

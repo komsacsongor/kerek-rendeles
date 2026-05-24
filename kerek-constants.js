@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.30.0 (2026-05-24)';
+const APP_VERSION = 'v2.31.0 (2026-05-24)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -31,6 +31,94 @@ const WS_RECONNECT_MIN_MS = 5000;       // H6: Exponential backoff bounds
 const WS_RECONNECT_MAX_MS = 300000;     // 5 min max
 const DEBUG = false;                    // M3: production-ban false legyen
 function debugLog(...args) { if (DEBUG) console.log('[KEREK]', ...args); }
+
+// ===== M5: CUSTOM MODAL DIALÓGUSOK (confirm + alert helyett) =====
+// confirmDialog(msg, opts?) → Promise<boolean>: true ha OK, false ha Cancel
+// alertDialog(msg, opts?) → Promise<void>: feloldódik amikor a user OK-zza
+// opts: { title?, okText?, cancelText?, danger?: bool, multiline?: bool }
+function _createKerekDialog(type, message, opts) {
+  opts = opts || {};
+  return new Promise(resolve => {
+    // Backdrop
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:kerekDialogFade 0.15s ease-out';
+
+    // Modal box
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:14px;max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.3);overflow:hidden;font-family:Kodchasan,system-ui,sans-serif;animation:kerekDialogSlide 0.2s ease-out';
+
+    // Header
+    const title = opts.title || (type === 'alert' ? 'Figyelem' : 'Megerősítés');
+    const headerBg = opts.danger ? '#dc2626' : '#064C48';
+    const header = document.createElement('div');
+    header.style.cssText = `background:${headerBg};color:#fff;padding:14px 18px;font-weight:600;font-size:0.95rem;font-family:Fraunces,serif`;
+    header.textContent = title;
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:18px;color:#1A2E31;font-size:0.92rem;line-height:1.5;white-space:pre-line;max-height:50vh;overflow-y:auto';
+    body.textContent = message;
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.style.cssText = 'padding:12px 18px;background:#f9fafb;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #e5e7eb';
+
+    let cancelBtn = null;
+    if (type === 'confirm') {
+      cancelBtn = document.createElement('button');
+      cancelBtn.textContent = opts.cancelText || 'Mégse';
+      cancelBtn.style.cssText = 'padding:9px 16px;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:8px;font-family:Kodchasan,sans-serif;font-size:0.9rem;cursor:pointer;font-weight:500';
+      cancelBtn.onmouseover = () => cancelBtn.style.background = '#f3f4f6';
+      cancelBtn.onmouseout = () => cancelBtn.style.background = '#fff';
+      footer.appendChild(cancelBtn);
+    }
+
+    const okBtn = document.createElement('button');
+    okBtn.textContent = opts.okText || (type === 'alert' ? 'Rendben' : 'Igen');
+    const okBg = opts.danger ? '#dc2626' : '#064C48';
+    okBtn.style.cssText = `padding:9px 16px;border:none;background:${okBg};color:#fff;border-radius:8px;font-family:Kodchasan,sans-serif;font-size:0.9rem;cursor:pointer;font-weight:600`;
+    footer.appendChild(okBtn);
+
+    box.appendChild(header);
+    box.appendChild(body);
+    box.appendChild(footer);
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop);
+
+    // Ensure animation CSS exists once
+    if (!document.getElementById('kerek-dialog-css')) {
+      const st = document.createElement('style');
+      st.id = 'kerek-dialog-css';
+      st.textContent = '@keyframes kerekDialogFade{from{opacity:0}to{opacity:1}}@keyframes kerekDialogSlide{from{opacity:0;transform:translateY(-10px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}';
+      document.head.appendChild(st);
+    }
+
+    setTimeout(() => okBtn.focus(), 50);
+
+    function cleanup(result) {
+      document.removeEventListener('keydown', onKey);
+      backdrop.style.opacity = '0';
+      backdrop.style.transition = 'opacity 0.1s';
+      setTimeout(() => {
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        resolve(result);
+      }, 100);
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(type === 'alert' ? undefined : false); }
+      else if (e.key === 'Enter' && document.activeElement === okBtn) { e.preventDefault(); cleanup(type === 'alert' ? undefined : true); }
+    }
+
+    okBtn.onclick = () => cleanup(type === 'alert' ? undefined : true);
+    if (cancelBtn) cancelBtn.onclick = () => cleanup(false);
+    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(type === 'alert' ? undefined : false); };
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+function confirmDialog(message, opts) { return _createKerekDialog('confirm', message, opts); }
+function alertDialog(message, opts) { return _createKerekDialog('alert', message, opts); }
 
 // ===== EGYSÉGES TERMÉKKÓD GENERÁLÁS =====
 const PRODUCT_CAT_CODES = {
