@@ -209,13 +209,221 @@ await alertDialog('Sikeres mentés!');
 
 ---
 
-## ⚠️ FIGYELMEZTETÉS — DEFERRED feladatok
+## 📋 BACKLOG — FELMERÜLT DE MEG NEM VALÓSÍTOTT FELADATOK / ÖTLETEK
 
-Ezeket még NEM csináltuk meg, jövőbeli javításokra:
-- **B1-B6 üzleti**: dashboard sávdiagram, vevő-szegmentáció, alapanyag-rendelő tervező, PDF nyugta, vevő profil, rendelés-előzmény export, subscribe (auto-rendelés)
-- **L6**: end-to-end tesztek (Playwright)
-- **L8**: accessibility (aria-label-ek)
-- **L9**: telefon formátum validáció regisztrációban
+Ezeket a session-ek során **felvetettük, megbeszéltük, vagy az auditban dokumentáltuk**, de valamilyen okból (kockázat, idő, prioritás, kifejezett kihagyás) nem valósultak meg. Jövőbeli munkák alapja.
+
+### 🏢 ÜZLETI FEATURE-ÖK (B1-B7) — szándékosan kihagyva az auditbol
+
+A felhasználó kérése alapján csak akkor csináljuk meg ha a vevői visszajelzések ezt indokolják.
+
+#### B1 — Dashboard rendelés-trend grafikon
+**Mit hiányol**: Admin dashboardon nincs 12-hónapos sávdiagram a havi rendelés-számokról + top-3 vevő + top-3 termék + kategória-megoszlás.
+**Mit nyer**: Üzleti döntésekhez (mit készítsen több/kevesebb terméket, melyik vevő mennyit hoz).
+**Benchmark**: Shopify, WooCommerce admin dashboard standardja.
+**Becslés**: 1 nap (Chart.js + agregáció)
+**Érintett fájlok**: `js/admin-ui.js` (renderDashboard), új `js/admin-trends.js`
+
+#### B2 — Vevő-szegmentáció
+**Mit hiányol**: A vevők nincsenek csoportosítva (új / aktív / inaktív / VIP).
+**Mit nyer**: Targetelt push üzenetek, kedvezmény-akciók ("Hűségbónusz a top 5 vevőnek").
+**Implementáció**: SQL view ami rendelés-gyakoriság alapján csoportosít. Kategória chip a `js/admin-clients.js`-ben.
+**Becslés**: 4-6 óra
+**Érintett fájlok**: `js/admin-clients.js`, új DB view
+
+#### B3 — Alapanyag-megrendelés tervező
+**Mit hiányol**: A receptúra modul tudja a stock-ot és igényt, de nem javasol mit kell rendelni mikorra (lead time alapján).
+**Mit nyer**: Az adminnak nem kell fejben tartania mikor fogy ki valami; csökkenti a sürgős beszerzéseket.
+**Implementáció**: `js/receptura-stock.js`-ben már van `getDaysToStockOut(ing)` típusú számolás. Új nézet: "Megrendelendő alapanyagok" táblával (lead_time × szükséglet = mikor kell rendelni).
+**Becslés**: 4-6 óra
+**Érintett fájlok**: `js/receptura-stock.js`, új nézet
+**Adatbázis változás**: `ingredients` táblára új oszlop `lead_time_days`
+
+#### B4 — Digitális számla / nyugta (PDF / e-Factura)
+**Mit hiányol**: A vevő nem kap számlát/nyugtát a rendeléséről.
+**Mit nyer**: Hargita megyei adózási megfelelés (Románia 2026: e-Factura kötelező), könyveléshez exportálható nyugták.
+**Implementáció**: `pdfmake` vagy `jsPDF` lib. Email küldés is opció.
+**Becslés**: 1 nap
+**Érintett fájlok**: új `js/vevo-invoice.js`, vagy `js/vevo-orders-extras.js`-be belerakni
+**Kockázat**: Romániai e-Factura rendszer integrációja külön munka (XML formátum, SPV küldés)
+
+#### B5 — Vevői önkiszolgáló profil
+**Mit hiányol**: A vevő nem tudja módosítani saját adatait (név, email, telefon), csak az admin tud beavatkozni.
+**Mit nyer**: Adminisztrációs teher csökkenése, GDPR-megfelelés (jog az adatmódosításhoz).
+**Implementáció**: Új vevő nézet `Profilom`. RLS policy a clients táblára hogy csak saját rekordot módosíthat.
+**Becslés**: 4-6 óra
+**Érintett fájlok**: `js/vevo-data.js`, `vevo.html` (új tab), DB RLS
+
+#### B6 — Rendelés-előzmények letöltése (CSV / PDF)
+**Mit hiányol**: A vevő nem tud lekérni saját éves összesítőt vagy excel exportot.
+**Mit nyer**: Mint B4 — adózás, költségvetés-tervezés.
+**Implementáció**: `js/vevo-orders-extras.js`-be új export gomb.
+**Becslés**: 2-3 óra
+
+#### B7 — Subscribe (auto-rendelés)
+**Forrás**: Benchmark a session-ben: Olo és EZCater B2B platformokon van.
+**Mit hiányol**: A vevő nem tud "minden héten ugyanaz a rendelés" típusú szabályt beállítani.
+**Mit nyer**: Sok időt spórol vevőnek (rendszeres KEREK vásárlóknak), és az adminnak előre kalkulálható forgalmat ad.
+**Implementáció**: Új `subscriptions` tábla (client_id, products JSON, frequency: weekly/biweekly/monthly, active_until). Cron Edge Function ami minden sütési nap előtt 1 nappal generálja a rendeléseket az aktív subscription-ök alapján.
+**Becslés**: 2-3 nap (nagy feature)
+**Adatbázis változás**: új tábla
+**Kockázat**: Komplex business logic — vevő mikor szüneteltetheti, hogyan módosíthatja, mit lát a rendelés-listában
+
+---
+
+### 🐢 ALACSONY PRIORITÁSÚ AUDIT TÉTELEK (L)
+
+#### L1 — Magyar és angol komment vegyesen
+**Probléma**: A legtöbb komment magyar, néhány angol. Nem szabványos.
+**Megoldás**: Egységes nyelv (javasolt: magyar, mivel a felhasználói nyelv az).
+**Becslés**: 1-2 óra (kommentek átfutása)
+
+#### L2 — Inkonzisztens function naming
+**Probléma**: pl. `getTotalStock` vs `getIngredientTotalStock`, `mk` vs `getKey`, `ok` vs `getOrderKey`.
+**Megoldás**: Egységes naming convention.
+**Becslés**: 2-3 óra (rename + minden hivatkozás frissítése)
+**Kockázat**: Magas, sok hely érintve
+
+#### L4 — Hardcoded font URL-ek HTML-ben
+**Probléma**: A `Fraunces` és `Kodchasan` font Google Fonts URL be van égetve 3 HTML fájlba.
+**Megoldás**: `kerek-styles.css` `@import`-tal vagy `<link>` egy közös helyen.
+**Becslés**: 30 perc
+**Megjegyzés**: Az audit szerint már bekerült részben a `kerek-styles.css`-be — ellenőrzendő
+
+#### L6 — End-to-end tesztek (Playwright)
+**Probléma**: A `tests/calculations.test.js` (38 db) csak számolásokat fed le. A kritikus business flow-k (rendelés mentés, módosítás, sütés visszaigazolás, push notification) **nincsenek tesztelve**. Ezért is keletkezett a 3 kritikus bug az utolsó 2 hétben (C1 auditLog, C2 DELETED return, C3 qty0).
+**Megoldás**: Playwright vagy Cypress + CI integráció (GitHub Actions).
+**Becslés**: 1-2 nap setup + folyamatos 0.5 nap/feature
+**Hatás**: Megelőzi a regressziókat új release-eknél
+
+#### L7 — PWA manifest
+**Eredmény**: Az auditban kiderült hogy a `manifest.json` **rendben van** (icons, theme_color, background_color, display: standalone). Nincs teendő.
+
+#### L8 — Accessibility (a11y)
+**Probléma**: A `<button onclick="✏️">` jellegű gomboknak nincs `aria-label`-jük screen reader-nek. A modal dialógusok `role="dialog"` nélkül vannak.
+**Megoldás**: Minden ikonos gombhoz `aria-label`, dialógusoknak ARIA attribútumok.
+**Becslés**: 4-6 óra (sok hely végigjárása)
+**Hatás**: Vakok / gyengén látók számára használhatóbb
+
+#### L9 — Telefon formátum validáció
+**Eredmény**: Az auditban kiderült hogy a telefon mező **opcionális** és `type="tel"`, így bármi elfogadható. **Nincs teendő**, de jövőbeli kérés esetén regex validáció hozzáadható (pl. romániai +40 mintára).
+
+---
+
+### 🔧 KÖZEPES TÉTELEK AMIK NEM LETTEK MEGCSINÁLVA
+
+#### M12 — Hosszú template literal-ek külön mappába
+**Probléma**: Pl. `admin-clients.js`-ben a HTML template-ek embedded backtick string-ek (több 100 sor).
+**Megoldás**: `templates/` mappa, vagy `<template>` HTML tag használat dinamikus klónozással.
+**Becslés**: 1-2 nap (nagy refaktor)
+**Kockázat**: Magas, mert a template-ek dinamikus értékkel vannak (sok `${variable}` interpoláció)
+
+#### M7 részleges — JS-fájlokban maradt inline onclick
+**Aktuális helyzet**: A 122 HTML onclick átírtuk data-action-re (v2.33.0). DE a JS-fájlokban (kb. 150 inline onclick a dinamikusan generált HTML-ben — pl. `vevo-orders-render.js`-ben `<button onclick="pivotChangeQty(${day}, ${pid}, ${delta})">`) **megmaradt**.
+**Megoldás**: Event delegation pattern — a parent container-en egy listener, `data-*` attribútumokon keresztül paraméterek.
+**Becslés**: 3-4 óra
+**Kockázat**: Magas, mert 150 hely, könnyen elromolhat valami
+**Megjegyzés**: A `kerek-constants.js`-beli globális `[data-action]` delegator már működne ezekkel is — csak a HTML generálást kellene átírni. **Konvencióként rögzítve: új kódba inkább data-action pattern**.
+
+---
+
+### 💡 FELHASZNÁLÓI VISSZAJELZÉSEK / KÉRÉSEK A SESSION-ÖKBÖL
+
+#### Megvalósultak ✅
+- **Push notification rendszer** — szét bonyolódott (silent rendelés-status + admin-confirmed broadcast)
+- **Mobil UX overhaul** (v2.22.6 → v2.23.0)
+- **Heti minta másolás** (`copyLastOrder` v2.25.1)
+- **Sticky havi totál bottom bar** (v2.25.2)
+- **Toggle view nap/termék** (v2.24.0)
+- **Unified renderer mobil+desktop** (v2.25.0)
+- **30s unified polling** (v2.26.0)
+- **Admin Napló dashboard** (analytics aggregator)
+- **Audit-vezérelt fejlesztés** (v2.29.0 - 17 fájl javítva)
+- **Admin auth biztonsági refactor** (v2.30.0 - Edge Function)
+
+#### Megvalósult de finomítható
+- **C4 admin auth — UX**: a `verify_jwt: OFF` toggle a Supabase Dashboard-on kézzel kell legyen — automatizálható lenne Supabase CLI-vel
+- **Push permission UX**: jelenleg nincs külön onboarding "engedélyezd a push-t" prompt, csak egy 🔔 gomb. Egy első-belépés-után popup ("Szeretnél értesítéseket kapni a rendeléseidről?") jobb lenne.
+- **C5 Realtime debounce** működik (500ms), de **konkrét frissítés-eseményt** nem nézünk — minden update-re teljes `loadAllData` fut. Surgical update (csak a payload alapján a D objektum egy részét frissíteni) jobb lenne, de az audit nem írta elő.
+
+#### Visszatérő témák amik kérésekben felmerültek
+- **Limit-takarékosság**: kevesebb screenshot, batch push, rövid válaszok, kódbázis ne nőjön feleslegesen — folyamatos önkontroll
+- **Tervezet-jóváhagyás**: minden új funkciónál először vázlat, aztán implementáció
+- **End-to-end tesztelés** browserrel **csak explicit engedéllyel** — limit-érzékeny
+
+---
+
+### 🎯 NEM PRIORITIZÁLT, DE FELMERÜLT ÖTLETEK
+
+#### Vevő-oldali push preferenciák
+**Mit hiányol**: A vevő nem tudja típusonként ki/be kapcsolni a push-okat (pl. csak saját rendelés visszaigazolása, de nem kell az új termék hír).
+**Megoldás**: `clients` táblába `push_preferences JSONB` oszlop. Vevő-settings UI.
+**Becslés**: 4-6 óra
+**Audit**: az M5-tel együtt felmerült de szándékosan kihagytuk
+
+#### Rate limit a Realtime + REST hívásokra
+**Mit hiányol**: A Supabase Free tier 50 000 req/hó. Az aktuális forgalom messzi (kb. 10%), de scale-up esetén túlléphető.
+**Megoldás**: Monitoring + alert a Supabase Dashboard-ról; vagy a kliens-oldali polling intervallumot dinamikusan változtatni terhelés szerint.
+
+#### Receptúra modul függőségi gráf
+**Mit hiányol**: Egy recept módosításakor nem látszik melyik termék gyártásába van bele kötve.
+**Megoldás**: `getRecipeDependencies(recipeId)` helper + UI a recept modal-ban.
+**Becslés**: 2-3 óra
+
+#### Admin auto-backup
+**Mit hiányol**: Nincs napi/heti automatikus DB-backup.
+**Megoldás**: Supabase automatikus backup-okat ad a Pro tier-ben. Free tier-en pg_dump cron Edge Function-nel.
+**Becslés**: 3-4 óra
+
+#### Vevő-rendelés statisztika modal
+**Mit hiányol**: Egy admin által megnyitott vevő-detail nézetben jó lenne egy mini-statisztika (havi rendelés-szám trend, kedvenc termék, átlag rendelés-érték).
+**Megoldás**: `js/admin-clients.js` `openClientDetail()`-ben új szekció.
+**Becslés**: 3-4 óra
+**Megjegyzés**: A v2.29.0 cleanup-ban töröltük a `renderClientTrend` function-t — de a jövőben hasonló funkciót újra létrehozhatunk
+
+#### Push-csekkold sticky banner a vevőnek
+**Mit hiányol**: Ha a vevő egyszer letiltotta a push-t, nincs reminder hogy újra engedélyezze.
+**Megoldás**: Vevő bejelentkezés után, ha `Notification.permission === 'denied'`, mutass egy diszkrét bannert ("Engedélyezz értesítést a rendeléseidről").
+**Becslés**: 1-2 óra
+
+---
+
+### 🔮 STRATÉGIAI TÖPRENGÉSEK / NAGY KÉPI ÖTLETEK
+
+#### Multi-pékség támogatás
+**Vízió**: A KEREK kód lehetne több pékség által használt SaaS platform.
+**Becslés**: Hatalmas refaktor (multi-tenant DB schema, tenant-aware Edge Functions, branding per tenant)
+**Realitás**: Csak akkor érdemes ha tényleges igény van rá
+
+#### Mobil app (React Native / Capacitor)
+**Vízió**: Natívabb mobil élmény. Jelenleg a PWA jó, de a push iOS-en korlátozott (csak 16.4+ és csak add-to-home-screen-ből).
+**Becslés**: 2-3 hónap
+**Realitás**: PWA most elég, csak akkor kell ha sok iPhone vevő van akik nem PWA-ként installálják
+
+#### AI-asszisztens vevőknek
+**Vízió**: A receptúra modulban már van AI integráció (Anthropic, OpenAI, Groq). Egy hasonló asszisztens a vevő oldalon válaszolhat kérdésekre ("Mikor van a következő sütés?", "Adj javaslatot 4 fős reggelire").
+**Becslés**: 2-3 nap
+**Költség**: Per-vevő AI token költség kalkulálandó
+
+---
+
+## 🚦 KONVENCIÓK ÚJ MUNKÁHOZ
+
+Ha bármelyik fenti backlog tétel felmerül, a **fejlesztési munkamód kötelező szabályai** alapján:
+
+1. **Tervezet írása** előbb (mit, miért, edge case, érintett fájlok, becsült méret/sor)
+2. **Várj jóváhagyásra** mielőtt kódolsz
+3. **Batch munka** — minden kapcsolódó változtatás egy commitban
+4. **Konvenciók követése**:
+   - `// ===== SZEKCIÓ_NEVE =====` szekciókomment új függvénycsoporthoz
+   - Audit cimke-komment (pl. `// B1 fix:`) ha valamely backlog tételt javítod
+   - Új UI: `data-action` pattern, nem inline onclick
+   - Új dialógus: `confirmDialog` / `alertDialog`, nem natív `confirm()` / `alert()`
+   - Új API hívás: `sb` wrapper használata, nem közvetlen `fetch`
+   - Új konstans: `kerek-constants.js`-be, nem inline magic number
+5. **Verzió-bump kötelező** (kerek-constants.js + minden HTML `?v=` + sw.js CACHE_NAME)
+6. **Syntax check** + Jest
+7. **Push** + GitHub Actions deploy verify
 
 ---
 
