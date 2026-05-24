@@ -3,7 +3,7 @@ name: kerek-workflow
 description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez. Használd ezt a skillt MINDEN alkalommal amikor a KEREK projekten dolgozol.
 ---
 
-# KEREK Workflow Skill
+# KEREK Workflow Skill (v2.33.0 — 2026-05-24)
 
 ## ⚠️ FEJLESZTÉSI MUNKAMÓD – KÖTELEZŐ SZABÁLYOK
 
@@ -28,293 +28,207 @@ description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez.
 - Rövid, tömör válaszok – a hosszú magyarázat helyett a megoldás
 - Ha valami nem hatékony a munkavégzésben, jelezd – a cél a lehető legkevesebb körrel a legjobb eredmény
 
+### Böngésző-takarékosság
+- Kevesebb screenshot – csak akkor kérj képet ha tényleg szükséges hibakereséshez
+- Ne `megnézem mi a helyzet` rutinból
+- Browser checks csak explicit user-engedéllyel
+
+### Limit-takarékosság
+- Tömörítés, dead code törlés, ne tartsunk fenn nem használt függvényeket
+- Verzió-bump és sw.js cache_name minden release-nél kötelező
+- Test eredményeket gyorsan ellenőrizd, ne ismételd a check-eket
+
 ---
 
-## Projekt infrastruktúra
+## 🗂️ PROJEKT STRUKTÚRA / FÁJL-TÉRKÉP (v2.33.0)
 
-| Szolgáltatás | Adat |
-|---|---|
-| GitHub | komsacsongor/kerek-rendeles (publikus) |
-| Token | GITHUB_TOKEN_PLACEHOLDER (lejár: 2026-08-09) |
-| Supabase | lfaxeihrmiylggahougl.supabase.co |
-| Anon key | SUPABASE_ANON_KEY_PLACEHOLDER |
-| Hosting | komsacsongor.github.io/kerek-rendeles |
-| Deploy | GitHub push → GitHub Actions → automatikus |
-| Jelenlegi verzió | v2.21.8 (2026-05-19) |
-| Verziózás | v2.MINOR.PATCH – MINOR: új funkció, PATCH: hibajavítás |
+### Hosting & infra
+- **Repo**: `github.com/komsacsongor/kerek-rendeles` (main branch, auto-deploy GitHub Pages)
+- **Live URL**: `https://komsacsongor.github.io/kerek-rendeles/`
+- **Supabase**: `lfaxeihrmiylggahougl.supabase.co` (anon key: `(public anon key)`)
+- **GitHub token** (scope: repo): `(token kihagyva — local memory-ban tárolva)`
 
-## KRITIKUS: Supabase anon key
-Ha push blokkolva: bypass URL-t használj, ne rewrite-old a history-t.
+### Edge Functions (Supabase, deployolva)
+- **`dynamic-service`**: push notification delivery (VAPID kulcsok beállítva)
+- **`admin-auth`** (v2.30.0): jelszó-ellenőrzés `admin_secrets` táblából (RLS+REVOKE védelem)
+- **`auto-confirm-orders`**: deployolva de nincs cron — H8 kliens-oldali pass helyettesíti
 
-## Minden session elején (KÖTELEZŐ)
+### Adatbázis
+- `clients`, `products`, `monthly_active_products`, `orders`, `order_status`, `messages`
+- `recipes`, `recipe_ingredients`, `ingredients`, `ingredient_batches` (FIFO)
+- `baking_calendar`, `settings`
+- `audit_log` (analytics + admin műveletek)
+- `admin_secrets` (csak service_role olvashatja) ⭐ v2.30.0
+- `push_subscriptions`
 
-```bash
-cd /home/claude && rm -rf kerek-rendeles && git clone https://GITHUB_TOKEN_PLACEHOLDER@github.com/komsacsongor/kerek-rendeles.git
-cd kerek-rendeles && git config user.email "kerek@deploy.bot" && git config user.name "KEREK Deploy"
-npm install && npx jest --no-coverage
-```
+### 3 fő modul + HTML
 
-## Fájlstruktúra
-
-```
-index.html            → Főmenü
-admin.html            → Admin felület
-vevo.html             → Vevői megrendelő
-receptura.html        → Receptúra modul
-register.html         → Vevő önregisztráció
-supabase.js           → Közös Supabase kliens
-kerek-constants.js    → Közös konstansok + APP_VERSION + auditLog()
-kerek-styles.css      → CSS változók (:root)
-
-js/admin-data.js      → D objektum, loadAllData(), doLogin(), initApp()
-js/admin-ui.js        → nav(), RENDERS, toast(), refreshAll(), renderDashboard()
-js/admin-messages.js  → renderMessages(), updateMsgBadge(), sendAdminReply()
-js/admin-baking.js    → sütési naptár, confirmDay(), statusBadge()
-js/admin-orders.js    → renderOrders(), CSV export
-js/admin-catalog.js   → saveProduct(), renderCatalog(), renderFamilies()
-js/admin-clients.js   → saveClient(), renderClients(), approveClient(),
-                         deleteClient() (soft delete!), generateInvitation(),
-                         showRegLink()
-js/admin-reports.js   → renderReports(), renderAuditLog(), renderFamilyReport()
-js/admin-settings.js  → saveSetting(), changePassword()
-js/admin-help.js      → renderAdminHelp()
-
-js/receptura-data.js        → R objektum, initApp(), DB loading
-js/receptura-ui.js          → calcLevain(), calcRawWeight(), calcScaleFactor(),
-                               getFifoPrice(), calcAutoMinMax(), renderCostAnalysis()
-js/receptura-recipes.js     → renderRecipes(), renderRecipeDetail(), printRecipeDatasheet()
-js/receptura-settings.js    → refreshR(), openStockIntakeModal(), confirmStockIntake()
-js/receptura-modal.js       → openRecipeModal()
-js/receptura-ai.js          → saveRecipe(), newRecipeVersion(), AI import
-js/receptura-stock.js       → renderStock(), renderStockAlerts(), openMinMaxEditor(),
-                               deleteIngredient(), generateShoppingList()
-js/receptura-production.js  → initProductionPrep(), renderProdMonthSelector(),
-                               calcProductionPrep(), confirmBakingDone(),
-                               openExperimentalBake(), confirmExperimentalBake()
-js/receptura-processing.js  → initProcessingView(), openProcessingModal(), saveProcessingLog()
-js/receptura-levain.js      → initLevainDaily(), renderLevainMonthSelector(),
-                               calcLevainDaily(), recordLevainBatch()
-js/receptura-operational.js → renderOpSelect(), renderOpDetail()
-js/receptura-help.js        → renderRecepturaHelp()
-
-js/vevo-data.js    → appData, doLogin() (email/kód/névvel), initApp()
-js/vevo-ui.js      → nav(), toast(), product modal
-js/vevo-orders.js  → saveOrder(), renderOrderTable(), copyLastOrder(),
-                     handleOrderChange(), clearOrder()
-```
-
-## Supabase táblák
-
-```
-products:           id, name, weight, price, category, description, image, code,
-                    marketing_desc, ingredient_label, allergens, nutrition,
-                    product_family_id, deleted_at
-                    ⚠️ type oszlop NEM LÉTEZIK
-
-clients:            id (belépési kód = KER-XXXX-XXXX), name, email, phone,
-                    join_date, notes
-                    ⚠️ active oszlop NEM LÉTEZIK
-                    Pending: name = '[PENDING] Valaki'
-                    Deleted: name = '[DELETED] Valaki' (soft delete!)
-                    Email: UNIQUE constraint (clients_email_unique)
-
-recipes:            id (manual), name, category, product_id (FK→products),
-                    base_portion, bake_loss, unit_weight, temp1,time1,temp2,time2,
-                    description, levain_amount, labor_h, electricity,
-                    marketing_desc, ingredient_label, allergens, nutrition,
-                    version (int), activated_at (timestamptz)
-
-ingredients:        id, name, category, sub_type, min_stock_auto_g, max_stock_auto_g,
-                    min_stock_override_g, max_stock_override_g, lead_time_days,
-                    order_cycle_days, safety_factor, base_price_per_g
-
-ingredient_batches: id, ingredient_id (FK), received_date, qty_received_g,
-                    qty_remaining_g, price_per_g, supplier_name,
-                    source_type (purchase|processing), processing_id, notes
-
-ingredient_processing: id, date, labor_minutes, inputs(JSONB), outputs(JSONB),
-                       total_input_cost, notes
-
-production_logs:    id, date, log_type (customer|internal|experimental),
-                    recipe_id, pieces_planned, pieces_actual,
-                    ingredient_usage(JSONB), total_cost, notes
-
-order_status:       client_id, year, month, day, status, admin_note, deadline,
-                    confirmed_at
-                    Státuszok: pending|confirmed|modified|fulfilled|cancelled
-
-invitations:        token, used, created_at, expires_at
-                    (nem aktív – regisztráció token nélkül működik)
-
-audit_log, clients, orders, messages, baking_calendar,
-monthly_active_products, settings, recipe_ingredients, recipe_steps,
-stock_corrections
-```
-
-## Kritikus architektúrális szabályok
-
-### Készlet (FIFO)
-```
-Bevételezés → ingredient_batches INSERT
-Készlet     = SUM(qty_remaining_g) WHERE ingredient_id=X AND qty_remaining_g>0
-FIFO ár     = legrégebbi batch price_per_g
-Levonat     = FIFO sorrend, batch-enként qty_remaining_g csökkentése
-⚠️ R.stock DEPRECATED – csak ingredient_batches!
-```
-
-### Scale factor (KRITIKUS!)
-```javascript
-// HELYES – bakeLoss NÉLKÜL (recept már tartalmazza)
-function calcScaleFactor(recipe, pieces) {
-  return (pieces * (recipe.unitWeight || recipe.basePortion)) / recipe.basePortion;
-}
-// calcRawWeight() csak megjelenítéshez! (tartalmaz bakeLoss-t)
-```
-
-### Vevő soft delete
-```
-Törlés → name = '[DELETED] Valaki' (nem valódi DELETE!)
-Pending → name = '[PENDING] Valaki' (jóváhagyás előtt)
-Login blokk: name.startsWith('[PENDING]') || name.startsWith('[DELETED]')
-Jóváhagyás: prefix eltávolítása az UPDATE-ben
-```
-
-### Vevő bejelentkezés
-```
-client.id === val ||
-client.email?.toLowerCase() === valLower ||
-client.name.toLowerCase() === valLower
-```
-
-### Rendelési státusz gép
-```
-PENDING → CONFIRMED (admin jóváhagyja)
-CONFIRMED → PENDING (vevő módosítja)
-CONFIRMED → FULFILLED (sütés elvégezve, receptúra modul)
-→ CANCELLED (admin visszavonja)
-```
-
-## Szintaxis ellenőrzés (minden push előtt)
-
-```bash
-for f in js/*.js; do node -e "const fs=require('fs'),vm=require('vm');try{new vm.Script(fs.readFileSync('$f','utf8'));console.log('$f OK');}catch(e){console.log('HIBA: '+e.message);}"; done
-for f in admin.html vevo.html receptura.html index.html register.html; do
-  node -e "const fs=require('fs'),vm=require('vm');const h=fs.readFileSync('$f','utf8');const s=h.match(/<script[^>]*>([\S\s]*?)<\/script>/g)||[];let ok=true;s.forEach((sc,i)=>{try{new vm.Script(sc.replace(/<\/?script[^>]*>/g,''));}catch(e){console.log('$f['+i+']: '+e.message);ok=false;}});if(ok)console.log('$f OK');"
-done
-npx jest --no-coverage
-```
-
-## Version bump + push
-
-```python
-import re, datetime
-NEW_VER = "X.Y.Z"
-DATE = datetime.date.today().strftime("%Y-%m-%d")
-for f in ['kerek-constants.js']:
-    c = open(f).read()
-    c = re.sub(r"APP_VERSION = 'v[\d.]+ \([^)]+\)'", f"APP_VERSION = 'v{NEW_VER} ({DATE})'", c)
-    open(f, 'w').write(c)
-for f in ['admin.html', 'receptura.html', 'vevo.html', 'index.html', 'register.html']:
-    c = open(f).read()
-    c = re.sub(r'(\?v=)[\d.]+"', rf'\g<1>{NEW_VER}"', c)
-    open(f, 'w').write(c)
-# CRITICAL: sw.js CACHE_NAME bump – without this, PWA users won't get updates!
-# The activate event clears old caches ONLY if CACHE_NAME differs.
-sw = open('sw.js').read()
-sw = re.sub(r"const CACHE_NAME = 'kerek-v[\d.]+'", f"const CACHE_NAME = 'kerek-v{NEW_VER}'", sw)
-open('sw.js', 'w').write(sw)
-```
-
-```bash
-git add -A && git commit -m "feat/fix: leírás (vX.Y.Z)" && git push https://GITHUB_TOKEN_PLACEHOLDER@github.com/komsacsongor/kerek-rendeles.git main
-```
-
-## Kulcs formátumok
-
-```javascript
-mk(year, month)     → "2026-4"    // admin (0-indexed hónap!)
-getKey(month, year) → "2026-4"    // vevo – FORDÍTOTT paraméter
-ok(cid,y,m,day)    → "anna-2026-4-15"
-// dateStr: MINDIG local date, soha ne toISOString() (timezone bug)
-```
-
-## Elkerülendő hibák
-
-- toISOString() timezone bug → mindig local dateStr
-- products.type → NEM LÉTEZIK
-- clients.active → NEM LÉTEZIK (soft delete prefix alapú!)
-- calcRawWeight() ingredient számításhoz → TILOS (bakeLoss-t tartalmaz!)
-- R.stock → DEPRECATED
-- Supabase filter: & kell vesszők helyett (year=eq.X&month=eq.Y)
-- const scope hiba template string-ben → definiáld return/template előtt
-
-## Hátralévő fejlesztések
-
-| # | Feladat | Prioritás |
+#### 1. `vevo.html` — Vevő PWA
+| JS fájl | Sor | Tartalom |
 |---|---|---|
-| 1 | U4 Fizetési állapot tracking | Közepes |
-| 2 | U3 Napi kapacitás limit | Közepes |
-| 3 | Push értesítések (Web Push+VAPID) | Alacsony |
-| 4 | DB reset élesítés előtt | Élesítés előtt |
-| 5 | PWA (manifest.json + sw.js) | Utolsó |
-| 6 | Technológus nézet fejlesztése | Középtáv |
+| `vevo-data.js` | ~430 | Login, polling, push subscription, doLogin, doRegister, H8 auto-confirm |
+| `vevo-ui.js` | ~150 | UI helpers, isBakingDay, message badge, getKey, getActiveProds |
+| `vevo-analytics.js` | ~30 | KEREKAnalytics events → audit_log |
+| `vevo-orders-render.js` ⭐ | 454 | renderOrderTable, renderProductPivot, renderMobileOrderCards, renderSummary, toggleMobCard, switchView, helpers |
+| `vevo-orders-actions.js` ⭐ | 301 | saveOrder, clearOrder, pivotChangeQty, mobChangeQty, updateRowTotal, updateHeroTotal, defaultDeadlinePassed, sendMessageOnly, vevoConfirmOrder |
+| `vevo-orders-extras.js` ⭐ | 207 | showPdfModal, openPdfSummary, copyLastOrder, showCopyResultBanner, dismissCopyBanner |
 
-## Belépési adatok
+⭐ = M9 bontásból (v2.32.0)
 
-Admin + Receptúra: admin | Demo: kovacs-anna, nagy-peter, szabo-maria
+#### 2. `admin.html` — Admin felület
+| JS fájl | Sor | Tartalom |
+|---|---|---|
+| `admin-data.js` | ~310 | initApp, loadAllData (Promise.allSettled H4), doLogin (Edge Function), Realtime WS debounced (C5) |
+| `admin-ui.js` | ~265 | renderDashboard, nav, RENDERS map, getBakingDays |
+| `admin-baking.js` | ~530 | renderBaking, confirmDay (H1 bulk), saveModify (H2 bulk), toggleCalDay (+broadcast push v2.28.0) |
+| `admin-catalog.js` | ~580 | renderCatalog, saveProduct (+broadcast push), archiveProduct, restoreFromArchive |
+| `admin-clients.js` | ~315 | renderClients, archiveClient (DELETED prefix), openClientDetail |
+| `admin-orders.js` | ~85 | renderOrders (megrendelések táblanézet) |
+| `admin-messages.js` | ~200 | renderMessages, sendAdminReply (+push trigger v2.27.0) |
+| `admin-push.js` ⭐ | 110 | renderPushBroadcast, sendBroadcastFromForm (manual broadcast UI) |
+| `admin-reports.js` | ~450 | renderReports, renderAuditLog, renderAnalyticsDashboard |
+| `admin-settings.js` | ~150 | renderSettings, saveSettings (kategóriák, jelszó, deadline) |
+| `admin-help.js` | ~120 | renderAdminHelp (admin súgó) |
 
-## Arculat
+⭐ = új modul a v2.28.0-ban
 
-Font: Kodchasan (UI), Fraunces (fejlécek) | #064C48 teal-dark | #EFB036 gold
-CSS: --teal-dark, --gold, --teal, --border, --bg-soft, --text-soft
-Logo tartalmazza a felirat – ne írd ki külön
+#### 3. `receptura.html` — Receptúra modul
+| JS fájl | Sor | Tartalom |
+|---|---|---|
+| `receptura-data.js` | ~230 | initApp, polling, settings load |
+| `receptura-ui.js` | ~290 | UI helpers, getIng, FIFO ár, auto min/max |
+| `receptura-recipes.js` | ~330 | renderRecipes, recipe CRUD |
+| `receptura-stock.js` | ~190 | renderStock, FIFO megjelenítés |
+| `receptura-production.js` | ~530 | renderProduction, confirmBakingDone (H3+H5 bulk OR-query) |
+| `receptura-processing.js` | ~210 | Feldolgozás (intermediate ingredients) |
+| `receptura-levain.js` | ~100 | Levain számítások |
+| `receptura-ingredients.js` | ~250 | Alapanyagok CRUD |
+| `receptura-modal.js` | ~80 | Modal helpers |
+| `receptura-ai.js` | ~270 | AI receptúra generálás (Anthropic/OpenAI/Groq) |
+| `receptura-operational.js` | ~75 | Operatív segédfüggvények |
+| `receptura-settings.js` ⭐ | 198 | renderSettings, saveFinancialSettings, saveBakingSettings, saveAiSettings |
+| `receptura-ing-cats.js` ⭐ | 274 | renderIngCategories, addIngCategory, openStockIntakeModal, confirmStockIntake |
+| `receptura-recipe-cats.js` ⭐ | 234 | renderRCategories, addRecipeCat, reassignRecipe, migrateRecipeProductIds |
+| `receptura-help.js` | ~100 | renderReceptureHelp |
 
-## ⚠️ PUSH ELŐTTI KÖTELEZŐ VERIFIKÁCIÓ (UI változásnál)
+⭐ = M10 bontásból (v2.32.0)
 
-Ez a szakasz betartása NEM opcionális. Minden UI változásnál:
+### Közös fájlok
+| Fájl | Tartalom |
+|---|---|
+| `kerek-constants.js` | APP_VERSION, magic numbers, helpers (esc, getOrderKey, getDays, hashPassword, debugLog), auditLog (sb.insert C1 fix), sendPushToClient, sendPushBroadcast, confirmDialog+alertDialog (M5), data-action delegator (M7) |
+| `kerek-styles.css` | Globális stílusok, CSS változók (--teal-dark, --gold, stb.) |
+| `supabase.js` | sb wrapper: query, insert, upsert, delete, subscribe (WS exp backoff H6), getSetting, hashPassword |
+| `sw.js` | Service Worker (PWA cache, push handler) |
 
-### 1. String egyezés igazolása (módosítás előtt)
-```bash
-# MINDIG futtasd le, mielőtt replace()-t írsz:
-grep -n "KERESETT_STRING" érintett_fájl.html
-sed -n 'START,ENDp' érintett_fájl.html
+---
+
+## 🔑 KONVENCIÓK A KÓDBÁZISBAN
+
+### Szekciókomment-konvenció
+A fájlokban a függvénycsoportok `// ===== SZEKCIO_NEVE =====` markerrel vannak elválasztva. Ezek **navigációs jel** — ne töröld őket.
+
+```js
+// ===== BAKING STATUS MACHINE =====
+function getOrderStatus(...) {...}
+function confirmDay(...) {...}
+
+// ===== RENDER =====
+function renderBaking() {...}
 ```
-Ha a string nem egyezik 100%-ban → ne feltételezd, olvasd el a tényleges tartalmat.
 
-### 2. Nav item hozzáadásnál
-```bash
-# Előbb olvasd el az aktuális nav struktúrát:
-grep -n "nav-item" admin.html | head -20
-grep -n "nav-item" receptura.html | head -20
+### Audit cimke-kommentek (S1, S2, A3, U6, C1, H4, M11, stb.)
+Ezek tudatos referenciák a KEREK_audit_v*.md dokumentumokra. **Ne töröld őket** — múltbeli javítások nyomát adják.
+
+### Globális névtér
+**Nincs module system** (egyszerű script tag-ek). Minden funkció globálisan elérhető. A bontott fájlok együtt kell betöltődjenek a HTML-be a megfelelő sorrendben (lásd HTML-eket).
+
+### Adatkonvenciók
+- **Order key**: `${clientId}-${year}-${month}-${day}` — `getOrderKey()` helper használata kötelező
+- **Year**: négyjegyű (2026)
+- **Month**: 0-alapú (0=január, 11=december)
+- **Day**: 1-alapú (1-31)
+- **Status enum**: `pending`, `confirmed`, `modified`, `cancelled`, `fulfilled`
+
+### Új UI esemény — data-action pattern (M7 v2.33.0)
+```html
+<!-- Inkább ezt -->
+<button data-action="doLogin">Belépés</button>
+<button data-action="nav" data-arg1="dashboard">Dashboard</button>
+<button data-action="saveProduct" data-arg1="42">Mentés</button>
+
+<!-- Helyett ezt (ami régi, kerülendő új kódban) -->
+<button onclick="doLogin()">Belépés</button>
 ```
 
-### 3. View div hozzáadásnál
-```bash
-# Előbb olvasd el a HTML végét:
-python3 -c "
-with open('admin.html') as f: lines = f.readlines()
-print(''.join(lines[-15:]))
-"
+A `kerek-constants.js`-ben lévő globális click delegator automatikusan kezeli:
+- `data-arg1`, `data-arg2`, ..., `data-arg9` (max 9 paraméter)
+- Auto-cast: `'true'/'false'` → boolean, numeric string → number, egyébként string
+- Csak akkor működik, ha a `window[action]` függvény elérhető globálisan
+
+**Komplex onclick esetén** (this paraméter, JS expression, kifejezés) **inline marad** — vagy emeld ki egy named helper-be.
+
+### Modal dialógusok — M5 v2.31.0
+**NE használj** natív `confirm()` és `alert()`-et. Helyette:
+```js
+if (await confirmDialog('Biztos?', {title: 'Megerősítés', danger: true})) { ... }
+await alertDialog('Sikeres mentés!');
 ```
 
-### 4. RENDERS bejegyzés ellenőrzése
-```bash
-grep -n "RENDERS\|nav.*=>\|'view-name'" js/admin-ui.js
-grep -n "RENDERS\|nav.*=>\|'view-name'" js/receptura-ui.js
-```
+### Push notification — sendPushToClient (silent) + sendPushBroadcast (admin-confirmed)
+- **Rendelés státusz változások** (confirm/modify/cancel/fulfilled) → CSENDBEN `sendPushToClient()`
+- **Broadcast események** (új sütési nap, új termék, archiválás, manuális) → MEGERŐSÍTŐ popup-pal `sendPushBroadcast()`
 
-### 5. Deploy után cache ellenőrzés
-- Mindig ?v=XXXX-szel tesztelj (az aktuális verzióval)
-- Ha régi verzió tölt → ne tesztelj, cache probléma van
+---
 
-### 6. Push előtt nyilatkozat (kötelező)
-Minden push előtt kimondva (vagy írva):
-```
-✅ Érintett fájlok: [fájlok listája] – elolvasva grep/sed-del
-✅ String egyezések igazolva: [konkrét string-ek]
-✅ View div létezik: [grep igazolja]
-✅ Nav item létezik: [grep igazolja]
-✅ RENDERS bejegyzés: [grep igazolja]
-✅ Syntax check: OK
-```
-Ha ezek bármelyike hiányzik → NE PUSHOLJ.
+## 📋 PROCESSES
+
+### Új release workflow
+1. **Tervezet** → jóváhagyás → kódolás (több file egyszerre)
+2. **Verzió-bump**: `kerek-constants.js` APP_VERSION + minden HTML `?v=X.Y.Z` query string + `sw.js` CACHE_NAME
+3. **Syntax check**: `node -e "..."` minden módosított JS-re
+4. **Jest**: `npx jest --no-coverage`
+5. **Single commit** + push
+6. **Deploy ellenőrzés**: GitHub Actions API
+7. **Eredmény ellenőrzés** (csak ha tényleg szükséges browser-rel)
+
+### Verzió történet (audit-vezérelt fejlesztés)
+- **v2.22.6** → v2.23.0: Mobile UX overhaul
+- **v2.24.0–v2.25.2**: Toggle view + unified renderer + sticky bar
+- **v2.26.0**: Unified 30s polling + stock badges
+- **v2.27.0**: Push trigger admin message + receptúra fulfilled
+- **v2.28.0**: Admin push broadcast (automatic + manual UI)
+- **v2.29.0**: COMPREHENSIVE AUDIT FIXES (5 kritikus, 8 magas, 12 közepes)
+- **v2.30.0**: C4 Admin auth Edge Function + admin_secrets RLS
+- **v2.31.0**: M5 Custom modal (27 confirm/alert → dialog)
+- **v2.32.0**: M9+M10 nagy fájlok bontása (vevo-orders 921→3 fájl, receptura-settings 684→3 fájl)
+- **v2.33.0**: M7 + cleanup (10 unused fn törölve, 122 onclick→data-action, debugLog)
+
+### Audit-jelentések
+- `KEREK_audit_v2.28.0.md` (v2.29.0-ban élesben javítva a kritikus + magas pontok)
+
+---
+
+## ⚠️ FIGYELMEZTETÉS — DEFERRED feladatok
+
+Ezeket még NEM csináltuk meg, jövőbeli javításokra:
+- **B1-B6 üzleti**: dashboard sávdiagram, vevő-szegmentáció, alapanyag-rendelő tervező, PDF nyugta, vevő profil, rendelés-előzmény export, subscribe (auto-rendelés)
+- **L6**: end-to-end tesztek (Playwright)
+- **L8**: accessibility (aria-label-ek)
+- **L9**: telefon formátum validáció regisztrációban
+
+---
+
+## ✅ TÉNYEK A JELENLEGI KÓDBÁZIS ÁLLAPOTÁRÓL
+
+- ~30 fájl, ~10000 sor JS
+- Nincs dead unused function (v2.33.0 cleanup után)
+- Nincs deprecated handler vagy duplikált cleanup
+- Nincs console.log (csak debugLog ami DEBUG=false esetén nem log-ol)
+- Push notification rendszer teljes körű
+- Admin auth biztonsági szinten
+- N+1 queries kikerülve (bulk operations)
+- Realtime debounced (C5)
+- WS exponential backoff (H6)
+- Promise.allSettled parallel loadAllData (H4)
+- Edge Functions: dynamic-service + admin-auth élesben
