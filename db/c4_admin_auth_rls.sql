@@ -1,32 +1,26 @@
--- KEREK v2.30.0 — C4 Admin Auth biztonsági refactor
--- Protect settings.admin_password from anon read access.
--- Service role can still read everything (Edge Functions use service role).
+-- KEREK v2.30.0 — C4 Admin Auth biztonsági refactor (FINAL)
+-- Move admin_password to dedicated admin_secrets table with strict RLS + REVOKE.
 --
 -- Run this ONCE in Supabase Dashboard → SQL Editor → New Query → Paste → Run.
 
--- 1. Enable Row Level Security on the settings table (if not yet enabled)
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+-- 1. Create admin_secrets table (idempotent)
+CREATE TABLE IF NOT EXISTS admin_secrets (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- 2. Allow anon role to SELECT all settings EXCEPT admin_password
-DROP POLICY IF EXISTS "anon_read_settings_except_password" ON settings;
-CREATE POLICY "anon_read_settings_except_password"
-  ON settings
-  FOR SELECT
-  TO anon
-  USING (key <> 'admin_password');
+-- 2. Copy admin_password from settings to admin_secrets, stripping JSON quotes
+INSERT INTO admin_secrets (key, value)
+  SELECT key, trim(both '"' from value::text) FROM settings WHERE key = 'admin_password'
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
--- 3. Allow anon role to INSERT/UPDATE settings EXCEPT admin_password
---    (so admin UI can still save categories, baking_days_default, etc.)
-DROP POLICY IF EXISTS "anon_write_settings_except_password" ON settings;
-CREATE POLICY "anon_write_settings_except_password"
-  ON settings
-  FOR ALL
-  TO anon
-  USING (key <> 'admin_password')
-  WITH CHECK (key <> 'admin_password');
+-- 3. Enable RLS on admin_secrets (NO policies = deny all for non-service-role)
+ALTER TABLE admin_secrets ENABLE ROW LEVEL SECURITY;
 
--- 4. Verify: this should return 0 rows for anon, 1 row for service_role
--- SELECT * FROM settings WHERE key = 'admin_password';
+-- 4. REVOKE all grants from anon and authenticated
+REVOKE ALL ON admin_secrets FROM anon, authenticated;
+GRANT ALL ON admin_secrets TO service_role;
 
--- Note: service_role bypasses RLS, so the admin-auth Edge Function can still
--- read admin_password. Only anonymous browser requests are blocked.
+-- 5. Remove admin_password from settings table
+DELETE FROM settings WHERE key = 'admin_password';

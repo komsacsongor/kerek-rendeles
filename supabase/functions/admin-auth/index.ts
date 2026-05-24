@@ -57,7 +57,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
-    const { data, error } = await sb.from('settings').select('value').eq('key', 'admin_password').single()
+    // v2.30.0+: admin_password moved to dedicated admin_secrets table with strict RLS
+    const { data, error } = await sb.from('admin_secrets').select('value').eq('key', 'admin_password').single()
     if (error || !data?.value) return json({ success: false, error: 'not_configured' }, 500)
 
     // Stored value may be plain (legacy) or sha256 hex (current).
