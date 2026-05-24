@@ -1,11 +1,13 @@
-const CACHE_NAME = 'kerek-v2.31.0';
+const CACHE_NAME = 'kerek-v2.32.0';
 const CACHE_URLS = [
   '/kerek-rendeles/vevo.html',
   '/kerek-rendeles/kerek-styles.css',
   '/kerek-rendeles/kerek-constants.js',
   '/kerek-rendeles/supabase.js',
   '/kerek-rendeles/js/vevo-data.js',
-  '/kerek-rendeles/js/vevo-orders.js',
+  '/kerek-rendeles/js/vevo-orders-render.js',
+  '/kerek-rendeles/js/vevo-orders-actions.js',
+  '/kerek-rendeles/js/vevo-orders-extras.js',
   '/kerek-rendeles/js/vevo-ui.js',
   '/kerek-rendeles/js/vevo-analytics.js',
   '/kerek-rendeles/img/icon-192.png',
