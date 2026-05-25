@@ -24,7 +24,10 @@ function renderIngredients() {
       <td class="num">${stock.toLocaleString()} g</td>
       <td class="num gold">${fifoPrice} lej/kg</td>
       <td><span class="badge ${statusClass}">${stock===0?'Elfogyott':stock<critical?'Kritikus':'OK'}</span></td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openIngredientModal(${i.id})">✏️</button></td>
+      <td>
+        <button class="btn btn-ghost btn-xs" onclick="openIngredientModal(${i.id})" title="Szerkesztés">✏️</button>
+        <button class="btn btn-ghost btn-xs" data-action="openMillingProfileEditor" data-arg1="${i.id}" title="Malmolási profil">🧬</button>
+      </td>
     </tr>`;}).join('');
 }
 
