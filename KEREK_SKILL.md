@@ -3,7 +3,7 @@ name: kerek-workflow
 description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez. Használd ezt a skillt MINDEN alkalommal amikor a KEREK projekten dolgozol.
 ---
 
-# KEREK Workflow Skill (v2.33.0 — 2026-05-24)
+# KEREK Workflow Skill (v2.34.0 — 2026-05-25)
 
 ## ⚠️ FEJLESZTÉSI MUNKAMÓD – KÖTELEZŐ SZABÁLYOK
 
@@ -60,6 +60,8 @@ description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez.
 - `audit_log` (analytics + admin műveletek)
 - `admin_secrets` (csak service_role olvashatja) ⭐ v2.30.0
 - `push_subscriptions`
+- `processing_batches`, `processing_inputs`, `processing_outputs` (malom v2) ⭐ v2.34.0
+- `ingredient_milling_profile` (per-alapanyag yield referencia) ⭐ v2.34.0
 
 ### 3 fő modul + HTML
 
@@ -100,7 +102,7 @@ description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez.
 | `receptura-recipes.js` | ~330 | renderRecipes, recipe CRUD |
 | `receptura-stock.js` | ~190 | renderStock, FIFO megjelenítés |
 | `receptura-production.js` | ~530 | renderProduction, confirmBakingDone (H3+H5 bulk OR-query) |
-| `receptura-processing.js` | ~210 | Feldolgozás (intermediate ingredients) |
+| `receptura-processing.js` | 637 | Malom v2: 5 művelettípus, yield kalk, cross-contamination, milling profile editor (v2.34.0) |
 | `receptura-levain.js` | ~100 | Levain számítások |
 | `receptura-ingredients.js` | ~250 | Alapanyagok CRUD |
 | `receptura-modal.js` | ~80 | Modal helpers |
@@ -203,6 +205,7 @@ await alertDialog('Sikeres mentés!');
 - **v2.31.0**: M5 Custom modal (27 confirm/alert → dialog)
 - **v2.32.0**: M9+M10 nagy fájlok bontása (vevo-orders 921→3 fájl, receptura-settings 684→3 fájl)
 - **v2.33.0**: M7 + cleanup (10 unused fn törölve, 122 onclick→data-action, debugLog)
+- **v2.34.0** (Session 3): Malom v2 — 5 művelettípus (milling/soaking/sprouting/fermenting/drying), yield kalkulátor, ingredient_milling_profile, cross-contamination védelem
 
 ### Audit-jelentések
 - `KEREK_audit_v2.28.0.md` (v2.29.0-ban élesben javítva a kritikus + magas pontok)
