@@ -7,8 +7,10 @@
 async function renderIngCategories() {
   const el = document.getElementById('ing-categories-list');
   if (!el) return;
-  // Get unique categories from loaded ingredients
-  const cats = [...new Set(R.ingredients.map(i => i.cat).filter(Boolean))].sort();
+  // v2.36.0 fix #10: settings + actual usage union (was only usage → new categories were invisible & undeletable)
+  const settingsCats = R.settings?.ingredientCategories || [];
+  const usedCats = R.ingredients.map(i => i.cat).filter(Boolean);
+  const cats = [...new Set([...settingsCats, ...usedCats])].sort();
   if (cats.length === 0) {
     el.innerHTML = '<p class="text-soft text-sm">Nincsenek alapanyag csoportok.</p>';
     return;
@@ -17,7 +19,7 @@ async function renderIngCategories() {
     const count = R.ingredients.filter(i => i.cat === cat).length;
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
       <span style="font-size:0.85rem;font-weight:600">${esc(cat)} <span style="font-size:0.75rem;color:var(--text-soft);font-weight:400">(${count} tétel)</span></span>
-      ${count === 0 ? `<button onclick="deleteIngCategory('${cat}')" class="btn btn-ghost btn-sm" style="color:var(--red,#dc2626);font-size:0.75rem">✕</button>` : '<span style="font-size:0.72rem;color:var(--text-soft)">használatban</span>'}
+      ${count === 0 ? `<button data-action="deleteIngCategory" data-arg1="${esc(cat)}" data-tip="Kategória törlése" class="btn btn-ghost btn-sm" style="color:var(--red,#dc2626);font-size:0.75rem">✕</button>` : '<span style="font-size:0.72rem;color:var(--text-soft)">használatban</span>'}
     </div>`;
   }).join('');
 }
@@ -37,14 +39,8 @@ async function addIngCategory() {
     try {
       await sb.setSetting('ingredient_categories', cats);
       document.getElementById('ing-new-cat-input').value = '';
-      // Render updated list including the new category
-      const el = document.getElementById('ing-categories-list');
-      if (el) {
-        const allCats = [...new Set([...R.ingredients.map(i=>i.cat).filter(Boolean), ...cats])].sort();
-        el.innerHTML = allCats.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
-          <span style="font-size:0.85rem;font-weight:600">${esc(c)}</span>
-        </div>`).join('');
-      }
+      // v2.36.0: just re-render via renderIngCategories (single source of truth)
+      renderIngCategories();
       toast('✅ Csoport hozzáadva!');
     } catch(e) { toast('⚠️ Hiba: '+e.message, true); }
   }

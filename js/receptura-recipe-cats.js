@@ -74,7 +74,7 @@ function renderRecipeCatsList() {
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="color:var(--text-soft);font-size:0.75rem">▼</span>
-          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteRecipeCat(${i})" ${count>0?'disabled title="Előbb rendeld át a recepteket"':''} style="${count>0?'opacity:0.4;cursor:not-allowed':''}">✕</button>
+          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteRecipeCat(${i})" ${count>0?'disabled title="Előbb rendeld át a recepteket" data-tip="Előbb rendeld át a recepteket"':''} style="${count>0?'opacity:0.4;cursor:not-allowed':''}">✕</button>
         </div>
       </div>
       <div id="cat-rec-${i}" style="display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg-soft)">

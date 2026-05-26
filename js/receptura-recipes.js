@@ -195,11 +195,11 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
 
       html += `<div class="ing-row">
         <span class="ing-name">${ing.name}
-          ${baseIng ? `<span class="ing-source" onclick="showIngDetail(${ing.ingredientId})" title="Kattints az árjegyzék tételre">🔍 ${supplier}</span>` : ''}
+          ${baseIng ? `<span class="ing-source" onclick="showIngDetail(${ing.ingredientId})" title="Kattints az árjegyzék tételre" data-tip="Kattints az árjegyzék tételre">🔍 ${supplier}</span>` : ''}
         </span>
         <span class="ing-pct">${pct}%</span>
         <span class="ing-amount">${scaled} g</span>
-        <span class="ing-cost" title="${fifoPrice} lej/kg">${cost > 0 ? cost.toFixed(3)+' lej' : '—'}</span>
+        <span class="ing-cost" title="${fifoPrice} lej/kg" data-tip="${fifoPrice} lej/kg">${cost > 0 ? cost.toFixed(3)+' lej' : '—'}</span>
       </div>`;
     });
 
@@ -334,7 +334,7 @@ function renderArchivView() {
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-sm" style="background:var(--teal);color:#fff;flex:1" onclick="restoreRecipe(${r.id})">↩ Visszaállítás</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteArchivedRecipe(${r.id})" title="Végleges törlés">🗑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteArchivedRecipe(${r.id})" title="Végleges törlés" data-tip="Végleges törlés">🗑</button>
           </div>
         </div>
       </div>`).join('')}

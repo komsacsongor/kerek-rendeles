@@ -19,3 +19,183 @@
   --border:     #C8DDD9;
   --shadow:     rgba(6,76,72,0.12);
 }
+
+/* ============================================================
+   v2.36.0 — CENTRALIZÁLT MODAL + FORM + STICKY-BAR CSS
+   Megelőzi a visszatérő CSS-regresszió bugokat (#3, #5)
+   DO NOT add inline modal/form/sticky styles in HTML files — use these classes!
+   ============================================================ */
+
+/* ----- MODAL — Critical sizing rules ----- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 76, 72, 0.5);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--white);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;     /* DO NOT CHANGE — large enough for 3 form-group rows */
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px var(--shadow);
+}
+.modal-lg { max-width: 1000px; }
+
+/* Modal head/body/foot */
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--cream);
+  border-radius: 16px 16px 0 0;
+}
+.modal-head h3 {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  color: var(--teal-dark);
+  font-size: 1.15rem;
+}
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--text-soft);
+  padding: 0;
+}
+.modal-body { padding: 18px 20px; }
+.modal-foot {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--cream);
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ----- FORM — Critical: prevents overflow inside modal ----- */
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.form-group {
+  flex: 1;
+  min-width: 100px;     /* DO NOT CHANGE — was 140 in admin causing overflow; 100 lets it wrap */
+  display: flex;
+  flex-direction: column;
+}
+.form-group label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--teal-dark);
+  margin-bottom: 4px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  box-sizing: border-box;  /* DO NOT CHANGE — padding must NOT add to width */
+  width: 100%;
+  min-width: 0;            /* allow shrinking inside flex */
+  padding: 9px 11px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.9rem;
+  background: var(--white);
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Mobile: stack form fields full-width */
+@media (max-width: 700px) {
+  .form-group { min-width: 100%; }
+  .modal { max-width: 100%; margin: 4px; }
+  .modal-head, .modal-body, .modal-foot { padding-left: 14px; padding-right: 14px; }
+}
+
+/* ----- STICKY BOTTOM BAR — iOS safe-area-inset-bottom fix (#5) ----- */
+.sticky-bottom-bar,
+#sticky-month-total {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, var(--teal-dark), var(--teal));
+  color: var(--white);
+  padding: 12px 16px;
+  /* DO NOT CHANGE — iOS Safari home indicator + dynamic toolbar fix */
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 16px var(--shadow);
+  display: none;
+}
+.sticky-bottom-bar.visible,
+#sticky-month-total.visible {
+  display: block;
+}
+/* Ha sticky aktív, body kap padding-bottom-ot hogy ne fedje el a tartalom utolsó sorát */
+body.has-sticky-total {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}
+
+/* ----- TOOLTIP rendszer (#4) ----- */
+[data-tip] {
+  position: relative;
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a2e31;
+  color: #fff;
+  font-size: 0.72rem;
+  font-family: 'Kodchasan', sans-serif;
+  padding: 5px 9px;
+  border-radius: 5px;
+  white-space: nowrap;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  animation: tipFadeIn 0.15s ease-out 0.4s forwards;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+@keyframes tipFadeIn { to { opacity: 1; } }
+/* Mobil: hover nincs, csak tap-on jelenjen meg long-press-szel */
+@media (hover: none) {
+  [data-tip]:active::after {
+    content: attr(data-tip);
+    opacity: 1;
+    animation: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2e31; color: #fff;
+    font-size: 0.72rem;
+    padding: 5px 9px;
+    border-radius: 5px;
+    white-space: nowrap;
+    z-index: 10000;
+    pointer-events: none;
+  }
+}

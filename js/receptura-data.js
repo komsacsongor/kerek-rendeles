@@ -199,7 +199,34 @@ async function initApp() {
   auditLog('login', 'Receptúra', 'Sikeres belépés');
   nav('recipes');
 
-  // v2.26.0: Unified 30s polling for receptura module
+  // v2.36.0 fix #11: Realtime subscription instead of partial polling
+  // (was polling only ingredient_batches, missing new recipes/products from admin)
+  if (window._kerekReceptUnsub) { try { window._kerekReceptUnsub(); } catch(e){} }
+  if (typeof sb.subscribe === 'function') {
+    try {
+      let _rDebounce = null;
+      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches'];
+      window._kerekReceptUnsub = sb.subscribe(RECEPT_RT_TABLES, ({table}) => {
+        if (_rDebounce) clearTimeout(_rDebounce);
+        _rDebounce = setTimeout(async () => {
+          try {
+            await loadAllData();
+            const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
+            // Re-render the current view
+            const renderFn = {
+              'recipes': () => typeof renderRecipes === 'function' && renderRecipes(),
+              'stock': () => { if (typeof renderStock === 'function') renderStock(); if (typeof renderStockAlerts === 'function') renderStockAlerts(); },
+              'ingredients': () => typeof renderIngredients === 'function' && renderIngredients(),
+              'processing': () => typeof initProcessingView === 'function' && initProcessingView(),
+            }[activeView];
+            if (renderFn) renderFn();
+          } catch(e) { console.warn('Receptura Realtime reload:', e.message); }
+        }, 500);
+      });
+    } catch(e) { console.warn('Receptura Realtime subscribe failed:', e.message); }
+  }
+
+  // v2.26.0: Unified 30s polling — backup to Realtime (ingredient_batches stock updates)
   // Tables that affect receptura views: orders, order_status, ingredient_batches, recipes
   startUnifiedPolling(async () => {
     try {

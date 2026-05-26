@@ -322,7 +322,33 @@ async function doLogin() {
     loadMessage();
     renderHelpConditions();
     initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
-    // v2.26.0: Unified 30s polling (Page Visibility aware) - broader scope than before
+
+    // v2.36.0 fix #8 + #9: Realtime subscription for instant admin replies + in-app notification
+    if (window._kerekVevoUnsub) { try { window._kerekVevoUnsub(); } catch(e){} }
+    if (typeof sb.subscribe === 'function') {
+      try {
+        let _rtDebounce = null;
+        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar'];
+        window._kerekVevoUnsub = sb.subscribe(VEVO_RT_TABLES, ({table, event}) => {
+          if (_rtDebounce) clearTimeout(_rtDebounce);
+          _rtDebounce = setTimeout(async () => {
+            const beforeMsgCount = countMyMessages();
+            // Reload data (full refresh; same as polling does)
+            try { await reloadVevoData(); } catch(e) {}
+            const afterMsgCount = countMyMessages();
+            // #9: In-app toast if new admin message arrived
+            if (table === 'messages' && event === 'INSERT' && afterMsgCount > beforeMsgCount) {
+              showAdminMsgBanner();
+            }
+            // Re-render active view
+            if (typeof renderOrderTable === 'function') renderOrderTable();
+            if (typeof updateHeroTotal === 'function') updateHeroTotal();
+          }, 500);
+        });
+      } catch(e) { console.warn('Vevo Realtime subscribe failed:', e.message); }
+    }
+
+    // v2.26.0: Unified 30s polling (Page Visibility aware) - now backup to Realtime
     if (window._kerekStopPoll) { try { window._kerekStopPoll(); } catch(e){} }
     window._kerekStopPoll = startUnifiedPolling(async () => {
       if (!currentUser) return;
@@ -382,6 +408,71 @@ async function doLogin() {
 }
 function logout() { localStorage.removeItem('kerek_vevo_data');
   localStorage.removeItem('kerek_data'); window.location.href = 'vevo.html'; }
+
+// ===== v2.36.0: REALTIME HELPER-EK (vevő) =====
+function countMyMessages() {
+  if (!currentUser || !appData?.messages) return 0;
+  return Object.values(appData.messages).reduce((sum, arr) => sum + (arr||[]).length, 0);
+}
+
+// In-app banner új admin üzenetre (#9)
+function showAdminMsgBanner() {
+  // Ha nyitva van a messages panel, nem kell külön értesítés
+  const msgPanel = document.querySelector('[data-view="messages"]');
+  if (msgPanel && getComputedStyle(msgPanel).display !== 'none') return;
+  // Egyszerű csúszó toast a fenti sávba
+  let b = document.getElementById('vevo-msg-banner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'vevo-msg-banner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#064C48,#129990);color:white;padding:12px 18px;font-family:Kodchasan,sans-serif;font-size:0.9rem;font-weight:500;z-index:99998;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);text-align:center;transform:translateY(-100%);transition:transform 0.3s ease-out';
+    b.innerHTML = '💬 Új üzenet érkezett — kattints a megjelenítéshez';
+    b.onclick = () => {
+      b.style.transform = 'translateY(-100%)';
+      // Megnyitjuk az üzenetek view-t ha van
+      if (typeof showMessages === 'function') showMessages();
+      else document.querySelector('[data-action="showMessages"]')?.click();
+    };
+    document.body.appendChild(b);
+  }
+  // Megjelenítés
+  b.style.transform = 'translateY(0)';
+  // Auto-hide 8s után
+  clearTimeout(b._autoHide);
+  b._autoHide = setTimeout(() => { b.style.transform = 'translateY(-100%)'; }, 8000);
+}
+
+// Reload (kisebb mint a teljes login flow, csak az adat)
+async function reloadVevoData() {
+  if (!currentUser) return;
+  try {
+    const [userOrders, userStatuses, userMsgs] = await Promise.all([
+      sb.query('orders', {filter: `client_id=eq.${currentUser.id}`, limit: 1000}),
+      sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500}),
+      sb.query('messages', {filter: `client_id=eq.${currentUser.id}`, order: 'created_at', limit: 200}),
+    ]);
+    // Orders
+    appData.orders = {};
+    (userOrders||[]).forEach(o => {
+      const k = getOrderKey(o.client_id, o.year, o.month, o.day);
+      if (!appData.orders[k]) appData.orders[k] = {};
+      appData.orders[k][o.product_id] = o.qty;
+    });
+    // Status
+    appData.orderStatus = {};
+    (userStatuses||[]).forEach(r => {
+      const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+      appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
+    });
+    // Messages
+    appData.messages = {};
+    (userMsgs||[]).forEach(r => {
+      const k = `${r.client_id}-${r.year}-${r.month}`;
+      if(!appData.messages[k]) appData.messages[k] = [];
+      appData.messages[k].push({text: r.text, ts: r.created_at});
+    });
+  } catch(e) { console.warn('reloadVevoData:', e.message); }
+}
 
 // ===== WEB PUSH =====
 const VAPID_PUBLIC_KEY = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';

@@ -64,9 +64,9 @@ function renderStock() {
 
       // Min/max display
       const mmLabel = ing.isOverride
-        ? `<span title="Kézi beállítás" style="color:#7c3aed">🔒 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+        ? `<span title="Kézi beállítás" data-tip="Kézi beállítás" style="color:#7c3aed">🔒 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
         : ing.minStockAutoG > 0
-          ? `<span title="Automatikus számítás">🤖 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+          ? `<span title="Automatikus számítás" data-tip="Automatikus számítás">🤖 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
           : '<span style="color:var(--text-soft)">Nincs adat még</span>';
 
       // Batches count
@@ -97,7 +97,7 @@ function renderStock() {
             <button onclick="openStockIntakeModal(${ing.id})" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem;font-weight:600">📦 Bevételezés</button>
             <button onclick="openMinMaxEditor(${ing.id})" style="background:${ing.isOverride?'#7c3aed':'var(--bg-soft)'};color:${ing.isOverride?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">✏️ Min/Max</button>
             <button onclick="openPriceEditor(${ing.id})" style="background:${ing.basePriceG>0?'#b45309':'var(--bg-soft)'};color:${ing.basePriceG>0?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">💰 Ár</button>
-            <button onclick="deleteIngredient(${ing.id})" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:0.75rem;padding:3px 6px" title="Törlés">🗑️</button>
+            <button onclick="deleteIngredient(${ing.id})" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:0.75rem;padding:3px 6px" title="Törlés" data-tip="Törlés">🗑️</button>
           </div>
         </div>
 

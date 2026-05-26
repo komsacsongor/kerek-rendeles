@@ -196,7 +196,7 @@ function renderClientDetail(){
   if(infoEl){
     infoEl.innerHTML=`
       <div class="client-stat"><span>👤 Teljes név</span><span style="font-weight:600">${esc(c.name)}</span></div>
-      <div class="client-stat"><span>🔑 Belépési kód</span><span style="display:flex;align-items:center;gap:8px"><b>${c.id}</b><button class="btn btn-ghost btn-xs" onclick="copyToClipboard('${c.id}')" title="Kód másolása">📋</button></span></div>
+      <div class="client-stat"><span>🔑 Belépési kód</span><span style="display:flex;align-items:center;gap:8px"><b>${c.id}</b><button class="btn btn-ghost btn-xs" onclick="copyToClipboard('${c.id}')" title="Kód másolása" data-tip="Kód másolása">📋</button></span></div>
       <div class="client-stat"><span>📧 Email</span><span>${c.email||'—'}</span></div>
       <div class="client-stat"><span>📱 Telefon</span><span>${c.phone||'—'}</span></div>
       <div class="client-stat"><span>📅 Kliens óta</span><span>${joinStr}</span></div>

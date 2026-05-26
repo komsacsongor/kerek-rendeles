@@ -65,11 +65,11 @@ function stockBadgeHtml(stockCheck) {
   if (stockCheck.status === 'ok') return '';
   if (stockCheck.status === 'shortage') {
     const tooltip = stockCheck.shortages.map(s => `${s.name}: ${s.stock}g van, ${s.needed}g kell`).join(' · ');
-    return `<span title="${esc(tooltip)}" style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🔴 Hiány</span>`;
+    return `<span title="${esc(tooltip)}" data-tip="${esc(tooltip)}" style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🔴 Hiány</span>`;
   }
   // critical
   const tooltip = stockCheck.criticals.map(c => `${c.name}: ${c.stock}g van, ${c.needed}g kell, min ${c.minStock}g`).join(' · ');
-  return `<span title="${esc(tooltip)}" style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🟡 Kritikus</span>`;
+  return `<span title="${esc(tooltip)}" data-tip="${esc(tooltip)}" style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;margin-left:4px;cursor:help">🟡 Kritikus</span>`;
 }
 
 // Track which client preview rows are open (per-session)
@@ -354,9 +354,9 @@ function renderBaking(){
         if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';
         if(st.status !== 'cancelled') {
           html+='<div style="display:flex;gap:6px;margin-left:auto" onclick="event.stopPropagation()">';
-          if(st.status !== 'confirmed') html+='<button onclick="confirmSingleOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ')" style="background:#dcfce7;color:#166534;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Jóváhagyás">✅</button>';
-          html+='<button onclick="openModifyDialog(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Módosítás">✏️</button>';
-          html+='<button onclick="cancelOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Visszavonás">❌</button>';
+          if(st.status !== 'confirmed') html+='<button onclick="confirmSingleOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ')" style="background:#dcfce7;color:#166534;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Jóváhagyás" data-tip="Jóváhagyás">✅</button>';
+          html+='<button onclick="openModifyDialog(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Módosítás" data-tip="Módosítás">✏️</button>';
+          html+='<button onclick="cancelOrder(\'' + safeId + '\',' + y + ',' + m + ',' + day + ',\'' + safeName + '\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer" title="Visszavonás" data-tip="Visszavonás">❌</button>';
           html+='</div>';
         }
         html+='</div>';

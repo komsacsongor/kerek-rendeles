@@ -48,7 +48,7 @@ function renderCatalog(){
         <div style="font-size:0.72rem;color:var(--text-soft)">${p.weight||''} · ${p.price||0} lej</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})" style="flex-shrink:0">✏️</button>
-      <button class="btn btn-ghost btn-sm" onclick="archiveProduct(${p.id})" style="flex-shrink:0;color:#b45309" title="Archiválás">🗂️</button>
+      <button class="btn btn-ghost btn-sm" onclick="archiveProduct(${p.id})" style="flex-shrink:0;color:#b45309" title="Archiválás" data-tip="Archiválás">🗂️</button>
 
       <button class="btn ${isActive?'btn-danger':'btn-primary'} btn-sm" onclick="toggleProduct(${p.id})" style="flex-shrink:0">${isActive?'–':'+'}</button>
     </div>`;
@@ -90,10 +90,11 @@ async function archiveProduct(id) {
   if (!(await confirmDialog('Archiválod: "' + p.name + '"?\n\nA termék eltűnik a katalógusból, nem rendelhető.\nA múltbeli statisztikákban megmarad.\nVisszaallítí tható az archívumból.'))) return;
   const now = new Date().toISOString();
   try {
-    await sb.upsert('products', {...p, deleted_at: now}, 'id');
+    // v2.36.0 fix #1: only deleted_at — NO spread of client object (which has 'desc' not 'description')
+    await sb.updateFields('products', { deleted_at: now }, 'id=eq.' + id);
     const relRecipes = await sb.query('recipes', {filter: 'product_id=eq.'+id, limit: 10});
     for (const r of (relRecipes||[])) {
-      if (!r.archived) await sb.upsert('recipes', {...r, archived: true}, 'id');
+      if (!r.archived) await sb.updateFields('recipes', { archived: true }, 'id=eq.' + r.id);
     }
     await sb.delete('monthly_active_products', 'product_id=eq.'+id);
     const idx = D.products.findIndex(x=>x.id===id);
@@ -153,8 +154,8 @@ function renderArchive() {
       '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:0.85rem">' + esc(p.name) +
       ' <span style="color:var(--text-soft);font-size:0.72rem;font-weight:400">– archiválva: ' + dt + '</span></div>' +
       '<div style="font-size:0.72rem;color:var(--text-soft)">' + (p.weight||'') + ' · ' + (p.price||0) + ' lej · ' + (p.category||'Egyéb') + '</div></div>' +
-      '<button class="btn btn-ghost btn-sm" onclick="restoreProduct(' + p.id + ')" style="color:#059669" title="Visszaallítás">↩️ Vissza</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="permanentDeleteProduct(' + p.id + ')" style="color:#b91c1c" title="Végleges törlés">🗑️</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="restoreProduct(' + p.id + ')" style="color:#059669" title="Visszaallítás" data-tip="Visszaallítás">↩️ Vissza</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="permanentDeleteProduct(' + p.id + ')" style="color:#b91c1c" title="Végleges törlés" data-tip="Végleges törlés">🗑️</button>' +
       '</div>';
   }).join('');
 }
@@ -403,10 +404,17 @@ async function saveProduct(){
       D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode});
     }
     prodId = realProdId;
-    // Ha gyártási termék és új termék → automatikus recept létrehozás (ID nélkül)
+    // Ha gyártási termék és új termék → automatikus recept létrehozás
     if(ptype==='production' && !editingProductId) {
       try {
+        // v2.36.0 fix #2: explicit ID (max+1) to avoid recipes_pkey collision when DB sequence is out of sync
+        let nextId = 1;
+        try {
+          const maxRow = await sb.query('recipes', { order: 'id.desc', limit: 1 });
+          if (maxRow && maxRow.length > 0) nextId = (maxRow[0].id || 0) + 1;
+        } catch(_) {}
         const newRecipe = {
+          id: nextId,
           name, category,
           product_id: realProdId,
           base_portion: 1000, bake_loss: 16, unit_weight: 1000,
@@ -541,7 +549,7 @@ function renderFamilies() {
                   <td style="padding:6px 0">${isParent ? '👑 ' : '└ '}${p.name}</td>
                   <td style="text-align:right;font-family:monospace;font-size:.75rem;color:var(--text-soft)">${p.code || '–'}</td>
                   <td style="text-align:right;color:var(--teal-dark);font-weight:700">${p.price} lej</td>
-                  <td style="text-align:right"><button onclick="openProductModal(${p.id})" style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--text-soft)" title="Szerkesztés">✏️</button></td>
+                  <td style="text-align:right"><button onclick="openProductModal(${p.id})" style="background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--text-soft)" title="Szerkesztés" data-tip="Szerkesztés">✏️</button></td>
                 </tr>`;
               }).join('')}
             </table>

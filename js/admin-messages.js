@@ -146,7 +146,7 @@ function renderMessages(){
       html += '<div class="message-item" style="' + bg + 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
       html += '<div style="flex:1"><div class="message-meta"><span>' + esc(who) + '</span><span>📅 ' + dt + '</span></div>';
       html += '<div class="message-text">' + esc(msg.text||'') + '</div></div>';
-      html += '<button onclick="deleteMessage(\'' + key + '\',' + msgIdx + ')" style="background:none;border:none;cursor:pointer;color:#b91c1c;font-size:0.85rem;padding:2px 6px;opacity:0.6" title="Üzenet törlése">✕</button>';
+      html += '<button onclick="deleteMessage(\'' + key + '\',' + msgIdx + ')" style="background:none;border:none;cursor:pointer;color:#b91c1c;font-size:0.85rem;padding:2px 6px;opacity:0.6" title="Üzenet törlése" data-tip="Üzenet törlése">✕</button>';
       html += '</div>';
     });
 

@@ -3,7 +3,7 @@ name: kerek-workflow
 description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez. Használd ezt a skillt MINDEN alkalommal amikor a KEREK projekten dolgozol.
 ---
 
-# KEREK Workflow Skill (v2.35.0 — 2026-05-26)
+# KEREK Workflow Skill (v2.36.0 — 2026-05-26)
 
 ## ⚠️ FEJLESZTÉSI MUNKAMÓD – KÖTELEZŐ SZABÁLYOK
 
@@ -153,6 +153,36 @@ Ezek tudatos referenciák a KEREK_audit_v*.md dokumentumokra. **Ne töröld őke
 - **Day**: 1-alapú (1-31)
 - **Status enum**: `pending`, `confirmed`, `modified`, `cancelled`, `fulfilled`
 
+### v2.36.0 - ANTI-REGRESSZIÓ KONVENCIÓK (kötelező követni)
+
+**DB műveletek**:
+- ❌ TILTOTT: `sb.upsert(table, {...obj}, key)` és `sb.update(table, {...obj}, where)` — kliens-oldali extra mezők DB-be küldéséhez vezet
+- ✅ HELYES: `sb.updateFields(table, { explicitField1, explicitField2 }, where)` — csak engedélyezett mezők
+
+**CSS**:
+- ❌ TILTOTT: inline `style="..."` modal, form, sticky pozícióhoz HTML-ben
+- ✅ HELYES: `.modal`, `.form-row`, `.form-group`, `.sticky-bottom-bar` class-ok a `kerek-styles.css`-ben
+- DO NOT CHANGE kommentek a kényes szabályoknál (modal max-width, form-group min-width, safe-area-inset)
+
+**State sync**:
+- Egységes Realtime subscription minden modulban (admin + vevő + receptúra)
+- Új tábla bevezetésekor: hozzá kell adni mindhárom modul `*_RT_TABLES` listájához
+
+**Navigáció**:
+- ❌ TILTOTT: `getAttribute('onclick').indexOf(...)` lookup minta
+- ✅ HELYES: `data-action="..."` + `data-arg1="..."` attribútumok keresése
+
+**Adatforrások**:
+- Ha CRUD több forrást érint (settings + usage), a render mindig az **uniót** mutassa
+- `[...new Set([...src1, ...src2])].sort()` minta
+
+**iOS safe-area**:
+- Minden `position:fixed; bottom:0` elem: `padding-bottom: max(default, env(safe-area-inset-bottom));`
+
+**Bug fix workflow**:
+- Minden javított bug → bekerül a `KEREK_BUG_LOG.md`-be (gyökér ok + fix + prevenciós tanulság)
+- Új session elején: olvasd el a BUG_LOG-ot, hogy lásd milyen pattern-eket kerülj el
+
 ### Új UI esemény — data-action pattern (M7 v2.33.0)
 ```html
 <!-- Inkább ezt -->
@@ -208,11 +238,94 @@ await alertDialog('Sikeres mentés!');
 - **v2.33.0**: M7 + cleanup (10 unused fn törölve, 122 onclick→data-action, debugLog)
 - **v2.34.0** (Session 3): Malom v2 — 5 művelettípus (milling/soaking/sprouting/fermenting/drying), yield kalkulátor, ingredient_milling_profile, cross-contamination védelem
 - **v2.35.0** (Session 3.5): Multi-state ingredient — material_type (raw/intermediate/finished/consumable), ingredient_families, smart filtering operation szerint, 🍳 cooking művelet, state-badge
+- **v2.36.0** (Audit batch): 13-bugfix batch — sb.updateFields helper (anti-schema-mismatch), központi modal/form CSS, vevő+receptúra Realtime subscription, KEREK_BUG_LOG.md, tooltip rendszer, favicon, sticky safe-area-inset, M7 regresszió fix (pendingBadge bakingNav lookup data-action támogatás)
 
 ### Audit-jelentések
 - `KEREK_audit_v2.28.0.md` (v2.29.0-ban élesben javítva a kritikus + magas pontok)
 
 ---
+
+---
+
+## 🎯 FEATURE KOMPLETTESÉGI MÁTRIX (v2.36.0 állapot)
+
+A mátrix segít elkerülni hogy egy hiányos feature-t "regressziónak" tekintsünk. ✅ = teljes; ⚠️ = részleges; ❌ = nincs.
+
+### Admin modul
+| Funkció | Status | Megjegyzés |
+|---|---|---|
+| Login + Auth | ✅ | Edge Function admin-auth, admin_secrets RLS |
+| Dashboard | ✅ | Heti pénzügyi, havi forgalom, sütési napok, üzenetek |
+| Termékkatalógus CRUD | ✅ | v2.36.0 archiveProduct schema-fix |
+| Kliensek CRUD | ✅ | Deactiválás DELETED prefix-szel |
+| Sütési lista | ✅ | Bulk confirmDay/saveModify (H1, H2) |
+| Üzenetek | ✅ | Realtime, badge per-vevő |
+| Push notification — silent (rendelés-status) | ✅ | Automatikus |
+| Push notification — broadcast | ✅ | Admin-confirmed UI |
+| Reports + Analytics | ✅ | Audit log, csv export |
+| Kategóriák CRUD | ✅ | Termék + alapanyag + recept |
+| Sütési lista új-rendelés badge | ✅ | v2.36.0 fix #6 |
+| Üzenet olvasott tracking | ⚠️ | Race condition részben fix, teljes timestamp-alapú validáció TODO |
+
+### Vevő modul
+| Funkció | Status | Megjegyzés |
+|---|---|---|
+| Login + Register | ✅ | Hash-alapú |
+| PWA install | ✅ | beforeinstallprompt custom UI |
+| Push notification (subscribe) | ✅ | VAPID keys |
+| Rendelés táblanézet | ✅ | Mobil + desktop unified renderer (M9) |
+| Pivot termék-nézet | ✅ | Toggle Day/Product (v2.24.0) |
+| Sticky havi total bar | ✅ | v2.36.0 safe-area-inset fix |
+| PDF rendelés-összefoglaló | ✅ | jsPDF |
+| Másolás vágólapra | ✅ | Heti minta copyLastOrder |
+| Auto-confirm deadline (H8) | ✅ | Kliens-oldali fallback |
+| Realtime admin üzenet | ✅ | v2.36.0 fix #8 |
+| In-app banner új üzenetre | ✅ | v2.36.0 fix #9 |
+| Vevő önkiszolgáló profil | ❌ | B5 backlog |
+
+### Receptúra modul
+| Funkció | Status | Megjegyzés |
+|---|---|---|
+| Receptek CRUD | ✅ | |
+| Alapanyagok CRUD | ✅ | v2.35.0 material_type + family |
+| Készlet (FIFO) | ✅ | ingredient_batches |
+| Sütés visszaigazolás | ✅ | H3+H5 bulk OR-query |
+| Malom / Feldolgozás v2 | ✅ | v2.34-35.0 — 6 művelet, yield, cross-contamination |
+| Milling profile editor | ✅ | Per-alapanyag yield reference |
+| Multi-state ingredient (family) | ✅ | v2.35.0 — raw/intermediate/finished családokba |
+| Smart filtering operation szerint | ✅ | v2.35.0 |
+| Cross-contamination védelem | ✅ | v2.34.0 |
+| Levain számítások | ✅ | |
+| AI receptúra generálás | ✅ | Anthropic/OpenAI/Groq |
+| Alapanyag-kategóriák CRUD | ✅ | v2.36.0 settings + usage union fix |
+| Kísérleti sütés modal | ⚠️ | Alapok, de NINCS verziókezelés (S5-6 backlog) |
+| Recept verziókezelés (parent_id, status) | ❌ | S5 backlog |
+| Recipe feedback rendszer | ❌ | S6 backlog |
+| Side-by-side recept diff | ❌ | S6 backlog |
+| Bevásárló lista | ❌ | S1-2 backlog (csak placeholder div) |
+| Beszállítók management | ❌ | S1-2 backlog |
+| Auto-suggestion (EOQ) | ❌ | S1-2 backlog |
+| Fermentáció state machine | ❌ | S4 backlog (Pending→In_progress→Completed) |
+| Folyamatban lévő batches widget | ❌ | S4 backlog |
+| Auto-learning yield refinement | ❌ | S4 backlog |
+| Termék picker outputhoz | ❌ | Session jövőbeli |
+
+### Közös infrastruktúra
+| Funkció | Status | Megjegyzés |
+|---|---|---|
+| Realtime subscription | ✅ | Admin (régóta), vevő + receptúra v2.36.0 |
+| 30s polling backup | ✅ | Page Visibility aware |
+| Audit log | ✅ | sb.insert C1 fix |
+| Custom dialogs (confirm/alert) | ✅ | v2.31.0 M5 |
+| data-action event delegation | ✅ | v2.33.0 M7 (HTML kész, JS részben) |
+| Tooltip rendszer | ✅ | v2.36.0 data-tip + CSS |
+| Favicon + meta tagek | ✅ | v2.36.0 |
+| Central CSS (modal/form/sticky) | ✅ | v2.36.0 kerek-styles.css |
+| sb.updateFields helper | ✅ | v2.36.0 anti-schema-mismatch |
+| KEREK_BUG_LOG.md | ✅ | v2.36.0 |
+| End-to-end tesztek (Playwright) | ❌ | L6 backlog |
+| Accessibility (aria-label) | ⚠️ | Részleges (data-tip ad screen reader-nek értelmet) |
+
 
 ## 📋 BACKLOG — FELMERÜLT DE MEG NEM VALÓSÍTOTT FELADATOK / ÖTLETEK
 

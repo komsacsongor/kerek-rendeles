@@ -39,7 +39,13 @@ function updatePendingBadge() {
   if (!pb) {
     var navEls = document.querySelectorAll('.nav-item');
     var clientNav = null;
-    navEls.forEach(function(el) { if ((el.getAttribute('onclick') || '').indexOf('clients') > -1) clientNav = el; });
+    // v2.36.0 fix: use data-action (M7 refactor broke onclick lookup)
+    navEls.forEach(function(el) {
+      var act = el.getAttribute('onclick') || '';
+      var dataAct = el.getAttribute('data-action') || '';
+      var dataArg = el.getAttribute('data-arg1') || '';
+      if (act.indexOf('clients') > -1 || (dataAct === 'nav' && dataArg === 'clients')) clientNav = el;
+    });
     if (clientNav) {
       pb = document.createElement('span');
       pb.id = 'pending-badge';
@@ -59,7 +65,13 @@ function updatePendingBadge() {
   if (!ob) {
     var navEls2 = document.querySelectorAll('.nav-item');
     var bakingNav = null;
-    navEls2.forEach(function(el) { if ((el.getAttribute('onclick') || '').indexOf('baking') > -1) bakingNav = el; });
+    // v2.36.0 fix #6: use data-action (M7 refactor broke the onclick lookup → badge never created!)
+    navEls2.forEach(function(el) {
+      var act = el.getAttribute('onclick') || '';
+      var dataAct = el.getAttribute('data-action') || '';
+      var dataArg = el.getAttribute('data-arg1') || '';
+      if (act.indexOf('baking') > -1 || (dataAct === 'nav' && dataArg === 'baking')) bakingNav = el;
+    });
     if (bakingNav) {
       ob = document.createElement('span');
       ob.id = 'orders-badge';
@@ -74,7 +86,13 @@ function nav(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes(`'${id}'`)) n.classList.add('active'); });
+  // v2.36.0 fix: use data-action (M7 refactor) — works with both old onclick and new data-action
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    var act = n.getAttribute('onclick') || '';
+    var dataAct = n.getAttribute('data-action') || '';
+    var dataArg = n.getAttribute('data-arg1') || '';
+    if (act.includes(`'${id}'`) || (dataAct === 'nav' && dataArg === id)) n.classList.add('active');
+  });
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   // Hide month bar for views with own selector or no months needed
   const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export'];

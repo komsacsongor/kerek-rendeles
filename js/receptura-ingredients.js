@@ -19,9 +19,9 @@ function renderIngredients() {
     const suppCount = i.suppliers?.length||1;
     // v2.35.0: state badge
     const stateBadge = {
-      'raw':          '<span title="Nyersanyag" style="font-size:0.85rem">🌱</span>',
-      'intermediate': '<span title="Köztermék" style="font-size:0.85rem">🔄</span>',
-      'finished':     '<span title="Késztermék" style="font-size:0.85rem">📦</span>',
+      'raw':          '<span title="Nyersanyag" data-tip="Nyersanyag" style="font-size:0.85rem">🌱</span>',
+      'intermediate': '<span title="Köztermék" data-tip="Köztermék" style="font-size:0.85rem">🔄</span>',
+      'finished':     '<span title="Késztermék" data-tip="Késztermék" style="font-size:0.85rem">📦</span>',
       'consumable':   ''
     }[i.materialType || 'consumable'] || '';
     const familyName = i.familyId && R.ingredientFamilies
@@ -36,8 +36,8 @@ function renderIngredients() {
       <td class="num gold">${fifoPrice} lej/kg</td>
       <td><span class="badge ${statusClass}">${stock===0?'Elfogyott':stock<critical?'Kritikus':'OK'}</span></td>
       <td>
-        <button class="btn btn-ghost btn-xs" onclick="openIngredientModal(${i.id})" title="Szerkesztés">✏️</button>
-        <button class="btn btn-ghost btn-xs" data-action="openMillingProfileEditor" data-arg1="${i.id}" title="Malmolási profil">🧬</button>
+        <button class="btn btn-ghost btn-xs" onclick="openIngredientModal(${i.id})" title="Szerkesztés" data-tip="Szerkesztés">✏️</button>
+        <button class="btn btn-ghost btn-xs" data-action="openMillingProfileEditor" data-arg1="${i.id}" title="Malmolási profil" data-tip="Malmolási profil">🧬</button>
       </td>
     </tr>`;}).join('');
 }

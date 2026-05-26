@@ -68,6 +68,13 @@ const sb = {
     return this.insert(table, data, true, onConflict);
   },
 
+// v2.36.0: Strict updater - only sends allowed fields, prevents schema-mismatch bugs.
+  // Use INSTEAD of `sb.upsert(table, {...obj, field}, key)` which spreads ALL client fields.
+  async updateFields(table, fieldsObj, filter) {
+    // fieldsObj should be a plain object with ONLY the columns that exist in the table.
+    // NO spread of client objects with extra properties.
+    return this.update(table, fieldsObj, filter);
+  },
   async update(table, data, filter) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
       method: 'PATCH',
