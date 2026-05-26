@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.34.0';
+const CACHE_NAME = 'kerek-v2.35.0';
 const CACHE_URLS = [
   '/kerek-rendeles/vevo.html',
   '/kerek-rendeles/kerek-styles.css',

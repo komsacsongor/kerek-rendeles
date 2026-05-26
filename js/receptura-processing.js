@@ -13,11 +13,58 @@ let _millingProfiles = {};       // ingredient_id -> profile
 
 const OPERATION_TYPES = {
   milling:    { label: '🌾 Őrlés',         color: '#064C48' },
+  cooking:    { label: '🍳 Főzés',         color: '#9333ea' },
   soaking:    { label: '💧 Áztatás',       color: '#0891b2' },
   sprouting:  { label: '🌱 Csíráztatás',   color: '#16a34a' },
   fermenting: { label: '🦠 Fermentálás',   color: '#a21caf' },
   drying:     { label: '☀️ Szárítás',      color: '#ea580c' }
 };
+
+// v2.35.0: Művelet-szerinti material_type szűrés
+// role = 'input' vagy 'output'
+const OPERATION_FILTERS = {
+  milling:    { input: ['raw', 'intermediate'],     output: ['intermediate', 'finished'] },
+  cooking:    { input: ['raw', 'intermediate'],     output: ['intermediate'] },
+  soaking:    { input: ['raw'],                     output: ['intermediate'] },
+  sprouting:  { input: ['raw'],                     output: ['intermediate'] },
+  fermenting: { input: ['raw', 'intermediate'],     output: ['intermediate'] },
+  drying:     { input: ['intermediate'],            output: ['intermediate'] }
+};
+
+const MATERIAL_BADGES = {
+  raw:          '🌱',
+  intermediate: '🔄',
+  finished:     '📦',
+  consumable:   '🧂'
+};
+
+// Helper: szűri R.ingredients-t adott művelet + role szerint
+// Ha role='output' és inputIngredientId megvan, a család tagjait előre sorolja
+function getFilteredIngredientsForOperation(operationType, role, inputIngredientId) {
+  const allowed = OPERATION_FILTERS[operationType]?.[role] || ['raw', 'intermediate', 'finished', 'consumable'];
+  let list = R.ingredients
+    .filter(i => i.subType !== 'starter')
+    .filter(i => allowed.includes(i.materialType || 'consumable'));
+
+  // Ha output és van input ingredient, akkor a család tagjait előre sorolja
+  if (role === 'output' && inputIngredientId) {
+    const inputIng = getIng(inputIngredientId);
+    const familyId = inputIng?.familyId;
+    if (familyId) {
+      list.sort((a, b) => {
+        const aFam = a.familyId === familyId ? 0 : 1;
+        const bFam = b.familyId === familyId ? 0 : 1;
+        if (aFam !== bFam) return aFam - bFam;
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+  } else {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return list;
+}
 
 // ===== INIT + LOAD =====
 async function initProcessingView() {
@@ -163,11 +210,33 @@ function openProcessingModal() {
   addProcRow('proc-outputs', 'false');
 
   // Wire up listeners for live yield calc + contamination warning
-  modal.querySelector('#proc-operation').addEventListener('change', updateContaminationWarning);
+  modal.querySelector('#proc-operation').addEventListener('change', () => {
+    refreshInputDropdowns();
+    refreshOutputDropdowns();
+    updateContaminationWarning();
+    updateYieldPreview();
+  });
   checkContaminationOnIngredientChange();
   updateYieldPreview();
 
   modal.style.display = 'flex';
+}
+
+// v2.35.0: input dropdownok újra-szűrése operation változására
+function refreshInputDropdowns() {
+  const container = document.getElementById('proc-inputs');
+  if (!container) return;
+  const operationType = document.getElementById('proc-operation')?.value || 'milling';
+  const filtered = getFilteredIngredientsForOperation(operationType, 'input', null);
+  const ingOptions = filtered.map(i => {
+    const badge = MATERIAL_BADGES[i.materialType || 'consumable'] || '';
+    return `<option value="${i.id}">${badge} ${esc(i.name)}</option>`;
+  }).join('');
+  container.querySelectorAll('.proc-input-row .proc-ing-select').forEach(sel => {
+    const prev = sel.value;
+    sel.innerHTML = ingOptions;
+    if (filtered.some(i => i.id == prev)) sel.value = prev;
+  });
 }
 
 function closeProcessingModal() {
@@ -180,10 +249,23 @@ function addProcRow(containerId, isInputStr) {
   const isInput = isInputStr === 'true' || isInputStr === true;
   const container = document.getElementById(containerId);
   if (!container) return;
-  const ingOptions = R.ingredients
-    .filter(i => i.subType !== 'starter')
-    .sort((a,b) => a.name.localeCompare(b.name))
-    .map(i => '<option value="' + i.id + '">' + esc(i.name) + '</option>').join('');
+  const operationType = document.getElementById('proc-operation')?.value || 'milling';
+  const role = isInput ? 'input' : 'output';
+  // For output: find first input ingredient (family-prio grouping)
+  let inputIngId = null;
+  if (!isInput) {
+    const firstInputSel = document.querySelector('#proc-inputs .proc-ing-select');
+    if (firstInputSel) inputIngId = parseInt(firstInputSel.value) || null;
+  }
+  const filtered = getFilteredIngredientsForOperation(operationType, role, inputIngId);
+  const inputFamilyId = inputIngId ? getIng(inputIngId)?.familyId : null;
+
+  const ingOptions = filtered.map(i => {
+    const badge = MATERIAL_BADGES[i.materialType || 'consumable'] || '';
+    const inFamily = !isInput && inputFamilyId && i.familyId === inputFamilyId ? ' ⭐' : '';
+    return `<option value="${i.id}" data-family="${i.familyId || ''}">${badge} ${esc(i.name)}${inFamily}</option>`;
+  }).join('');
+
   const row = document.createElement('div');
   row.className = isInput ? 'proc-input-row' : 'proc-output-row';
   row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
@@ -205,8 +287,36 @@ function addProcRow(containerId, isInputStr) {
     el.addEventListener('change', updateYieldPreview);
   });
   if (isInput) {
-    row.querySelector('.proc-ing-select').addEventListener('change', checkContaminationOnIngredientChange);
+    row.querySelector('.proc-ing-select').addEventListener('change', () => {
+      checkContaminationOnIngredientChange();
+      refreshOutputDropdowns();  // v2.35.0: output dropdownok újra-szűrése család alapján
+    });
   }
+}
+
+// v2.35.0: minden output dropdown újra-betöltése (operation/input változására)
+function refreshOutputDropdowns() {
+  const outputContainer = document.getElementById('proc-outputs');
+  if (!outputContainer) return;
+  const rows = outputContainer.querySelectorAll('.proc-output-row');
+  const operationType = document.getElementById('proc-operation')?.value || 'milling';
+  const firstInputSel = document.querySelector('#proc-inputs .proc-ing-select');
+  const inputIngId = firstInputSel ? parseInt(firstInputSel.value) || null : null;
+  const filtered = getFilteredIngredientsForOperation(operationType, 'output', inputIngId);
+  const inputFamilyId = inputIngId ? getIng(inputIngId)?.familyId : null;
+  const ingOptions = filtered.map(i => {
+    const badge = MATERIAL_BADGES[i.materialType || 'consumable'] || '';
+    const inFamily = inputFamilyId && i.familyId === inputFamilyId ? ' ⭐' : '';
+    return `<option value="${i.id}">${badge} ${esc(i.name)}${inFamily}</option>`;
+  }).join('');
+  rows.forEach(row => {
+    const sel = row.querySelector('.proc-ing-select');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = ingOptions;
+      if (filtered.some(i => i.id == prev)) sel.value = prev;
+    }
+  });
 }
 
 function removeProcRow(e) {

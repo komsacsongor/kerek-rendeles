@@ -130,20 +130,24 @@ async function initApp() {
 
   // Alapanyagok betöltése Supabase-ből (felváltja a hardkódolt listát)
   try {
-    let dbIngList = [], dbBatches = [];
+    let dbIngList = [], dbBatches = [], dbFamilies = [];
     try {
-      [dbIngList, dbBatches] = await Promise.all([
+      [dbIngList, dbBatches, dbFamilies] = await Promise.all([
         sb.query('ingredients', {order:'category,name', limit:500}),
         sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+        sb.query('ingredient_families', {order:'name', limit:200}).catch(()=>[]),
       ]);
     } catch(batchErr) {
       // ingredient_batches might not exist yet - try ingredients only
       try { dbIngList = await sb.query('ingredients', {order:'category,name', limit:500}); } catch(e) {}
       console.warn('ingredient_batches nem elérhető - futtasd a DB migrációt!');
     }
+    R.ingredientFamilies = dbFamilies || [];  // v2.35.0
     if(dbIngList && dbIngList.length > 0) {
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
+        materialType: i.material_type || 'consumable',  // v2.35.0
+        familyId: i.family_id || null,                  // v2.35.0
         leadTimeDays: i.lead_time_days || 5,
         orderCycleDays: i.order_cycle_days || 7,
         safetyFactor: i.safety_factor || 1.5,
