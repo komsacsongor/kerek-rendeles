@@ -171,7 +171,12 @@ const sb = {
           this._ws.send(JSON.stringify({
             topic: `realtime:public:${table}`,
             event: 'phx_join',
-            payload: { config: { broadcast: { self: false }, presence: { key: '' } } },
+            // v2.38.0 CRITICAL FIX: explicit postgres_changes subscription
+            // Without this, Supabase Realtime responds with `postgres_changes: []` and NO events flow.
+            // The old `broadcast/presence only` config did NOT subscribe to DB changes!
+            payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [
+              { event: '*', schema: 'public', table: table }
+            ] } },
             ref: String(this._ref++)
           }));
         });
@@ -186,11 +191,27 @@ const sb = {
     this._ws.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        if (!['INSERT','UPDATE','DELETE'].includes(msg.event)) return;
-        const changedTable = (msg.topic || '').replace('realtime:public:','');
+        // v2.38.0 CRITICAL FIX: New Supabase Realtime format sends postgres changes wrapped:
+        //   { event: 'postgres_changes', payload: { data: { type: 'INSERT'|'UPDATE'|'DELETE', table, ... } } }
+        // OR the old direct format (legacy):
+        //   { event: 'INSERT'|'UPDATE'|'DELETE', payload: { record, ... } }
+        let dbEvent = null;
+        let changedTable = null;
+        let record = null;
+        if (msg.event === 'postgres_changes') {
+          const data = msg.payload?.data || msg.payload;
+          dbEvent = data?.type || data?.eventType;
+          changedTable = data?.table;
+          record = data?.record || data?.new;
+        } else if (['INSERT','UPDATE','DELETE'].includes(msg.event)) {
+          dbEvent = msg.event;
+          changedTable = (msg.topic || '').replace('realtime:public:','');
+          record = msg.payload?.record;
+        }
+        if (!dbEvent || !changedTable) return;
         Object.values(this._channels).forEach(ch => {
           if (ch.tables.includes(changedTable))
-            ch.callback({ table: changedTable, event: msg.event, record: msg.payload?.record });
+            ch.callback({ table: changedTable, event: dbEvent, record });
         });
       } catch(e) {}
     };
