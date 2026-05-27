@@ -271,3 +271,43 @@ A meglévő `title="..."` attribútumok automatikusan duplikálva `data-tip`-ben
 - ✅ HELYES: minden post-login render fv-t **egy `initBadges()` v. `initIndicators()` helper-be** csoportosítani — egyetlen hívás minden indikátort frissít
 - **Jövőre**: refactor — egy `initLoginIndicators()` fv ami `updateMsgBadge() + updatePendingBadge() + frissít minden status badge-et`
 
+
+---
+
+## #17 — Supabase Realtime postgres_changes subscription hiányzott (KRITIKUS, gyökér ok minden RT-bugnak)
+
+**Verzió**: v2.38.0 (2026-05-27)
+**Kategória**: Protocol mismatch (C)
+**Tünet**: A KEREK Realtime SOSEM küldött DB-change eseményeket. Az admin csak "úgy érzi" hogy működött, de valójában mindig a 30s polling kézbesítette a változásokat (1 perc késleltetéssel).
+
+**Gyökér ok**: A `sb.subscribe()` `phx_join` payload csak `broadcast` és `presence` config-ot küldött:
+```json
+{"event":"phx_join","payload":{"config":{"broadcast":{"self":false},"presence":{"key":""}}}}
+```
+A Supabase Realtime válasza: `"response": {"postgres_changes": []}` — **üres tömb**. Tehát a DB-change subscription **sosem kérelmezett**!
+
+A helyes Supabase Realtime v2+ formátum **explicit `postgres_changes` config-ot** vár:
+```json
+{"event":"phx_join","payload":{"config":{
+  "broadcast":{"self":false},
+  "presence":{"key":""},
+  "postgres_changes":[{"event":"*","schema":"public","table":"products"}]
+}}}
+```
+
+A `onmessage` is más formátumot kap: az új események `event: 'postgres_changes'` topic-tal jönnek, a payload-ban `data.type / data.table / data.record` mezőkkel — NEM közvetlen `INSERT/UPDATE/DELETE` event-tel mint a régi v1-es protocolban.
+
+**Fix v2.38.0**:
+1. `supabase.js` `phx_join` payload-ja kibővítve `postgres_changes: [{event:'*', schema:'public', table}]` config-gal
+2. `onmessage` handler kezeli mindkét formátumot:
+   - Új: `{event:'postgres_changes', payload:{data:{type, table, record}}}`
+   - Régi: `{event:'INSERT/UPDATE/DELETE', payload:{record}}` (legacy fallback)
+
+**Diagnosztikai módszer**: WS-szintű forward proxying — `WebSocket.send`/`onmessage` override-ok captură-zták a kimenő és bejövő üzeneteket. Az üres `postgres_changes: []` array a phx_reply payload-jában volt a kritikus tipp.
+
+**Prevenciós tanulság**:
+- ❌ KOCKÁZAT: WS-alapú külső protocol használata régi formátumban, amit a szolgáltató frissített
+- ✅ HELYES: protokoll-szintű ellenőrzés (raw WS message logger) telepítése amikor a Realtime "nem működik" — a kódbéli WS-state nem elég, valós forwardolás kell
+- **Future safeguard**: a `supabase.js` modulhoz írni egy integration check-et — startup-kor 1 mp-en belül vár-e response-ra a phx_join-hez, ha nincs response, console.warn-t logoz
+
+**Hatás**: ez a fix az **összes** Realtime bug gyökér oka — az admin Realtime (régóta működik), vevő Realtime (#8), receptúra Realtime (#11), reloadVevoData/reloadReceptData helper-ek (#15) MIND ettől függnek. A v2.36.0 és v2.37.0 fixek mind helyesek voltak, csak a Realtime callback nem futott le, ezért látszólag nem javítottak semmit.
