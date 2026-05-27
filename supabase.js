@@ -134,9 +134,21 @@ const sb = {
   subscribe(tables, callback) {
     const tableList = Array.isArray(tables) ? tables : [tables];
     const key = tableList.join(',');
-    if (this._channels[key]) return;
+    if (this._channels[key]) {
+      // v2.37.0 fix #4: return existing unsub even on duplicate subscribe
+      return () => { delete this._channels[key]; };
+    }
     this._channels[key] = { tables: tableList, callback };
     this._connectWS();
+    // v2.37.0 fix #4: return unsub function (was void → callers had undefined)
+    return () => {
+      delete this._channels[key];
+      // Ha nincs több channel, zárjuk a WS-t
+      if (Object.keys(this._channels).length === 0 && this._ws) {
+        try { this._ws.close(); } catch(e){}
+        this._ws = null;
+      }
+    };
   },
 
   unsubscribeAll() {

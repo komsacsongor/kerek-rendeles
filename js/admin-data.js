@@ -222,6 +222,8 @@ async function doLogin(){
       initApp();
       auditLog('login', 'Admin', 'Sikeres belépés');
       updateMsgBadge();
+      // v2.37.0 fix #16: also init pending badge after login (was only triggered on nav('baking') click)
+      if (typeof updatePendingBadge === 'function') updatePendingBadge();
     } else {
       if(btn) { btn.disabled=false; btn.textContent='Belépés →'; }
       loginError('❌ Hibás jelszó! Próbáld újra.');

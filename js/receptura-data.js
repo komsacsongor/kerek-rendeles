@@ -22,6 +22,88 @@ let R = _s || {
 
 function save() { R._v = DATA_VERSION; localStorage.setItem('kerek_recipe_data', JSON.stringify(R)); }
 
+// v2.37.0 fix #11/#15: full reload Realtime callback-hez, nem hív loadAllData-t mert az nem létezik fv-ként
+// Csak a kritikus táblákat tölti újra (recipes + ingredients + products + batches)
+async function reloadReceptData() {
+  try {
+    // Products cache frissítése (admin termékek)
+    try {
+      const prods = await sb.query('products', {filter:'deleted_at=is.null', limit:500});
+      window._adminProductsCache = prods || [];
+    } catch(e) { console.warn('Products reload:', e.message); }
+
+    // Recipes újraolvasása DB-ből (felülírja R.recipes-t a friss adatokkal)
+    const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
+      sb.query('recipes', {order:'id', limit:500}),
+      sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
+      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
+    ]);
+    if (dbRecipes && dbRecipes.length > 0) {
+      R.recipes = dbRecipes.map(r => ({
+        id: r.id, name: r.name, category: r.category||'Egyéb',
+        archived: r.archived || false,
+        version: r.version || 1,
+        activatedAt: r.activated_at || null,
+        product_id: r.product_id||null,
+        basePortion: r.base_portion||1000, bakeLoss: r.bake_loss||16,
+        unitWeight: r.unit_weight||1000,
+        temp1: r.temp1||230, time1: r.time1||20,
+        temp2: r.temp2||180, time2: r.time2||70,
+        desc: r.description||'', levainAmount: r.levain_amount||0,
+        laborH: r.labor_h||1, electricity: r.electricity||5,
+        marketing: r.marketing_desc||'',
+        ingredientLabel: r.ingredient_label||'',
+        allergens: r.allergens||'',
+        nutrition: r.nutrition||null,
+        productCode: r.code || '',
+        productPrice: r.product_price||0,
+        dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        otherDryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&(i.sub_type==='other_dry'||i.sub_type==='spice'||i.sub_type==='additive')).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        starterIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='starter').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
+        allIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type||'other_dry'})),
+        steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
+      }));
+      // Code enrichment from products cache
+      if (window._adminProductsCache && window._adminProductsCache.length) {
+        R.recipes.forEach(rec => {
+          if (rec.product_id && !rec.productCode) {
+            const prod = _adminProductsCache.find(p => p.id === rec.product_id);
+            if (prod?.code) rec.productCode = prod.code;
+          }
+        });
+      }
+      // v2.37.0: ne save()-eljünk a localStorage-ba! Az felülírná a friss adatot egy snapshot-tal.
+    }
+
+    // Ingredient batches reload (stock értékek frissülnek)
+    try {
+      const [dbIngList, dbBatches] = await Promise.all([
+        sb.query('ingredients', {order:'category,name', limit:500}),
+        sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+      ]);
+      if (dbIngList && dbIngList.length > 0) {
+        // Csak a stock-frissítés (a többi mező marad)
+        R.batches = (dbBatches||[]).map(b => ({
+          id: b.id, ingredientId: b.ingredient_id,
+          receivedDate: b.received_date, qtyReceivedG: b.qty_received_g,
+          qtyRemainingG: b.qty_remaining_g, pricePerG: b.price_per_g || 0,
+          supplierName: b.supplier_name || '', sourceType: b.source_type || 'purchase',
+        }));
+        // Re-compute stock per ingredient
+        R.ingredients.forEach(ing => {
+          const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
+          ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+        });
+      }
+    } catch(e) { console.warn('Ingredients reload:', e.message); }
+  } catch(e) { console.warn('reloadReceptData:', e.message); }
+}
+
+// v2.37.0: export window-ra hogy a Realtime callback elérje
+if (typeof window !== 'undefined') { window.reloadReceptData = reloadReceptData; }
+
+
 // ===== AUTH =====
 let loggedIn = false;
 function loginError(msg) {
@@ -210,7 +292,7 @@ async function initApp() {
         if (_rDebounce) clearTimeout(_rDebounce);
         _rDebounce = setTimeout(async () => {
           try {
-            await loadAllData();
+            await reloadReceptData();
             const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
             // Re-render the current view
             const renderFn = {

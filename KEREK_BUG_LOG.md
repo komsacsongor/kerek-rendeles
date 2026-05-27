@@ -228,3 +228,46 @@ A meglévő `title="..."` attribútumok automatikusan duplikálva `data-tip`-ben
 ### iOS safe-area
 - Minden `position:fixed; bottom:0` elem: `padding-bottom: max(default, env(safe-area-inset-bottom));`
 - Body padding-bottom: `calc(default + env(safe-area-inset-bottom))`
+
+---
+
+## #11 + #15 — Realtime callback + cache override (TELJES FIX)
+
+**Verzió**: v2.37.0 (2026-05-26)
+**Kategória**: State-sync (C) + Function scope (D)
+**Tünet**: Az admin termékár-változás 35 másodperc múlva sem látszik a vevőben. Receptúrában az új admin-termék recept sosem jelenik meg.
+
+**Gyökér okok (TÖBB EGYÜTT)**:
+1. `loadAllData()` **nincs definiálva** a receptura-data.js-ben — csak hívva van. A receptúra Realtime callback `await loadAllData()` `ReferenceError`-t dobott → callback nem futott le.
+2. `reloadVevoData()` CSAK orders/status/messages-t töltött — NEM products/baking/monthly. Tehát admin termék-/sütésnap-változás Realtime-on jött a WS-en, **de a callback nem rakta be az új adatot** a kliensbe.
+3. `sb.subscribe()` `void` return value → `window._kerekVevoUnsub: undefined` — diagnosztika nehezen ment, és duplicate subscribe esetén nem volt cleanup.
+
+**Fix**:
+1. **`reloadReceptData()` új helper** a receptura-data.js-ben — Supabase-ből újratölti recipes + ingredients + products + batches táblákat, **NEM hív save()-et** (nem írja felül a localStorage-ot snapshot-tal a friss adat tetejére).
+2. **`reloadVevoData()` kiterjesztve** products + monthly_active_products + baking_calendar táblákra. Mostantól admin oldali termék-/ár-/sütésnap-változás Realtime-on jön és bekerül a kliensbe.
+3. **`sb.subscribe()` return value** — most már unsub funkciót ad vissza, ami törli a channel-t és bezárja a WS-t ha utolsó volt.
+
+**Prevenciós tanulság**:
+- ❌ KOCKÁZAT: új funkció (mint `loadAllData()`) hívása anélkül, hogy ellenőriznénk hogy létezik az adott scope-ban
+- ✅ HELYES: minden Realtime callback használjon **explicit, létező** függvényt — vagy `window.fn` formában, vagy az aktuális modul scope-ján belül
+- ❌ KOCKÁZAT: lokális save() snapshot felülír friss DB-adatot
+- ✅ HELYES: Realtime reload után NE save()-eljünk localStorage-ba — vagy ha igen, akkor a NEXT page reload-ra való optimalizáció a cél, NEM a következő render
+- **Konvenció**: minden új tábla bevezetésekor a 3 modul `*_RT_TABLES` listája + a megfelelő `reload*Data()` helper-jét is bővíteni kell
+
+---
+
+## #16 — pendingBadge nem fut automatikusan init után
+
+**Verzió**: v2.37.0 (2026-05-26)
+**Kategória**: Init flow gap (D)
+**Tünet**: Bejelentkezés után a "Sütési lista" mellett a sárga rendelés-számláló badge NINCS, csak miután ráklikkelsz a nav-ra.
+
+**Gyökér ok**: A `doLogin()` Edge Function ágában csak `updateMsgBadge()` volt hívva login után, **NEM** `updatePendingBadge()`. A badge csak akkor jelent meg, ha a felhasználó manuálisan elnavigált a Sütési lista view-ra (ami valószínűleg ott egy másodlagos render hookból kapja meg).
+
+**Fix**: `doLogin()` Edge Function success ágában: `updatePendingBadge()` hívás `updateMsgBadge()` mellett.
+
+**Prevenciós tanulság**:
+- ❌ KOCKÁZAT: minden init flow ahol UI-elem feltételesen jelenik meg (badge, banner, drawer), könnyen elmarad ha az init kódban nem szerepel kifejezetten
+- ✅ HELYES: minden post-login render fv-t **egy `initBadges()` v. `initIndicators()` helper-be** csoportosítani — egyetlen hívás minden indikátort frissít
+- **Jövőre**: refactor — egy `initLoginIndicators()` fv ami `updateMsgBadge() + updatePendingBadge() + frissít minden status badge-et`
+

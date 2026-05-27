@@ -443,13 +443,18 @@ function showAdminMsgBanner() {
 }
 
 // Reload (kisebb mint a teljes login flow, csak az adat)
+// v2.37.0 fix: extended to products + monthly_active + baking_calendar so admin changes flow through Realtime
 async function reloadVevoData() {
   if (!currentUser) return;
   try {
-    const [userOrders, userStatuses, userMsgs] = await Promise.all([
+    const monthFilter = ''; // load all months
+    const [userOrders, userStatuses, userMsgs, dbProducts, dbMonthly, dbBaking] = await Promise.all([
       sb.query('orders', {filter: `client_id=eq.${currentUser.id}`, limit: 1000}),
       sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500}),
       sb.query('messages', {filter: `client_id=eq.${currentUser.id}`, order: 'created_at', limit: 200}),
+      sb.query('products', {filter: 'deleted_at=is.null', limit: 500}).catch(() => null),
+      sb.query('monthly_active_products', {limit: 500}).catch(() => null),
+      sb.query('baking_calendar', {limit: 500}).catch(() => null),
     ]);
     // Orders
     appData.orders = {};
@@ -471,6 +476,39 @@ async function reloadVevoData() {
       if(!appData.messages[k]) appData.messages[k] = [];
       appData.messages[k].push({text: r.text, ts: r.created_at});
     });
+    // v2.37.0: Products refresh (admin változások mostantól látszanak Realtime-on)
+    if (dbProducts) {
+      appData.products = dbProducts.map(p => ({
+        id: p.id, name: p.name, weight: p.weight, price: p.price,
+        category: p.category, desc: p.description||'', image: p.image_url||'',
+        ptype: p.product_type||'production', code: p.code||''
+      }));
+    }
+    // v2.37.0: Monthly active products refresh
+    if (dbMonthly) {
+      appData.monthlyActive = {};
+      dbMonthly.forEach(m => {
+        const k = `${m.year}-${m.month}`;
+        if (!appData.monthlyActive[k]) appData.monthlyActive[k] = [];
+        appData.monthlyActive[k].push(m.product_id);
+      });
+    }
+    // v2.37.0: Baking calendar refresh (új sütési napok)
+    if (dbBaking) {
+      appData.bakingExtra = {};
+      appData.bakingRemoved = {};
+      dbBaking.forEach(b => {
+        const k = `${b.year}-${b.month}`;
+        if (b.extra) {
+          if (!appData.bakingExtra[k]) appData.bakingExtra[k] = [];
+          appData.bakingExtra[k].push(b.day);
+        }
+        if (b.removed) {
+          if (!appData.bakingRemoved[k]) appData.bakingRemoved[k] = [];
+          appData.bakingRemoved[k].push(b.day);
+        }
+      });
+    }
   } catch(e) { console.warn('reloadVevoData:', e.message); }
 }
 
