@@ -477,36 +477,29 @@ async function reloadVevoData() {
       appData.messages[k].push({text: r.text, ts: r.created_at});
     });
     // v2.37.0: Products refresh (admin változások mostantól látszanak Realtime-on)
+    // v2.38.5 fix: correct field names (monthlyActiveProducts, bakingCalendar) + price default 0
     if (dbProducts) {
       appData.products = dbProducts.map(p => ({
-        id: p.id, name: p.name, weight: p.weight, price: p.price,
-        category: p.category, desc: p.description||'', image: p.image_url||'',
-        ptype: p.product_type||'production', code: p.code||''
+        id: p.id, name: p.name, weight: p.weight || '', price: p.price || 0,
+        category: p.category || '', desc: p.description || '', image: p.image || null,
+        ptype: p.product_type || 'production', code: p.code || ''
       }));
     }
-    // v2.37.0: Monthly active products refresh
+    // v2.37.0: Monthly active products refresh — HELYES név: monthlyActiveProducts
     if (dbMonthly) {
-      appData.monthlyActive = {};
+      appData.monthlyActiveProducts = {};
       dbMonthly.forEach(m => {
         const k = `${m.year}-${m.month}`;
-        if (!appData.monthlyActive[k]) appData.monthlyActive[k] = [];
-        appData.monthlyActive[k].push(m.product_id);
+        if (!appData.monthlyActiveProducts[k]) appData.monthlyActiveProducts[k] = [];
+        appData.monthlyActiveProducts[k].push(m.product_id);
       });
     }
-    // v2.37.0: Baking calendar refresh (új sütési napok)
+    // v2.37.0: Baking calendar refresh — HELYES struktura: bakingCalendar[k]={extra, removed}
     if (dbBaking) {
-      appData.bakingExtra = {};
-      appData.bakingRemoved = {};
-      dbBaking.forEach(b => {
-        const k = `${b.year}-${b.month}`;
-        if (b.extra) {
-          if (!appData.bakingExtra[k]) appData.bakingExtra[k] = [];
-          appData.bakingExtra[k].push(b.day);
-        }
-        if (b.removed) {
-          if (!appData.bakingRemoved[k]) appData.bakingRemoved[k] = [];
-          appData.bakingRemoved[k].push(b.day);
-        }
+      appData.bakingCalendar = {};
+      dbBaking.forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        appData.bakingCalendar[k] = {extra: r.extra_dates || [], removed: r.removed_dates || []};
       });
     }
   } catch(e) { console.warn('reloadVevoData:', e.message); }
