@@ -392,8 +392,8 @@ async function saveProduct(){
   try {
     let realProdId;
     if(editingProductId) {
-      // UPDATE – meglévő termék, kód nem változik
-      await sb.update('products', {name,weight,price,category,description:desc,product_family_id:familyId,marketing_desc:marketingDesc,ingredient_label:ingredientLabel,allergens,nutrition,image,code}, 'id=eq.'+editingProductId);
+      // UPDATE – v2.38.1 fix: only fields that ACTUALLY exist in products table (no recipe-level fields like marketing_desc/allergens which belong to recipes table)
+      await sb.updateFields('products', {name,weight,price,category,description:desc,product_family_id:familyId,image,code}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
