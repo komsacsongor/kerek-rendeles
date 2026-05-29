@@ -56,15 +56,28 @@ async function loadAllData() {
   const tasks = [
     sb.query('products', { order: 'id', limit: QUERY_LIMIT_PRODUCTS }).then(products => {
       if (products?.length) {
-        D.products = products.map(p => ({
-          id: p.id, name: p.name, weight: p.weight || '',
-          price: p.price, category: p.category || 'Egyéb',
-          desc: p.description || '', image: p.image || null, code: p.code || '',
-          marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
-          allergens: p.allergens || '', nutrition: p.nutrition || null,
-          familyId: p.product_family_id || null
-        }));
-      } else { D.products = []; }
+        // v2.38.2 fix: include deleted_at field + split active/archived (avoid clientside-side filtering missing it)
+        D.products = products
+          .filter(p => !p.deleted_at)
+          .map(p => ({
+            id: p.id, name: p.name, weight: p.weight || '',
+            price: p.price, category: p.category || 'Egyéb',
+            desc: p.description || '', image: p.image || null, code: p.code || '',
+            marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
+            allergens: p.allergens || '', nutrition: p.nutrition || null,
+            familyId: p.product_family_id || null,
+            deleted_at: null
+          }));
+        // Archív termékek külön cache-be
+        D.productsArchived = products
+          .filter(p => p.deleted_at)
+          .map(p => ({
+            id: p.id, name: p.name, weight: p.weight || '',
+            price: p.price, category: p.category || 'Egyéb',
+            desc: p.description || '', image: p.image || null, code: p.code || '',
+            deleted_at: p.deleted_at
+          }));
+      } else { D.products = []; D.productsArchived = []; }
     }),
     sb.query('clients', { order: 'name', limit: QUERY_LIMIT_CLIENTS }).then(clients => {
       D.clients = (clients||[]).map(c => ({

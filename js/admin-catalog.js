@@ -97,8 +97,14 @@ async function archiveProduct(id) {
       if (!r.archived) await sb.updateFields('recipes', { archived: true }, 'id=eq.' + r.id);
     }
     await sb.delete('monthly_active_products', 'product_id=eq.'+id);
+    // v2.38.2: archív cache külön — áthelyezzük a terméket D.products-ból D.productsArchived-be
     const idx = D.products.findIndex(x=>x.id===id);
-    if(idx>=0) D.products[idx].deleted_at = now;
+    if(idx>=0) {
+      const archived = Object.assign({}, D.products[idx], {deleted_at: now});
+      if (!D.productsArchived) D.productsArchived = [];
+      D.productsArchived.push(archived);
+      D.products.splice(idx, 1);
+    }
     Object.keys(D.monthlyActiveProducts).forEach(k=>{
       D.monthlyActiveProducts[k] = (D.monthlyActiveProducts[k]||[]).filter(x=>x!==id);
     });
@@ -117,13 +123,19 @@ async function archiveProduct(id) {
 }
 
 async function restoreProduct(id) {
-  const p = D.products.find(p=>p.id===id);
+  // v2.38.2: archivált termékek a D.productsArchived cache-ben vannak
+  const p = (D.productsArchived || []).find(p=>p.id===id) || D.products.find(p=>p.id===id);
   if(!p) return;
   try {
-    const updated = Object.assign({}, p, {deleted_at: null});
-    await sb.upsert('products', updated, 'id');
-    const idx = D.products.findIndex(x=>x.id===id);
-    if(idx>=0) D.products[idx].deleted_at = null;
+    // v2.36.0 helper, NO spread (would push 'desc' field that doesn't exist in DB)
+    await sb.updateFields('products', { deleted_at: null }, 'id=eq.' + id);
+    // Áthelyezés D.productsArchived → D.products
+    const archIdx = (D.productsArchived || []).findIndex(x=>x.id===id);
+    if (archIdx >= 0) {
+      const restored = Object.assign({}, D.productsArchived[archIdx], {deleted_at: null});
+      D.products.push(restored);
+      D.productsArchived.splice(archIdx, 1);
+    }
     await auditLog('product_restore', p.name, 'ID: '+id);
     toast('✅ Termék visszaallítva.');
     save(); renderCatalog(); renderArchive();
@@ -131,12 +143,14 @@ async function restoreProduct(id) {
 }
 
 async function permanentDeleteProduct(id) {
-  const p = D.products.find(p=>p.id===id);
+  // v2.38.2: nézünk mindkét cache-ben (lehet aktív is, archivált is)
+  const p = (D.productsArchived || []).find(p=>p.id===id) || D.products.find(p=>p.id===id);
   if(!p) return;
   if (!(await confirmDialog('VÉGLEGES törlés: "' + p.name + '"?\n\nEz nem visszavonható!'))) return;
   try {
     await sb.delete('products', 'id=eq.'+id);
     D.products = D.products.filter(x=>x.id!==id);
+    D.productsArchived = (D.productsArchived || []).filter(x=>x.id!==id);
     await auditLog('product_delete_permanent', p.name, 'ID: '+id);
     toast('❌ Termék véglegesen törölve.');
     save(); renderCatalog(); renderArchive();
@@ -144,7 +158,8 @@ async function permanentDeleteProduct(id) {
 }
 
 function renderArchive() {
-  const archived = D.products.filter(p => p.deleted_at);
+  // v2.38.2: archív termékek külön cache-ben mert a D.products már csak aktívakat tartalmaz
+  const archived = D.productsArchived || [];
   const el = document.getElementById('archived-products');
   if (!el) return;
   if (!archived.length) { el.innerHTML = '<p class="text-soft text-sm">Nincsenek archivált termékek.</p>'; return; }

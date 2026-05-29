@@ -105,9 +105,11 @@
   color: var(--teal-dark);
   margin-bottom: 4px;
 }
-.form-group input,
-.form-group select,
-.form-group textarea {
+/* v2.38.2 — Only apply width:100% to DIRECT children of form-group, NOT to nested-flex containers.
+   This was breaking the "Méret/súly" composite (number+unit-select) which uses inline flex:1 */
+.form-group > input,
+.form-group > select,
+.form-group > textarea {
   box-sizing: border-box;  /* DO NOT CHANGE — padding must NOT add to width */
   width: 100%;
   min-width: 0;            /* allow shrinking inside flex */
@@ -118,9 +120,21 @@
   font-size: 0.9rem;
   background: var(--white);
 }
-.form-group textarea {
+.form-group > textarea {
   resize: vertical;
   min-height: 60px;
+}
+/* Nested flex containers inside form-group (e.g. number+unit composite) — preserve their layout */
+.form-group > div[style*="flex"] input,
+.form-group > div[style*="flex"] select {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.9rem;
+  background: var(--white);
 }
 
 /* Mobile: stack form fields full-width */
@@ -199,3 +213,10 @@ body.has-sticky-total {
     pointer-events: none;
   }
 }
+
+/* v2.38.2 — anchor-style nav-item (a href) inherits proper sidebar styling */
+a.nav-item {
+  text-decoration: none !important;
+  color: inherit;
+}
+a.nav-item:hover, a.nav-item:focus { text-decoration: none; }
