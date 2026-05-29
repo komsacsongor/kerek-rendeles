@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.38.3';
+const CACHE_NAME = 'kerek-v2.38.4';
 const CACHE_URLS = [
   '/kerek-rendeles/vevo.html',
   '/kerek-rendeles/kerek-styles.css',
@@ -59,13 +59,16 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data.json(); } catch(e) { data = { title: 'KEREK', body: event.data.text() }; }
 
+  // v2.38.4: requireInteraction:true desktop-on tartósan látszik (nem 3 mp után eltűnik)
+  // Mobil OS-ek általában felülbírálják a saját szabályukkal
   event.waitUntil(self.registration.showNotification(data.title || 'KEREK Pékség', {
     body: data.body || '',
     icon: '/kerek-rendeles/img/icon-192.png',
     badge: '/kerek-rendeles/img/icon-192.png',
     tag: data.tag || 'kerek-notification',
     data: { url: data.url || '/kerek-rendeles/vevo.html' },
-    requireInteraction: data.type === 'modified',
+    requireInteraction: true,  // v2.38.4: tartós megjelenítés desktop Chrome/Firefox-on
+    vibrate: data.type === 'modified' ? [200, 100, 200] : [100],
   }));
 });
 

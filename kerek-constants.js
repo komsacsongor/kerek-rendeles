@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.38.3 (2026-05-29)';
+const APP_VERSION = 'v2.38.4 (2026-05-29)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -199,12 +199,28 @@ const PUSH_ANON = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
 async function sendPushToClient(clientId, type, title, body) {
   try {
-    await fetch(PUSH_FN_URL, {
+    // v2.38.4: response logging — eddig silent fail volt, így nem láttuk ha valami nem ment
+    const resp = await fetch(PUSH_FN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + PUSH_ANON },
       body: JSON.stringify({ client_id: clientId, type, title, body, url: '/kerek-rendeles/vevo.html' })
     });
-  } catch(e) { console.warn('Push send failed:', e.message); }
+    const text = await resp.text();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch(_) {}
+    if (!resp.ok) {
+      console.warn('Push send failed:', resp.status, text.substring(0, 200));
+      return { ok: false, status: resp.status, body: text };
+    }
+    // Successfully delivered (or attempted to all subscriptions)
+    if (parsed?.sent === 0 && parsed?.failed > 0) {
+      console.warn('Push: all subscriptions failed for', clientId, parsed);
+    }
+    return { ok: true, status: resp.status, ...parsed };
+  } catch(e) {
+    console.warn('Push send error:', e.message);
+    return { ok: false, error: e.message };
+  }
 }
 
 // v2.28.0: Broadcast push to multiple clients
