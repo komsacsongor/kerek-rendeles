@@ -2,15 +2,20 @@
 const VIEW_TITLES = {
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
-  'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés'
+  'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
+  'shopping':'🛒 Bevásárló lista', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'receptura-help':'Súgó'
 };
 function nav(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const el = document.getElementById('view-'+id);
   if (el) el.classList.add('active');
+  // v2.39.0: data-action support + onclick legacy fallback
   document.querySelectorAll('.nav-item').forEach(n=>{
-    if(n.getAttribute('onclick')?.includes(`'${id}'`)) n.classList.add('active');
+    const act = n.getAttribute('onclick') || '';
+    const dataAct = n.getAttribute('data-action') || '';
+    const dataArg = n.getAttribute('data-arg1') || '';
+    if (act.includes(`'${id}'`) || (dataAct === 'nav' && dataArg === id)) n.classList.add('active');
   });
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
@@ -22,6 +27,7 @@ function nav(id) {
     'receptura-help': () => { renderRecepturaHelp(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
+    'shopping': () => { if(typeof renderShoppingList === 'function') renderShoppingList(); },
   };
   renders[id]?.();
 }
