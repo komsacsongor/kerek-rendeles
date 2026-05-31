@@ -65,11 +65,15 @@ function updateHeroTotal() {
     if (appData.orders[key]) {
       Object.entries(appData.orders[key]).forEach(([pid,qty]) => {
         const p = appData.products.find(p=>p.id==pid);
-        if (p) total += p.price * qty;
-        qtyTotal += qty;
+        // v2.38.6 fix: explicit number conversion + 0 fallback to avoid NaN if price missing
+        if (p && typeof p.price === 'number') total += p.price * (Number(qty) || 0);
+        qtyTotal += Number(qty) || 0;
       });
     }
   });
+  // v2.38.6: NaN guard for total and qtyTotal
+  total = Number(total) || 0;
+  qtyTotal = Number(qtyTotal) || 0;
   document.getElementById('hero-amount').innerHTML = `${total}<span class="currency">lej</span>`;
   // Sticky bottom bar
   const stickyQty = document.getElementById('sticky-qty');
