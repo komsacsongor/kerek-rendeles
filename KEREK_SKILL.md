@@ -3,7 +3,7 @@ name: kerek-workflow
 description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez. Használd ezt a skillt MINDEN alkalommal amikor a KEREK projekten dolgozol.
 ---
 
-# KEREK Workflow Skill (v2.36.0 — 2026-05-26)
+# KEREK Workflow Skill (v2.39.0 — 2026-05-31)
 
 ## ⚠️ FEJLESZTÉSI MUNKAMÓD – KÖTELEZŐ SZABÁLYOK
 
@@ -302,7 +302,7 @@ A mátrix segít elkerülni hogy egy hiányos feature-t "regressziónak" tekints
 | Recept verziókezelés (parent_id, status) | ❌ | S5 backlog |
 | Recipe feedback rendszer | ❌ | S6 backlog |
 | Side-by-side recept diff | ❌ | S6 backlog |
-| Bevásárló lista | ❌ | S1-2 backlog (csak placeholder div) |
+| Bevásárló lista | ✅ | v2.39.0 — beszállítónkénti+általános, sürgősség 3 szint, manuális override, clipboard |
 | Beszállítók management | ❌ | S1-2 backlog |
 | Auto-suggestion (EOQ) | ❌ | S1-2 backlog |
 | Fermentáció state machine | ❌ | S4 backlog (Pending→In_progress→Completed) |

@@ -311,3 +311,42 @@ A `onmessage` is más formátumot kap: az új események `event: 'postgres_chang
 - **Future safeguard**: a `supabase.js` modulhoz írni egy integration check-et — startup-kor 1 mp-en belül vár-e response-ra a phx_join-hez, ha nincs response, console.warn-t logoz
 
 **Hatás**: ez a fix az **összes** Realtime bug gyökér oka — az admin Realtime (régóta működik), vevő Realtime (#8), receptúra Realtime (#11), reloadVevoData/reloadReceptData helper-ek (#15) MIND ettől függnek. A v2.36.0 és v2.37.0 fixek mind helyesek voltak, csak a Realtime callback nem futott le, ezért látszólag nem javítottak semmit.
+
+---
+
+## 🆕 v2.39.0 — Bevásárló lista v2 (Session 1)
+
+**Verzió**: v2.39.0 (2026-05-31)
+**Kategória**: ÚJ FEATURE (nem bug)
+**Cél**: Beszállítónkénti és általános bevásárló lista, minden `R.ingredients` material_type alapanyagra.
+
+**Implementálva**:
+- Új `js/receptura-shopping.js` (~270 sor)
+- Új view `view-shopping` + sidebar nav '🛒 Bevásárló lista'
+- 3-szintű sürgősség: 🔴 critical / 🟡 soon / 🟢 buffer
+- Filter: csak sürgős vs. mind (max-ig)
+- View mode: beszállítónként (default) vs. egy listában
+- Ajánlott mennyiség = `Math.ceil((maxStock - currentStock) / package) * package`
+- Manuális override: −/+ gombok + szám-input (session-szintű, nem perzisztens)
+- Reset gomb
+- Clipboard másolás beszállítónként ÉS teljes listára
+- Beszállító nélküli alapanyagok külön '⚠️' csoportba
+
+**Élesben verifikálva**:
+✅ Nav '🛒 Bevásárló lista' megjelenik a sidebar-ban
+✅ 22 sürgős tétel megjelenik (mind material_type-ra, beleértve consumable)
+✅ Beszállítónkénti view: "⚠️ Beszállító megadva nincs" csoport (mert a 22 tételhez nincs supplier beállítva még)
+✅ Egy listában view: minden tétel egy nézetben
+✅ Override működik: Burgonya 1000 → 5000 manuálisan, arany border jelzi
+✅ Clipboard async fv resolve OK
+✅ Max érték kiemelve arany színnel (a "játéktér" akcióhoz)
+
+**Tanulság a tesztelésben**:
+A DB-ben több alapanyag minStock/maxStock értéke valószínűleg rosszul lett bevíve (pl. Burgonya min=1 max=2 — ezek **g**-ban értelmezve abszurdul kevesek, valószínűleg kg-ban gondolta a felhasználó). Ez **nem az új feature bugja**, csak a meglévő adatbázis konzisztencia-problémája. Megoldás: a felhasználó manuálisan korrigálja a minStock/maxStock értékeket alapanyagonként.
+
+**Backlog (még nincs benne)**:
+- 🟡 Beszállító hozzárendelés gyorsabban: 1-klikk gomb a 22 orphan alapanyagnál
+- 🟡 EOQ (Economic Order Quantity) számítás MOQ-val
+- 🟡 Multi-supplier priority (jelenleg csak az első beszállító)
+- 🟡 History-based min-max ajánló (a meglévő `calcAutoMinMax()` ezt csinálja, nem kötöttem hozzá)
+- 🟡 Perzisztens override-ok (jelenleg page reload törli)
