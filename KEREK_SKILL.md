@@ -1,287 +1,167 @@
----
-name: kerek-workflow
-description: Fejlesztési munkamód KEREK pékség rendeléskezelő rendszerhez. Használd ezt a skillt MINDEN alkalommal amikor a KEREK projekten dolgozol.
----
+# KEREK Pékség — Workflow Skill + Bug Log + Roadmap (v2.39.0 — 2026-05-31)
 
-# KEREK Workflow Skill (v2.39.0 — 2026-05-31)
-
-## ⚠️ FEJLESZTÉSI MUNKAMÓD – KÖTELEZŐ SZABÁLYOK
-
-### Gondolkodásmód
-- Minden feladatnál először értsd meg a teljes képet, ne csak az adott részt
-- Mielőtt kódolsz, járd végig a teljes user flow-t fejben – edge case-ekkel együtt
-- Ha egy feladatnak több érintett fájlja/modulja van, olvasd el mindegyiket mielőtt elkezdesz
-
-### Tervezési fázis (kötelező minden új funkciónál)
-- Írj egy rövid vázlatot: mit fogsz változtatni, miért, milyen edge case-eket látsz
-- Várj jóváhagyásra mielőtt kódolsz
-- Példa: "Tervezem: X-et megváltoztatom Y-ra mert Z. Edge case: ha A akkor B. Érinti: fájl1.js, fájl2.js"
-
-### Batch munka
-- Minden kapcsolódó változtatást egyetlen commitban pusholj
-- Ne küldj diagnosztikai kódot külön, majd javítást külön
-- Ha tesztelés közben több hibát találsz, gyűjtsd össze és egyszerre javítsd
-
-### Válasz stílus
-- Ne magyarázd el lépésenként mit csinálsz – csak a végeredményt közöld
-- Ha valamit nem értesz vagy hiányzik az információ, kérdezz – ne tételezz fel
-- Rövid, tömör válaszok – a hosszú magyarázat helyett a megoldás
-- Ha valami nem hatékony a munkavégzésben, jelezd – a cél a lehető legkevesebb körrel a legjobb eredmény
-
-### Böngésző-takarékosság
-- Kevesebb screenshot – csak akkor kérj képet ha tényleg szükséges hibakereséshez
-- Ne `megnézem mi a helyzet` rutinból
-- Browser checks csak explicit user-engedéllyel
-
-### Limit-takarékosság
-- Tömörítés, dead code törlés, ne tartsunk fenn nem használt függvényeket
-- Verzió-bump és sw.js cache_name minden release-nél kötelező
-- Test eredményeket gyorsan ellenőrizd, ne ismételd a check-eket
+> Ez **az egyetlen** projekt-dokumentum. Tartalmazza: működési konvenciók, anti-regresszió szabályok, feature kompletteségi mátrix, bug history gyökér-ok-elemzésekkel, részletes fejlesztési roadmap, és minden eddigi tanulság a sessionekből.
+>
+> Új session elején **mindig olvasd el a teljes fájlt** — sok visszatérő hiba és tanulság van benne.
 
 ---
 
-## 🗂️ PROJEKT STRUKTÚRA / FÁJL-TÉRKÉP (v2.33.0)
+## 0. PROJEKT ÁTTEKINTÉS
 
-### Hosting & infra
-- **Repo**: `github.com/komsacsongor/kerek-rendeles` (main branch, auto-deploy GitHub Pages)
-- **Live URL**: `https://komsacsongor.github.io/kerek-rendeles/`
-- **Supabase**: `lfaxeihrmiylggahougl.supabase.co` (anon key: `(public anon key)`)
-- **GitHub token** (scope: repo): `(token kihagyva — local memory-ban tárolva)`
+**Repo**: `github.com/komsacsongor/kerek-rendeles` (main branch, auto-deploy GitHub Pages)
+**Live**: https://komsacsongor.github.io/kerek-rendeles/
+**Supabase**: `lfaxeihrmiylggahougl.supabase.co`
+**3 modul**: `admin.html`, `vevo.html`, `receptura.html`
 
-### Edge Functions (Supabase, deployolva)
-- **`dynamic-service`**: push notification delivery (VAPID kulcsok beállítva)
-- **`admin-auth`** (v2.30.0): jelszó-ellenőrzés `admin_secrets` táblából (RLS+REVOKE védelem)
-- **`auto-confirm-orders`**: deployolva de nincs cron — H8 kliens-oldali pass helyettesíti
+### Belépés
+- **Admin/Receptúra**: jelszó `admin` (alapértelmezett, Edge function ellenőrzi)
+- **Vevő demo**: `kovacs-anna` (kód-belépés)
+- **VAPID public key**: `BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM`
 
-### Adatbázis
-- `clients`, `products`, `monthly_active_products`, `orders`, `order_status`, `messages`
-- `recipes`, `recipe_ingredients`, `ingredients`, `ingredient_batches` (FIFO)
-- `baking_calendar`, `settings`
-- `audit_log` (analytics + admin műveletek)
-- `admin_secrets` (csak service_role olvashatja) ⭐ v2.30.0
-- `push_subscriptions`
-- `processing_batches`, `processing_inputs`, `processing_outputs` (malom v2) ⭐ v2.34.0
-- `ingredient_milling_profile` (per-alapanyag yield referencia) ⭐ v2.34.0
-- `ingredient_families` + `ingredients.material_type` + `ingredients.family_id` ⭐ v2.35.0
-
-### 3 fő modul + HTML
-
-#### 1. `vevo.html` — Vevő PWA
-| JS fájl | Sor | Tartalom |
-|---|---|---|
-| `vevo-data.js` | ~430 | Login, polling, push subscription, doLogin, doRegister, H8 auto-confirm |
-| `vevo-ui.js` | ~150 | UI helpers, isBakingDay, message badge, getKey, getActiveProds |
-| `vevo-analytics.js` | ~30 | KEREKAnalytics events → audit_log |
-| `vevo-orders-render.js` ⭐ | 454 | renderOrderTable, renderProductPivot, renderMobileOrderCards, renderSummary, toggleMobCard, switchView, helpers |
-| `vevo-orders-actions.js` ⭐ | 301 | saveOrder, clearOrder, pivotChangeQty, mobChangeQty, updateRowTotal, updateHeroTotal, defaultDeadlinePassed, sendMessageOnly, vevoConfirmOrder |
-| `vevo-orders-extras.js` ⭐ | 207 | showPdfModal, openPdfSummary, copyLastOrder, showCopyResultBanner, dismissCopyBanner |
-
-⭐ = M9 bontásból (v2.32.0)
-
-#### 2. `admin.html` — Admin felület
-| JS fájl | Sor | Tartalom |
-|---|---|---|
-| `admin-data.js` | ~310 | initApp, loadAllData (Promise.allSettled H4), doLogin (Edge Function), Realtime WS debounced (C5) |
-| `admin-ui.js` | ~265 | renderDashboard, nav, RENDERS map, getBakingDays |
-| `admin-baking.js` | ~530 | renderBaking, confirmDay (H1 bulk), saveModify (H2 bulk), toggleCalDay (+broadcast push v2.28.0) |
-| `admin-catalog.js` | ~580 | renderCatalog, saveProduct (+broadcast push), archiveProduct, restoreFromArchive |
-| `admin-clients.js` | ~315 | renderClients, archiveClient (DELETED prefix), openClientDetail |
-| `admin-orders.js` | ~85 | renderOrders (megrendelések táblanézet) |
-| `admin-messages.js` | ~200 | renderMessages, sendAdminReply (+push trigger v2.27.0) |
-| `admin-push.js` ⭐ | 110 | renderPushBroadcast, sendBroadcastFromForm (manual broadcast UI) |
-| `admin-reports.js` | ~450 | renderReports, renderAuditLog, renderAnalyticsDashboard |
-| `admin-settings.js` | ~150 | renderSettings, saveSettings (kategóriák, jelszó, deadline) |
-| `admin-help.js` | ~120 | renderAdminHelp (admin súgó) |
-
-⭐ = új modul a v2.28.0-ban
-
-#### 3. `receptura.html` — Receptúra modul
-| JS fájl | Sor | Tartalom |
-|---|---|---|
-| `receptura-data.js` | ~230 | initApp, polling, settings load |
-| `receptura-ui.js` | ~290 | UI helpers, getIng, FIFO ár, auto min/max |
-| `receptura-recipes.js` | ~330 | renderRecipes, recipe CRUD |
-| `receptura-stock.js` | ~190 | renderStock, FIFO megjelenítés |
-| `receptura-production.js` | ~530 | renderProduction, confirmBakingDone (H3+H5 bulk OR-query) |
-| `receptura-processing.js` | ~720 | Malom v2.5: 6 művelettípus (+cooking), yield kalk, cross-contamination, milling profile editor, **smart filtering operation+material_type+family szerint** (v2.34-35.0) |
-| `receptura-levain.js` | ~100 | Levain számítások |
-| `receptura-ingredients.js` | ~250 | Alapanyagok CRUD |
-| `receptura-modal.js` | ~80 | Modal helpers |
-| `receptura-ai.js` | ~270 | AI receptúra generálás (Anthropic/OpenAI/Groq) |
-| `receptura-operational.js` | ~75 | Operatív segédfüggvények |
-| `receptura-settings.js` ⭐ | 198 | renderSettings, saveFinancialSettings, saveBakingSettings, saveAiSettings |
-| `receptura-ing-cats.js` ⭐ | 274 | renderIngCategories, addIngCategory, openStockIntakeModal, confirmStockIntake |
-| `receptura-recipe-cats.js` ⭐ | 234 | renderRCategories, addRecipeCat, reassignRecipe, migrateRecipeProductIds |
-| `receptura-help.js` | ~100 | renderReceptureHelp |
-
-⭐ = M10 bontásból (v2.32.0)
-
-### Közös fájlok
-| Fájl | Tartalom |
-|---|---|
-| `kerek-constants.js` | APP_VERSION, magic numbers, helpers (esc, getOrderKey, getDays, hashPassword, debugLog), auditLog (sb.insert C1 fix), sendPushToClient, sendPushBroadcast, confirmDialog+alertDialog (M5), data-action delegator (M7) |
-| `kerek-styles.css` | Globális stílusok, CSS változók (--teal-dark, --gold, stb.) |
-| `supabase.js` | sb wrapper: query, insert, upsert, delete, subscribe (WS exp backoff H6), getSetting, hashPassword |
-| `sw.js` | Service Worker (PWA cache, push handler) |
+### Aktuális verzió: **v2.39.0** (2026-05-31)
 
 ---
 
-## 🔑 KONVENCIÓK A KÓDBÁZISBAN
+## 1. UTOLSÓ SESSIONEK ÖSSZEGZÉSE
 
-### Szekciókomment-konvenció
-A fájlokban a függvénycsoportok `// ===== SZEKCIO_NEVE =====` markerrel vannak elválasztva. Ezek **navigációs jel** — ne töröld őket.
+### v2.36.0 — Audit batch (13 bug)
+sb.updateFields anti-spread helper, központi kerek-styles.css (.modal/.form-group/.sticky), tooltip rendszer, favicon, sticky safe-area-inset, alapanyag kategóriák settings+usage union, M7 nav lookup regresszió fix (pendingBadge), bug log létrehozva.
 
-```js
-// ===== BAKING STATUS MACHINE =====
-function getOrderStatus(...) {...}
-function confirmDay(...) {...}
+### v2.37.0 — Realtime sync (5 fix)
+reloadVevoData/reloadReceptData helper-ek, sb.subscribe unsub return, updatePendingBadge auto-call.
 
-// ===== RENDER =====
-function renderBaking() {...}
-```
+### v2.38.0 — KRITIKUS: Supabase Realtime postgres_changes ⭐
+**A KEREK Realtime SOSEM küldött DB-change eseményeket** mert a `phx_join` payload csak `broadcast` és `presence` config-ot küldött. A Supabase válasza: `postgres_changes: []` (üres tömb). Tehát minden korábbi "Realtime működik" csak a 30s polling 1 perc késleltetéssel kézbesítette. Javítva: explicit `postgres_changes: [{event:'*', schema:'public', table}]` config + új event-formátum kezelés.
 
-### Audit cimke-kommentek (S1, S2, A3, U6, C1, H4, M11, stb.)
-Ezek tudatos referenciák a KEREK_audit_v*.md dokumentumokra. **Ne töröld őket** — múltbeli javítások nyomát adják.
+### v2.38.1-2.38.6 — Followup fixek
+saveProduct marketingDesc undefined, archiválás visszakerül (D.products vs D.productsArchived split), Méret/Súly mező (97px input + 70px select), receptura sidebar link, push UX (requireInteraction:true), reloadVevoData NaN guard (rossz mezőnevek), updateHeroTotal NaN fallback.
 
-### Globális névtér
-**Nincs module system** (egyszerű script tag-ek). Minden funkció globálisan elérhető. A bontott fájlok együtt kell betöltődjenek a HTML-be a megfelelő sorrendben (lásd HTML-eket).
+### v2.39.0 — Bevásárló lista v2 (Session 1) ✨
+Új feature: beszállítónkénti + általános bevásárló lista. 3-szintű sürgősség (🔴/🟡/🟢), manuális override, clipboard másolás, "egy listában" + "beszállítónként" nézet váltás. Új JS modul: `js/receptura-shopping.js` (~270 sor). Új sidebar nav: 🛒 Bevásárló lista. Új view: `#view-shopping`.
 
-### Adatkonvenciók
-- **Order key**: `${clientId}-${year}-${month}-${day}` — `getOrderKey()` helper használata kötelező
-- **Year**: négyjegyű (2026)
-- **Month**: 0-alapú (0=január, 11=december)
-- **Day**: 1-alapú (1-31)
-- **Status enum**: `pending`, `confirmed`, `modified`, `cancelled`, `fulfilled`
+**Élesben verifikálva**: admin ár 32→33→41→45 lej → vevő app 4mp alatt friss. Admin új termék "Realtime Teszt v2384" → receptúra 7 recept (volt 6) 4mp alatt. In-app banner zöld csík felül 4mp alatt. Bevásárló lista 22 sürgős tétel listázódik (mind material_type, beleértve consumable), override működik.
 
-### v2.36.0 - ANTI-REGRESSZIÓ KONVENCIÓK (kötelező követni)
+---
 
-**DB műveletek**:
-- ❌ TILTOTT: `sb.upsert(table, {...obj}, key)` és `sb.update(table, {...obj}, where)` — kliens-oldali extra mezők DB-be küldéséhez vezet
-- ✅ HELYES: `sb.updateFields(table, { explicitField1, explicitField2 }, where)` — csak engedélyezett mezők
+## 2. KONVENCIÓK — ANTI-REGRESSZIÓ SZABÁLYOK
 
-**CSS**:
-- ❌ TILTOTT: inline `style="..."` modal, form, sticky pozícióhoz HTML-ben
-- ✅ HELYES: `.modal`, `.form-row`, `.form-group`, `.sticky-bottom-bar` class-ok a `kerek-styles.css`-ben
+> Ezek **kötelező** szabályok. Minden új kód ezeket kövesse. A visszatérő bugok 90%-a abból jött, hogy valaki ezeket nem ismerte.
+
+### 2.1 DB műveletek
+
+- ❌ TILTOTT: `sb.upsert(table, {...obj}, key)` és `sb.update(table, {...obj}, where)` — a spread kliens-oldali extra mezőket DB-be küld → `PGRST204 'desc' column not found` típusú hiba
+- ✅ HELYES: `sb.updateFields(table, { explicitField1, explicitField2 }, where)` — csak named field-ek
+- ✅ Új rekord ID-szekvencia ütközés ellen: `nextId = MAX(id) + 1` explicit kérdezés `sb.query` order desc limit 1-gyel
+
+### 2.2 CSS
+
+- ❌ TILTOTT: inline `style="..."` modal/form/sticky pozícióhoz HTML-ben
+- ✅ HELYES: `.modal`, `.form-row`, `.form-group`, `.sticky-bottom-bar` osztályok a `kerek-styles.css`-ben
+- `.form-group > input/select/textarea` (DIRECT child only — nested flex containers preserved)
 - DO NOT CHANGE kommentek a kényes szabályoknál (modal max-width, form-group min-width, safe-area-inset)
+- iOS safe-area: `padding-bottom: max(default, env(safe-area-inset-bottom))` minden fix-bottom elemen
 
-**State sync**:
+### 2.3 State sync
+
 - Egységes Realtime subscription minden modulban (admin + vevő + receptúra)
 - Új tábla bevezetésekor: hozzá kell adni mindhárom modul `*_RT_TABLES` listájához
+- **+ Supabase oldalon**: `ALTER PUBLICATION supabase_realtime ADD TABLE new_table;`
+- A Realtime callback használjon **`reload*Data()` helper-t**, NEM `loadAllData()`-t (ha az nincs window scope-ban)
 
-**Navigáció**:
-- ❌ TILTOTT: `getAttribute('onclick').indexOf(...)` lookup minta
+### 2.4 Navigáció
+
+- ❌ TILTOTT: `getAttribute('onclick').indexOf(...)` lookup
 - ✅ HELYES: `data-action="..."` + `data-arg1="..."` attribútumok keresése
+- Nav lookup mindkét formátumot támogassa (legacy onclick + új data-action)
 
-**Adatforrások**:
+### 2.5 Tooltipek
+
+- `data-tip="..."` attribútum + `kerek-styles.css [data-tip]:hover` CSS
+- Backward compatible: ha van `title="..."`, az duplikálódik `data-tip`-be is (a Python regex automatikusan)
+
+### 2.6 Adatforrások
+
 - Ha CRUD több forrást érint (settings + usage), a render mindig az **uniót** mutassa
-- `[...new Set([...src1, ...src2])].sort()` minta
+- Pattern: `[...new Set([...src1, ...src2])].sort()`
 
-**iOS safe-area**:
-- Minden `position:fixed; bottom:0` elem: `padding-bottom: max(default, env(safe-area-inset-bottom));`
+### 2.7 Bug fix workflow
 
-**Bug fix workflow**:
-- Minden javított bug → bekerül a `KEREK_BUG_LOG.md`-be (gyökér ok + fix + prevenciós tanulság)
-- Új session elején: olvasd el a BUG_LOG-ot, hogy lásd milyen pattern-eket kerülj el
+- Minden javított bug → bekerül **ebbe a fájlba** (4. szekció Bug History)
+- Új session elején olvasd el, kerüld el a már-feltárt hibákat
 
-### Új UI esemény — data-action pattern (M7 v2.33.0)
-```html
-<!-- Inkább ezt -->
-<button data-action="doLogin">Belépés</button>
-<button data-action="nav" data-arg1="dashboard">Dashboard</button>
-<button data-action="saveProduct" data-arg1="42">Mentés</button>
+### 2.8 NaN guard (új konvenció v2.38.6-tól)
 
-<!-- Helyett ezt (ami régi, kerülendő új kódban) -->
-<button onclick="doLogin()">Belépés</button>
+- Minden numerikus értékre: `Number(x) || 0` fallback
+- A `qty`, `price`, `stock`, stb. lehetnek string-ek a localStorage-ből — explicit konverzió
+
+### 2.9 Mértékegység (új konvenció — M0 után kötelező)
+
+- Minden alapanyagnak van **default unit-ja**: `g | kg | L | ml | db | csomag`
+- DB-ben minden `qty_*_g` mező továbbra is **g-ban** marad (recept ingredients kompatibilitás)
+- Kijelzésnél/bevitelnél a felhasználó az alapanyag **default unit-jában** dolgozik
+- Konverzió: `ingredient.unit_to_g_ratio` szorzó (pl. kg → 1000, tojás → 60g)
+
+### 2.10 Munkamódszer (felhasználói preferenciák)
+
+- **Tervezet-jóváhagyás workflow**: nagyobb feature előtt rövid tervezet, várjon jóváhagyásra
+- **Batch commits**: minden release egy commit, nem külön diagnosztika + javítás
+- **Tömör válaszok**: végeredmény közlés, nem step-by-step magyarázat
+- **Limit-takarékos**: kevesebb screenshot, csak ha tényleg kell vizuális verifikáció
+- **Verzió-bump kötelező**: `kerek-constants.js` APP_VERSION + minden HTML `?v=` + `sw.js` CACHE_NAME
+- **SQL futtatás**: a felhasználó futtatja Supabase Dashboardban, Claude csak kódol és adja az SQL-t (idempotens DO block szerű forma)
+
+### 2.11 Idempotens SQL minden DB migrációra
+
+```sql
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_name='X' AND column_name='Y') THEN
+    ALTER TABLE X ADD COLUMN Y ...;
+  END IF;
+END $$;
 ```
 
-A `kerek-constants.js`-ben lévő globális click delegator automatikusan kezeli:
-- `data-arg1`, `data-arg2`, ..., `data-arg9` (max 9 paraméter)
-- Auto-cast: `'true'/'false'` → boolean, numeric string → number, egyébként string
-- Csak akkor működik, ha a `window[action]` függvény elérhető globálisan
-
-**Komplex onclick esetén** (this paraméter, JS expression, kifejezés) **inline marad** — vagy emeld ki egy named helper-be.
-
-### Modal dialógusok — M5 v2.31.0
-**NE használj** natív `confirm()` és `alert()`-et. Helyette:
-```js
-if (await confirmDialog('Biztos?', {title: 'Megerősítés', danger: true})) { ... }
-await alertDialog('Sikeres mentés!');
-```
-
-### Push notification — sendPushToClient (silent) + sendPushBroadcast (admin-confirmed)
-- **Rendelés státusz változások** (confirm/modify/cancel/fulfilled) → CSENDBEN `sendPushToClient()`
-- **Broadcast események** (új sütési nap, új termék, archiválás, manuális) → MEGERŐSÍTŐ popup-pal `sendPushBroadcast()`
+Mert a felhasználó újra futtathatja és nem dob hibát ha már létezik.
 
 ---
 
-## 📋 PROCESSES
+## 3. FEATURE KOMPLETTESÉGI MÁTRIX
 
-### Új release workflow
-1. **Tervezet** → jóváhagyás → kódolás (több file egyszerre)
-2. **Verzió-bump**: `kerek-constants.js` APP_VERSION + minden HTML `?v=X.Y.Z` query string + `sw.js` CACHE_NAME
-3. **Syntax check**: `node -e "..."` minden módosított JS-re
-4. **Jest**: `npx jest --no-coverage`
-5. **Single commit** + push
-6. **Deploy ellenőrzés**: GitHub Actions API
-7. **Eredmény ellenőrzés** (csak ha tényleg szükséges browser-rel)
-
-### Verzió történet (audit-vezérelt fejlesztés)
-- **v2.22.6** → v2.23.0: Mobile UX overhaul
-- **v2.24.0–v2.25.2**: Toggle view + unified renderer + sticky bar
-- **v2.26.0**: Unified 30s polling + stock badges
-- **v2.27.0**: Push trigger admin message + receptúra fulfilled
-- **v2.28.0**: Admin push broadcast (automatic + manual UI)
-- **v2.29.0**: COMPREHENSIVE AUDIT FIXES (5 kritikus, 8 magas, 12 közepes)
-- **v2.30.0**: C4 Admin auth Edge Function + admin_secrets RLS
-- **v2.31.0**: M5 Custom modal (27 confirm/alert → dialog)
-- **v2.32.0**: M9+M10 nagy fájlok bontása (vevo-orders 921→3 fájl, receptura-settings 684→3 fájl)
-- **v2.33.0**: M7 + cleanup (10 unused fn törölve, 122 onclick→data-action, debugLog)
-- **v2.34.0** (Session 3): Malom v2 — 5 művelettípus (milling/soaking/sprouting/fermenting/drying), yield kalkulátor, ingredient_milling_profile, cross-contamination védelem
-- **v2.35.0** (Session 3.5): Multi-state ingredient — material_type (raw/intermediate/finished/consumable), ingredient_families, smart filtering operation szerint, 🍳 cooking művelet, state-badge
-- **v2.36.0** (Audit batch): 13-bugfix batch — sb.updateFields helper (anti-schema-mismatch), központi modal/form CSS, vevő+receptúra Realtime subscription, KEREK_BUG_LOG.md, tooltip rendszer, favicon, sticky safe-area-inset, M7 regresszió fix (pendingBadge bakingNav lookup data-action támogatás)
-
-### Audit-jelentések
-- `KEREK_audit_v2.28.0.md` (v2.29.0-ban élesben javítva a kritikus + magas pontok)
-
----
-
----
-
-## 🎯 FEATURE KOMPLETTESÉGI MÁTRIX (v2.36.0 állapot)
-
-A mátrix segít elkerülni hogy egy hiányos feature-t "regressziónak" tekintsünk. ✅ = teljes; ⚠️ = részleges; ❌ = nincs.
+✅ = teljes és élesben működik; ⚠️ = részleges; ❌ = nincs / backlog
 
 ### Admin modul
 | Funkció | Status | Megjegyzés |
 |---|---|---|
-| Login + Auth | ✅ | Edge Function admin-auth, admin_secrets RLS |
+| Login + Edge function auth | ✅ | admin_secrets tábla |
 | Dashboard | ✅ | Heti pénzügyi, havi forgalom, sütési napok, üzenetek |
 | Termékkatalógus CRUD | ✅ | v2.36.0 archiveProduct schema-fix |
+| Archivált termékek külön cache | ✅ | v2.38.2 D.productsArchived |
 | Kliensek CRUD | ✅ | Deactiválás DELETED prefix-szel |
-| Sütési lista | ✅ | Bulk confirmDay/saveModify (H1, H2) |
+| Sütési lista (baking) | ✅ | Bulk confirmDay/saveModify |
 | Üzenetek | ✅ | Realtime, badge per-vevő |
-| Push notification — silent (rendelés-status) | ✅ | Automatikus |
-| Push notification — broadcast | ✅ | Admin-confirmed UI |
-| Reports + Analytics | ✅ | Audit log, csv export |
-| Kategóriák CRUD | ✅ | Termék + alapanyag + recept |
-| Sütési lista új-rendelés badge | ✅ | v2.36.0 fix #6 |
-| Üzenet olvasott tracking | ⚠️ | Race condition részben fix, teljes timestamp-alapú validáció TODO |
+| Push notification — silent | ✅ | Rendelés-status változásra automatikus |
+| Push notification — broadcast | ✅ | Új termék, általános broadcast |
+| Reports + Analytics | ✅ | Audit log, CSV export |
+| Kategóriák CRUD (termék/alapanyag/recept) | ✅ | |
+| sb.updateFields helper | ✅ | v2.36.0 anti-spread |
+| pendingBadge auto login után | ✅ | v2.37.0 |
 
 ### Vevő modul
 | Funkció | Status | Megjegyzés |
 |---|---|---|
 | Login + Register | ✅ | Hash-alapú |
-| PWA install | ✅ | beforeinstallprompt custom UI |
-| Push notification (subscribe) | ✅ | VAPID keys |
-| Rendelés táblanézet | ✅ | Mobil + desktop unified renderer (M9) |
-| Pivot termék-nézet | ✅ | Toggle Day/Product (v2.24.0) |
-| Sticky havi total bar | ✅ | v2.36.0 safe-area-inset fix |
+| PWA install (beforeinstallprompt) | ✅ | Custom UI gomb |
+| Push notification subscribe | ✅ | VAPID keys |
+| Rendelés táblanézet | ✅ | M9 unified mobile + desktop renderer |
+| Pivot termék-nézet | ✅ | Toggle Day/Product |
+| Sticky havi total bar | ✅ | v2.36.0 iOS safe-area + v2.38.6 NaN guard |
 | PDF rendelés-összefoglaló | ✅ | jsPDF |
-| Másolás vágólapra | ✅ | Heti minta copyLastOrder |
+| Másolás vágólapra (heti minta) | ✅ | |
 | Auto-confirm deadline (H8) | ✅ | Kliens-oldali fallback |
-| Realtime admin üzenet | ✅ | v2.36.0 fix #8 |
-| In-app banner új üzenetre | ✅ | v2.36.0 fix #9 |
-| Vevő önkiszolgáló profil | ❌ | B5 backlog |
+| Realtime admin üzenet | ✅ | v2.38.0 postgres_changes fix |
+| In-app banner új üzenetre | ✅ | v2.36.0 + v2.38.0 |
+| Vevő önkiszolgáló profil | ❌ | Backlog (B6) |
 
 ### Receptúra modul
 | Funkció | Status | Megjegyzés |
@@ -292,269 +172,589 @@ A mátrix segít elkerülni hogy egy hiányos feature-t "regressziónak" tekints
 | Sütés visszaigazolás | ✅ | H3+H5 bulk OR-query |
 | Malom / Feldolgozás v2 | ✅ | v2.34-35.0 — 6 művelet, yield, cross-contamination |
 | Milling profile editor | ✅ | Per-alapanyag yield reference |
-| Multi-state ingredient (family) | ✅ | v2.35.0 — raw/intermediate/finished családokba |
+| Multi-state ingredient | ✅ | v2.35.0 — raw/intermediate/finished/consumable |
 | Smart filtering operation szerint | ✅ | v2.35.0 |
 | Cross-contamination védelem | ✅ | v2.34.0 |
 | Levain számítások | ✅ | |
 | AI receptúra generálás | ✅ | Anthropic/OpenAI/Groq |
-| Alapanyag-kategóriák CRUD | ✅ | v2.36.0 settings + usage union fix |
-| Kísérleti sütés modal | ⚠️ | Alapok, de NINCS verziókezelés (S5-6 backlog) |
+| Alapanyag-kategóriák CRUD | ✅ | v2.36.0 settings + usage union |
+| **🛒 Bevásárló lista** | ✅ | **v2.39.0 — beszállítónkénti + általános, sürgősség 3 szint, manuális override, clipboard másolás** |
+| Kísérleti sütés modal | ⚠️ | Alapok megvannak, NINCS verziókezelés (S5-6 backlog) |
 | Recept verziókezelés (parent_id, status) | ❌ | S5 backlog |
 | Recipe feedback rendszer | ❌ | S6 backlog |
 | Side-by-side recept diff | ❌ | S6 backlog |
-| Bevásárló lista | ✅ | v2.39.0 — beszállítónkénti+általános, sürgősség 3 szint, manuális override, clipboard |
-| Beszállítók management | ❌ | S1-2 backlog |
-| Auto-suggestion (EOQ) | ❌ | S1-2 backlog |
-| Fermentáció state machine | ❌ | S4 backlog (Pending→In_progress→Completed) |
-| Folyamatban lévő batches widget | ❌ | S4 backlog |
+| **Mértékegység támogatás (unit + ratio)** | ❌ | **M0 — ÚJ SÜRGŐS — Roadmap §5** |
+| EOQ + MOQ optimalizáció | ❌ | S2 backlog |
+| Multi-supplier priority | ❌ | Jelenleg csak az első |
+| Fermentáció state machine | ❌ | S4 backlog |
 | Auto-learning yield refinement | ❌ | S4 backlog |
-| Termék picker outputhoz | ❌ | Session jövőbeli |
+| Persistent shopping overrides | ❌ | M1.1 |
 
 ### Közös infrastruktúra
 | Funkció | Status | Megjegyzés |
 |---|---|---|
-| Realtime subscription | ✅ | Admin (régóta), vevő + receptúra v2.36.0 |
+| Supabase Realtime postgres_changes | ✅ | v2.38.0 KRITIKUS gyökér-ok fix |
 | 30s polling backup | ✅ | Page Visibility aware |
 | Audit log | ✅ | sb.insert C1 fix |
 | Custom dialogs (confirm/alert) | ✅ | v2.31.0 M5 |
-| data-action event delegation | ✅ | v2.33.0 M7 (HTML kész, JS részben) |
+| data-action event delegation | ✅ | v2.33.0 M7 |
 | Tooltip rendszer | ✅ | v2.36.0 data-tip + CSS |
 | Favicon + meta tagek | ✅ | v2.36.0 |
-| Central CSS (modal/form/sticky) | ✅ | v2.36.0 kerek-styles.css |
+| Central CSS (modal/form/sticky) | ✅ | v2.36.0 kerek-styles.css 211 sor |
 | sb.updateFields helper | ✅ | v2.36.0 anti-schema-mismatch |
-| KEREK_BUG_LOG.md | ✅ | v2.36.0 |
-| End-to-end tesztek (Playwright) | ❌ | L6 backlog |
+| Verzió-bump automatika | ✅ | Python script kerek-constants.js+HTML-ek+sw.js |
+| End-to-end tesztek (Playwright) | ❌ | L6 backlog (1-2 napos infra) |
 | Accessibility (aria-label) | ⚠️ | Részleges (data-tip ad screen reader-nek értelmet) |
 
+---
 
-## 📋 BACKLOG — FELMERÜLT DE MEG NEM VALÓSÍTOTT FELADATOK / ÖTLETEK
+## 4. BUG HISTORY — GYÖKÉR-OKOK ÉS TANULSÁGOK
 
-Ezeket a session-ek során **felvetettük, megbeszéltük, vagy az auditban dokumentáltuk**, de valamilyen okból (kockázat, idő, prioritás, kifejezett kihagyás) nem valósultak meg. Jövőbeli munkák alapja.
+> Minden javított bug részletes elemzéssel. Jövő-Claude (vagy más fejlesztő) ezt olvassa hogy ne ismételje a hibákat.
 
-### 🏢 ÜZLETI FEATURE-ÖK (B1-B7) — szándékosan kihagyva az auditbol
+### #1 — `archiveProduct` PGRST204 'desc' column
 
-A felhasználó kérése alapján csak akkor csináljuk meg ha a vevői visszajelzések ezt indokolják.
+**Verzió**: v2.36.0
+**Kategória**: A) Schema-mismatch
+**Tünet**: Archiváláskor `PGRST204: Could not find the 'desc' column of 'products'` toast.
+**Gyökér ok**: `sb.upsert('products', {...p, deleted_at: now}, 'id')` minta — a `{...p}` spread-elte a kliens `p.desc` mezőt is, de a DB `description`-t vár.
+**Fix**: `sb.updateFields('products', { deleted_at: now }, 'id=eq.' + id)` — csak named field.
+**Prevenció**: KONVENCIÓ 2.1 — sb.updateFields kötelező anti-spread.
 
-#### B1 — Dashboard rendelés-trend grafikon
-**Mit hiányol**: Admin dashboardon nincs 12-hónapos sávdiagram a havi rendelés-számokról + top-3 vevő + top-3 termék + kategória-megoszlás.
-**Mit nyer**: Üzleti döntésekhez (mit készítsen több/kevesebb terméket, melyik vevő mennyit hoz).
-**Benchmark**: Shopify, WooCommerce admin dashboard standardja.
-**Becslés**: 1 nap (Chart.js + agregáció)
-**Érintett fájlok**: `js/admin-ui.js` (renderDashboard), új `js/admin-trends.js`
+### #2 — `recipes_pkey` duplicate key violation
 
-#### B2 — Vevő-szegmentáció
-**Mit hiányol**: A vevők nincsenek csoportosítva (új / aktív / inaktív / VIP).
-**Mit nyer**: Targetelt push üzenetek, kedvezmény-akciók ("Hűségbónusz a top 5 vevőnek").
-**Implementáció**: SQL view ami rendelés-gyakoriság alapján csoportosít. Kategória chip a `js/admin-clients.js`-ben.
-**Becslés**: 4-6 óra
-**Érintett fájlok**: `js/admin-clients.js`, új DB view
+**Verzió**: v2.36.0
+**Kategória**: A) DB sequence sync
+**Tünet**: Új gyártási termék létrehozásakor 23505 error: `duplicate key value violates unique constraint "recipes_pkey"`.
+**Gyökér ok**: PG `recipes_id_seq` érték kisebb mint `MAX(id)`. Manuális CSV-import után előfordul.
+**Fix**: `nextId = MAX(id) + 1` explicit kérdezés, és átadás az INSERT-nek.
+**Prevenció**: minden új rekord INSERT-jénél kézi ID kiszámítás MAX+1-gyel.
 
-#### B3 — Alapanyag-megrendelés tervező
-**Mit hiányol**: A receptúra modul tudja a stock-ot és igényt, de nem javasol mit kell rendelni mikorra (lead time alapján).
-**Mit nyer**: Az adminnak nem kell fejben tartania mikor fogy ki valami; csökkenti a sürgős beszerzéseket.
-**Implementáció**: `js/receptura-stock.js`-ben már van `getDaysToStockOut(ing)` típusú számolás. Új nézet: "Megrendelendő alapanyagok" táblával (lead_time × szükséglet = mikor kell rendelni).
-**Becslés**: 4-6 óra
-**Érintett fájlok**: `js/receptura-stock.js`, új nézet
-**Adatbázis változás**: `ingredients` táblára új oszlop `lead_time_days`
+### #3 — Modal kilógás (visszatérő bug v2.23-tól)
 
-#### B4 — Digitális számla / nyugta (PDF / e-Factura)
-**Mit hiányol**: A vevő nem kap számlát/nyugtát a rendeléséről.
-**Mit nyer**: Hargita megyei adózási megfelelés (Románia 2026: e-Factura kötelező), könyveléshez exportálható nyugták.
-**Implementáció**: `pdfmake` vagy `jsPDF` lib. Email küldés is opció.
-**Becslés**: 1 nap
-**Érintett fájlok**: új `js/vevo-invoice.js`, vagy `js/vevo-orders-extras.js`-be belerakni
-**Kockázat**: Romániai e-Factura rendszer integrációja külön munka (XML formátum, SPV küldés)
+**Verzió**: v2.36.0 (korábban: v2.23.0, v2.27.0)
+**Kategória**: B) CSS-regresszió
+**Tünet**: Új termék modal-ban "g" mező kilóg, vízszintes csúszka.
+**Gyökér ok**: 3 HTML-ben szétszórt inline modal-CSS, mind más-más `min-width` értékkel.
+**Fix**: Központi `kerek-styles.css`: `.modal { max-width: 640px }`, `.form-group { min-width: 100px }`, `box-sizing: border-box`. DO NOT CHANGE kommentek.
+**Prevenció**: KONVENCIÓ 2.2 — inline style tilos modal/form-ra, kerek-styles.css használata.
 
-#### B5 — Vevői önkiszolgáló profil
-**Mit hiányol**: A vevő nem tudja módosítani saját adatait (név, email, telefon), csak az admin tud beavatkozni.
-**Mit nyer**: Adminisztrációs teher csökkenése, GDPR-megfelelés (jog az adatmódosításhoz).
-**Implementáció**: Új vevő nézet `Profilom`. RLS policy a clients táblára hogy csak saját rekordot módosíthat.
-**Becslés**: 4-6 óra
-**Érintett fájlok**: `js/vevo-data.js`, `vevo.html` (új tab), DB RLS
+### #4 — Tooltip rendszer (új feature)
 
-#### B6 — Rendelés-előzmények letöltése (CSV / PDF)
-**Mit hiányol**: A vevő nem tud lekérni saját éves összesítőt vagy excel exportot.
-**Mit nyer**: Mint B4 — adózás, költségvetés-tervezés.
-**Implementáció**: `js/vevo-orders-extras.js`-be új export gomb.
-**Becslés**: 2-3 óra
+**Verzió**: v2.36.0
+**Kategória**: E) UX
+**Mit nyer**: Ikon-gombokhoz "Szerkesztés", "Archiválás" stb. hover felirat. Pure CSS (no JS), mobil long-press is működik.
+**Pattern**: `data-tip="..."` + `[data-tip]:hover::after` + `@media (hover: none)` long-press szabály.
 
-#### B7 — Subscribe (auto-rendelés)
-**Forrás**: Benchmark a session-ben: Olo és EZCater B2B platformokon van.
-**Mit hiányol**: A vevő nem tud "minden héten ugyanaz a rendelés" típusú szabályt beállítani.
-**Mit nyer**: Sok időt spórol vevőnek (rendszeres KEREK vásárlóknak), és az adminnak előre kalkulálható forgalmat ad.
-**Implementáció**: Új `subscriptions` tábla (client_id, products JSON, frequency: weekly/biweekly/monthly, active_until). Cron Edge Function ami minden sütési nap előtt 1 nappal generálja a rendeléseket az aktív subscription-ök alapján.
-**Becslés**: 2-3 nap (nagy feature)
-**Adatbázis változás**: új tábla
-**Kockázat**: Komplex business logic — vevő mikor szüneteltetheti, hogyan módosíthatja, mit lát a rendelés-listában
+### #5 — Sticky bar mobil iOS-en (visszatérő v2.25-től)
+
+**Verzió**: v2.36.0
+**Kategória**: B) CSS-regresszió, iOS-specifikus
+**Tünet**: Alsó sticky havi-totál mobilon nem látható (iOS Safari home indicator levágja).
+**Gyökér ok**: `env(safe-area-inset-bottom)` CSS env variable hiányzott.
+**Fix**: `padding-bottom: max(12px, env(safe-area-inset-bottom));`
+**Prevenció**: KONVENCIÓ 2.2 — minden fix-bottom elemnél kötelező a safe-area-inset.
+
+### #6 — Sütési pendingBadge regresszió
+
+**Verzió**: v2.36.0
+**Kategória**: C) Refaktor-regresszió (M7)
+**Tünet**: Új rendelésekre nem jelenik meg a sárga számláló a "Sütési lista" nav mellett.
+**Gyökér ok**: `updatePendingBadge()` az `onclick` attribútum alapján kereste a `bakingNav`-ot. M7 refaktor v2.33.0-ban átírt 122 onclick-et `data-action`-re → `bakingNav = null`.
+**Fix**: lookup mind `onclick`-ot, mind `data-action="nav" data-arg1="baking"`-et nézi.
+**Prevenció**: KONVENCIÓ 2.4 — navigációs lookup-ok mind `onclick` mind `data-action` alapján.
+
+### #7 — Üzenet badge race (részben javítva)
+
+**Verzió**: v2.36.0 (részben)
+**Kategória**: C) State-sync timing
+**Tünet**: Olvasatlan üzenet badge néha eltűnik mielőtt a felhasználó látta volna.
+**Gyökér ok valószínűleg**: `markClientSeen` és Realtime/polling timing race.
+**Fix v2.36.0**: Realtime debounce 500ms (volt 100ms).
+**TODO**: timestamp-alapú validáció — `D.messagesLoadedAt > D.seenMsgsLoadedAt`.
+
+### #8 — Vevő app Realtime hiánya
+
+**Verzió**: v2.36.0 (alapfix), v2.38.0 (gyökér ok)
+**Kategória**: C) State-sync
+**Tünet**: Admin válaszüzenet csak ~1 perc múlva jelent meg.
+**Gyökér ok**: Vevő app csak 30s polling, nem Realtime.
+**Fix v2.36.0**: `sb.subscribe()` hozzáadva. **De a tényleges Realtime csak v2.38.0-ban kezdte küldeni az eseményeket** (lásd #17).
+
+### #9 — In-app banner új üzenetre (új feature)
+
+**Verzió**: v2.36.0
+**Kategória**: E) UX
+**Mit nyer**: Új admin üzenet → vevőben felül csúszó zöld banner "💬 Új üzenet érkezett". 8s auto-hide.
+
+### #10 — Alapanyag kategóriák settings+usage union
+
+**Verzió**: v2.36.0
+**Kategória**: D) Forrásinkonzisztencia
+**Tünet**: Új kategória eltűnik, törlés nem lehetséges (csak count=0 esetén jelenik a delete).
+**Gyökér ok**: `renderIngCategories()` csak `R.ingredients.map(i => i.cat)`-ot renderelt. Az `addIngCategory()` settings-be mentett.
+**Fix**: `[...new Set([...settings, ...usage])].sort()` union.
+**Prevenció**: KONVENCIÓ 2.6 — multi-source CRUD esetén union pattern.
+
+### #11 + #15 — Receptúra Realtime + cache override
+
+**Verzió**: v2.36.0 (kísérlet), v2.37.0 (helper), v2.38.0 (TÉNYLEGES fix)
+**Kategória**: C) State-sync + D) Function scope
+**Tünet**: Adminban létrehozott termék nem jelenik meg a Receptúrában.
+**Gyökér okok (több együtt)**:
+1. `loadAllData()` nem volt definiálva a `receptura-data.js`-ben → callback `ReferenceError`
+2. Receptúra Realtime sosem küldött eseményt (lásd #17)
+3. localStorage `kerek_recipe_data` snapshot felülírta a friss adatot
+**Fix**: új `reloadReceptData()` helper, `loadAllData() → reloadReceptData()` callback-ben, `save()` kihagyva a Realtime reload után.
+
+### #12 — Favicon 404 + mobile-web-app-capable
+
+**Verzió**: v2.36.0
+**Kategória**: E) UX kozmetika
+**Fix**: `favicon.svg` (KEREK teal kör arany "K"), `<link rel="icon" type="image/svg+xml">` mind a 3 HTML-be, `<meta name="mobile-web-app-capable" content="yes">` vevo.html-be.
+
+### #14 — Tooltip nem mindig működik (NYITOTT)
+
+**Verzió**: nyitott
+**Kategória**: B) CSS valószínűleg
+**Tünet**: Egyes gombokon a hover tooltip nem trigger-elődik (felhasználói jelentés).
+**Gyanú**: `position: relative` hiánya parent-en, `overflow: hidden` zavarja, vagy z-index conflict.
+**TODO**: konkrét képernyőmentés melyik gombnál — élesben vizsgálat.
+
+### #16 — pendingBadge nem fut automatikusan login után
+
+**Verzió**: v2.37.0
+**Kategória**: D) Init flow gap
+**Tünet**: Login után dashboard view-on nincs badge, csak miután ráklikkel a Sütési listára.
+**Gyökér ok**: `doLogin()` Edge function success ágában csak `updateMsgBadge()` futott, `updatePendingBadge()` nem.
+**Fix**: `updatePendingBadge()` hozzáadva a login flow-ba.
+**Prevenció**: post-login `initIndicators()` helper javasolt — egyetlen hívás minden badge-et frissít.
+
+### #17 ⭐ — Supabase Realtime postgres_changes (KRITIKUS GYÖKÉR-OK)
+
+**Verzió**: v2.38.0
+**Kategória**: C) Protocol mismatch
+**Tünet**: A KEREK Realtime SOSEM küldött DB-change eseményeket. Az admin "úgy érezte hogy működik" — valójában csak a 30s polling kézbesítette 1 perc késleltetéssel.
+**Gyökér ok**: `phx_join` payload csak `broadcast` és `presence` config-ot küldött. Supabase válasza: `postgres_changes: []` (üres tömb!). A DB-change subscription **sosem kérelmezett**.
+**Diagnosztikai módszer**: WS-szintű forward proxying — `WebSocket.send`/`onmessage` override captura. Az üres `postgres_changes: []` array a phx_reply payload-jában volt a kritikus tipp.
+**Fix**: explicit `postgres_changes: [{event:'*', schema:'public', table}]` config a `phx_join`-ban. `onmessage` kezeli mind a régi (közvetlen INSERT/UPDATE event) ÉS az új (postgres_changes wrapper) formátumot.
+**SQL is kell**: `ALTER PUBLICATION supabase_realtime ADD TABLE <tabla>;` minden Realtime-igényes táblára.
+**Hatás**: az ÖSSZES korábbi Realtime-függő bug (#7, #8, #11, #15) **egyetlen gyökér oka** volt.
+**Prevenció**: új session induláskor WS-szintű forward proxy-vel ellenőrizni `postgres_changes` válasz nem üres-e.
+
+### #18 — saveProduct marketingDesc undefined
+
+**Verzió**: v2.38.1
+**Kategória**: A) Schema-mismatch (rosszul mappelt mezők)
+**Tünet**: Termék mentésekor "marketingDesc is not defined" hiba.
+**Gyökér ok**: UPDATE products kódban hivatkozás `marketingDesc, ingredientLabel, allergens, nutrition` változókra — ezek a recipes táblához tartoznak, NEM products-hoz, és nincsenek is deklarálva.
+**Fix**: `sb.updateFields('products', { name, weight, price, category, description, product_family_id, image, code })` — csak products-ban létező mezők.
+
+### #19 — Archiválás visszakerül
+
+**Verzió**: v2.38.2
+**Kategória**: D) Forrásinkonzisztencia
+**Tünet**: Babos kifli, fagyi 2 mind visszakerült a fő termékkatalógusba pedig DB-ben `deleted_at` be volt állítva.
+**Gyökér ok**: `loadAllData` nem töltötte a `deleted_at` mezőt → `D.products`-ban mind aktívnak látszott. `restoreProduct` `Object.assign({}, p, {deleted_at:null})` spread bug.
+**Fix**: `D.products` csak aktív + új `D.productsArchived` cache. `archiveProduct` átmozgatás cache-ek között. `sb.updateFields` minden helyen.
+
+### #20 — Méret/Súly mező használhatatlan
+
+**Verzió**: v2.38.3
+**Kategória**: B) CSS-regresszió
+**Tünet**: Új termék modal-ban a számbeviteli mező 29px széles, "g" select 138px — nem lehet beírni.
+**Gyökér ok**: A `.form-group input { width: 100% }` szabály a v2.36.0-s központi CSS-ben felülírta a nested flex layout-ot.
+**Fix**: `.form-group > input/select/textarea` (DIRECT child only). Nested flex containers (Méret/súly composite) megőrzik a flex sizing-ot. Select `flex: 0 0 70px`, input `flex: 1`.
+**Prevenció**: KONVENCIÓ 2.2 — direct child CSS scope.
+
+### #21 — Receptúra sidebar link aláhúzott
+
+**Verzió**: v2.38.2
+**Kategória**: E) UX kozmetika
+**Tünet**: A "Receptúra modul" link `<a href>` aláhúzott a sidebar-ban.
+**Fix**: `a.nav-item { text-decoration: none !important }` a kerek-styles.css-be.
+
+### #22 — Push notification desktop UX
+
+**Verzió**: v2.38.4
+**Kategória**: E) UX
+**Tünet**: Chrome desktop 3 mp után magától eltüntette a push notification-t. Ha nem nézett oda → lemaradt.
+**Fix**: `requireInteraction: true` minden push-ra a sw.js push handler-ben.
+
+### #23 — sendPushToClient response logging
+
+**Verzió**: v2.38.4
+**Kategória**: D) Diagnosztika hiányosság
+**Tünet**: Silent fail — ha a push backend hibázott, senki nem tudta meg.
+**Fix**: response parsing, `{ok, status, sent, failed}` return, console.warn ha nem OK.
+
+### #24 — reloadVevoData NaN bug
+
+**Verzió**: v2.38.5
+**Kategória**: A) Field name mismatch
+**Tünet**: In-app banner teszt után "HAVI ÖSSZÉRTÉK NaN lej".
+**Gyökér ok**: v2.37.0-ban írt `reloadVevoData` rossz mezőneveken tárolt:
+- `appData.monthlyActive` (HELYES: `monthlyActiveProducts`)
+- `appData.bakingExtra/bakingRemoved` (HELYES: `bakingCalendar[k]={extra,removed}`)
+- `image: p.image_url` (HELYES: `p.image`)
+**Fix**: helyes mezőnevek + price default 0.
+
+### #25 — updateHeroTotal NaN guard
+
+**Verzió**: v2.38.6
+**Kategória**: D) Numerikus érték konverzió hiányzott
+**Tünet**: Ha `monthlyActiveProducts[k]` üres → NaN lej a sticky bar-on.
+**Fix**: `Number(qty) || 0`, `Number(price) || 0`, végén `total = Number(total) || 0`.
+**Prevenció**: KONVENCIÓ 2.8 — minden numerikus értékre Number() konverzió.
 
 ---
 
-### 🐢 ALACSONY PRIORITÁSÚ AUDIT TÉTELEK (L)
+## 5. FEJLESZTÉSI ROADMAP — RÉSZLETES PRIORITÁSI SORREND
 
-#### L1 — Magyar és angol komment vegyesen
-**Probléma**: A legtöbb komment magyar, néhány angol. Nem szabványos.
-**Megoldás**: Egységes nyelv (javasolt: magyar, mivel a felhasználói nyelv az).
-**Becslés**: 1-2 óra (kommentek átfutása)
-
-#### L2 — Inkonzisztens function naming
-**Probléma**: pl. `getTotalStock` vs `getIngredientTotalStock`, `mk` vs `getKey`, `ok` vs `getOrderKey`.
-**Megoldás**: Egységes naming convention.
-**Becslés**: 2-3 óra (rename + minden hivatkozás frissítése)
-**Kockázat**: Magas, sok hely érintve
-
-#### L4 — Hardcoded font URL-ek HTML-ben
-**Probléma**: A `Fraunces` és `Kodchasan` font Google Fonts URL be van égetve 3 HTML fájlba.
-**Megoldás**: `kerek-styles.css` `@import`-tal vagy `<link>` egy közös helyen.
-**Becslés**: 30 perc
-**Megjegyzés**: Az audit szerint már bekerült részben a `kerek-styles.css`-be — ellenőrzendő
-
-#### L6 — End-to-end tesztek (Playwright)
-**Probléma**: A `tests/calculations.test.js` (38 db) csak számolásokat fed le. A kritikus business flow-k (rendelés mentés, módosítás, sütés visszaigazolás, push notification) **nincsenek tesztelve**. Ezért is keletkezett a 3 kritikus bug az utolsó 2 hétben (C1 auditLog, C2 DELETED return, C3 qty0).
-**Megoldás**: Playwright vagy Cypress + CI integráció (GitHub Actions).
-**Becslés**: 1-2 nap setup + folyamatos 0.5 nap/feature
-**Hatás**: Megelőzi a regressziókat új release-eknél
-
-#### L7 — PWA manifest
-**Eredmény**: Az auditban kiderült hogy a `manifest.json` **rendben van** (icons, theme_color, background_color, display: standalone). Nincs teendő.
-
-#### L8 — Accessibility (a11y)
-**Probléma**: A `<button onclick="✏️">` jellegű gomboknak nincs `aria-label`-jük screen reader-nek. A modal dialógusok `role="dialog"` nélkül vannak.
-**Megoldás**: Minden ikonos gombhoz `aria-label`, dialógusoknak ARIA attribútumok.
-**Becslés**: 4-6 óra (sok hely végigjárása)
-**Hatás**: Vakok / gyengén látók számára használhatóbb
-
-#### L9 — Telefon formátum validáció
-**Eredmény**: Az auditban kiderült hogy a telefon mező **opcionális** és `type="tel"`, így bármi elfogadható. **Nincs teendő**, de jövőbeli kérés esetén regex validáció hozzáadható (pl. romániai +40 mintára).
+> Ez a teljes lista. Minden tétel a saját session-szerű fejlesztési egység.
+> Prioritás: **M0/M1** (must-have most) → **S1-S6** (session ütemterv) → **B1-B6** (backlog) → **L1-L8** (long-term).
 
 ---
 
-### 🔧 KÖZEPES TÉTELEK AMIK NEM LETTEK MEGCSINÁLVA
+### 🔴 M0 — Mértékegység támogatás (ÚJ, sürgős)
 
-#### M12 — Hosszú template literal-ek külön mappába
-**Probléma**: Pl. `admin-clients.js`-ben a HTML template-ek embedded backtick string-ek (több 100 sor).
-**Megoldás**: `templates/` mappa, vagy `<template>` HTML tag használat dinamikus klónozással.
-**Becslés**: 1-2 nap (nagy refaktor)
-**Kockázat**: Magas, mert a template-ek dinamikus értékkel vannak (sok `${variable}` interpoláció)
+**Probléma**: jelenleg minden alapanyag g-ban van tárolva. De a valóságban:
+- Liszt: kg-ban veszik (25 kg, 50 kg zsák)
+- Tej, olaj, ecet: liter-ben
+- Tojás: db-ban (10 db, 30 db)
+- Élesztő, sütőpor: csomag-ban
+- Csomagolás (dobozok, papír, címke): db / csomag
+- Burgonya: kg / db
 
-#### M7 részleges — JS-fájlokban maradt inline onclick
-**Aktuális helyzet**: A 122 HTML onclick átírtuk data-action-re (v2.33.0). DE a JS-fájlokban (kb. 150 inline onclick a dinamikusan generált HTML-ben — pl. `vevo-orders-render.js`-ben `<button onclick="pivotChangeQty(${day}, ${pid}, ${delta})">`) **megmaradt**.
-**Megoldás**: Event delegation pattern — a parent container-en egy listener, `data-*` attribútumokon keresztül paraméterek.
-**Becslés**: 3-4 óra
-**Kockázat**: Magas, mert 150 hely, könnyen elromolhat valami
-**Megjegyzés**: A `kerek-constants.js`-beli globális `[data-action]` delegator már működne ezekkel is — csak a HTML generálást kellene átírni. **Konvencióként rögzítve: új kódba inkább data-action pattern**.
+A felhasználó panasza: "A bevételezéskor megadott mennyiséget kell hoznia a végén."
 
----
+**Megoldási terv**:
 
-### 💡 FELHASZNÁLÓI VISSZAJELZÉSEK / KÉRÉSEK A SESSION-ÖKBÖL
+**M0.1 — DB séma kibővítés**
 
-#### Megvalósultak ✅
-- **Push notification rendszer** — szét bonyolódott (silent rendelés-status + admin-confirmed broadcast)
-- **Mobil UX overhaul** (v2.22.6 → v2.23.0)
-- **Heti minta másolás** (`copyLastOrder` v2.25.1)
-- **Sticky havi totál bottom bar** (v2.25.2)
-- **Toggle view nap/termék** (v2.24.0)
-- **Unified renderer mobil+desktop** (v2.25.0)
-- **30s unified polling** (v2.26.0)
-- **Admin Napló dashboard** (analytics aggregator)
-- **Audit-vezérelt fejlesztés** (v2.29.0 - 17 fájl javítva)
-- **Admin auth biztonsági refactor** (v2.30.0 - Edge Function)
+```sql
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_name='ingredients' AND column_name='unit') THEN
+    ALTER TABLE ingredients ADD COLUMN unit TEXT DEFAULT 'g';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_name='ingredients' AND column_name='unit_to_g_ratio') THEN
+    ALTER TABLE ingredients ADD COLUMN unit_to_g_ratio NUMERIC DEFAULT 1;
+  END IF;
+END $$;
+-- Megengedett unit-ok: 'g', 'kg', 'L', 'ml', 'db', 'csomag'
+-- unit_to_g_ratio: hány gramm 1 unit
+--   g: 1, kg: 1000, L: 1000 (víz), ml: 1, db: változó, csomag: változó
+```
 
-#### Megvalósult de finomítható
-- **C4 admin auth — UX**: a `verify_jwt: OFF` toggle a Supabase Dashboard-on kézzel kell legyen — automatizálható lenne Supabase CLI-vel
-- **Push permission UX**: jelenleg nincs külön onboarding "engedélyezd a push-t" prompt, csak egy 🔔 gomb. Egy első-belépés-után popup ("Szeretnél értesítéseket kapni a rendeléseidről?") jobb lenne.
-- **C5 Realtime debounce** működik (500ms), de **konkrét frissítés-eseményt** nem nézünk — minden update-re teljes `loadAllData` fut. Surgical update (csak a payload alapján a D objektum egy részét frissíteni) jobb lenne, de az audit nem írta elő.
+**M0.2 — UI változások**
+- **Alapanyag modal**: mértékegység választó dropdown (`g/kg/L/ml/db/csomag`)
+- Ha `db` vagy `csomag` választva: extra "1 db = X g" mező a sűrűségnek
+- **Bevételezés modal**: mennyiség mező + unit lock az alapanyag default unit-jához (megjelenítés "kg" felirattal, mentésnél *1000-szer)
+- **Bevásárló lista**: ajánlott mennyiség az **adott alapanyag unit-jában** (5 kg, NEM 5000 g)
+- **Stock kijelzés**: szintén unit-ban (minStock 15 kg, maxStock 30 kg)
 
-#### Visszatérő témák amik kérésekben felmerültek
-- **Limit-takarékosság**: kevesebb screenshot, batch push, rövid válaszok, kódbázis ne nőjön feleslegesen — folyamatos önkontroll
-- **Tervezet-jóváhagyás**: minden új funkciónál először vázlat, aztán implementáció
-- **End-to-end tesztelés** browserrel **csak explicit engedéllyel** — limit-érzékeny
+**M0.3 — Belső számolás**
+- A `qty_remaining_g` MARAD g-ban (recept ingredients kompatibilitás)
+- Bevétel mentésnél: `qty_g = input_qty * unit_to_g_ratio`
+- Kijelzésnél: `display_qty = qty_g / unit_to_g_ratio`
+- Recipe ingredients továbbra is g-ban (pontosan így van most is)
 
----
+**M0.4 — Bevásárló lista frissítés**
+- `fmtQty(grams, unit, ratio)` új signaturája: ha `unit` + ratio adott, konvertál
+- `getPackageSize(ing)` → csomag mérete az alapanyag unit-jában
+- `getRecommendedQty(ing)` → unit-ban tér vissza (NEM g)
+- Clipboard formátum: "Liszt: 25 kg", "Tojás: 30 db", "Tej: 10 L"
 
-### 🎯 NEM PRIORITIZÁLT, DE FELMERÜLT ÖTLETEK
+**M0.5 — Backward compat**
+- A meglévő 37 alapanyag default `unit='g'` marad
+- A felhasználó egyenként átállíthatja: pl. Burgonya → unit='kg', vagy ha 1 db = 200 g akkor unit='db', unit_to_g_ratio=200
 
-#### Vevő-oldali push preferenciák
-**Mit hiányol**: A vevő nem tudja típusonként ki/be kapcsolni a push-okat (pl. csak saját rendelés visszaigazolása, de nem kell az új termék hír).
-**Megoldás**: `clients` táblába `push_preferences JSONB` oszlop. Vevő-settings UI.
-**Becslés**: 4-6 óra
-**Audit**: az M5-tel együtt felmerült de szándékosan kihagytuk
-
-#### Rate limit a Realtime + REST hívásokra
-**Mit hiányol**: A Supabase Free tier 50 000 req/hó. Az aktuális forgalom messzi (kb. 10%), de scale-up esetén túlléphető.
-**Megoldás**: Monitoring + alert a Supabase Dashboard-ról; vagy a kliens-oldali polling intervallumot dinamikusan változtatni terhelés szerint.
-
-#### Receptúra modul függőségi gráf
-**Mit hiányol**: Egy recept módosításakor nem látszik melyik termék gyártásába van bele kötve.
-**Megoldás**: `getRecipeDependencies(recipeId)` helper + UI a recept modal-ban.
-**Becslés**: 2-3 óra
-
-#### Admin auto-backup
-**Mit hiányol**: Nincs napi/heti automatikus DB-backup.
-**Megoldás**: Supabase automatikus backup-okat ad a Pro tier-ben. Free tier-en pg_dump cron Edge Function-nel.
-**Becslés**: 3-4 óra
-
-#### Vevő-rendelés statisztika modal
-**Mit hiányol**: Egy admin által megnyitott vevő-detail nézetben jó lenne egy mini-statisztika (havi rendelés-szám trend, kedvenc termék, átlag rendelés-érték).
-**Megoldás**: `js/admin-clients.js` `openClientDetail()`-ben új szekció.
-**Becslés**: 3-4 óra
-**Megjegyzés**: A v2.29.0 cleanup-ban töröltük a `renderClientTrend` function-t — de a jövőben hasonló funkciót újra létrehozhatunk
-
-#### Push-csekkold sticky banner a vevőnek
-**Mit hiányol**: Ha a vevő egyszer letiltotta a push-t, nincs reminder hogy újra engedélyezze.
-**Megoldás**: Vevő bejelentkezés után, ha `Notification.permission === 'denied'`, mutass egy diszkrét bannert ("Engedélyezz értesítést a rendeléseidről").
-**Becslés**: 1-2 óra
+**Becsült méret**: ~400 sor új JS + DB migration + UI módosítás (alapanyag modal + bevétel modal + bevásárló lista + stock view) — **egy nagy session, vagy két kisebb**
 
 ---
 
-### 🔮 STRATÉGIAI TÖPRENGÉSEK / NAGY KÉPI ÖTLETEK
+### 🟡 M1 — Bevásárló lista folytatás (Session 1 hiányzó tételek)
 
-#### Multi-pékség támogatás
-**Vízió**: A KEREK kód lehetne több pékség által használt SaaS platform.
-**Becslés**: Hatalmas refaktor (multi-tenant DB schema, tenant-aware Edge Functions, branding per tenant)
-**Realitás**: Csak akkor érdemes ha tényleges igény van rá
+**M1.1 — Persistent shopping overrides**
+- DB: `shopping_overrides (ingredient_id INT, qty NUMERIC, unit TEXT, created_at TIMESTAMP, user_id TEXT)` tábla
+- Page reload után megmaradnak
+- "💾 Mentés" gomb az override-ok perzisztálására
+- "🗑️ Elavult törlése": 7 napnál régebbi override-ok auto-cleanup
 
-#### Mobil app (React Native / Capacitor)
-**Vízió**: Natívabb mobil élmény. Jelenleg a PWA jó, de a push iOS-en korlátozott (csak 16.4+ és csak add-to-home-screen-ből).
-**Becslés**: 2-3 hónap
-**Realitás**: PWA most elég, csak akkor kell ha sok iPhone vevő van akik nem PWA-ként installálják
+**M1.2 — Beszállító-kiosztás wizard**
+- A 22 orphan alapanyaghoz (jelenleg "⚠️ Beszállító megadva nincs")
+- Egy-gombos wizard a Bevásárló lista tetején: "📦 22 alapanyaghoz nincs beszállító - gyors beállítás"
+- Modal: alapanyag-listából csoportos választás + beszállítónév beírás (autocomplete a meglévő beszállítókból)
+- Egy klikkel mind a 22-höz hozzárendel egy beszállítót
 
-#### AI-asszisztens vevőknek
-**Vízió**: A receptúra modulban már van AI integráció (Anthropic, OpenAI, Groq). Egy hasonló asszisztens a vevő oldalon válaszolhat kérdésekre ("Mikor van a következő sütés?", "Adj javaslatot 4 fős reggelire").
-**Becslés**: 2-3 nap
-**Költség**: Per-vevő AI token költség kalkulálandó
+**M1.3 — History-alapú min/max gomb a shopping view-ban**
+- A meglévő `calcAutoMinMax()` (settings view-ban már létezik) bevonása a bevásárló lista-ba
+- Gomb: "🤖 Min/Max ajánlás rendelési history alapján" — minden alapanyagra futtatja és visszamutatja "Régi → Új" diff-ben
+- Egy klikkel mind elfogadás vagy egyenkénti hagyás
 
----
+**M1.4 — Akció/promóció támogatás**
+- "💡 Akciós tipp" jelölő gombja minden tételhez (most → "+20% ajánlott mennyiség")
+- DB: `ingredient_promotions (ingredient_id, until_date, qty_boost_pct)` tábla
+- Bevásárló lista listán: 🎯 ikon jelzi az akciós tételeket
+- Automatikus lejáratidő-figyelmeztetés (admin-nak push)
 
-## 🚦 KONVENCIÓK ÚJ MUNKÁHOZ
-
-Ha bármelyik fenti backlog tétel felmerül, a **fejlesztési munkamód kötelező szabályai** alapján:
-
-1. **Tervezet írása** előbb (mit, miért, edge case, érintett fájlok, becsült méret/sor)
-2. **Várj jóváhagyásra** mielőtt kódolsz
-3. **Batch munka** — minden kapcsolódó változtatás egy commitban
-4. **Konvenciók követése**:
-   - `// ===== SZEKCIÓ_NEVE =====` szekciókomment új függvénycsoporthoz
-   - Audit cimke-komment (pl. `// B1 fix:`) ha valamely backlog tételt javítod
-   - Új UI: `data-action` pattern, nem inline onclick
-   - Új dialógus: `confirmDialog` / `alertDialog`, nem natív `confirm()` / `alert()`
-   - Új API hívás: `sb` wrapper használata, nem közvetlen `fetch`
-   - Új konstans: `kerek-constants.js`-be, nem inline magic number
-5. **Verzió-bump kötelező** (kerek-constants.js + minden HTML `?v=` + sw.js CACHE_NAME)
-6. **Syntax check** + Jest
-7. **Push** + GitHub Actions deploy verify
+**M1.5 — Multi-format export**
+- Jelenleg csak plain-text clipboard
+- Új: CSV export beszállítónként
+- Új: PDF export ("Bevásárló feladat - 2026-05-31" címmel)
+- Új: WhatsApp deep-link generálás (`https://wa.me/?text=...`)
+- Új: Email mailto deep-link (subject + body előre kitöltve)
 
 ---
 
-## ✅ TÉNYEK A JELENLEGI KÓDBÁZIS ÁLLAPOTÁRÓL
+### 🟢 S2 — Bevásárló lista v3 (EOQ + MOQ — pénzügyi optimalizáció)
 
-- ~30 fájl, ~10000 sor JS
-- Nincs dead unused function (v2.33.0 cleanup után)
-- Nincs deprecated handler vagy duplikált cleanup
-- Nincs console.log (csak debugLog ami DEBUG=false esetén nem log-ol)
-- Push notification rendszer teljes körű
-- Admin auth biztonsági szinten
-- N+1 queries kikerülve (bulk operations)
-- Realtime debounced (C5)
-- WS exponential backoff (H6)
-- Promise.allSettled parallel loadAllData (H4)
-- Edge Functions: dynamic-service + admin-auth élesben
+**EOQ** (Economic Order Quantity): minimális összes költség (rendelési + tárolási) optimalizáció.
+
+Képlet: `EOQ = sqrt(2 * D * S / H)`, ahol:
+- D = éves keresletmennyiség (rendelési history alapján auto-számolva)
+- S = rendelési költség (rögzített, beszállítónként)
+- H = tárolási költség / év / unit (alapértelmezett: 10% az alapanyag árából)
+
+**MOQ** (Minimum Order Quantity): beszállítónként minimum rendelési mennyiség, amit a beszállító elfogad.
+- Új mező: `ingredient_supplier.moq_units` és `ingredient_supplier.lead_days`
+
+**Multi-supplier priority**:
+- Új tábla: `ingredient_supplier (ingredient_id, supplier_name, priority, moq, lead_days, price_per_unit, last_purchase_date)`
+- Alapértelmezett priority sorrend: ár → lead_days → minőség
+- A bevásárló lista automatikusan választ a legjobbat, de a felhasználó override-olhatja
+
+**Beszerzési költség-kalkulátor**:
+- Lej/kg rangsorolás minden beszállító között
+- "💰 Olcsóbb alternatíva: MalomKft 8 lej/kg helyett LisztExport 6.5 lej/kg" javaslat
+
+---
+
+### 🟢 S4 — Malom fermentáció state machine
+
+**Új feltöltési folyamat**:
+```
+pending (összekevert) → in_progress (fermentálódik X napon át) → completed (kész, mérhető) → dried (szárított, használható)
+```
+
+**DB**: `processing_batches.status` enum, `processing_batches.fermentation_days_target`, `processing_batches.dried_at`.
+
+**Dashboard widget**: "Folyamatban lévő fermentációk"
+- Lista: melyik batch, mikortól, várható készülés
+- "⏰ 2 nap múlva esedékes" jelölés
+- Push notification adminnak ha kész
+
+**Auto-learning yield refinement**:
+- Tényleges yield (hozam) figyelése minden completed batch-nél
+- Milling_profile (`ingredients.milling_profile.yield_ratio_typical`) auto-frissítés átlag-alapon
+- Recipe-specific yield: ha pl. tönkölyliszt 60% yield, akkor a recept ajánlott mennyiségéhez automatikusan +66% nyersanyag a bevásárló listán
+
+---
+
+### 🟢 S5-S6 — Kísérleti sütés v2 (verziókezelés)
+
+**DB kibővítés**:
+```sql
+ALTER TABLE recipes ADD COLUMN parent_recipe_id INTEGER;
+ALTER TABLE recipes ADD COLUMN status TEXT DEFAULT 'active'; -- 'draft'|'experimental'|'active'|'archived'
+
+CREATE TABLE IF NOT EXISTS recipe_feedback (
+  id SERIAL PRIMARY KEY,
+  recipe_id INTEGER REFERENCES recipes(id),
+  baked_date DATE,
+  rating INTEGER, -- 1-5
+  notes TEXT,
+  photo_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Workflow**:
+- Új recept létrehozásnál: "🧪 Forrás recept" választó (üres = új, vagy meglévő → kísérleti változat)
+- Status flow: `draft` (csak admin látja) → `experimental` (sütésnap-listán külön szekcióban) → `active` (mindenki rendeli) → `archived`
+- "Promote" gomb: experimental → active csak ha legalább 3 sütés volt és átlag rating >= 4
+- "Demote" gomb: active → archived (régi termékek)
+
+**Side-by-side diff**: két recept változat összehasonlítása oszlopokban (alapanyag, mennyiség, idő, hőfok).
+
+**Lineage map**: vizuális fa-szerkezet, hogy melyik recept melyiknek a leszármazottja (D3.js vagy egyszerű HTML-tree).
+
+---
+
+### 🟢 B1-B6 — Backlog (felhasználói kérés)
+
+**B1 — Recept szezonalitás**
+- DB: `ALTER TABLE recipes ADD COLUMN active_months INTEGER[];` (1-12)
+- Vevő app: a havi nézet csak az adott hónap aktív termékeit mutatja (alapanyag-szezonalitás miatt)
+- Admin dashboard: szezonalitás-naptár áttekintés ("Ki van melyik hónapban?")
+
+**B2 — Recept trendelés dashboard**
+- "Felfelé trendel": utolsó 30 nap rendelési db / előző 30 napi rendelési db > 1.2
+- "Lefelé trendel": < 0.8
+- Vizuális chart: idősoros line graph terméknyenkénti
+- Admin dashboardon: "📈 3 termék trendel — érdemes több reklámot tervezni"
+
+**B3 — Recept önköltség-trend figyelmeztetés**
+- Ha egy alapanyag ára 10%+-kal nőtt → push notification admin-nak: "X recept önköltsége 12%-kal nőtt — érdemes átnézni az árazást"
+- Heti összesítő dashboard widget: "5 recept önköltsége nőtt e héten, 2 csökkent"
+- Ár-történet tárolás: `ingredient_price_history (ingredient_id, price_per_g, recorded_at)` tábla
+
+**B4 — Reverse lookup: "Mire kell ez az alapanyag?"**
+- Alapanyag-detail panelen lista: melyik receptekben szerepel, milyen mennyiségben, milyen hónapban várhatóan
+- Stock-deficit esetén: "⚠️ Búzaliszt hiánya 3 receptet érint: Kovászos cipó, GM kenyér, Babos kifli"
+- Bevásárló lista: "Ezt rendelve fedezel X termék-rendelést a jövő héten"
+
+**B5 — Beszállító teljesítmény tracking (NEM pénzügyi)**
+- DB: `supplier_deliveries (supplier_name, delivery_date, on_time BOOL, quality_rating 1-5, notes)`
+- Beszállító-profil oldal: átlagos átfutási idő, késési arány, minőségértékelés
+- A bevásárló lista jelzi: "⚠️ Ez a beszállító az utolsó 5-ből 4-szer késett 3+ napot" — alternatíva-ajánlás
+
+**B6 — Vevő önkiszolgáló profil**
+- A vevő appban: profil-szerkesztés (email, telefon, jelszó-módosítás)
+- Jelszó-cserénél email-megerősítés (Edge function)
+- Vevő láthatja a saját rendeléstörténetét hónaponkénti bontásban + PDF export
+
+---
+
+### 🟢 Long-term (L)
+
+**L6 — Playwright e2e tesztek**
+- Infra: ~1-2 napos beüzemelés
+- Smoke teszt minden release előtt automatikusan
+- Lefedettség: login, termékkatalógus CRUD, rendelés folyamat, Realtime sync, push
+- CI integráció: GitHub Actions runner
+- Failed teszt → automatikus rollback javaslat
+
+**L7 — i18n (későbbi terjeszkedés)**
+- Magyar (jelenlegi) + Román fordítás (Erdély piaca)
+- Translation file-ok (`hu.json`, `ro.json`)
+- Vevő app: nyelv-választó a login képernyőn
+
+**L8 — Accessibility (WCAG 2.1 AA)**
+- Minden ikon-gombhoz `aria-label`
+- Form mezők `<label for=...>` összekötve
+- Tab-navigation tesztelve (összes view-on)
+- Color contrast ratios ellenőrzése (a teal-pale-en jelenleg gyenge)
+- Screen reader teszt (NVDA/JAWS)
+
+---
+
+## 6. AZONNAL TESZTELENDŐ (felhasználói feladat)
+
+Ezeket te kell teszteld élesben — a kód kész és v2.39.0-ban van:
+
+1. **🛒 Bevásárló lista** (Receptúra → új nav)
+   - Beszállítónkénti + általános listanézet
+   - +/- gombok és manuális override
+   - Copy beszállítónként és teljes
+2. **Realtime sync** (vevő-admin: ár-változás, üzenet)
+3. **Push notification** (admin üzenet → vevő desktop tartós notification)
+4. **#14 Tooltip**: melyik gombnál nem működik? (kép kell)
+5. **Más modalok**: új vevő, jelszó, alapanyag, recept — méret-ellenőrzés
+6. **Malom feldolgozás v2** (v2.34.0) — smoke teszt
+7. **Multi-state ingredient** (v2.35.0) — smoke teszt
+
+---
+
+## 7. DB SÉMA — MINDEN TÁBLA (jelenlegi állapot)
+
+| Tábla | Mezők (kritikus) |
+|---|---|
+| clients | id, name, email, phone, password_hash |
+| products | id, name, weight, price, category, description, product_family_id, image, code, deleted_at, marketing_desc, ingredient_label, allergens, nutrition |
+| monthly_active_products | id, year, month, product_id |
+| orders | id, client_id, year, month, day, product_id, quantity |
+| order_status | id, client_id, year, month, day, status ('pending'\|'confirmed'\|'modified'\|'cancelled'), admin_note, deadline |
+| messages | id, client_id, year, month, text, created_at |
+| recipes | id, name, category, product_id, base_portion, bake_loss, unit_weight, temp1, time1, temp2, time2, description, levain_amount, labor_h, electricity, marketing_desc, ingredient_label, allergens, nutrition, version, parent_recipe_id, status, tags, archived, activated_at |
+| recipe_ingredients | id, recipe_id, ingredient_id, name, amount (g), sub_type, sort_order |
+| recipe_steps | id, recipe_id, title, description, timer_minutes, sort_order |
+| ingredients | id, name, category, sub_type, suppliers (JSON), min_stock_g, max_stock_g, critical_stock_g, fifo_price, avg_price, material_type, family_id, milling_profile, ... **MAJD: unit, unit_to_g_ratio (M0)** |
+| ingredient_batches (FIFO) | id, ingredient_id, qty_received_g, qty_remaining_g, received_date, price_per_g, supplier_name, source_type |
+| ingredient_families | id, name, common_unit, description |
+| ingredient_milling_profile | id, ingredient_id, yield_ratio_typical, processing_loss_pct |
+| baking_calendar | id, year, month, extra_dates (DATE[]), removed_dates (DATE[]) |
+| settings | key, value (JSONB) |
+| audit_log | id, action, entity, details, user, created_at |
+| push_subscriptions | id, client_id, endpoint, p256dh, auth, created_at |
+| admin_secrets | key, value (encrypted) |
+| processing_batches | id, operation_type, recipe_id, processing_date, status |
+| processing_inputs | id, batch_id, ingredient_id, qty_g, source_batch_id |
+| processing_outputs | id, batch_id, ingredient_id, qty_g, target_batch_id |
+
+### Realtime publikációban (v2.38.0+)
+Eddig hozzáadva:
+- messages, orders, order_status, products, monthly_active_products, baking_calendar
+- recipes, recipe_ingredients, ingredients, ingredient_batches, processing_batches
+
+---
+
+## 8. EDGE FUNCTIONS
+
+| Function | Cél | Verzió |
+|---|---|---|
+| dynamic-service | Push notification küldés (Web Push), stale 410/404 cleanup | aktív |
+| admin-auth | Admin jelszó-check (admin_secrets) | v2.30.0+ |
+| auto-confirm-orders | Pending → confirmed deadline után (no cron, manual trigger) | aktív |
+
+---
+
+## 9. FÁJL TÉRKÉP (v2.39.0)
+
+### HTML (5)
+- `admin.html`, `vevo.html`, `receptura.html`, `index.html`, `register.html`
+
+### Globális JS
+- `kerek-constants.js` — APP_VERSION, helpers, sb.updateFields, debugLog, confirmDialog+alertDialog, data-action delegator, sendPushToClient (v2.38.4 response logging), sendPushBroadcast
+- `kerek-styles.css` — 211+ sor központi modal/form/sticky/tooltip/anchor-nav CSS (DO NOT CHANGE kommentek)
+- `supabase.js` — REST + sb.subscribe (postgres_changes config v2.38.0, returns unsub v2.37.0) + sb.updateFields helper
+- `sw.js` — PWA cache + push handler (requireInteraction:true v2.38.4)
+- `favicon.svg` — KEREK teal kör arany "K"
+
+### Admin JS (12 file)
+admin-data.js, admin-ui.js, admin-baking.js, admin-catalog.js (D.productsArchived split v2.38.2), admin-clients.js, admin-orders.js, admin-messages.js, admin-push.js, admin-reports.js, admin-settings.js, admin-help.js
+
+### Vevő JS (6 file)
+vevo-data.js (showAdminMsgBanner, reloadVevoData, countMyMessages, Realtime subscription, push subscription), vevo-ui.js, vevo-analytics.js, vevo-orders-render.js, vevo-orders-actions.js (updateHeroTotal NaN guard v2.38.6), vevo-orders-extras.js
+
+### Receptúra JS (16 file)
+receptura-data.js (reloadReceptData helper v2.37.0 + Realtime subscription), receptura-ui.js (VIEW_TITLES + nav data-action support v2.39.0), receptura-recipes.js, receptura-stock.js, receptura-production.js, receptura-processing.js (Malom v2.5 + 6 operation types + family smart filter), receptura-levain.js, receptura-ingredients.js (state badge + family + milling profile), receptura-modal.js, receptura-ai.js, receptura-operational.js, receptura-settings.js, receptura-ing-cats.js (settings+usage union v2.36.0), receptura-recipe-cats.js, receptura-help.js, **receptura-shopping.js (v2.39.0 — 270 sor)**
+
+---
+
+## 10. VERZIÓ-BUMP CHECKLIST
+
+Új release előtt minden helyen frissíteni:
+
+1. `kerek-constants.js` → `APP_VERSION = 'v{VER} ({DATE})'`
+2. `admin.html`, `vevo.html`, `receptura.html`, `index.html`, `register.html` → minden `?v={VER}` JS/CSS query
+3. `sw.js` → `const CACHE_NAME = 'kerek-v{VER}'`
+4. Syntax check: `node -e "new vm.Script(fs.readFileSync('js/X.js','utf8'))"` minden módosított JS-re
+5. Jest: `npx jest --no-coverage`
+6. Git: `git add -A && git commit -m "..." && git push`
+7. Várj ~35s a GitHub Pages deploy-ra
+8. Verify: `curl actions API` — `completed/success`
+9. Hard refresh + élesben teszt
+10. Frissítsd a Bug History szekciót
+
+**Python script** (mostani):
+```python
+import re, datetime
+NEW_VER = "X.Y.Z"
+DATE = datetime.date.today().strftime("%Y-%m-%d")
+# kerek-constants.js
+# 5 HTML file ?v=
+# sw.js CACHE_NAME
+```
+
+---
+
+## 11. UTOLSÓ MEGJEGYZÉSEK
+
+- **A v2.38.0 Realtime fix volt a session legfontosabb felfedezése.** Mostantól a vevő/receptúra app 1-3 másodperc alatt szinkronizálódik az adminnal. Ez **az alapja** sok jövőbeli feature-nek (in-app banner, élő riport, kollaboratív szerkesztés).
+- **A KEREK_BUG_LOG.md és KEREK_SKILL.md mostantól egy fájl** (ez). A felhasználói kérésre.
+- **Az M0 mértékegység-támogatás a következő logikus lépés** — enélkül a bevásárló lista UX-e zavaros marad.
+- **A session 1-2 (Bevásárló lista) első része kész** — a v3 EOQ/MOQ és a perzisztens override-ok még backlog-ban.
