@@ -15,13 +15,130 @@ async function renderIngCategories() {
     el.innerHTML = '<p class="text-soft text-sm">Nincsenek alapanyag csoportok.</p>';
     return;
   }
-  el.innerHTML = cats.map(cat => {
+  let html = cats.map(cat => {
     const count = R.ingredients.filter(i => i.cat === cat).length;
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:white">
       <span style="font-size:0.85rem;font-weight:600">${esc(cat)} <span style="font-size:0.75rem;color:var(--text-soft);font-weight:400">(${count} tétel)</span></span>
       ${count === 0 ? `<button data-action="deleteIngCategory" data-arg1="${esc(cat)}" data-tip="Kategória törlése" class="btn btn-ghost btn-sm" style="color:var(--red,#dc2626);font-size:0.75rem">✕</button>` : '<span style="font-size:0.72rem;color:var(--text-soft)">használatban</span>'}
     </div>`;
   }).join('');
+  // v2.40.0: kategória konszolidáció gomb
+  if (cats.length >= 2) {
+    html += '<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-action="openMergeCategoryModal" data-tip="Két kategória összevonása">🔀 Kategóriák összevonása</button></div>';
+  }
+  el.innerHTML = html;
+}
+
+// =============================================================
+// v2.40.0 — KATEGÓRIA KONSZOLIDÁCIÓ
+// =============================================================
+
+function openMergeCategoryModal() {
+  const settingsCats = R.settings?.ingredientCategories || [];
+  const usedCats = R.ingredients.map(i => i.cat).filter(Boolean);
+  const cats = [...new Set([...settingsCats, ...usedCats])].sort();
+  if (cats.length < 2) { toast('Legalább 2 kategória kell az összevonáshoz', true); return; }
+
+  let modal = document.getElementById('merge-cat-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'merge-cat-modal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+  const opts = cats.map(c => `<option value="${esc(c)}">${esc(c)} (${R.ingredients.filter(i => i.cat === c).length} tétel)</option>`).join('');
+  modal.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">
+        <h3>🔀 Kategóriák összevonása</h3>
+        <button class="modal-close" data-action="closeMergeCategoryModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:#fffbf5;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.8rem;color:#92400e">
+          ⚠️ Az összevonás <b>visszavonhatatlan</b>. A forrás kategória összes alapanyaga átkerül a célba, és a forrás kategória törlődik.
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Forrás kategória <span style="font-weight:400;color:var(--text-soft);font-size:0.72rem">(ez törlődik)</span></label>
+            <select id="merge-from"><option value="">— Válassz —</option>${opts}</select>
+          </div>
+          <div class="form-group">
+            <label>Cél kategória <span style="font-weight:400;color:var(--text-soft);font-size:0.72rem">(ez marad)</span></label>
+            <select id="merge-to"><option value="">— Válassz —</option>${opts}</select>
+          </div>
+        </div>
+        <div id="merge-preview" style="font-size:0.82rem;color:var(--text-soft);padding:10px 14px;background:var(--cream);border-radius:8px;display:none"></div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:space-between;padding:14px 18px;border-top:1px solid var(--border);background:var(--cream)">
+        <button class="btn btn-ghost" data-action="closeMergeCategoryModal">Mégse</button>
+        <button class="btn btn-primary" data-action="confirmMergeCategory">🔀 Összevonás</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+
+  // Preview a választás után
+  const updatePreview = () => {
+    const from = document.getElementById('merge-from')?.value;
+    const to = document.getElementById('merge-to')?.value;
+    const prev = document.getElementById('merge-preview');
+    if (!from || !to || !prev) { if (prev) prev.style.display = 'none'; return; }
+    if (from === to) { prev.innerHTML = '⚠️ A forrás és a cél nem lehet ugyanaz!'; prev.style.display = ''; return; }
+    const affectedCount = R.ingredients.filter(i => i.cat === from).length;
+    prev.innerHTML = `📋 <b>${affectedCount}</b> alapanyag kerül át a "<b>${esc(from)}</b>" kategóriából a "<b>${esc(to)}</b>" kategóriába.<br>A "<b>${esc(from)}</b>" kategória törlésre kerül.`;
+    prev.style.display = '';
+  };
+  document.getElementById('merge-from')?.addEventListener('change', updatePreview);
+  document.getElementById('merge-to')?.addEventListener('change', updatePreview);
+}
+
+function closeMergeCategoryModal() {
+  const modal = document.getElementById('merge-cat-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function confirmMergeCategory() {
+  const from = document.getElementById('merge-from')?.value;
+  const to = document.getElementById('merge-to')?.value;
+  if (!from || !to) { toast('Válassz forrás ÉS cél kategóriát', true); return; }
+  if (from === to) { toast('A forrás és cél nem lehet ugyanaz', true); return; }
+  const affectedIngs = R.ingredients.filter(i => i.cat === from);
+  const affectedCount = affectedIngs.length;
+  if (!(await confirmDialog(`Biztos összevonod?
+
+"${from}" (${affectedCount} tétel) → "${to}"
+
+A "${from}" kategória véglegesen törlődik.`))) return;
+
+  try {
+    // 1) Update minden érintett ingredient category-jét
+    for (const ing of affectedIngs) {
+      await sb.updateFields('ingredients', { category: to }, 'id=eq.' + ing.id);
+      ing.cat = to;  // local update
+    }
+    // 2) Töröljük a forrás kategóriát a settings-ből
+    const cats = (R.settings?.ingredientCategories || []).filter(c => c !== from);
+    if (R.settings.ingredientCategories?.includes(from)) {
+      R.settings.ingredientCategories = cats;
+      await sb.setSetting('ingredient_categories', cats);
+    }
+    // 3) Audit
+    await auditLog('category_merge', from + ' → ' + to, affectedCount + ' alapanyag átsorolva');
+    toast(`✅ ${affectedCount} alapanyag átkerült. "${from}" törölve.`);
+    closeMergeCategoryModal();
+    renderIngCategories();
+    if (typeof renderStock === 'function') renderStock();
+  } catch(e) {
+    toast('⚠️ Hiba: ' + e.message, true);
+    console.error('confirmMergeCategory:', e);
+  }
+}
+
+// Export
+if (typeof window !== 'undefined') {
+  window.openMergeCategoryModal = openMergeCategoryModal;
+  window.closeMergeCategoryModal = closeMergeCategoryModal;
+  window.confirmMergeCategory = confirmMergeCategory;
 }
 
 async function addIngCategory() {

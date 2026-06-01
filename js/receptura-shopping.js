@@ -15,10 +15,17 @@ let shoppingViewMode = 'supplier'; // 'supplier' (beszállítónként) | 'flat' 
 // HELPER-EK
 // =============================================================
 
-// Elsődleges beszállító (első nem-üres név)
-// v2.39.1 fix: a `suppliers` tényleges formátuma string-array (["Biolife"]), NEM object-array
-// Backward compat: ha valami object-format-tal jönne ({source:...}), azt is kezeli
+// Elsődleges beszállító — 3-szintű prioritás (v2.40.0)
+//   1) preferredSupplierId → suppliers.name (admin által beállított)
+//   2) Legutóbbi ingredient_batches.supplier_name (v2.39.2 — DB-derivált)
+//   3) null (nincs)
 function getPrimarySupplier(ing) {
+  // 1) Preferált beszállító (admin által beállítva)
+  if (ing.preferredSupplierId && typeof getSupplierById === 'function') {
+    const s = getSupplierById(ing.preferredSupplierId);
+    if (s) return s.name;
+  }
+  // 2) Batches-ből derivált (string-array vagy object-array — backward compat)
   const suppliers = ing.suppliers || [];
   for (const s of suppliers) {
     if (typeof s === 'string' && s.trim()) return s.trim();

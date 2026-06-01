@@ -3,7 +3,7 @@ const VIEW_TITLES = {
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
   'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
-  'shopping':'🛒 Bevásárló lista', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'receptura-help':'Súgó'
+  'shopping':'🛒 Bevásárló lista', 'suppliers':'👥 Beszállítók', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'receptura-help':'Súgó'
 };
 function nav(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -28,6 +28,7 @@ function nav(id) {
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     archiv: renderArchivView,
     'shopping': () => { if(typeof renderShoppingList === 'function') renderShoppingList(); },
+    'suppliers': () => { if(typeof renderSuppliers === 'function') renderSuppliers(); },
   };
   renders[id]?.();
 }

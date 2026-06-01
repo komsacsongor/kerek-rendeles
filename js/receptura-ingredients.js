@@ -82,6 +82,19 @@ function openIngredientModal(id=null) {
     modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:new Date().toISOString().slice(0,10)}];
     document.getElementById('ing-modal-title').textContent = 'Új alapanyag';
   }
+  // v2.40.0: preferred supplier dropdown feltöltése
+  const prefSelect = document.getElementById('i-preferred-supplier');
+  if (prefSelect) {
+    const activeSups = (R.suppliers || []).filter(s => s.active !== false).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'hu'));
+    prefSelect.innerHTML = '<option value="">— Nincs (legutóbbi bevétel beszállítója használandó) —</option>' +
+      activeSups.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if (id) {
+      const i = R.ingredients.find(ing=>ing.id===id);
+      prefSelect.value = i?.preferredSupplierId || '';
+    } else {
+      prefSelect.value = '';
+    }
+  }
   renderSupplierRows();
   document.getElementById('ingredient-modal').classList.add('open');
 }

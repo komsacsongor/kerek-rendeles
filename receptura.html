@@ -9,8 +9,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.39.3"></script>
-<script src="supabase.js?v=2.39.3"></script>
+<script src="kerek-constants.js?v=2.40.0"></script>
+<script src="supabase.js?v=2.40.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -309,6 +309,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="nav-label">Alapadatok</div>
     <button class="nav-item" data-action="nav" data-arg1="stock"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
     <button class="nav-item" data-action="nav" data-arg1="shopping"><span class="icon">🛒</span>Bevásárló lista</button>
+    <button class="nav-item" data-action="nav" data-arg1="suppliers"><span class="icon">👥</span>Beszállítók</button>
     <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
@@ -615,6 +616,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
 
   <!-- ===== COST ANALYSIS ===== -->
+  <!-- ===== BESZÁLLÍTÓK (v2.40.0) ===== -->
+  <div id="view-suppliers" class="view">
+    <div class="flex gap-10 items-center mb-20">
+      <h2 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0">👥 Beszállítók</h2>
+      <span style="font-size:0.78rem;color:var(--text-soft)">CUI, IBAN, fizetési feltételek + benchmark</span>
+    </div>
+    <div id="view-suppliers-content"></div>
+  </div>
+
   <!-- ===== BEVÁSÁRLÓ LISTA (v2.39.0) ===== -->
   <div id="view-shopping" class="view">
     <div class="flex gap-10 items-center mb-20">
@@ -911,6 +921,19 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div class="form-group"><label>Kritikus szint (g)</label><input type="number" id="i-critical-stock" placeholder="700"></div>
       </div>
       <div class="sep"></div>
+      <!-- v2.40.0: Preferált beszállító (admin által beállított) -->
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Preferált beszállító <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(opcionális — a bevásárló lista ezt használja elsőként)</span></label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="i-preferred-supplier" style="flex:1">
+              <option value="">— Nincs (legutóbbi bevétel beszállítója használandó) —</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="openSupplierModal" data-tip="Új beszállító létrehozása">➕ Új</button>
+          </div>
+        </div>
+      </div>
+      <div class="sep"></div>
       <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Beszállítók (FIFO sorrendben – legrégebbi kerül felhasználásra)</div>
       <div id="suppliers-list"></div>
       <button class="btn btn-ghost btn-sm mt-16" data-action="addSupplierRow">＋ Beszállító hozzáadása</button>
@@ -924,22 +947,23 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.39.3"></script>
-<script src="js/receptura-ui.js?v=2.39.3"></script>
-<script src="js/receptura-recipes.js?v=2.39.3"></script>
-<script src="js/receptura-operational.js?v=2.39.3"></script>
-<script src="js/receptura-ingredients.js?v=2.39.3"></script>
-<script src="js/receptura-settings.js?v=2.39.3"></script>
-<script src="js/receptura-ing-cats.js?v=2.39.3"></script>
-<script src="js/receptura-recipe-cats.js?v=2.39.3"></script>
-<script src="js/receptura-processing.js?v=2.39.3"></script>
-  <script src="js/receptura-help.js?v=2.39.3"></script>
-  <script src="js/receptura-levain.js?v=2.39.3"></script>
-<script src="js/receptura-production.js?v=2.39.3"></script>
-<script src="js/receptura-stock.js?v=2.39.3"></script>
-<script src="js/receptura-modal.js?v=2.39.3"></script>
-<script src="js/receptura-ai.js?v=2.39.3"></script>
-<script src="js/receptura-shopping.js?v=2.39.3"></script>
+<script src="js/receptura-data.js?v=2.40.0"></script>
+<script src="js/receptura-ui.js?v=2.40.0"></script>
+<script src="js/receptura-recipes.js?v=2.40.0"></script>
+<script src="js/receptura-operational.js?v=2.40.0"></script>
+<script src="js/receptura-ingredients.js?v=2.40.0"></script>
+<script src="js/receptura-settings.js?v=2.40.0"></script>
+<script src="js/receptura-ing-cats.js?v=2.40.0"></script>
+<script src="js/receptura-recipe-cats.js?v=2.40.0"></script>
+<script src="js/receptura-processing.js?v=2.40.0"></script>
+  <script src="js/receptura-help.js?v=2.40.0"></script>
+  <script src="js/receptura-levain.js?v=2.40.0"></script>
+<script src="js/receptura-production.js?v=2.40.0"></script>
+<script src="js/receptura-stock.js?v=2.40.0"></script>
+<script src="js/receptura-modal.js?v=2.40.0"></script>
+<script src="js/receptura-ai.js?v=2.40.0"></script>
+<script src="js/receptura-shopping.js?v=2.40.0"></script>
+<script src="js/receptura-suppliers.js?v=2.40.0"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>

@@ -97,6 +97,13 @@ async function reloadReceptData() {
         });
       }
     } catch(e) { console.warn('Ingredients reload:', e.message); }
+    // v2.40.0: suppliers reload
+    try {
+      const dbSuppliers = await sb.query('suppliers', {order: 'name'});
+      if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') {
+        R.suppliers = dbSuppliers.map(mapSupplierDb);
+      }
+    } catch(_) {}
   } catch(e) { console.warn('reloadReceptData:', e.message); }
 }
 
@@ -238,6 +245,7 @@ async function initApp() {
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
         materialType: i.material_type || 'consumable',  // v2.35.0
+        preferredSupplierId: i.preferred_supplier_id || null,  // v2.40.0
         familyId: i.family_id || null,                  // v2.35.0
         leadTimeDays: i.lead_time_days || 5,
         orderCycleDays: i.order_cycle_days || 7,
@@ -297,7 +305,7 @@ async function initApp() {
   if (typeof sb.subscribe === 'function') {
     try {
       let _rDebounce = null;
-      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches'];
+      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches', 'suppliers'];
       window._kerekReceptUnsub = sb.subscribe(RECEPT_RT_TABLES, ({table}) => {
         if (_rDebounce) clearTimeout(_rDebounce);
         _rDebounce = setTimeout(async () => {
