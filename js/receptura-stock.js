@@ -32,15 +32,43 @@ function renderStock() {
     cats[cat].push(ing);
   });
 
+  // v2.39.2: collapsible kategóriák — localStorage perzisztens állapot
+  // Default: minden csukva ha > 5 kategória, egyébként minden nyitva
+  const catKeys = Object.keys(cats).sort();
+  const collapsedKey = 'kerek_stock_cat_collapsed';
+  let collapsed = {};
+  try { collapsed = JSON.parse(localStorage.getItem(collapsedKey) || '{}'); } catch(e) {}
+  // Ha még sosem nyitott/csukott a felhasználó: default
+  const noPref = Object.keys(collapsed).length === 0;
+  if (noPref && catKeys.length > 5) {
+    catKeys.forEach(c => collapsed[c] = true);
+  }
+
   let html = '';
-  Object.keys(cats).sort().forEach(cat => {
-    html += `<div style="margin-bottom:20px">
-      <div style="font-weight:700;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.05em;
-        color:var(--teal-dark);padding:8px 16px;background:var(--teal-pale);border-radius:8px;margin-bottom:8px">
-        ${cat} (${cats[cat].length} tétel)
+  catKeys.forEach(cat => {
+    const isCollapsed = !!collapsed[cat];
+    const ingCount = cats[cat].length;
+    // Aggregálás: hány alacsony/kritikus van a kategóriában
+    const lows = cats[cat].filter(i => {
+      const stock = getTotalStock(i);
+      return i.minStock > 0 && stock < i.minStock;
+    }).length;
+    const lowBadge = lows > 0
+      ? `<span style="background:#fef3c7;color:#92400e;font-size:0.7rem;padding:2px 7px;border-radius:8px;margin-left:8px">⚠️ ${lows}</span>`
+      : '';
+
+    html += `<div style="margin-bottom:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:white">
+      <div data-action="toggleStockCat" data-arg1="${esc(cat)}" style="cursor:pointer;font-weight:700;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--teal-dark);padding:12px 16px;background:var(--teal-pale);display:flex;justify-content:space-between;align-items:center;user-select:none">
+        <div>
+          <span style="display:inline-block;width:14px;color:var(--gold-dark);transform:${isCollapsed?'rotate(-90deg)':'none'};transition:transform 0.2s">▼</span>
+          ${esc(cat)} <span style="font-weight:400;color:var(--text-soft);font-size:0.75rem;text-transform:none;margin-left:4px">(${ingCount})</span>
+          ${lowBadge}
+        </div>
       </div>`;
 
-    cats[cat].forEach(ing => {
+    if (!isCollapsed) {
+      html += `<div style="padding:8px 12px">`;
+      cats[cat].forEach(ing => {
       const stock = Math.round(getTotalStock(ing));
       const minS = ing.minStock;
       const maxS = ing.maxStock;
@@ -113,11 +141,24 @@ function renderStock() {
         </div>` : ''}
       </div>`;
     });
-    html += '</div>';
+      html += '</div>';  // close padding wrapper
+    }  // end if (!isCollapsed)
+    html += '</div>';  // close kategória card
   });
 
   el.innerHTML = html || '<p class="text-soft text-sm">Nincsenek alapanyagok. Töltsd be a receptúra beállításokban.</p>';
 }
+
+// v2.39.2: kategória összecsuk/kinyit
+function toggleStockCat(cat) {
+  const key = 'kerek_stock_cat_collapsed';
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+  state[cat] = !state[cat];
+  localStorage.setItem(key, JSON.stringify(state));
+  renderStock();
+}
+if (typeof window !== 'undefined') window.toggleStockCat = toggleStockCat;
 
 function openMinMaxEditor(ingId) {
   const ing = getIng(ingId);

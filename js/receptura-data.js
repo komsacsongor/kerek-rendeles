@@ -226,6 +226,15 @@ async function initApp() {
     }
     R.ingredientFamilies = dbFamilies || [];  // v2.35.0
     if(dbIngList && dbIngList.length > 0) {
+      // v2.39.2: suppliers a DB ingredient_batches.supplier_name-ből származtatva (eddig localStorage-ben)
+      // Eredmény: minden alapanyag amelyiknek volt bevétele, automatikusan megkapja a beszállító(it)
+      // Eszközfüggetlen, megbízható
+      const suppliersByIngId = {};
+      (dbBatches || []).forEach(b => {
+        if (!b.supplier_name) return;
+        if (!suppliersByIngId[b.ingredient_id]) suppliersByIngId[b.ingredient_id] = new Set();
+        suppliersByIngId[b.ingredient_id].add(b.supplier_name);
+      });
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
         materialType: i.material_type || 'consumable',  // v2.35.0
@@ -240,6 +249,7 @@ async function initApp() {
         autoUpdatedAt: i.auto_updated_at || null,
         basePriceG: i.base_price_per_g || 0,
         notes: i.notes || '',
+        suppliers: [...(suppliersByIngId[i.id] || [])],  // v2.39.2 DB-derivált
         // Effective min/max (override ?? auto)
         get minStock() { return this.minStockOverrideG ?? this.minStockAutoG; },
         get maxStock() { return this.maxStockOverrideG ?? this.maxStockAutoG; },
