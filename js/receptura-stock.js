@@ -42,6 +42,9 @@ function renderStock() {
   const noPref = Object.keys(collapsed).length === 0;
   if (noPref && catKeys.length > 5) {
     catKeys.forEach(c => collapsed[c] = true);
+    // v2.39.3 fix: a default csukott állapotot perzisztáljuk, különben az első kattintás
+    // után minden kinyílik (toggleStockCat összes többi cat undefined→falsy→nyitva)
+    localStorage.setItem(collapsedKey, JSON.stringify(collapsed));
   }
 
   let html = '';
