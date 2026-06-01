@@ -142,55 +142,143 @@ js/vevo-orders.js  → renderOrderTable() [desktop, kategória-elválasztóval],
 
 ---
 
-## 7. Supabase táblák
+## 7. Supabase táblák (TÉNYLEGES állapot — 2026-06-01)
+
+> **Frissítve a v2.39.0 állapot szerint, tényleges DB-lekérdezés alapján.**
+> A 7.2 szekcióban a kliens-state vs DB-séma különbségeket részletezzük.
+
+### 7.1 Aktív táblák és mezőik
 
 ```
-products:           id, name, weight, price, category, description, image, code,
-                    marketing_desc, ingredient_label, allergens, nutrition,
-                    product_family_id, deleted_at
-                    ⚠️ type oszlop NEM LÉTEZIK
+clients:           id, name, email, phone, note, join_date, created_at
+                   ⚠️ active oszlop NEM LÉTEZIK
+                   ⚠️ note (egyes szám!) — NEM 'notes'
+                   Pending:  name = '[PENDING] Valaki'
+                   Deleted:  name = '[DELETED] Valaki' (soft delete!)
+                   Email: UNIQUE constraint (clients_email_unique)
 
-clients:            id (belépési kód = KER-XXXX-XXXX), name, email, phone,
-                    join_date, notes
-                    ⚠️ active oszlop NEM LÉTEZIK
-                    Pending:  name = '[PENDING] Valaki'
-                    Deleted:  name = '[DELETED] Valaki' (soft delete!)
-                    Email: UNIQUE constraint (clients_email_unique)
+products:          id, name, weight, price, category, description, image,
+                   created_at, code, marketing_desc, ingredient_label,
+                   allergens, nutrition, product_family_id, deleted_at
+                   ⚠️ type oszlop NEM LÉTEZIK
+                   ⚠️ deleted_at (v2.38.2-től) — soft archive
+                   Megjegyzés: marketing_desc, ingredient_label, allergens, nutrition
+                   MIND a products-ban (NEM csak a recipes-ben!)
 
-recipes:            id (manual), name, category, product_id (FK→products),
-                    base_portion, bake_loss, unit_weight, temp1,time1,temp2,time2,
-                    description, levain_amount, labor_h, electricity,
-                    marketing_desc, ingredient_label, allergens, nutrition,
-                    version (int), activated_at (timestamptz)
+recipes:           id, name, category, base_portion, bake_loss, unit_weight,
+                   temp1, time1, temp2, time2, description, levain_amount,
+                   labor_h, electricity, product_id (FK→products),
+                   created_at, marketing_desc, ingredient_label, allergens,
+                   nutrition, archived, version, activated_at
+                   ⚠️ parent_recipe_id, status, tags MÉG NEM LÉTEZIK (S5 backlog)
 
-ingredients:        id, name, category, sub_type, min_stock_auto_g, max_stock_auto_g,
-                    min_stock_override_g, max_stock_override_g, lead_time_days,
-                    order_cycle_days, safety_factor, base_price_per_g
+recipe_ingredients: id, recipe_id, ingredient_id, name, amount (g),
+                    sub_type, sort_order
+
+recipe_steps:      id, recipe_id, title, description, timer_minutes, sort_order
+
+ingredients:       id, name, category, sub_type, min_stock, critical_stock,
+                   price_per_g, created_at, min_stock_auto_g, max_stock_auto_g,
+                   auto_updated_at, min_stock_override_g, max_stock_override_g,
+                   lead_time_days, order_cycle_days, safety_factor,
+                   base_price_per_g, material_type, family_id
+                   ⚠️ suppliers oszlop NEM LÉTEZIK a DB-ben (kliens-state derived)
+                   ⚠️ unit, unit_to_g_ratio MÉG NEM LÉTEZIK (M0 backlog)
+                   ⚠️ min_stock_g, max_stock_g (egyszerű név) NEM LÉTEZIK —
+                       használd az _auto_g / _override_g variánsokat
 
 ingredient_batches: id, ingredient_id (FK), received_date, qty_received_g,
-                    qty_remaining_g, price_per_g, supplier_name,
-                    source_type (purchase|processing), processing_id, notes
+                    qty_remaining_g, price_per_g, price_gross_per_unit,
+                    package_size_g, supplier_name, source_type,
+                    processing_id, invoice_ref, notes, created_at
 
-ingredient_processing: id, date, labor_minutes, inputs(JSONB), outputs(JSONB),
-                       total_input_cost, notes
+baking_calendar:   üres a DB-ben, default Kedd/Péntek/Szombat kliens-side
+                   Várt struktúra: year, month, extra_dates[], removed_dates[]
 
-production_logs:    id, date, log_type (customer|internal|experimental),
-                    recipe_id, pieces_planned, pieces_actual,
-                    ingredient_usage(JSONB), total_cost, notes
+monthly_active_products: id, year, month, product_id
 
-order_status:       client_id, year, month, day, status, admin_note, deadline,
-                    confirmed_at
-                    Státuszok: pending|confirmed|modified|fulfilled|cancelled
+orders:            id, client_id, year, month, day, product_id, quantity,
+                   updated_at
 
-invitations:        token, used, created_at, expires_at
-                    (nem aktív – regisztráció token nélkül működik)
+order_status:      client_id, year, month, day, status, admin_note, deadline,
+                   confirmed_at, created_at
+                   Státuszok: pending | confirmed | modified | fulfilled | cancelled
 
-audit_log, clients, orders, messages, baking_calendar,
-monthly_active_products, settings, recipe_ingredients, recipe_steps,
-stock_corrections
+messages:          id, client_id, year, month, text, created_at
+
+settings:          key, value, updated_at
+
+audit_log:         id, action, entity_name, details, created_at
+
+push_subscriptions: client_id, endpoint, p256dh, auth, created_at
+                   (id mező hiányzik — composite key valószínűleg client_id+endpoint)
+
+admin_secrets:     RLS-védett — kliens NEM olvashatja
+
+production_logs:   id, date, log_type (customer|internal|experimental),
+                   recipe_id, pieces_planned, pieces_actual,
+                   ingredient_usage (JSONB), total_cost, notes, created_at
+                   AKTÍV: normál sütési log (FIFO levonat)
 ```
 
----
+### 7.2 Üres, de létező táblák (kód várja)
+
+```
+ingredient_families:        (v2.35.0) id, name, common_unit, description
+ingredient_milling_profile: (v2.34.0) id, ingredient_id, yield_ratio_typical,
+                                       processing_loss_pct
+processing_batches:         (v2.34.0) id, operation_type, recipe_id,
+                                       processing_date, status
+processing_inputs:          (v2.34.0) id, batch_id, ingredient_id, qty_g,
+                                       source_batch_id
+processing_outputs:         (v2.34.0) id, batch_id, ingredient_id, qty_g,
+                                       target_batch_id
+stock_corrections:          (ritka use case)
+```
+
+Ezek **léteznek de üresek** — a kód képes velük dolgozni, de még nem volt használat.
+NE töröld őket!
+
+### 7.3 Kliens-state vs DB-séma mapping (KRITIKUS)
+
+> Néhány mező a **kliens-oldalon vagy a loadAllData-ban képződik le**, NEM a DB-ben létezik.
+> Új session: NE keress ezeket SELECT-tel a DB-ben.
+
+| Kliens-state mező | Forrás | Magyarázat |
+|---|---|---|
+| `ing.suppliers` | **String-array** (pl. `["Biolife"]`). Honnan tölti a `loadAllData` még tisztázandó — lehet localStorage vagy `ingredient_batches.supplier_name` distinct-elve | A DB-ben NINCS `suppliers` mező az `ingredients` táblában |
+| `ing.minStock`, `ing.maxStock` | `min_stock_override_g`-ből VAGY `min_stock_auto_g`-ből (override priority) | Kliens-oldali derived |
+| `ing.isOverride` | `min_stock_override_g != null` | Derived |
+| `ing.totalStockG` | `SUM(qty_remaining_g) FROM ingredient_batches WHERE ingredient_id = X` | Számolt |
+| `ing.fifoPrice`, `ing.avgPrice` | Legrégebbi batch price_per_g / weighted avg | Számolt |
+| `R.batches` | `ingredient_batches` |  Direct DB tábla |
+| `R.stock` | DEPRECATED — NEM használd | Régi v2.x rendszer, törlés a kódból TODO |
+
+### 7.4 Két párhuzamos rendszer — NE keverjük össze
+
+**`production_logs`** = **NORMÁL SÜTÉSI LOG**
+- Pl. "Ma 12 db gluténmentes cipó sült"
+- Funkció: FIFO alapanyag-levonat, rendelés→FULFILLED státusz
+- Aktív, `receptura-production.js`-ben INSERT 2 helyen
+
+**`processing_batches/inputs/outputs`** = **ALAPANYAG-FELDOLGOZÁS v2 (v2.34.0)**
+- Pl. "10 kg búzaszem → 8 kg liszt + 2 kg korpa"
+- Funkció: őrlés, sterilizálás, fermentáció, cross-contamination védelem, milling profile
+- Kész, de üres a DB-ben
+
+**Ezek MELLÉRENDELT rendszerek**, mást csinálnak. Ne pótold az egyikkel a másikat.
+
+### 7.5 Realtime publikációban
+
+`messages, orders, order_status, products, monthly_active_products, baking_calendar, recipes, recipe_ingredients, ingredients, ingredient_batches, processing_batches`
+
+Új tábla hozzáadásánál: `ALTER PUBLICATION supabase_realtime ADD TABLE <table>;` (lásd KONVENCIÓ 17.2.3).
+
+### 7.6 DB-takarítási történet
+
+- **2026-06-01**: `ingredient_processing` DROP (deprecated v2.34.0 előtti rendszer, 0 kódhivatkozás)
+- **2026-06-01**: `invitations` DROP (deprecated feature — "regisztráció token nélkül működik")
+- `[DELETED]` prefix-szel megjelölt clients: tartjuk audit-céllal
 
 ## 8. Kritikus architektúrális szabályok
 
@@ -373,24 +461,32 @@ read_console_messages toolon – MINDIG ellenőrizd, ne csak a screenshotot
 
 ---
 
-## 12. Elkerülendő hibák (tanult hibák)
+## 12. Elkerülendő hibák — quick reference
+
+> A részletes anti-pattern könyvtárat lásd **18.2-ben** (5 kategória: A-E gyökér-okkal és megoldás-pattern-nel).
+> Ez a táblázat gyorsreferencia a konkrét csapdákról:
 
 | Hiba | Helyes megoldás |
 |---|---|
 | `toISOString()` timezone bug | Mindig local dateStr |
 | `products.type` használata | NEM LÉTEZIK a DB-ben |
-| `clients.active` használata | NEM LÉTEZIK – soft delete prefix alapú |
-| `calcRawWeight()` ingredient számításhoz | TILOS – bakeLoss-t tartalmaz! |
-| `R.stock` használata | DEPRECATED – csak `ingredient_batches` |
+| `clients.active` használata | NEM LÉTEZIK — soft delete prefix alapú |
+| `clients.notes` (többes szám) | NEM LÉTEZIK — egyes szám: `clients.note` |
+| `ingredients.suppliers` SELECT-ben | NEM LÉTEZIK a DB-ben — kliens-state derived (lásd 7.3) |
+| `ingredients.min_stock_g` (rövid név) | NEM LÉTEZIK — használd `min_stock_auto_g` / `min_stock_override_g` |
+| `recipes.parent_recipe_id, status, tags` | MÉG NEM LÉTEZIK — S5 backlog |
+| `calcRawWeight()` ingredient számításhoz | TILOS — bakeLoss-t tartalmaz! |
+| `R.stock` használata | DEPRECATED — csak `ingredient_batches` |
 | Supabase filter vesszővel | `&` kell: `year=eq.X&month=eq.Y` |
 | `const` scope hiba template string-ben | Definiáld `return`/template előtt |
 | Duplikált `const` deklaráció | Mindig grep-pel ellenőrizd előtte |
 | `.mob-locked { pointer-events:none }` egész div-re | Csak inputokra alkalmazd |
-| `vm.Script(repr(code))` backtick template literállal | File-alapú tesztelést használj |
 | `MONTHS_SHORT` deklarálása | Már `kerek-constants.js`-ben van! |
-| `getKey(month, year)` paraméter sorrend | Fordított sorrendű mint `mk(year, month)` |
-
----
+| `getKey(month, year)` paraméter sorrend | Fordított mint `mk(year, month)` |
+| `sb.upsert/update` `{...obj}` spread | TILTOTT — `sb.updateFields(table, {named}, where)` (lásd 17.2.1) |
+| `loadAllData()` hívása receptúrában | NEM létezik window scope-ban — `reloadReceptData()` (lásd 17.2.3) |
+| `Number(x)` konverzió nélkül numerikus értékre | NaN-bug — `Number(x) \|\| 0` fallback (17.2.5) |
+| Anti-spread esetén kliens `desc` mezőt küld | DB `description`-t vár (#1 bug) |
 
 ## 13. Hátralévő fejlesztések
 
@@ -553,15 +649,13 @@ Mert a felhasználó újra futtathatja és nem dob hibát ha már létezik. Az `
 
 ### 17.4 Új DB táblák (v2.30+)
 
-```
-push_subscriptions:    id, client_id, endpoint, p256dh, auth, created_at
-admin_secrets:         key, value (encrypted)
-processing_batches:    id, operation_type, recipe_id, processing_date, status
-processing_inputs:     id, batch_id, ingredient_id, qty_g, source_batch_id
-processing_outputs:    id, batch_id, ingredient_id, qty_g, target_batch_id
-ingredient_families:   id, name, common_unit, description
-ingredient_milling_profile: id, ingredient_id, yield_ratio_typical, processing_loss_pct
-```
+Részletes mezőlista a 7.1 és 7.2 szekciókban. Új táblák a v2.30 utáni időszakban:
+
+- **push_subscriptions** (v2.30): Web Push subscription per kliens
+- **admin_secrets** (v2.30): RLS-védett admin jelszó tárolás
+- **processing_batches/inputs/outputs** (v2.34.0): új malom/feldolgozás rendszer
+- **ingredient_milling_profile** (v2.34.0): per-alapanyag yield reference
+- **ingredient_families** (v2.35.0): alapanyag-családok közös unit-tal
 
 **Realtime publikációban**: messages, orders, order_status, products, monthly_active_products, baking_calendar, recipes, recipe_ingredients, ingredients, ingredient_batches, processing_batches.
 
@@ -657,19 +751,7 @@ A PWA cache-ben régi JS marad ha nem bump-olunk. Tünet: a felhasználó hard r
 
 A 10. szekcióban van a Python script. Egy session-en belül HA több release megy, MINDEN release a saját verzió-bumpját kell adja. Soha ne küldj két fix-et ugyanazon verzió alatt.
 
-**17.6.7 Git push verifikáció**
-
-A felhasználói preferencia: batch commit (1 commit = 1 release). De néha elgépelés-bug van (`keke-rendeles` helyett `kerek-rendeles`). Mindig ellenőrizzem a push outputot — a "fatal: repository not found" vagy "Repository not found" jelzi a problémát.
-
-**Pattern**:
-```bash
-git push "https://${TOKEN}@github.com/komsacsongor/kerek-rendeles.git" main 2>&1 | tail -3
-# A "main -> main" sor a sikeres push jele
-```
-
-Ha bizonytalan: `curl github.com/repos/.../commits/main` API-val verifikálni a legutóbbi commit SHA-t.
-
-**17.6.8 Tervezet-jóváhagyás munkamód (felhasználói preferencia)**
+**17.6.7 Tervezet-jóváhagyás munkamód (felhasználói preferencia)**
 
 Nagyobb feature (>100 sor új kód) előtt **kötelező** rövid tervezet, várjon jóváhagyásra. Pl.:
 > "Tervezem: új view `view-shopping` + `js/receptura-shopping.js` (~270 sor). Funkciók: beszállítónkénti+általános, 3-szintű sürgősség, manuális override, clipboard. Érinti: `receptura.html` (nav + view), `js/receptura-ui.js` (VIEW_TITLES + nav handler). Edge case: 22 orphan alapanyag → külön '⚠️ Beszállító megadva nincs' csoportba."
@@ -687,6 +769,7 @@ Ne kezdj kódolni mielőtt a felhasználó bólint vagy módosít.
 |---|---|---|---|---|
 | **#7** | Üzenet badge race — néha eltűnik mielőtt a felhasználó látta | C) State-sync timing | Közepes | v2.36.0 részleges fix (500ms debounce). TODO: timestamp-validáció `D.messagesLoadedAt > D.seenMsgsLoadedAt` |
 | **#14** | Tooltip nem mindig működik egyes gombokon | B) CSS | Alacsony | Felhasználói jelentés, képernyőmentés kell hogy melyik gomb. Gyanú: `position:relative` parent, `overflow:hidden`, z-index conflict |
+| **#27** | Burgonya/Cirokliszt/Ecet/Cukor min/max értékei abszurdul kicsik (1-15 g) | E) Adat-bevitel | Közepes | A DB-ben minden alapanyag g-ban. A felhasználó kg-ban gondolta amikor 1-2-t írt. Ténylegesen 1000-2000 g lenne. M0 mértékegység-támogatás megoldja (lásd 19.1). Addig: felhasználó manuálisan korrigálja a stock view-ban |
 
 ### 18.2 Anti-pattern könyvtár (5 visszatérő kategória)
 
@@ -713,9 +796,15 @@ Ne kezdj kódolni mielőtt a felhasználó bólint vagy módosít.
 - *Fix-pattern*: post-login egyetlen `initIndicators()` helper minden frissítendő UI elemmel — egy hívás, biztos minden frissül
 
 **E) Field-name és NaN inkonzisztencia**
-- *Tünet típus*: `NaN lej`, `NaN db`, ÷0 hiba, `undefined` érték a UI-on
-- *Gyökér okok*: két függvény különböző mezőnevet használ ugyanarra (`image` vs `image_url`, `monthlyActive` vs `monthlyActiveProducts`), vagy nincs Number() konverzió
-- *Fix-pattern*: KONVENCIÓ 17.2.5 — `Number(x) || 0` minden numerikus értékre + 17.6.2 — `loadAllData` az autoritatív forrás field-mapping-ra
+- *Tünet típus*: `NaN lej`, `NaN db`, ÷0 hiba, `undefined` érték a UI-on; vagy adat nem jelenik meg (kliens-state üres)
+- *Gyökér okok*:
+  - Két függvény különböző mezőnevet használ ugyanarra (`image` vs `image_url`, `monthlyActive` vs `monthlyActiveProducts`)
+  - Kliens-state vs DB-séma keverése (pl. `ing.suppliers` mint object-array kezelése, ha string-array a tényleges formátum — v2.39.0 → v2.39.1 fix)
+  - Nincs `Number()` konverzió numerikus értékre (string maradt → NaN művelet)
+- *Fix-pattern*:
+  - KONVENCIÓ 17.2.5 — `Number(x) || 0` minden numerikus értékre
+  - 17.6.2 — `loadAllData` az autoritatív forrás field-mapping-ra (NE találd ki a mezőneveket fejből)
+  - **Mielőtt kliens-state mezőt használsz**: ellenőrizd a 7.3 mapping táblát, valamint élesben `Object.keys(state[0])`-tel
 
 ## 19. Részletes fejlesztési ROADMAP
 

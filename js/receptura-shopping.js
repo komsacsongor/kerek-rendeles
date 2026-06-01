@@ -15,19 +15,29 @@ let shoppingViewMode = 'supplier'; // 'supplier' (beszállítónként) | 'flat' 
 // HELPER-EK
 // =============================================================
 
-// Elsődleges beszállító (első nem-üres source név)
+// Elsődleges beszállító (első nem-üres név)
+// v2.39.1 fix: a `suppliers` tényleges formátuma string-array (["Biolife"]), NEM object-array
+// Backward compat: ha valami object-format-tal jönne ({source:...}), azt is kezeli
 function getPrimarySupplier(ing) {
   const suppliers = ing.suppliers || [];
   for (const s of suppliers) {
-    if (s.source && s.source.trim()) return s.source.trim();
+    if (typeof s === 'string' && s.trim()) return s.trim();
+    if (s && typeof s === 'object' && s.source && s.source.trim()) return s.source.trim();
   }
   return null;
 }
 
-// Csomagolás méret (g) az első beszállítótól, vagy 1000 (1kg) default
+// Csomagolás méret (g) — v2.39.1 fix: a string-array supplier formátumban nincs package info,
+// ezért default 1000g (1 kg). Ha az ingredient-en van explicit package_size_g mező (ingredient_batches-ből
+// származó), azt használjuk. Legutóbbi batch package_size_g jó forrás.
 function getPackageSize(ing) {
-  const s = (ing.suppliers || []).find(s => s.package > 0);
-  return s?.package || 1000;
+  // Ha objektum-formátumú supplier van benne (régi/jövőbeli), abból olvassuk
+  const s = (ing.suppliers || []).find(s => s && typeof s === 'object' && s.package > 0);
+  if (s) return s.package;
+  // Ha az ingredient direktben hordoz package size-ot
+  if (ing.packageSizeG > 0) return ing.packageSizeG;
+  // Default
+  return 1000;
 }
 
 // Sürgősség szint: 'critical' | 'soon' | 'buffer' | 'ok'
