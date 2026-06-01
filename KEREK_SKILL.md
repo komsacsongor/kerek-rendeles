@@ -758,6 +758,27 @@ Nagyobb feature (>100 sor új kód) előtt **kötelező** rövid tervezet, várj
 
 Ne kezdj kódolni mielőtt a felhasználó bólint vagy módosít.
 
+**17.6.8 Új session induláskor: git history ellenőrzés (tanulság a v2.39.2 session-compactation hibából)**
+
+Mielőtt bármilyen új feature-höz tervezetet írok vagy kódoljak, **KÖTELEZŐ** ellenőrizni a git history-t:
+
+```bash
+cd /home/claude/kerek-rendeles
+git log --oneline | head -20
+git log --all --oneline -- <érintett_fájl> | head -10
+```
+
+Indok: a Claude session-compactation során az utolsó session-tanulság elveszhet a transcript-ből, de a git history **soha**. Ha új feature-höz tervezetet írok és előzőleg már megcsináltam egy korábbi session-ben, az **megtévesztő** a felhasználónak (és kísérteties hibakeresés mert már megvan).
+
+Konkrét eset: v2.39.2 ("alapanyag UX javítások") commit `1972da1` egy korábbi session-ben elkészült (collapsible kategória, suppliers backfill, +Új alapanyag gomb). A session-compactation utáni új session-ben részletes tervezetet írtam ugyanerre, mintha nulláról csinálnánk. A felhasználói észrevétel ("nem tudok új alapanyagokat hozzáadni") után derült ki, hogy a kód már létezett — csak az élesben nem volt deploy-olva amikor a felhasználó próbálta.
+
+**Megelőzés**:
+1. **Új session első parancsa**: `git log --oneline | head -20` — látom mi az utolsó 20 commit
+2. **Új feature előtt**: `git log --all --oneline -- js/<érintett_modul>.js | head -5` — látom hogy nem dolgoztam-e már ezen
+3. **`grep`-pel ellenőrzés** a fő funkciókra (`grep -rn "toggleStockCat\|getPrimarySupplier" js/`) — gyakran a kód már létezik, csak verzió-bump és deploy hiányzott
+
+A bug egyik gyökér oka volt: én elhittem hogy "új feature" — pedig csak rendezni kellett volna a deploy-t.
+
 ---
 ## 18. Nyitott bugok és anti-pattern könyvtár
 
