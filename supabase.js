@@ -1,8 +1,14 @@
 // ============================================================
 // KEREK – Supabase kliens
 // ============================================================
-const SUPABASE_URL = 'https://lfaxeihrmiylggahougl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
+// v2.41.0: Staging environment detection
+const IS_STAGING = (typeof location !== 'undefined') && location.pathname.includes('/staging/');
+const SUPABASE_URL = IS_STAGING
+  ? 'https://xgcwxlwjlohzbzpcapnw.supabase.co'
+  : 'https://lfaxeihrmiylggahougl.supabase.co';
+const SUPABASE_KEY = IS_STAGING
+  ? 'sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1'
+  : 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
 // ===== PASSWORD HASHING =====
 async function hashPassword(pw) {

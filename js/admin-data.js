@@ -207,7 +207,12 @@ async function doLogin(){
     // C4 fix (v2.30.0): auth via Edge Function (admin-auth)
     // The stored password hash is no longer readable by anon role (RLS policy).
     // Edge Function uses service_role to read settings, hash-compares server-side.
-    const authUrl = `https://lfaxeihrmiylggahougl.supabase.co/functions/v1/admin-auth`;
+    // v2.41.0: Staging-aware admin-auth
+    const _isStaging = location.pathname.includes('/staging/');
+    const _supaBase = _isStaging
+      ? 'https://xgcwxlwjlohzbzpcapnw.supabase.co'
+      : 'https://lfaxeihrmiylggahougl.supabase.co';
+    const authUrl = `${_supaBase}/functions/v1/admin-auth`;
     const res = await fetch(authUrl, {
       method: 'POST',
       headers: {

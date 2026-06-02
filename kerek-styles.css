@@ -220,3 +220,30 @@ a.nav-item {
   color: inherit;
 }
 a.nav-item:hover, a.nav-item:focus { text-decoration: none; }
+
+
+/* v2.41.0: STAGING BANNER — figyelmeztető sáv a staging URL-en */
+.kerek-staging-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+  color: white;
+  text-align: center;
+  padding: 6px 12px;
+  font-family: 'Kodchasan', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+  cursor: pointer;
+  user-select: none;
+}
+.kerek-staging-banner:hover { background: linear-gradient(90deg, #b91c1c 0%, #dc2626 100%); }
+body.kerek-has-staging-banner { padding-top: 32px !important; }
+@media (max-width: 640px) {
+  .kerek-staging-banner { font-size: 0.72rem; padding: 5px 8px; }
+  body.kerek-has-staging-banner { padding-top: 28px !important; }
+}

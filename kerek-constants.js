@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.40.0 (2026-06-01)';
+const APP_VERSION = 'v2.41.0 (2026-06-02)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -300,3 +300,24 @@ function startUnifiedPolling(callback, intervalMs) {
     timer = null;
   };
 }
+
+
+// v2.41.0: STAGING BANNER — automatikus DOM injection a /staging/ URL-en
+(function() {
+  if (typeof location === 'undefined' || !location.pathname.includes('/staging/')) return;
+  if (typeof document === 'undefined') return;
+  function inject() {
+    if (document.querySelector('.kerek-staging-banner')) return;
+    const div = document.createElement('div');
+    div.className = 'kerek-staging-banner';
+    div.textContent = '🧪 STAGING környezet — NE használd éles rendelésre! Az adatok klónok a production-ből, anonimizált vevő-kontaktokkal.';
+    div.title = 'Ez a staging URL: komsacsongor.github.io/kerek-rendeles/staging/. Az éles URL: komsacsongor.github.io/kerek-rendeles/';
+    document.body.appendChild(div);
+    document.body.classList.add('kerek-has-staging-banner');
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inject);
+  } else {
+    inject();
+  }
+})();
