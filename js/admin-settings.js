@@ -111,5 +111,29 @@ function changePassword(){
   auditLog('password_change', 'Admin', 'Jelszó módosítva');
 }
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
-function loadSettings(){ if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang; }
+function loadSettings(){
+  if(D.settings?.lang) document.getElementById('s-lang').value=D.settings.lang;
+  // v2.41.1: vevő fejléc szöveg betöltése (ha üres, az alapérték marad mint placeholder)
+  const headerEl = document.getElementById('s-vevo-header');
+  if (headerEl && D.settings?.vevoHeaderText !== undefined) {
+    headerEl.value = D.settings.vevoHeaderText || '';
+  }
+}
+
+// v2.41.1: szerkeszthető vevő fejléc szöveg mentése
+async function saveVevoHeaderText() {
+  const val = document.getElementById('s-vevo-header')?.value || '';
+  if(!D.settings) D.settings = {};
+  D.settings.vevoHeaderText = val;
+  try {
+    await sb.setSetting('vevo_header_text', val);
+    save();
+    toast('✅ Fejléc szöveg mentve! A vevőknél azonnal frissül.');
+    if (typeof auditLog === 'function') auditLog('setting_change', 'vevo_header_text', val ? val.substring(0, 60) + '...' : '(alapértelmezett)');
+  } catch(e) {
+    toast('⚠️ Mentés sikertelen: ' + e.message, true);
+  }
+}
+
+if (typeof window !== 'undefined') window.saveVevoHeaderText = saveVevoHeaderText;
 

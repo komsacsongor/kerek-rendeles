@@ -182,13 +182,14 @@ async function doLogin() {
 
   try {
     // Mindig Supabase-ből tölt – friss termékek, kliensek, beállítások
-    const [clients, products, maps, settings_cond, settings_del, settings_bake] = await Promise.all([
+    const [clients, products, maps, settings_cond, settings_del, settings_bake, settings_header] = await Promise.all([
       sb.query('clients', {limit: 500}),
       sb.query('products', {order:'id', limit: 500}),
       sb.query('monthly_active_products', {limit: 2000}),
       sb.getSetting('help_conditions'),
       sb.getSetting('help_delivery'),
       sb.getSetting('baking_days_default'),
+      sb.getSetting('vevo_header_text'),  // v2.41.1
     ]);
 
     if(clients?.length) {
@@ -213,6 +214,7 @@ async function doLogin() {
     if(settings_cond) appData.helpConditions = settings_cond;
     if(settings_del) appData.helpDelivery = settings_del;
     if(settings_bake) appData.bakingDaysDefault = settings_bake;
+    if(settings_header) appData.vevoHeaderText = settings_header;  // v2.41.1
     if(!appData.orders) appData.orders = {};
     if(!appData.messages) appData.messages = {};
     if(!appData.bakingCalendar) appData.bakingCalendar = {};
@@ -314,6 +316,7 @@ async function doLogin() {
     buildMonthSelectors();
     if (typeof loadViewPref === 'function') loadViewPref();
     renderOrderTable();
+    if (typeof applyVevoHeader === 'function') applyVevoHeader();  // v2.41.1
     updateHeroTotal();
     // Show sticky bottom total bar after successful login
     const sticky = document.getElementById('sticky-month-total');
@@ -328,7 +331,7 @@ async function doLogin() {
     if (typeof sb.subscribe === 'function') {
       try {
         let _rtDebounce = null;
-        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar'];
+        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar', 'settings', 'settings'];
         window._kerekVevoUnsub = sb.subscribe(VEVO_RT_TABLES, ({table, event}) => {
           if (_rtDebounce) clearTimeout(_rtDebounce);
           _rtDebounce = setTimeout(async () => {
@@ -502,6 +505,12 @@ async function reloadVevoData() {
         appData.bakingCalendar[k] = {extra: r.extra_dates || [], removed: r.removed_dates || []};
       });
     }
+    // v2.41.1: vevo_header_text reload
+    try {
+      const v = await sb.getSetting('vevo_header_text');
+      if (v !== null && v !== undefined) appData.vevoHeaderText = v;
+      if (typeof applyVevoHeader === 'function') applyVevoHeader();
+    } catch(_) {}
   } catch(e) { console.warn('reloadVevoData:', e.message); }
 }
 
@@ -581,3 +590,38 @@ function _fillFooterVersion() {
   if (fv && typeof APP_VERSION !== 'undefined' && APP_VERSION) fv.textContent = APP_VERSION;
 }
 window.addEventListener('load', _fillFooterVersion);
+
+
+// =============================================================
+// v2.41.1: Szerkeszthető vevő fejléc szöveg
+// =============================================================
+
+function getBakingDayNamesText() {
+  // Az appData.bakingDaysDefault-ból (vagy [2,5] default) felépíti a szöveget
+  // pl. [2,5] → "🔥 Kedd & Péntek"
+  // pl. [2,5,6] → "🔥 Kedd, Péntek & Szombat"
+  const dayNames = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+  const days = appData.bakingDaysDefault || [2,5];
+  const names = days.map(d => dayNames[d] || '?');
+  if (names.length === 0) return '';
+  if (names.length === 1) return '🔥 ' + names[0];
+  if (names.length === 2) return '🔥 ' + names[0] + ' & ' + names[1];
+  return '🔥 ' + names.slice(0,-1).join(', ') + ' & ' + names[names.length-1];
+}
+
+function applyVevoHeader() {
+  const el = document.getElementById('hero-subtitle');
+  if (!el) return;
+  const defaultText = 'Töltsd ki a havi megrendelődet a sütési napokra ({BAKING_DAYS}).{BR}Mentés előtt hagyhatsz üzenetet is.';
+  const template = (appData.vevoHeaderText && appData.vevoHeaderText.trim()) || defaultText;
+  // Placeholder helyettesítés
+  const html = template
+    .replace(/\{BAKING_DAYS\}/g, getBakingDayNamesText())
+    .replace(/\{BR\}/g, '<br>');
+  el.innerHTML = html;
+}
+
+if (typeof window !== 'undefined') {
+  window.applyVevoHeader = applyVevoHeader;
+  window.getBakingDayNamesText = getBakingDayNamesText;
+}
