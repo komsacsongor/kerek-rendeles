@@ -947,9 +947,9 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 
 ---
 
-## 18. STAGING MUNKAMENET (v2.41.0+)
+## 19. STAGING MUNKAMENET (v2.41.0+)
 
-### 18.1 Architektúra
+### 19.1 Architektúra
 
 ```
 URL                                          Adatbázis                              Edge Functions
@@ -961,7 +961,7 @@ komsacsongor.github.io/kerek-rendeles/    →  lfaxeihrmiylggahougl.supabase.co 
 komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase.co → Staging
 ```
 
-### 18.2 GitHub Workflows
+### 19.2 GitHub Workflows
 
 - **deploy.yml** — dual-branch deploy
   - main push → / (production)
@@ -979,7 +979,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
   - Trigger: workflow_dispatch (target: staging | production) vagy main push supabase/functions/** változásra
   - 3 függvény: admin-auth, auto-confirm-orders, dynamic-service
 
-### 18.3 GitHub Secrets
+### 19.3 GitHub Secrets
 
 | Secret név | Mire | Érték formátum |
 |---|---|---|
@@ -987,7 +987,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
 | `SUPABASE_STAGING_DB_URL` | sync-staging restore | Session pooler URI |
 | `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy | `sbp_...` personal token |
 
-### 18.4 Új munkamenet (kötelező sorrend)
+### 19.4 Új munkamenet (kötelező sorrend)
 
 | Lépés | Mit csinálok |
 |---|---|
@@ -1000,7 +1000,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
 | 7 | Ugyanaz az SQL production Supabase-en |
 | 8 | Edge Function változás → main push auto-deploy staging-re (workflow); production-re manual workflow_dispatch |
 
-### 18.5 SQL anti-pattern
+### 19.5 SQL anti-pattern
 
 - **TILTOTT** production-on előzetes staging-tesztelés nélkül:
   - DROP TABLE, DROP COLUMN, DROP CONSTRAINT
@@ -1012,7 +1012,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
   - Új INSERT (pl. settings új kulcs)
 - **MIND a többi**: először staging-en kötelező
 
-### 18.6 Élesben sokszor felmerült problémák megoldása
+### 19.6 Élesben sokszor felmerült problémák megoldása
 
 | Hiba | Megoldás |
 |---|---|
@@ -1023,7 +1023,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
 | `admin-auth 404` a stagingen | Edge Functions külön workflow-val deploy (NEM klónozza a pg_dump) |
 | `[token] refusing to allow workflow scope` | A `repo` scope-ú token nem tud workflow fájlokat módosítani → kell `workflow` scope is, vagy a felhasználó web UI-n |
 
-### 18.7 Vevő-login különbség
+### 19.7 Vevő-login különbség
 
 | Modul | Auth mechanizmus |
 |---|---|
