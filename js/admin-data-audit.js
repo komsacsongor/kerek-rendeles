@@ -1,5 +1,5 @@
 // =============================================================
-// KEREK Admin — Adat-állapot Audit (v2.41.4)
+// KEREK Admin — Adat-állapot Audit (v2.41.5)
 // =============================================================
 // Egy helyen listázza az adat-anomáliákat:
 //   1. Üres receptek (recipe létezik, recipe_ingredients üres)
@@ -9,77 +9,93 @@
 //   5. [DELETED] vevők (soft-deleted, de még DB-ben)
 // =============================================================
 
+// Helyi HTML escape (admin oldalon nincs globális esc() — csak a receptúrában)
+function _audit_escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
 async function renderDataAudit() {
   const el = document.getElementById('view-data-audit-content');
   if (!el) return;
   el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-soft)">🔍 Audit fut...</div>';
 
   try {
-    // Adatok lekérése
-    const [recipes, recIng, ingredients, batches, clients] = await Promise.all([
-      sb.query('recipes', {select: 'id,product_id,name', limit: 500}),
-      sb.query('recipe_ingredients', {select: 'recipe_id', limit: 5000}),
-      sb.query('ingredients', {select: 'id,name,min_stock_g,critical_stock_g,material_type,preferred_supplier_id', limit: 500}),
-      sb.query('ingredient_batches', {select: 'ingredient_id,supplier_name', limit: 2000}),
-      sb.query('clients', {select: 'id,name,email', limit: 500})
-    ]);
+    const eh = _audit_escapeHtml;
 
-    // 1. Üres receptek
-    const ingCountByRecipe = {};
-    (recIng || []).forEach(ri => { ingCountByRecipe[ri.recipe_id] = (ingCountByRecipe[ri.recipe_id] || 0) + 1; });
-    const emptyRecipes = (recipes || []).filter(r => !(ingCountByRecipe[r.id] || 0));
+    // ÚJ: a már betöltött D állapot használata (NEM sb.query)
+    const recipes = D.recipes || [];
+    // D.recipeIngredients { [recipeId]: [items] }
+    const recipeIngredients = D.recipeIngredients || {};
+    const ingredients = D.ingredients || [];
+    const batches = D.ingredientBatches || [];
+    const clients = D.clients || [];
 
-    // 2. Hiányzó beszállító
-    const ingsWithBatch = new Set((batches || []).filter(b => b.supplier_name?.trim()).map(b => b.ingredient_id));
-    const noSupplierIngs = (ingredients || []).filter(i =>
+    // Ha hiányzik valamelyik (login előtt vagy adatok még nincsenek betöltve), figyelmeztetünk
+    if (recipes.length === 0 && ingredients.length === 0 && clients.length === 0) {
+      el.innerHTML = '<div style="padding:30px;color:var(--text-soft);text-align:center">Az adatok még nincsenek betöltve. Frissítsd az oldalt és próbáld újra.</div>';
+      return;
+    }
+
+    // 1. Üres receptek (recipe rekord létezik, recipe_ingredients tömb üres VAGY nincs)
+    const emptyRecipes = recipes.filter(r => {
+      const items = recipeIngredients[r.id];
+      return !items || items.length === 0;
+    });
+
+    // 2. Hiányzó beszállító alapanyagok
+    const ingsWithBatch = new Set(
+      batches.filter(b => (b.supplier_name || '').trim()).map(b => b.ingredient_id)
+    );
+    const noSupplierIngs = ingredients.filter(i =>
       !i.preferred_supplier_id && !ingsWithBatch.has(i.id) && i.material_type !== 'tool'
     );
 
-    // 3. Abszurd min/max — gyanúsan kicsi g-érték (a heurisztika: ha <50 g és csak száraz alapanyag)
-    const absurdMinMax = (ingredients || []).filter(i => {
+    // 3. Gyanús min/max (< 50 g) — heurisztika: valószínűleg kg-ban gondolt
+    const absurdMinMax = ingredients.filter(i => {
       const min = Number(i.min_stock_g) || 0;
       const crit = Number(i.critical_stock_g) || 0;
-      // Heurisztika: min > 0 ÉS min < 50 g → valószínű kg-ban gondolt értéket
       return (min > 0 && min < 50) || (crit > 0 && crit < 50);
     });
 
     // 4. PENDING vevők
-    const pendingClients = (clients || []).filter(c => c.name?.startsWith('[PENDING]'));
+    const pendingClients = clients.filter(c => (c.name || '').startsWith('[PENDING]'));
 
     // 5. DELETED vevők
-    const deletedClients = (clients || []).filter(c => c.name?.startsWith('[DELETED]'));
+    const deletedClients = clients.filter(c => (c.name || '').startsWith('[DELETED]'));
 
-    // Render
     const sections = [
       {
         icon: '❌', title: 'Üres receptek', count: emptyRecipes.length,
         desc: 'Van recept rekord, DE nincs alapanyag rögzítve — a rendszer nem tud alapanyag-igényt számolni',
-        items: emptyRecipes.map(r => esc(r.name)),
-        color: '#dc2626', action: 'Receptúra modul → szerkesztés → alapanyagok hozzáadása'
+        items: emptyRecipes.map(r => eh(r.name || `#${r.id}`)),
+        color: '#dc2626', action: 'Receptúra modul → Receptek → kattints a kártyára → alapanyagok hozzáadása'
       },
       {
         icon: '🚚', title: 'Hiányzó beszállító', count: noSupplierIngs.length,
         desc: 'Sem preferált beszállító, sem korábbi bevételezés — a bevásárló lista nem tudja kihez sorolni',
-        items: noSupplierIngs.map(i => esc(i.name)),
-        color: '#d97706', action: 'Alapanyagok modul → szerkesztés → Preferált beszállító megadása'
+        items: noSupplierIngs.map(i => eh(i.name)),
+        color: '#d97706', action: 'Receptúra → Alapanyagok & Készlet → szerkesztés → Preferált beszállító megadása'
       },
       {
         icon: '⚖️', title: 'Gyanús min/max értékek', count: absurdMinMax.length,
-        desc: 'Min/critical érték <50 g — valószínűleg kg-ban gondolt amikor felvette (pl. Burgonya 1g)',
-        items: absurdMinMax.map(i => `${esc(i.name)} — min: ${i.min_stock_g||'?'}g, kritikus: ${i.critical_stock_g||'?'}g`),
-        color: '#d97706', action: 'Alapanyagok & Készlet → szerkesztés → helyes érték megadása (g-ben)'
+        desc: 'Min vagy kritikus szint < 50 g — valószínűleg kg-ban gondolt amikor felvette (pl. Burgonya 1g)',
+        items: absurdMinMax.map(i => `${eh(i.name)} — min: ${eh(i.min_stock_g||'?')}g, kritikus: ${eh(i.critical_stock_g||'?')}g`),
+        color: '#d97706', action: 'Receptúra → Alapanyagok & Készlet → szerkesztés → helyes érték (g-ben!)'
       },
       {
         icon: '⏳', title: 'PENDING vevők (jóváhagyásra várnak)', count: pendingClients.length,
         desc: 'Önregisztrált, de admin által nem jóváhagyott vevők',
-        items: pendingClients.map(c => `${esc(c.name.replace('[PENDING]', '').trim())} (${esc(c.email||'-')})`),
+        items: pendingClients.map(c => `${eh((c.name||'').replace('[PENDING]', '').trim())} (${eh(c.email||'-')})`),
         color: '#0891b2', action: 'Kliensek view → ✓ Jóváhagyás'
       },
       {
         icon: '🗑️', title: 'Soft-deleted vevők (még DB-ben)', count: deletedClients.length,
         desc: 'Törölt rekordok megőrzött formában — élesítés előtt érdemes véglegesen törölni',
-        items: deletedClients.slice(0, 5).map(c => esc(c.name.replace('[DELETED]', '').trim())),
-        color: '#6b7280', action: 'SQL-lel törölhető (staging-en először tesztelni!): DELETE FROM clients WHERE name LIKE [DELETED]%'
+        items: deletedClients.slice(0, 10).map(c => eh((c.name||'').replace('[DELETED]', '').trim())),
+        color: '#6b7280', action: 'Élesítés előtt: SQL törlés a Supabase SQL Editorban (staging-en először!)'
       }
     ];
 
@@ -89,7 +105,7 @@ async function renderDataAudit() {
         <div style="font-size:2rem">${total === 0 ? '✅' : '🔍'}</div>
         <div>
           <div style="font-family:'Fraunces',serif;font-size:1.15rem;font-weight:700;color:var(--teal-dark)">${total === 0 ? 'Minden rendben!' : `${total} anomália találva`}</div>
-          <div style="font-size:0.8rem;color:var(--text-soft)">Az adat-állapot ellenőrzés ${new Date().toLocaleTimeString('hu')} időpontban frissült</div>
+          <div style="font-size:0.8rem;color:var(--text-soft)">Az ellenőrzés a már betöltött adatokon fut. Frissítéshez: ↻ gomb.</div>
         </div>
         <button class="btn btn-ghost btn-sm" data-action="renderDataAudit" style="margin-left:auto">↻ Frissítés</button>
       </div>
@@ -121,7 +137,8 @@ async function renderDataAudit() {
 
     el.innerHTML = headerHtml + sectionsHtml;
   } catch(e) {
-    el.innerHTML = `<div style="padding:20px;color:#dc2626">⚠️ Hiba: ${esc(e.message)}</div>`;
+    el.innerHTML = `<div style="padding:20px;color:#dc2626">⚠️ Hiba: ${String(e.message).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c])}</div>`;
+    console.error('renderDataAudit:', e);
   }
 }
 
