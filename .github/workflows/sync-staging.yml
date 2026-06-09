@@ -62,6 +62,23 @@ jobs:
           /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" -c "NOTIFY pgrst, 'reload schema';"
           echo "✅ Schema cache reload signal sent"
 
+      - name: Restore Supabase default permissions for anon/authenticated
+        env:
+          STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" <<'SQL'
+          -- Supabase default grants — a pg_dump --clean elvesztette ezeket
+          GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+          GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+          GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+          GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+          NOTIFY pgrst, 'reload schema';
+          SQL
+          echo "✅ Permissions restored, schema cache reload signal sent"
+
       - name: Anonymize sensitive data (GDPR)
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
