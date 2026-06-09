@@ -79,7 +79,7 @@ async function renderDataAudit() {
         icon: '🗑️', title: 'Soft-deleted vevők (még DB-ben)', count: deletedClients.length,
         desc: 'Törölt rekordok megőrzött formában — élesítés előtt érdemes véglegesen törölni',
         items: deletedClients.slice(0, 5).map(c => esc(c.name.replace('[DELETED]', '').trim())),
-        color: '#6b7280', action: 'SQL: `DELETE FROM clients WHERE name LIKE \\'[DELETED]%\\';` (staging-en először!)'
+        color: '#6b7280', action: 'SQL-lel törölhető (staging-en először tesztelni!): DELETE FROM clients WHERE name LIKE [DELETED]%'
       }
     ];
 
