@@ -20,7 +20,7 @@ const VIEW_TITLES = {
   dashboard:'Dashboard', messages:'Üzenetek', baking:'Sütési lista',
   orders:'Rendelések összesítő', catalog:'Termékkatalógus', clients:'Kliensek',
   'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások', 'audit-log':'Napló',
-  export:'Adatok exportálása', push:'📢 Push üzenet', 'admin-help':'Súgó'
+  export:'Adatok exportálása', 'data-audit':'🔍 Adat-állapot audit', push:'📢 Push üzenet', 'admin-help':'Súgó'
 };
 // Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
 const RENDERS = {
@@ -96,7 +96,7 @@ function nav(id){
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   // Hide month bar for views with own selector or no months needed
   const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export'];
-  const HIDE_MONTHS = ['clients','client-detail','settings','admin-help','push'];
+  const HIDE_MONTHS = ['clients','client-detail','settings','admin-help','push','data-audit'];
   const monthBar = document.getElementById('month-bar');
   if(monthBar) monthBar.style.display = (HAS_OWN_MONTHS.includes(id)||HIDE_MONTHS.includes(id)) ? 'none' : 'flex';
   document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});

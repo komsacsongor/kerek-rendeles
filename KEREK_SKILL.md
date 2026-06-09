@@ -550,20 +550,20 @@ PWA ikon:          csak a pöttyös logó, KEREK felirat nélkül, teal háttér
 
 Az alábbi szekciók a 2026-05-26 → 2026-05-31 közötti session-ek tanulságait összegzik. A korábbi (1–16) szekciók szabályai TOVÁBBRA IS ÉRVÉNYESEK — ezek kiegészítik őket.
 
-### 17.1 Új verziók történet
+### 17.1 Verzió-történet (kulcsfontosságú milestones)
 
-| Verzió | Tartalom |
+| Verzió | Mit hozott |
 |---|---|
-| **v2.36.0** | 13-bug audit batch — `sb.updateFields` helper, központi `kerek-styles.css` (modal/form/sticky), tooltip rendszer, favicon, sticky safe-area-inset, alapanyag kategóriák settings+usage union, M7 nav lookup regresszió fix |
-| **v2.37.0** | 5 rendszer szintű fix — `reloadVevoData`/`reloadReceptData` helper, `sb.subscribe` unsub return, `updatePendingBadge` auto-call login után |
-| **v2.38.0** ⭐ | **KRITIKUS**: Supabase Realtime postgres_changes config — eddig sosem küldött DB-change eseményeket, üzenet badge / vevő-admin / receptúra sync mind ezért nem ment Realtime-on |
-| v2.38.1 | saveProduct marketingDesc undefined |
-| v2.38.2 | Archiválás visszakerül fix (`D.products` vs `D.productsArchived` split), modal layout, sidebar link |
-| v2.38.3 | Méret/Súly mező használhatatlan fix (97px input + 70px select) |
-| v2.38.4 | Push notification desktop UX (`requireInteraction: true`), `sendPushToClient` response logging |
-| v2.38.5 | reloadVevoData NaN bug (rossz mezőnevek: monthlyActive → monthlyActiveProducts) |
-| v2.38.6 | updateHeroTotal NaN guard (`Number(x) \|\| 0` minden numerikus értékre) |
-| **v2.39.0** | ✨ Bevásárló lista v2 — beszállítónkénti + általános, 3-szintű sürgősség, manuális override, clipboard másolás (`js/receptura-shopping.js` ~270 sor, új view + nav) |
+| **v2.36.0** | `sb.updateFields` anti-spread helper, központi `kerek-styles.css`, tooltip rendszer |
+| **v2.38.0** ⭐ KRITIKUS | Supabase Realtime postgres_changes config — eddig SOSEM küldött DB-change eseményeket |
+| **v2.39.0** | ✨ Bevásárló lista v2 — beszállítónkénti + 3-szintű sürgősség, clipboard |
+| **v2.39.2** | Alapanyag UX — collapsible kategóriák, suppliers backfill `ingredient_batches`-ből, +Új alapanyag gomb |
+| **v2.40.0** | ✨ Beszállítók CRUD (romániai számlázási mezők + benchmark) + Kategória konszolidáció |
+| **v2.41.0** ⭐ INFRA | Staging environment subpath-tal, dual-branch deploy, sync workflow, Edge Function deploy |
+| **v2.41.1** | Szerkeszthető vevő fejléc szöveg ({BAKING_DAYS}, {BR} placeholder) |
+| **v2.41.3** | Üres recept ⚠️ figyelmeztetés (admin + receptúra), Csongor email sync exception |
+
+A v2.36.0–v2.39.2 közötti összes 25+ bug **megoldva** — részletek: `git log --oneline`.
 
 ### 17.2 Új konvenciók (kötelezőek a 12. szekció Elkerülendő hibák kiegészítése)
 

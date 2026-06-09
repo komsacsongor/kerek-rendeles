@@ -9,8 +9,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.41.3"></script>
-<script src="supabase.js?v=2.41.3"></script>
+<script src="kerek-constants.js?v=2.41.4"></script>
+<script src="supabase.js?v=2.41.4"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -340,6 +340,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <div class="nav-section-label">Elemzések</div>
     <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📈</span>Kimutatások</button>
     <button class="nav-item" data-action="nav" data-arg1="export"><span class="icon">📤</span>Export</button>
+    <button class="nav-item" data-action="nav" data-arg1="data-audit"><span class="icon">🔍</span>Adat-állapot</button>
     <button class="nav-item" data-action="nav" data-arg1="categories"><span class="icon">🏷</span>Kategória bontás</button>
   </div>
   <div class="nav-section">
@@ -753,6 +754,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   </div>
 
   </div><!-- main-pad -->
+  <div id="view-data-audit" class="view">
+    <div id="view-data-audit-content"></div>
+  </div>
   <div id="view-audit-log" class="view"></div>
   <!-- v2.41.2 fix: view-admin-help + view-push átmozgatva a content wrapper-be -->
   <div id="view-admin-help" class="view"></div>
@@ -929,16 +933,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
-<script src="js/admin-data.js?v=2.41.3"></script>
-<script src="js/admin-ui.js?v=2.41.3"></script>
-<script src="js/admin-messages.js?v=2.41.3"></script>
-<script src="js/admin-baking.js?v=2.41.3"></script>
-<script src="js/admin-orders.js?v=2.41.3"></script>
-<script src="js/admin-catalog.js?v=2.41.3"></script>
-<script src="js/admin-clients.js?v=2.41.3"></script>
-<script src="js/admin-reports.js?v=2.41.3"></script>
-<script src="js/admin-help.js?v=2.41.3"></script>
-<script src="js/admin-push.js?v=2.41.3"></script>
-  <script src="js/admin-settings.js?v=2.41.3"></script>
+<script src="js/admin-data.js?v=2.41.4"></script>
+<script src="js/admin-data-audit.js?v=2.41.4"></script>
+<script src="js/admin-ui.js?v=2.41.4"></script>
+<script src="js/admin-messages.js?v=2.41.4"></script>
+<script src="js/admin-baking.js?v=2.41.4"></script>
+<script src="js/admin-orders.js?v=2.41.4"></script>
+<script src="js/admin-catalog.js?v=2.41.4"></script>
+<script src="js/admin-clients.js?v=2.41.4"></script>
+<script src="js/admin-reports.js?v=2.41.4"></script>
+<script src="js/admin-help.js?v=2.41.4"></script>
+<script src="js/admin-push.js?v=2.41.4"></script>
+  <script src="js/admin-settings.js?v=2.41.4"></script>
 </body>
 </html>
