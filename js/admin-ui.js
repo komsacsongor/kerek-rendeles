@@ -28,7 +28,8 @@ const RENDERS = {
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
   export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); },
-  push:()=>renderPushBroadcast()
+  push:()=>renderPushBroadcast(),
+  'data-audit':()=>{ if(typeof renderDataAudit==='function') renderDataAudit(); }
 };
 function updatePendingBadge() {
   var pendingClients = 0;
