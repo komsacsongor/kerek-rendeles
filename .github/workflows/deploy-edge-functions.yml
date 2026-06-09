@@ -1,0 +1,58 @@
+name: Deploy Edge Functions
+
+# v2.41.0: Edge Function deploy automatizáció staging + production Supabase-re
+# Trigger:
+#   - Manuális (workflow_dispatch): választható target (staging/production)
+#   - Auto push main + supabase/functions/** változás → STAGING-re (biztonság)
+#
+# Secrets szükséges:
+#   - SUPABASE_ACCESS_TOKEN (a Supabase Dashboard → Account → Access Tokens)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Cél környezet'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+  push:
+    branches: [main]
+    paths: ['supabase/functions/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Determine project ref
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target || 'staging' }}"
+          if [ "$TARGET" = "production" ]; then
+            echo "ref=lfaxeihrmiylggahougl" >> $GITHUB_OUTPUT
+            echo "label=PRODUCTION" >> $GITHUB_OUTPUT
+          else
+            echo "ref=xgcwxlwjlohzbzpcapnw" >> $GITHUB_OUTPUT
+            echo "label=STAGING" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          echo "🚀 Deploying to ${{ steps.target.outputs.label }} (${{ steps.target.outputs.ref }})"
+          for fn in admin-auth auto-confirm-orders dynamic-service; do
+            echo "📦 Deploying $fn..."
+            supabase functions deploy "$fn" --project-ref ${{ steps.target.outputs.ref }} --no-verify-jwt
+          done
+          echo "✅ All Edge Functions deployed to ${{ steps.target.outputs.label }}"
