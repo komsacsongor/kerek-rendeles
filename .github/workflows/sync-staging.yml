@@ -92,6 +92,9 @@ jobs:
 
           DELETE FROM push_subscriptions;
 
+          -- USER PREFERENCE: a tulajdonos saját email-jét megtartjuk (kvázi "exception")
+          UPDATE clients SET email = 'komsa.csongor@gmail.com' WHERE id = 'KER-WVGR-ZFPT';
+
           INSERT INTO audit_log (action, entity_name, details, created_at)
           VALUES (
             'staging_sync',

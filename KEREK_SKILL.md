@@ -943,3 +943,94 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 - **A 12. szekció (Elkerülendő hibák) érvényes** — ez a fájl kiegészíti, nem helyettesíti.
 - **Az M0 mértékegység-támogatás** a logikus következő lépés — enélkül a bevásárló lista UX-e zavaros marad.
 - **Új session induláskor**: olvasd el a teljes fájlt, különösen a 12. (elkerülendő hibák) és a 18. (bug history) szekciókat.
+
+
+---
+
+## 18. STAGING MUNKAMENET (v2.41.0+)
+
+### 18.1 Architektúra
+
+```
+URL                                          Adatbázis                              Edge Functions
+─────────────────────────────────────────────────────────────────────────────────────────
+komsacsongor.github.io/kerek-rendeles/    →  lfaxeihrmiylggahougl.supabase.co   →  Production
+                                                       │
+                                                       │ heti sync (vasárnap 4:00 UTC)
+                                                       ▼
+komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase.co → Staging
+```
+
+### 18.2 GitHub Workflows
+
+- **deploy.yml** — dual-branch deploy
+  - main push → / (production)
+  - staging push → /staging/ (staging)
+  - Egy artifact: site/ + site/staging/
+
+- **sync-staging.yml** — heti production → staging klónozás
+  - Cron: `0 4 * * 0` (vasárnap 4:00 UTC)
+  - Manuális trigger: workflow_dispatch
+  - Lépések: pg_dump (séma + adatok), restore, GRANT visszaállítás, PostgREST cache reload, anonimizáció
+  - **Anonimizáció**: clients.email + phone randomizálva, push_subscriptions törölve
+  - **User exception**: Csongor Komsa (`KER-WVGR-ZFPT`) email-je `komsa.csongor@gmail.com`-ra állítódik
+
+- **deploy-edge-functions.yml** — Edge Function automatikus deploy
+  - Trigger: workflow_dispatch (target: staging | production) vagy main push supabase/functions/** változásra
+  - 3 függvény: admin-auth, auto-confirm-orders, dynamic-service
+
+### 18.3 GitHub Secrets
+
+| Secret név | Mire | Érték formátum |
+|---|---|---|
+| `SUPABASE_PROD_DB_URL` | sync-staging dump | Session pooler URI |
+| `SUPABASE_STAGING_DB_URL` | sync-staging restore | Session pooler URI |
+| `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy | `sbp_...` personal token |
+
+### 18.4 Új munkamenet (kötelező sorrend)
+
+| Lépés | Mit csinálok |
+|---|---|
+| 1 | Új feature → `staging` branch checkout |
+| 2 | Kódol, commit → push staging branchre |
+| 3 | Auto-deploy `/staging/` URL-re (~2 perc) |
+| 4 | Új SQL migráció: **CSAK staging Supabase-en** futtatás |
+| 5 | Tesztelés staging URL-en élő-adat klónon |
+| 6 | Ha rendben: `git checkout main && git merge staging && git push` |
+| 7 | Ugyanaz az SQL production Supabase-en |
+| 8 | Edge Function változás → main push auto-deploy staging-re (workflow); production-re manual workflow_dispatch |
+
+### 18.5 SQL anti-pattern
+
+- **TILTOTT** production-on előzetes staging-tesztelés nélkül:
+  - DROP TABLE, DROP COLUMN, DROP CONSTRAINT
+  - UPDATE/DELETE valós adatra (vevők, rendelések)
+  - ALTER COLUMN type-change
+- **MEGENGEDETT** production-on (csak ADD):
+  - CREATE TABLE, ADD COLUMN (idempotensen, `DO $$ IF NOT EXISTS $$`)
+  - GRANT, ALTER PUBLICATION
+  - Új INSERT (pl. settings új kulcs)
+- **MIND a többi**: először staging-en kötelező
+
+### 18.6 Élesben sokszor felmerült problémák megoldása
+
+| Hiba | Megoldás |
+|---|---|
+| `pg_dump version mismatch` (kliens 16, server 17) | `/usr/lib/postgresql/17/bin/pg_dump` explicit |
+| `missing key/value separator "="` URL parse | Jelszó `?`, `/`, `+`, `&`, `=`, `@` karaktert tartalmaz → reset alfanumerikusra |
+| `permission denied for schema public` (sync után) | `GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role` + összes table/sequence/function GRANT |
+| `Could not find the table in schema cache` | `NOTIFY pgrst, 'reload schema'` a sync után |
+| `admin-auth 404` a stagingen | Edge Functions külön workflow-val deploy (NEM klónozza a pg_dump) |
+| `[token] refusing to allow workflow scope` | A `repo` scope-ú token nem tud workflow fájlokat módosítani → kell `workflow` scope is, vagy a felhasználó web UI-n |
+
+### 18.7 Vevő-login különbség
+
+| Modul | Auth mechanizmus |
+|---|---|
+| `admin.html` | `admin-auth` Edge Function (settings.admin_password hash) |
+| `receptura.html` | `sb.getSetting('admin_password')` közvetlen + fallback `admin` |
+| `index.html` (vevő) | `clients.id` mező (KER-XXXX-XXXX formátum) — **NEM jelszó** |
+
+A vevő-modulba a vevő-kóddal lehet belépni, NEM jelszóval.
+
+---

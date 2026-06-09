@@ -23,10 +23,14 @@ function renderRecipeGrid(cat) {
   const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
   document.getElementById('recipes-grid').innerHTML = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
-    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
+    // v2.41.3: üres recept (nincs alapanyag) vizuális jelzés
+    const isEmpty = !r.ingredients || r.ingredients.length === 0;
+    const emptyStyle = isEmpty ? 'border:2px solid #dc2626;background:#fef2f2' : '';
+    const emptyBadge = isEmpty ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:6px" title="Nincs alapanyag rögzítve!">⚠️ ÜRES</span>' : '';
+    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})" style="${emptyStyle}">
       <div class="recipe-card-img">🍞</div>
       <div class="recipe-card-body">
-        <div class="recipe-card-name">${r.name}</div>
+        <div class="recipe-card-name">${r.name}${emptyBadge}</div>
         <div class="recipe-card-meta">
           <span class="badge badge-teal">${r.category}</span>
           ${(r.version||1) > 1 ? `<span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:10px;font-size:.7rem;font-weight:700">v${r.version}</span>` : ''}

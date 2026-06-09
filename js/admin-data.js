@@ -239,6 +239,8 @@ async function doLogin(){
       await loadAllData();
       initApp();
       auditLog('login', 'Admin', 'Sikeres belépés');
+      // v2.41.3: üres recept-státusz betöltés a figyelmeztetésekhez
+      if (typeof loadProductRecipeStatus === 'function') await loadProductRecipeStatus();
       updateMsgBadge();
       // v2.37.0 fix #16: also init pending badge after login (was only triggered on nav('baking') click)
       if (typeof updatePendingBadge === 'function') updatePendingBadge();
@@ -301,3 +303,42 @@ function initApp(){
   loadSettings();
 }
 
+
+
+// v2.41.3: Üres recept figyelmeztetés — termékenkénti recept-státusz betöltés
+// D.productRecipeStatus[productId] = {hasRecipe: bool, hasIngredients: bool}
+async function loadProductRecipeStatus() {
+  try {
+    const [recipes, recIng] = await Promise.all([
+      sb.query('recipes', {select: 'id,product_id', limit: 500}),
+      sb.query('recipe_ingredients', {select: 'recipe_id', limit: 5000})
+    ]);
+    const ingCountByRecipe = {};
+    (recIng || []).forEach(ri => {
+      ingCountByRecipe[ri.recipe_id] = (ingCountByRecipe[ri.recipe_id] || 0) + 1;
+    });
+    const status = {};
+    (recipes || []).forEach(r => {
+      if (!r.product_id) return;
+      const cnt = ingCountByRecipe[r.id] || 0;
+      // Ha több recipe van egy termékhez (pl. M/L méretek), legalább az egyiknek legyen alapanyaga
+      if (!status[r.product_id]) {
+        status[r.product_id] = {hasRecipe: true, hasIngredients: cnt > 0, ingCount: cnt};
+      } else if (cnt > status[r.product_id].ingCount) {
+        status[r.product_id].hasIngredients = cnt > 0;
+        status[r.product_id].ingCount = cnt;
+      }
+    });
+    D.productRecipeStatus = status;
+  } catch(e) { console.warn('loadProductRecipeStatus:', e.message); D.productRecipeStatus = {}; }
+}
+
+// Helper: van-e érvényes recept (alapanyagokkal) a termékhez
+function hasIngredientRecipe(productId) {
+  return !!(D.productRecipeStatus && D.productRecipeStatus[productId]?.hasIngredients);
+}
+
+if (typeof window !== 'undefined') {
+  window.loadProductRecipeStatus = loadProductRecipeStatus;
+  window.hasIngredientRecipe = hasIngredientRecipe;
+}

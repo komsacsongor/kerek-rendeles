@@ -154,7 +154,7 @@ function openModifyDialog(clientId, year, month, day, clientName) {
     if (!p) return;
     productRows +=
       '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-      '<span style="flex:1;font-size:0.88rem">' + esc(p.name) + ' <span style="color:var(--text-soft);font-size:0.78rem">' + esc(p.weight||'') + '</span></span>' +
+      '<span style="flex:1;font-size:0.88rem">' + (typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706;margin-right:4px" title="Üres recept — nincs alapanyag rögzítve, a készlet nem csökken automatikusan!">⚠️</span>' : '') + esc(p.name) + ' <span style="color:var(--text-soft);font-size:0.78rem">' + esc(p.weight||'') + '</span></span>' +
       '<input type="number" min="0" max="999" value="' + qty + '" data-pid="' + pid + '" style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;text-align:center">' +
       '<span style="font-size:0.78rem;color:var(--text-soft)">db</span>' +
       '</div>';
@@ -323,7 +323,7 @@ function renderBaking(){
       // v2.26.0: Stock availability check
       const stockCheck = checkProductStockForBaking(p.id, totalForP);
       const stockBadge = stockBadgeHtml(stockCheck);
-      html+='<div class="baking-line"><span style="font-weight:600">' + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db' + stockBadge + '</span></div>';
+      html+='<div class="baking-line"><span style="font-weight:600">' + (typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706;margin-right:4px" title="Üres recept — nincs alapanyag rögzítve!">⚠️</span>' : '') + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db' + stockBadge + '</span></div>';
     });
 
     if(totalQty===0){
@@ -342,7 +342,7 @@ function renderBaking(){
         // Build product preview list (visible only when expanded)
         const previewItems = Object.entries(o).map(function(e){
           const pid=e[0], q=e[1]; const p=D.products.find(function(p){return p.id==pid;});
-          return p ? (esc(p.name) + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
+          return p ? ((typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706" title="Üres recept!">⚠️</span> ' : '') + esc(p.name) + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
         }).filter(Boolean).join(' · ');
 
         html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px">';
