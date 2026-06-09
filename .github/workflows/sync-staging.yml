@@ -32,14 +32,20 @@ jobs:
           echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          # KRITIKUS: a default pg_dump még a régi (16) lehet az Ubuntu wrapper miatt
+          # Ezért minden következő step expliciten a /usr/lib/postgresql/17/bin/-t használja
+          echo "Default pg_dump (PATH):"
           pg_dump --version
-          psql --version
+          echo "Explicit pg_dump 17:"
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          echo "Explicit psql 17:"
+          /usr/lib/postgresql/17/bin/psql --version
 
       - name: Dump production data
         env:
           PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
         run: |
-          pg_dump \
+          /usr/lib/postgresql/17/bin/pg_dump \
             --no-owner \
             --no-acl \
             --data-only \
@@ -52,7 +58,7 @@ jobs:
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
         run: |
-          psql "$STAGING_DB_URL" <<'SQL'
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" <<'SQL'
           DO $$
           DECLARE
             r RECORD;
@@ -70,7 +76,7 @@ jobs:
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
         run: |
-          psql "$STAGING_DB_URL" -v ON_ERROR_STOP=0 < prod_data.sql > restore.log 2>&1 || true
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" -v ON_ERROR_STOP=0 < prod_data.sql > restore.log 2>&1 || true
           echo "Restore log (last 30 lines):"
           tail -30 restore.log
           echo "✅ Restore step finished (some COPY errors are normal — non-existent tables)"
@@ -79,7 +85,7 @@ jobs:
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
         run: |
-          psql "$STAGING_DB_URL" <<'SQL'
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" <<'SQL'
           UPDATE clients
           SET
             email = 'staging_user_' || id || '@example.com',
