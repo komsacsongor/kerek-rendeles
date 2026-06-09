@@ -924,6 +924,83 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 | 7 | Valódi e-mail értesítés (reg. kód) | Középtáv | ❌ Még nincs |
 
 
+## 20. STAGING MUNKAMENET (v2.41.0+)
+
+### 20.1 Architektúra
+
+```
+URL                                          Adatbázis                              Edge Functions
+─────────────────────────────────────────────────────────────────────────────────────────
+komsacsongor.github.io/kerek-rendeles/    →  lfaxeihrmiylggahougl.supabase.co   →  Production
+                                                       │
+                                                       │ heti sync (vasárnap 4:00 UTC)
+                                                       ▼
+komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase.co → Staging
+```
+
+### 20.2 GitHub Workflows
+
+- **deploy.yml** — dual-branch deploy (main → /, staging → /staging/)
+- **sync-staging.yml** — heti production → staging (vasárnap 4:00 UTC + manuális)
+  - pg_dump séma+adatok, restore, GRANT visszaállítás, PostgREST cache reload, anonimizáció
+  - Anonimizáció: clients.email + phone randomizálva, push_subscriptions törölve
+  - **User exception**: Csongor Komsa (`KER-WVGR-ZFPT`) email = `komsa.csongor@gmail.com`
+- **deploy-edge-functions.yml** — Edge Function deploy (admin-auth, auto-confirm-orders, dynamic-service)
+  - workflow_dispatch: target = staging | production
+  - main push supabase/functions/** változásra: auto staging
+
+### 20.3 GitHub Secrets
+
+| Secret név | Mire |
+|---|---|
+| `SUPABASE_PROD_DB_URL` | sync-staging dump (Session pooler) |
+| `SUPABASE_STAGING_DB_URL` | sync-staging restore (Session pooler) |
+| `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy (`sbp_...`) |
+
+### 20.4 Új munkamenet (kötelező sorrend)
+
+1. Új feature → `staging` branch
+2. Kódol, push staging
+3. Auto-deploy `/staging/` URL-re
+4. Új SQL: **CSAK staging Supabase-en** futtatás
+5. Tesztelés staging URL-en élő-adat klónon
+6. Ha rendben: `git merge main && push`
+7. Ugyanaz az SQL production-en
+8. Edge Function változás → automatikus staging deploy
+
+### 20.5 SQL anti-pattern
+
+- **TILTOTT** production-on előzetes staging-tesztelés nélkül:
+  - DROP TABLE, DROP COLUMN, DROP CONSTRAINT
+  - UPDATE/DELETE valós adatra (vevők, rendelések)
+  - ALTER COLUMN type-change
+- **MEGENGEDETT** production-on (csak ADD):
+  - CREATE TABLE, ADD COLUMN (idempotensen, `DO $$ IF NOT EXISTS $$`)
+  - GRANT, ALTER PUBLICATION
+  - Új INSERT (pl. settings új kulcs)
+
+### 20.6 Élesben felmerült problémák megoldása
+
+| Hiba | Megoldás |
+|---|---|
+| `pg_dump version mismatch` (kliens 16, server 17) | `/usr/lib/postgresql/17/bin/pg_dump` explicit |
+| `missing key/value separator "="` URL parse | Jelszóban `?`, `/`, `+`, `&`, `=`, `@` → reset alfanumerikusra |
+| `permission denied for schema public` | `GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role` + tables/sequences/functions |
+| `Could not find the table in schema cache` | `NOTIFY pgrst, 'reload schema'` |
+| `admin-auth 404` a stagingen | Edge Functions külön workflow-val deploy (NEM klónozza a pg_dump) |
+| `[token] refusing to allow workflow scope` | `repo` token nem ír workflow fájlt → kell `workflow` scope |
+
+### 20.7 3 modul login különbsége
+
+| Modul | Auth mechanizmus |
+|---|---|
+| `admin.html` | `admin-auth` Edge Function (settings.admin_password hash) |
+| `receptura.html` | `sb.getSetting('admin_password')` közvetlen + fallback `admin` |
+| `index.html` (vevő) | `clients.id` (KER-XXXX-XXXX) — **NEM jelszó** |
+
+A vevő-modulba a vevő-kóddal lehet belépni, NEM jelszóval.
+
+
 ## 21. Utolsó megjegyzések
 
 - **v2.38.0 Realtime fix** volt a 2026-05 session legfontosabb felfedezése. Mostantól a vevő/receptúra app 1-3 másodperc alatt szinkronizálódik az adminnal. Ez sok jövőbeli feature alapja.
