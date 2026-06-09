@@ -1,18 +1,14 @@
 name: Sync Production → Staging
 
-# v2.41.0: heti adatklónozás production → staging
-# Cron: minden vasárnap 4:00 UTC
-# Manuális trigger: workflow_dispatch
+# v2.41.0: heti production → staging klónozás (séma + adatok együtt)
+# Cron: vasárnap 4:00 UTC | Manuális: workflow_dispatch
 #
-# Secrets:
-#  - SUPABASE_PROD_DB_URL: production DB connection string (Session pooler)
-#  - SUPABASE_STAGING_DB_URL: staging DB connection string (Session pooler)
+# Mit klónoz:
+#  - Teljes public schema (séma + adatok)
+#  - Edge Functions: külön workflow (deploy-edge-functions.yml)
+#  - Auth users / Storage: NEM klónozódik (külön kezelés)
 #
-# Lépések:
-#  1. pg_dump --data-only --schema=public a production-ről
-#  2. TRUNCATE minden public schema táblát staging-en (séma marad)
-#  3. INSERT az adatok staging-be
-#  4. ANONIMIZÁCIÓ: vevő-email/telefon randomizálva GDPR miatt
+# Anonimizáció: clients.email + phone (GDPR)
 
 on:
   schedule:
@@ -32,54 +28,39 @@ jobs:
           echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          # KRITIKUS: a default pg_dump még a régi (16) lehet az Ubuntu wrapper miatt
-          # Ezért minden következő step expliciten a /usr/lib/postgresql/17/bin/-t használja
-          echo "Default pg_dump (PATH):"
-          pg_dump --version
-          echo "Explicit pg_dump 17:"
           /usr/lib/postgresql/17/bin/pg_dump --version
-          echo "Explicit psql 17:"
-          /usr/lib/postgresql/17/bin/psql --version
 
-      - name: Dump production data
+      - name: Dump production (schema + data, with --clean)
         env:
           PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
         run: |
           /usr/lib/postgresql/17/bin/pg_dump \
             --no-owner \
             --no-acl \
-            --data-only \
             --schema=public \
-            --disable-triggers \
-            "$PROD_DB_URL" > prod_data.sql
-          echo "✅ Dump complete: $(wc -l < prod_data.sql) lines, $(du -h prod_data.sql | cut -f1)"
+            --clean \
+            --if-exists \
+            "$PROD_DB_URL" > prod_full.sql
+          echo "✅ Dump: $(wc -l < prod_full.sql) lines, $(du -h prod_full.sql | cut -f1)"
 
-      - name: Truncate staging tables (preserve schema)
+      - name: Restore into staging (drops + recreates everything in public schema)
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
         run: |
-          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" <<'SQL'
-          DO $$
-          DECLARE
-            r RECORD;
-          BEGIN
-            FOR r IN (
-              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-            ) LOOP
-              EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
-            END LOOP;
-          END $$;
-          SQL
-          echo "✅ Truncated all public schema tables on staging"
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" \
+            -v ON_ERROR_STOP=0 \
+            < prod_full.sql > restore.log 2>&1 || true
+          echo "=== Restore log tail ==="
+          tail -40 restore.log
+          echo "=== Error count ==="
+          grep -c "ERROR" restore.log || echo "0 errors"
 
-      - name: Restore data into staging
+      - name: Force PostgREST schema cache reload
         env:
           STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
         run: |
-          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" -v ON_ERROR_STOP=0 < prod_data.sql > restore.log 2>&1 || true
-          echo "Restore log (last 30 lines):"
-          tail -30 restore.log
-          echo "✅ Restore step finished (some COPY errors are normal — non-existent tables)"
+          /usr/lib/postgresql/17/bin/psql "$STAGING_DB_URL" -c "NOTIFY pgrst, 'reload schema';"
+          echo "✅ Schema cache reload signal sent"
 
       - name: Anonymize sensitive data (GDPR)
         env:
@@ -98,15 +79,14 @@ jobs:
           VALUES (
             'staging_sync',
             'system',
-            'Auto-sync production → staging, anonimizációval.',
+            'Full schema + data sync. Vevő emailek/telefon randomizálva.',
             NOW()
           );
           SQL
-          echo "✅ Anonymization complete"
+          echo "✅ Anonymization done"
 
       - name: Summary
         run: |
           echo "═══════════════════════════════════════════"
-          echo "✅ Staging sync completed at $(date -u)"
-          echo "Cron schedule: heti vasárnap 4:00 UTC"
+          echo "✅ Staging full sync completed at $(date -u)"
           echo "═══════════════════════════════════════════"
