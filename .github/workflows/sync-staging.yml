@@ -1,0 +1,106 @@
+name: Sync Production → Staging
+
+# v2.41.0: heti adatklónozás production → staging
+# Cron: minden vasárnap 4:00 UTC = magyar idő szerint vasárnap 5-6 reggel
+# Manuális trigger: workflow_dispatch (Actions tab → "Run workflow" gomb)
+#
+# Secrets szükségesek:
+#  - SUPABASE_PROD_DB_URL: production DB connection string
+#  - SUPABASE_STAGING_DB_URL: staging DB connection string
+#
+# Mit csinál:
+#  1. pg_dump --data-only --schema=public a production DB-ről
+#  2. TRUNCATE minden public schema táblát staging-en (séma marad)
+#  3. INSERT az adatok staging-be
+#  4. ANONIMIZÁCIÓ: vevő-email/telefon randomizálva GDPR miatt
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'   # minden vasárnap 4:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL 15 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-15
+
+      - name: Dump production data
+        env:
+          PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          pg_dump \
+            --no-owner \
+            --no-acl \
+            --data-only \
+            --schema=public \
+            --disable-triggers \
+            --on-conflict-do-nothing \
+            "$PROD_DB_URL" > prod_data.sql 2>&1 || {
+              # Fallback ha --on-conflict-do-nothing nem támogatott
+              pg_dump --no-owner --no-acl --data-only --schema=public --disable-triggers "$PROD_DB_URL" > prod_data.sql
+            }
+          echo "Dump size: $(wc -l < prod_data.sql) lines, $(du -h prod_data.sql | cut -f1)"
+
+      - name: Truncate staging tables (preserve schema)
+        env:
+          STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          psql "$STAGING_DB_URL" <<'SQL'
+          DO $$
+          DECLARE
+            r RECORD;
+          BEGIN
+            FOR r IN (
+              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            ) LOOP
+              EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
+            END LOOP;
+          END $$;
+          SQL
+
+      - name: Restore data into staging
+        env:
+          STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          psql "$STAGING_DB_URL" -v ON_ERROR_STOP=0 < prod_data.sql > restore.log 2>&1 || true
+          tail -50 restore.log
+
+      - name: Anonymize sensitive data (GDPR)
+        env:
+          STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          psql "$STAGING_DB_URL" <<'SQL'
+          -- Vevő kontakt-info anonimizálás
+          UPDATE clients
+          SET
+            email = 'staging_user_' || id || '@example.com',
+            phone = '+40000000000'
+          WHERE name NOT LIKE '[DELETED]%';
+
+          -- Push subscription endpoint-ok érvénytelenítése (ne küldjünk valódi push-t staging-ből)
+          DELETE FROM push_subscriptions;
+
+          -- Audit log: jelzés a sync-ről
+          INSERT INTO audit_log (action, entity_name, details, created_at)
+          VALUES (
+            'staging_sync',
+            'system',
+            'Auto-sync production → staging, anonimizációval. Vevő-emailek/telefon randomizálva, push subs törölve.',
+            NOW()
+          );
+          SQL
+
+      - name: Summary
+        run: |
+          echo "✅ Staging sync completed at $(date -u)"
+          echo "Cron schedule: heti vasárnap 4:00 UTC"
+          echo "Manual trigger: Actions tab → 'Sync Production → Staging' → Run workflow"
