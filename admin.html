@@ -7,10 +7,17 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KEREK">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#064C48">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.41.6"></script>
-<script src="supabase.js?v=2.41.6"></script>
+<script src="kerek-constants.js?v=2.42.0"></script>
+<script src="supabase.js?v=2.42.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -367,9 +374,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 <div class="content">
   <!-- TOP BAR -->
   <div class="topbar">
-    <div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="hamburger-btn" data-action="toggleSidebar" aria-label="Menü">☰</button>
+      <div>
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div class="topbar-sub" id="topbar-sub"></div>
+      </div>
     </div>
     <div class="flex gap-10 items-center">
       <span id="version-badge" style="font-size:0.62rem;color:var(--text-soft);font-family:Kodchasan,sans-serif;letter-spacing:0.5px;background:var(--bg-soft);padding:2px 8px;border-radius:20px"></span>
@@ -933,17 +943,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
-<script src="js/admin-data.js?v=2.41.6"></script>
-<script src="js/admin-data-audit.js?v=2.41.6"></script>
-<script src="js/admin-ui.js?v=2.41.6"></script>
-<script src="js/admin-messages.js?v=2.41.6"></script>
-<script src="js/admin-baking.js?v=2.41.6"></script>
-<script src="js/admin-orders.js?v=2.41.6"></script>
-<script src="js/admin-catalog.js?v=2.41.6"></script>
-<script src="js/admin-clients.js?v=2.41.6"></script>
-<script src="js/admin-reports.js?v=2.41.6"></script>
-<script src="js/admin-help.js?v=2.41.6"></script>
-<script src="js/admin-push.js?v=2.41.6"></script>
-  <script src="js/admin-settings.js?v=2.41.6"></script>
+<script src="js/admin-data.js?v=2.42.0"></script>
+<script src="js/admin-data-audit.js?v=2.42.0"></script>
+<script src="js/admin-ui.js?v=2.42.0"></script>
+<script src="js/admin-messages.js?v=2.42.0"></script>
+<script src="js/admin-baking.js?v=2.42.0"></script>
+<script src="js/admin-orders.js?v=2.42.0"></script>
+<script src="js/admin-catalog.js?v=2.42.0"></script>
+<script src="js/admin-clients.js?v=2.42.0"></script>
+<script src="js/admin-reports.js?v=2.42.0"></script>
+<script src="js/admin-help.js?v=2.42.0"></script>
+<script src="js/admin-push.js?v=2.42.0"></script>
+  <script src="js/admin-settings.js?v=2.42.0"></script>
 </body>
 </html>

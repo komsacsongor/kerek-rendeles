@@ -247,3 +247,124 @@ body.kerek-has-staging-banner { padding-top: 32px !important; }
   .kerek-staging-banner { font-size: 0.72rem; padding: 5px 8px; }
   body.kerek-has-staging-banner { padding-top: 28px !important; }
 }
+
+/* ============================================================
+   v2.42.0 MOBIL-OPTIMALIZÁCIÓ (Phase 1)
+   - Hamburger drawer admin + receptúra modulokhoz
+   - Touch-target méretek
+   - Modal full-screen mobilon
+============================================================ */
+
+/* Hamburger gomb — desktop-on rejtett, mobilon látható */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  padding: 8px 10px;
+  margin-right: 4px;
+  cursor: pointer;
+  font-size: 1.4rem;
+  color: var(--teal-dark);
+  line-height: 1;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.hamburger-btn:hover { background: rgba(0,0,0,0.05); }
+.hamburger-btn:active { background: rgba(0,0,0,0.1); }
+
+/* Sidebar overlay — kattintható backdrop ami bezárja a drawer-t */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 39;
+  animation: overlayFadeIn 0.2s ease-out;
+}
+.sidebar-overlay.visible { display: block; }
+@keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* MOBIL: < 900px */
+@media (max-width: 900px) {
+  .hamburger-btn { display: inline-flex; align-items: center; }
+
+  /* Sidebar slide-in drawer */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease-out;
+    box-shadow: 4px 0 16px rgba(0,0,0,0.15);
+    width: 260px !important;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Content full-width */
+  .content { margin-left: 0 !important; }
+
+  /* Topbar kompaktabb */
+  .topbar {
+    padding: 0 12px !important;
+    gap: 8px;
+  }
+  .topbar-title { font-size: 1rem !important; }
+  .topbar-sub { font-size: 0.7rem !important; }
+
+  /* Main padding kisebb */
+  .main-pad { padding: 14px !important; }
+
+  /* Touch target méretek */
+  .btn, button.btn, input[type="button"], input[type="submit"] {
+    min-height: 44px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .btn-sm { min-height: 36px; padding: 6px 12px; }
+  .btn-ghost { min-height: 38px; }
+
+  /* Form input-ok nagyobb tap-target */
+  input[type="text"], input[type="number"], input[type="email"],
+  input[type="tel"], input[type="password"], input[type="date"],
+  select, textarea {
+    min-height: 42px;
+    font-size: 16px; /* iOS zoom prevention */
+  }
+
+  /* Modal full-screen mobilon */
+  .modal-bg .modal,
+  .modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .modal-head { position: sticky; top: 0; z-index: 1; }
+  .modal-foot { position: sticky; bottom: 0; z-index: 1; }
+
+  /* Toast lent középen */
+  #toast {
+    bottom: 16px !important;
+    right: 12px !important;
+    left: 12px !important;
+    max-width: none !important;
+  }
+
+  /* Grid-ek 1 oszlopra */
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Táblázatok horizontális scroll */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Sticky bottom bar safe area */
+  .sticky-bottom-bar, #sticky-month-total {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+/* iOS PWA "standalone" mód optimalizáció */
+@media (display-mode: standalone) {
+  body { -webkit-user-select: none; user-select: none; }
+  input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
+}

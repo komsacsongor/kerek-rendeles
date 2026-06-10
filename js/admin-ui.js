@@ -285,3 +285,33 @@ function toast(msg, isError=false){
   const duration = isError ? 8000 : 3000;
   el._t=setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.style.display='none',300);},duration);
 }
+
+// ============================================================
+// v2.42.0 MOBIL: Sidebar drawer toggle
+// ============================================================
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  if (!sb) return;
+  const open = sb.classList.toggle('open');
+  if (ov) ov.classList.toggle('visible', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.classList.remove('visible');
+  document.body.style.overflow = '';
+}
+// Bezárás minden nav-item click után (mobilon)
+document.addEventListener('click', function(e){
+  const ni = e.target.closest('.nav-item');
+  if (ni && window.innerWidth <= 900) {
+    setTimeout(closeSidebar, 100); // kis delay hogy a navigáció lefusson
+  }
+});
+if (typeof window !== 'undefined') {
+  window.toggleSidebar = toggleSidebar;
+  window.closeSidebar = closeSidebar;
+}
