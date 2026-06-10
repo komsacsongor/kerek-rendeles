@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.43.0 (2026-06-10)';
+const APP_VERSION = 'v2.43.1 (2026-06-10)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -303,15 +303,19 @@ function startUnifiedPolling(callback, intervalMs) {
 
 
 // v2.41.0: STAGING BANNER — automatikus DOM injection a /staging/ URL-en
+// v2.43.1: KIVÉTEL index.html és register.html (a böngésző "Telepítés" gomb láthatóságához)
 (function() {
   if (typeof location === 'undefined' || !location.pathname.includes('/staging/')) return;
   if (typeof document === 'undefined') return;
+  // Index és regisztráció oldalakon NEM jelenítjük meg (mobil PWA install UX miatt)
+  const p = location.pathname.toLowerCase();
+  if (p.endsWith('/staging/') || p.endsWith('/staging/index.html') || p.endsWith('/staging/register.html')) return;
   function inject() {
     if (document.querySelector('.kerek-staging-banner')) return;
     const div = document.createElement('div');
     div.className = 'kerek-staging-banner';
-    div.textContent = '🧪 STAGING környezet — NE használd éles rendelésre! Az adatok klónok a production-ből, anonimizált vevő-kontaktokkal.';
-    div.title = 'Ez a staging URL: komsacsongor.github.io/kerek-rendeles/staging/. Az éles URL: komsacsongor.github.io/kerek-rendeles/';
+    div.textContent = '🧪 STAGING — NE használd éles rendelésre!';
+    div.title = 'Staging URL: /staging/. Éles: /kerek-rendeles/';
     document.body.appendChild(div);
     document.body.classList.add('kerek-has-staging-banner');
   }
