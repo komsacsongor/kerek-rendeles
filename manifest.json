@@ -4,8 +4,11 @@
   "short_name": "KEREK",
   "description": "KEREK gluténmentes pékség — havi megrendelő felület",
   "start_url": "/kerek-rendeles/vevo.html",
-  "scope": "/kerek-rendeles/",
+  "scope": "/kerek-rendeles/vevo",
   "display": "standalone",
+  "launch_handler": {
+    "client_mode": "navigate-new"
+  },
   "background_color": "#064C48",
   "theme_color": "#064C48",
   "orientation": "portrait-primary",

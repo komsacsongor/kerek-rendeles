@@ -6,6 +6,9 @@
   "start_url": "/kerek-rendeles/index.html",
   "scope": "/kerek-rendeles/",
   "display": "standalone",
+  "launch_handler": {
+    "client_mode": "navigate-new"
+  },
   "background_color": "#064C48",
   "theme_color": "#064C48",
   "orientation": "any",
