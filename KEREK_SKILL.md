@@ -27,6 +27,34 @@ A KEREK egy **gyergyószentmiklósi gluténmentes pékség** (Románia, Hargita 
 
 ## 2. ⚠️ Fejlesztési munkamód – kötelező szabályok
 
+### 🔴 ELSŐ KÖTELEZŐ szabály — STAGING-FIRST workflow
+
+**MINDEN új feature, bugfix, UI-változás CSAK `staging` branchen kezdődik.** A workflow betartása NEM opcionális.
+
+```bash
+# Session elején KÖTELEZŐ pre-flight:
+git status              # melyik branch?
+git branch --show-current
+# Ha "main" → AZONNAL:
+git checkout staging
+git pull
+```
+
+**A flow**:
+1. `git checkout staging` (kötelező első lépés)
+2. Kódolás, commit, push `staging` branchre
+3. `/staging/` URL-en élesben felhasználói tesztelés
+4. **CSAK felhasználói jóváhagyás után**: `git checkout main && git merge staging && git push`
+
+❌ **TILOS**:
+- Main-be közvetlen push új feature-rel ("majd később mergelem")
+- "Olyan kis változás hogy oké lesz main-be is" — NEM, mindig staging először
+- Tesztelés nélküli élesbe juttatás
+
+✅ **Egyetlen kivétel**: `.github/workflows/` fájlok (a deploy maga main-ről fut). Itt is csak workflow-fájl módosításra korlátozottan.
+
+**Tanulság (v2.42.0)**: a mobil-feature kódolásánál a `git checkout staging` lépést kihagytam, ami egy `sidebar-overlay HTML-bug`-ot élesbe juttatott. A staging-first workflow ezt megakadályozta volna.
+
 ### Gondolkodásmód
 - Minden feladatnál először értsd meg a teljes képet, ne csak az adott részt
 - Mielőtt kódolsz, járd végig a teljes user flow-t fejben – edge case-ekkel együtt
@@ -792,7 +820,7 @@ A bug egyik gyökér oka volt: én elhittem hogy "új feature" — pedig csak re
 | **#14** | Tooltip nem mindig működik egyes gombokon | B) CSS | Alacsony | Felhasználói jelentés, képernyőmentés kell hogy melyik gomb. Gyanú: `position:relative` parent, `overflow:hidden`, z-index conflict |
 | **#27** | Burgonya/Cirokliszt/Ecet/Cukor min/max értékei abszurdul kicsik (1-15 g) | E) Adat-bevitel | Közepes | A DB-ben minden alapanyag g-ban. A felhasználó kg-ban gondolta amikor 1-2-t írt. Ténylegesen 1000-2000 g lenne. M0 mértékegység-támogatás megoldja (lásd 19.1). Addig: felhasználó manuálisan korrigálja a stock view-ban |
 
-### 18.2 Anti-pattern könyvtár (5 visszatérő kategória)
+### 18.2 Anti-pattern könyvtár (6 visszatérő kategória)
 
 Új bug-jelentésnél kategorizáld először. A megoldás-pattern legtöbbször már ismert.
 
@@ -826,6 +854,13 @@ A bug egyik gyökér oka volt: én elhittem hogy "új feature" — pedig csak re
   - KONVENCIÓ 17.2.5 — `Number(x) || 0` minden numerikus értékre
   - 17.6.2 — `loadAllData` az autoritatív forrás field-mapping-ra (NE találd ki a mezőneveket fejből)
   - **Mielőtt kliens-state mezőt használsz**: ellenőrizd a 7.3 mapping táblát, valamint élesben `Object.keys(state[0])`-tel
+
+**F) Workflow-megsértés** (új kategória, v2.42.0 tanulság)
+- Új feature közvetlen main-be push → tesztelés nélkül élesbe kerül
+- Védekezés: minden session ELSŐ parancsa `git checkout staging` (lásd: 2. szekció ELSŐ KÖTELEZŐ szabály + 20.4 pre-flight check)
+- Konkrét eset: v2.42.0 mobil-feature `sidebar-overlay HTML-bug` élesben — a staging-first workflow megakadályozta volna
+- Diagnosztika: ha a `git status` "main" branch-en van új feature kezdésekor → STOP
+
 
 ## 19. Részletes fejlesztési ROADMAP
 
@@ -957,16 +992,38 @@ komsacsongor.github.io/kerek-rendeles/staging/ → xgcwxlwjlohzbzpcapnw.supabase
 | `SUPABASE_STAGING_DB_URL` | sync-staging restore (Session pooler) |
 | `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy (`sbp_...`) |
 
-### 20.4 Új munkamenet (kötelező sorrend)
+### 20.4 Új munkamenet — PRE-FLIGHT CHECK (kötelező)
 
-1. Új feature → `staging` branch
-2. Kódol, push staging
-3. Auto-deploy `/staging/` URL-re
-4. Új SQL: **CSAK staging Supabase-en** futtatás
-5. Tesztelés staging URL-en élő-adat klónon
-6. Ha rendben: `git merge main && push`
-7. Ugyanaz az SQL production-en
-8. Edge Function változás → automatikus staging deploy
+**Minden új feature ELŐTT**, kompromisszum nélkül:
+
+```bash
+# 1. PRE-FLIGHT (kötelező első parancsok)
+git status                          # → melyik branch?
+git branch --show-current           # → ha "main", VÁLTANI KELL
+git checkout staging                # → KÖTELEZŐ váltás
+git pull                            # → frissítés origin/staging-ről
+
+# 2. FEJLESZTÉS (csak staging-en)
+# ... kódolás ...
+git add -A
+git commit -m "feat: ..."
+git push origin staging             # → auto-deploy /staging/ URL-re
+
+# 3. TESZTELÉS (felhasználói)
+# A felhasználó teszteli a https://komsacsongor.github.io/kerek-rendeles/staging/ URL-en
+# SQL migráció: CSAK staging Supabase-en futtatja a felhasználó
+
+# 4. MERGE (CSAK felhasználói jóváhagyás után!)
+git checkout main
+git merge staging
+git push origin main                # → auto-deploy / URL-re (production)
+
+# 5. SQL azonosan production Supabase-en
+```
+
+⚠️ **Ha ez a sorrend megsérül**: új feature kerül élesbe tesztelés nélkül = lehetséges adat-/UX-/funkció-romlás éles vevőknek.
+
+⚠️ **Edge Function változás**: a deploy-edge-functions.yml workflow automatikusan staging-re deploy-ol main push-ra. Production-re manual workflow_dispatch szükséges (felhasználói jóváhagyás után).
 
 ### 20.5 SQL anti-pattern
 
