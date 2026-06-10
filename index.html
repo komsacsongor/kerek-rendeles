@@ -91,6 +91,47 @@
     <div id="install-success" style="display:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);padding:10px 14px;border-radius:10px;margin-top:24px;font-size:0.8rem;text-align:center">✓ Telepítve</div>
     <div class="footer" id="app-footer">KEREK Gluténmentes Pékség · komsacsongor.github.io/kerek-rendeles · <span id="version-display">v2.12.1</span></div>
   </div>
+<script>
+// v2.43.7: Explicit PWA telepítés gomb (Chrome / Edge / Safari)
+let kerekDeferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  kerekDeferredPrompt = e;
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'block';
+});
+
+window.addEventListener('appinstalled', () => {
+  kerekDeferredPrompt = null;
+  const banner = document.getElementById('install-banner');
+  const success = document.getElementById('install-success');
+  if (banner) banner.style.display = 'none';
+  if (success) success.style.display = 'block';
+});
+
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.style.display = 'none';
+    const success = document.getElementById('install-success');
+    if (success) success.style.display = 'block';
+  });
+}
+
+async function kerekInstallApp() {
+  if (!kerekDeferredPrompt) {
+    alert('A telepítés még nem érhető el. Próbáld újra 5 másodperc múlva, vagy használd a böngésző menüjét (⋮) → Telepítés / Hozzáadás a kezdőképernyőhöz.');
+    return;
+  }
+  kerekDeferredPrompt.prompt();
+  const result = await kerekDeferredPrompt.userChoice;
+  if (result.outcome === 'accepted') {
+    kerekDeferredPrompt = null;
+  }
+}
+window.kerekInstallApp = kerekInstallApp;
+</script>
 <script src="kerek-constants.js?v=2.43.7"></script>
 <script>
   const vd = document.getElementById('version-display');
