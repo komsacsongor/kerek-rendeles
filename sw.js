@@ -1,17 +1,26 @@
-const CACHE_NAME = 'kerek-v2.43.4';
+const CACHE_NAME = 'kerek-v2.43.5';
 const CACHE_URLS = [
+  // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
+  '/kerek-rendeles/index.html',
   '/kerek-rendeles/vevo.html',
+  '/kerek-rendeles/admin.html',
+  '/kerek-rendeles/receptura.html',
+  // Közös assets
   '/kerek-rendeles/kerek-styles.css',
   '/kerek-rendeles/kerek-constants.js',
   '/kerek-rendeles/supabase.js',
+  '/kerek-rendeles/fonts.css',
+  '/kerek-rendeles/img/icon-192.png',
+  '/kerek-rendeles/img/icon-512.png',
+  '/kerek-rendeles/img/logo_teal_vert.png',
+  '/kerek-rendeles/img/logo_white_horiz.png',
+  // Vevő modul JS
   '/kerek-rendeles/js/vevo-data.js',
   '/kerek-rendeles/js/vevo-orders-render.js',
   '/kerek-rendeles/js/vevo-orders-actions.js',
   '/kerek-rendeles/js/vevo-orders-extras.js',
   '/kerek-rendeles/js/vevo-ui.js',
   '/kerek-rendeles/js/vevo-analytics.js',
-  '/kerek-rendeles/img/icon-192.png',
-  '/kerek-rendeles/img/logo_teal_vert.png',
 ];
 
 // Install: cache core files

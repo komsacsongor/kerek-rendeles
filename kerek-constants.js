@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.43.4 (2026-06-10)';
+const APP_VERSION = 'v2.43.5 (2026-06-10)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -321,4 +321,18 @@ function startUnifiedPolling(callback, intervalMs) {
   } else {
     inject();
   }
+})();
+
+
+// v2.43.5: Service Worker regisztráció minden HTML-en (admin, receptura, index, vevo)
+// Eddig csak a vevo-data.js regisztrálta → admin/receptura/index PWA-telepíthetetlen volt
+(function registerKerekSW(){
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  // A vevő modul saját registráció-logikát futtat (push notification miatt) — kihagyom
+  if (typeof location !== 'undefined' && location.pathname.includes('vevo.html')) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/kerek-rendeles/sw.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Register failed:', err));
+  });
 })();
