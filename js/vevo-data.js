@@ -410,7 +410,7 @@ async function doLogin() {
   }
 }
 function logout() { localStorage.removeItem('kerek_vevo_data');
-  localStorage.removeItem('kerek_data'); window.location.href = 'vevo.html'; }
+  localStorage.removeItem('kerek_data'); window.location.href = 'index.html'; }
 
 // ===== v2.36.0: REALTIME HELPER-EK (vevő) =====
 function countMyMessages() {

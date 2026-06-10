@@ -13,11 +13,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#064C48">
 <link rel="apple-touch-icon" href="img/icon-192.png">
-<link rel="manifest" href="manifest-admin.json">
+<link rel="manifest" href="manifest.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.42.1"></script>
-<script src="supabase.js?v=2.42.1"></script>
+<script src="kerek-constants.js?v=2.43.0"></script>
+<script src="supabase.js?v=2.43.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -367,6 +367,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   <div class="sidebar-footer">
     <div class="admin-badge">👩‍💼 Admin belépve</div>
     <button id="btn-refresh-all" data-action="refreshAll" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:all 0.2s">🔄 Frissítés</button>
+    <button class="btn-logout" onclick="window.location.href='index.html'" style="margin-bottom:6px">← Főmenü</button>
     <button class="btn-logout" data-action="logout">Kilépés</button>
   </div>
 </aside>
@@ -944,17 +945,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
-<script src="js/admin-data.js?v=2.42.1"></script>
-<script src="js/admin-data-audit.js?v=2.42.1"></script>
-<script src="js/admin-ui.js?v=2.42.1"></script>
-<script src="js/admin-messages.js?v=2.42.1"></script>
-<script src="js/admin-baking.js?v=2.42.1"></script>
-<script src="js/admin-orders.js?v=2.42.1"></script>
-<script src="js/admin-catalog.js?v=2.42.1"></script>
-<script src="js/admin-clients.js?v=2.42.1"></script>
-<script src="js/admin-reports.js?v=2.42.1"></script>
-<script src="js/admin-help.js?v=2.42.1"></script>
-<script src="js/admin-push.js?v=2.42.1"></script>
-  <script src="js/admin-settings.js?v=2.42.1"></script>
+<script src="js/admin-data.js?v=2.43.0"></script>
+<script src="js/admin-data-audit.js?v=2.43.0"></script>
+<script src="js/admin-ui.js?v=2.43.0"></script>
+<script src="js/admin-messages.js?v=2.43.0"></script>
+<script src="js/admin-baking.js?v=2.43.0"></script>
+<script src="js/admin-orders.js?v=2.43.0"></script>
+<script src="js/admin-catalog.js?v=2.43.0"></script>
+<script src="js/admin-clients.js?v=2.43.0"></script>
+<script src="js/admin-reports.js?v=2.43.0"></script>
+<script src="js/admin-help.js?v=2.43.0"></script>
+<script src="js/admin-push.js?v=2.43.0"></script>
+  <script src="js/admin-settings.js?v=2.43.0"></script>
 </body>
 </html>
