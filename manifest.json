@@ -1,10 +1,10 @@
 {
-  "id": "/kerek-rendeles/?app=vevo",
+  "id": "kerek-vevo",
   "name": "KEREK Megrendelő",
   "short_name": "KEREK",
   "description": "KEREK gluténmentes pékség — havi megrendelő felület",
-  "start_url": "/kerek-rendeles/vevo.html",
-  "scope": "/kerek-rendeles/vevo",
+  "start_url": "./vevo.html",
+  "scope": "./",
   "display": "standalone",
   "launch_handler": {
     "client_mode": "navigate-new"
@@ -14,8 +14,8 @@
   "orientation": "portrait-primary",
   "lang": "hu",
   "icons": [
-    { "src": "/kerek-rendeles/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/kerek-rendeles/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "./img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "categories": ["food", "shopping"]
 }
