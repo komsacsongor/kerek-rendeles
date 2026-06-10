@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.43.2 (2026-06-10)';
+const APP_VERSION = 'v2.43.3 (2026-06-10)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -307,9 +307,6 @@ function startUnifiedPolling(callback, intervalMs) {
 (function() {
   if (typeof location === 'undefined' || !location.pathname.includes('/staging/')) return;
   if (typeof document === 'undefined') return;
-  // Index és regisztráció oldalakon NEM jelenítjük meg (mobil PWA install UX miatt)
-  const p = location.pathname.toLowerCase();
-  if (p.endsWith('/staging/') || p.endsWith('/staging/index.html') || p.endsWith('/staging/register.html')) return;
   function inject() {
     if (document.querySelector('.kerek-staging-banner')) return;
     const div = document.createElement('div');
