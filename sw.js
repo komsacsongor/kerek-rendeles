@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.43.8';
+const CACHE_NAME = 'kerek-v2.43.9';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -12,6 +12,8 @@ const CACHE_URLS = [
   '/kerek-rendeles/fonts.css',
   '/kerek-rendeles/img/icon-192.png',
   '/kerek-rendeles/img/icon-512.png',
+  '/kerek-rendeles/img/icon-admin-192.png',
+  '/kerek-rendeles/img/icon-admin-512.png',
   '/kerek-rendeles/img/logo_teal_vert.png',
   '/kerek-rendeles/img/logo_white_horiz.png',
   // Vevő modul JS

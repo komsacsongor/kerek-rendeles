@@ -33,7 +33,7 @@
     }
     .container{position:relative;z-index:1;text-align:center;padding:40px 20px;max-width:480px;width:100%}
     .logo{margin-bottom:12px}
-    .logo img{height:100px;width:auto}
+    .logo img{height:104px;width:auto;display:block;margin:0 auto;padding-bottom:4px}
     .tagline{color:rgba(255,255,255,0.7);font-size:0.85rem;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:48px}
     .cards{display:flex;flex-direction:column;gap:14px}
     .card{
@@ -132,7 +132,7 @@ async function kerekInstallApp() {
 }
 window.kerekInstallApp = kerekInstallApp;
 </script>
-<script src="kerek-constants.js?v=2.43.8"></script>
+<script src="kerek-constants.js?v=2.43.9"></script>
 <script>
   const vd = document.getElementById('version-display');
   if(vd && typeof APP_VERSION !== 'undefined') vd.textContent = APP_VERSION;
