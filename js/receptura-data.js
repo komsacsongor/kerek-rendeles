@@ -130,10 +130,32 @@ async function doLogin() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
       initApp();
+      // v2.43.10: programatikus jelszó-mentés a Chrome password manager-be
+      try {
+        if (window.PasswordCredential) {
+          const cred = new window.PasswordCredential({
+            id: 'receptura',
+            password: pw,
+            name: 'KEREK Receptúra'
+          });
+          await navigator.credentials.store(cred);
+        }
+      } catch(e) { console.warn('Password store failed:', e); }
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
     // Fallback
     if (pw === 'admin') {
+      // v2.43.10: programatikus jelszó-mentés a Chrome password manager-be (fallback ág)
+      try {
+        if (window.PasswordCredential) {
+          const cred = new window.PasswordCredential({
+            id: 'receptura',
+            password: pw,
+            name: 'KEREK Receptúra'
+          });
+          navigator.credentials.store(cred).catch(()=>{});
+        }
+      } catch(e) {}
       loggedIn = true;
       document.getElementById('login-screen').style.display = 'none';
       initApp();
