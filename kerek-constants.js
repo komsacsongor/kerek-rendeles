@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.44.4 (2026-06-11)';
+const APP_VERSION = 'v2.44.5 (2026-06-11)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -328,8 +328,9 @@ function startUnifiedPolling(callback, intervalMs) {
 // Eddig csak a vevo-data.js regisztrálta → admin/receptura/index PWA-telepíthetetlen volt
 (function registerKerekSW(){
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-  // A vevő modul saját registráció-logikát futtat (push notification miatt) — kihagyom
-  if (typeof location !== 'undefined' && location.pathname.includes('vevo.html')) return;
+  // v2.44.5: a vevő modulban is regisztráljuk SW-t — különben nincs PWA install gomb
+  // (az initPushSubscription csak belépés UTÁN regisztrál, ami túl késő a beforeinstallprompt-hoz)
+  // serviceWorker.register idempotens ugyanazon scope-ra, így nem konfliktusol a vevő-saját push logikával
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/kerek-rendeles/sw.js')
       .then(reg => console.log('[SW] Registered:', reg.scope))
