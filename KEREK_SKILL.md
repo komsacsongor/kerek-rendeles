@@ -1065,3 +1065,91 @@ A vevő-modulba a vevő-kóddal lehet belépni, NEM jelszóval.
 - **Az M0 mértékegység-támogatás** a logikus következő lépés — enélkül a bevásárló lista UX-e zavaros marad.
 - **Új session induláskor**: olvasd el a teljes fájlt, különösen a 12. (elkerülendő hibák) és a 18. (bug history) szekciókat.
 
+## 22. PWA + Mobil session tanulságai (v2.42.0 – v2.44.1, 2026-06-11)
+
+### 22.1 5 kulcs-tanulság
+
+| # | Hiba | Megoldás / megelőzés |
+|---|---|---|
+| **1** | **Regex függvény-DEFINÍCIÓT és HÍVÁST összemos** — pl. `kerekSaveRememberedPassword(pw)` egyaránt jelenti a `function ...(pw) {...}` definíciót ÉS a `kerekSaveRememberedPassword(pw)` hívást | Ellenőrzéskor: `re.sub(r'function \w+\([^)]*\)\s*\{[^}]*\}', '', code).count('functionName(')` — előbb távolítsd el a definíciókat, csak akkor számold a hívásokat |
+| **2** | **PWA scope túl tág** — `/kerek-rendeles/` magában foglalja a `/kerek-rendeles/staging/`-et is | Új PWA feature kezdetekor SCOPE-ot előre meghatározd. Vevő-app: `/kerek-rendeles/vevo`; Admin-app: `/kerek-rendeles/` |
+| **3** | **Manifest abszolút path-ok staging-en INVALID-ok** — `scope: /kerek-rendeles/` egy `/staging/manifest.json`-ról betöltve a Chrome szerint NEM telepíthető | RELATÍV path-ok mindig: `start_url: ./vevo.html`, `scope: ./`, `icons.src: ./img/...` |
+| **4** | **Chrome data breach blockolja a credentials.store-t** — gyenge jelszó (pl. `admin`) Have I Been Pwned-ban van, Chrome ennek hatására megtagadja a mentést | NE használj `navigator.credentials.store()`-t demo-jelszókra. Helyette KEREK saját localStorage (l. 22.3) |
+| **5** | **A staging branch push MINDIG failure** a deploy workflow-ban (Pages csak main-rel deploy-ol) | Minden staging push UTÁN manuális `workflow_dispatch ref:main` — a workflow checkout-olja a staging branchet is és felteszi `/staging/` alá |
+
+### 22.2 PWA architektúra (v2.43.x végleges)
+
+**2 különálló telepíthető PWA**:
+
+| App | Manifest | start_url | scope | id | Ikon | Hivatkozás |
+|---|---|---|---|---|---|---|
+| **Vevő** | `manifest.json` | `./vevo.html` | `./` | `kerek-vevo` | `icon-192/512.png` (teal) | csak `vevo.html` |
+| **Admin** | `manifest-admin.json` | `./index.html` | `./` | `kerek-admin` | `icon-admin-192/512.png` (gold) | `index.html`, `admin.html`, `receptura.html` |
+
+**Megjegyzések**:
+- `id` mező megkülönbözteti a 2 appot a Chrome-ban (W3C spec)
+- `launch_handler: { client_mode: 'navigate-new' }` — minden app-indítás a `start_url`-re ugrik, NEM az utolsó URL-re
+- `index.html` az admin-app főmenűje (3 kártya: Vevő / Admin / Receptúra)
+- A vevő-app a `vevo.html`-en marad, **NEM** látja az index.html-t (a vevők számára nincs főmenű)
+- Logout: vevő → `vevo.html`, admin/receptura → `index.html`
+
+### 22.3 KEREK saját jelszó-tárolás (v2.43.11 + v2.44.0)
+
+A Chrome / Samsung Pass / Google Password Manager **NEM ajánl mentést a PWA standalone módban**, mert:
+- `navigator.credentials.store()` data breach figyelmeztetést kap gyenge jelszóra
+- A `<form>` submit + `preventDefault()` nem triggereli a heurisztikát
+- A PWA standalone módban a Chrome password manager-ek többsége inaktív
+
+**Megoldás**: KEREK saját localStorage-tárolás minden 3 modulban:
+
+| Modul | Storage key | Tárolt érték |
+|---|---|---|
+| Admin | `kerek_admin_remember_pw` | base64(jelszó) |
+| Receptúra | `kerek_receptura_remember_pw` | base64(jelszó) |
+| Vevő | `kerek_vevo_remember_login` | base64(KER-kód / email / név) |
+
+**Helperek**: `kerekSave*`, `kerekLoad*`, `kerekForget*` minden modulban. Auto-load `DOMContentLoaded`-en. Save a `doLogin` SIKERES ágában.
+
+**Checkbox a login képernyőn**: "🔐 Maradjak bejelentkezve ezen az eszközön" — default: bekapcsolva (tulajdonosi felület).
+
+**Biztonsági szempont**: NEM titkosított, base64 csak álbiztonság. Saját tulajdonosi eszközön elfogadható, banki appokban tilos.
+
+### 22.4 Vevő modul login UX (v2.44.1)
+
+A vevő login mező **3 értéket** fogad el (Supabase lookup):
+1. Belépési kód (`KER-XXXX-XXXX`)
+2. Email cím
+3. Teljes név
+
+A login képernyőn egy `<details>` toggle: "🔑 Elfelejtetted a kódot?" — kinyitva részletes magyarázat. **Nincs szükség külön recovery flow-ra, hint-lookup-ra vagy email-küldésre**, mert a 3 alternatíva már önmagában recovery.
+
+### 22.5 Logo render fix
+
+A `logo_teal_vert.png` (2017x2791) és `logo_white_horiz.png` (4864x1886) CSS-rendereléskor az alsó pixel-ek aliasing miatt levágódhatnak. Fix:
+```css
+display:block; margin:0 auto; padding-bottom:4px
+```
+Plus a height-et kicsivel emeld: 80→84px (admin/receptura), 72→76px (vevő), 100→104px (index).
+
+### 22.6 Deploy concurrency hack
+
+A `.github/workflows/deploy.yml` jelenlegi viselkedése:
+- Trigger: `push: [main, staging]` + `workflow_dispatch`
+- Job: checkout main → `site/`, checkout staging → `site/staging/`, deploy artifact
+- Concurrency: `pages, cancel-in-progress: false`
+
+**Probléma**: a staging branch push-ja a Pages environment-ben FAIL-el (csak main engedélyezett). A workaround:
+
+```bash
+# Minden staging push UTÁN:
+curl -X POST -H "Authorization: token $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/komsacsongor/kerek-rendeles/actions/workflows/deploy.yml/dispatches" \
+  -d '{"ref":"main"}'
+```
+
+A workflow_dispatch a main-en futtat — de a staging branch HEAD-jét is felteszi a `/staging/` alá. **Tehát a staging URL frissül**, csak közvetett módon.
+
+**Jövőbeli javítás**: a deploy.yml módosítása hogy a staging branch push NE fail-eljen — esetleg külön job az artifact-build-re, közös deploy job.
+
+
