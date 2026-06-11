@@ -239,21 +239,6 @@ async function doLogin(){
       await loadAllData();
       initApp();
       auditLog('login', 'Admin', 'Sikeres belépés');
-      // v2.43.10: programatikus jelszó-mentés a Chrome password manager-be
-      // (a sima <form> submit nem trigger-eli, mert preventDefault + nincs URL-change)
-      try {
-        if (window.PasswordCredential) {
-          const pw = document.getElementById('login-pw')?.value;
-          if (pw) {
-            const cred = new window.PasswordCredential({
-              id: 'admin',
-              password: pw,
-              name: 'KEREK Admin'
-            });
-            await navigator.credentials.store(cred);
-          }
-        }
-      } catch(e) { console.warn('Password store failed:', e); }
       // v2.41.3: üres recept-státusz betöltés a figyelmeztetésekhez
       if (typeof loadProductRecipeStatus === 'function') await loadProductRecipeStatus();
       updateMsgBadge();
