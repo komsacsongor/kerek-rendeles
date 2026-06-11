@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.44.6';
+const CACHE_NAME = 'kerek-v2.45.0';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -77,7 +77,7 @@ self.addEventListener('push', event => {
     icon: '/kerek-rendeles/img/icon-192.png',
     badge: '/kerek-rendeles/img/icon-192.png',
     tag: data.tag || 'kerek-notification',
-    data: { url: data.url || '/kerek-rendeles/vevo.html' },
+    data: { url: data.url || '/kerek-rendeles/vevo.html', type: data.type },
     requireInteraction: true,  // v2.38.4: tartós megjelenítés desktop Chrome/Firefox-on
     vibrate: data.type === 'modified' ? [200, 100, 200] : [100],
   }));
@@ -85,5 +85,9 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data?.url || '/kerek-rendeles/vevo.html'));
+  const type = event.notification.data?.type;
+  let url = event.notification.data?.url || '/kerek-rendeles/vevo.html';
+  // Admin értesítések (új rendelés / új regisztráció) az admin appot nyitják
+  if (type === 'new_order' || type === 'new_client') url = '/kerek-rendeles/admin.html';
+  event.waitUntil(clients.openWindow(url));
 });

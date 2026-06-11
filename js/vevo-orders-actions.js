@@ -121,6 +121,16 @@ async function saveOrder() {
           appData.orderStatus[key] = { ...st, status: 'pending' };
         }
       }
+      // Admin értesítés új/módosított rendelésről (60s throttle, hogy ne spammeljen)
+      try {
+        const now = Date.now();
+        if (typeof sendPushToClient === 'function' && (now - _lastAdminOrderPush > 60000)) {
+          _lastAdminOrderPush = now;
+          const vn = currentUser?.name || 'Vevő';
+          sendPushToClient('ADMIN', 'new_order', '🛒 Új rendelés',
+            `${vn} rendelt — ${selectedYear}. ${selectedMonth + 1}. hónap`).catch(()=>{});
+        }
+      } catch(_) {}
     }
     if(msg) {
       const now = Date.now();
