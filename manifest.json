@@ -4,7 +4,7 @@
   "short_name": "Megrendelő",
   "description": "KEREK gluténmentes pékség — havi megrendelő felület",
   "start_url": "./vevo.html",
-  "scope": "./vevo",
+  "scope": "./",
   "display": "standalone",
   "launch_handler": {
     "client_mode": "navigate-new"
