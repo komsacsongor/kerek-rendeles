@@ -239,6 +239,7 @@ async function doLogin(){
       await loadAllData();
       initApp();
       auditLog('login', 'Admin', 'Sikeres belépés');
+      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
       // v2.41.3: üres recept-státusz betöltés a figyelmeztetésekhez
       if (typeof loadProductRecipeStatus === 'function') await loadProductRecipeStatus();
       updateMsgBadge();

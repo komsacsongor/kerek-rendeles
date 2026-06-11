@@ -130,6 +130,7 @@ async function doLogin() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
       initApp();
+      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
     // Fallback
@@ -137,6 +138,7 @@ async function doLogin() {
       loggedIn = true;
       document.getElementById('login-screen').style.display = 'none';
       initApp();
+      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
     } else { loginError('❌ Hibás jelszó!'); }
   }
 }
