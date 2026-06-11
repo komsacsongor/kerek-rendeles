@@ -58,9 +58,18 @@ function updatePendingBadge() {
 
   var pendingOrders = 0;
   var m = new Date().getMonth(); var y = new Date().getFullYear();
-  Object.keys(D.orderStatus || {}).forEach(function(k) {
-    var v = D.orderStatus[k];
-    if (v.status === 'pending' && k.indexOf('-' + y + '-' + m + '-') > -1) pendingOrders++;
+  // v2.44.4 FIX: D.orders-t iterálom (NEM csak D.orderStatus-t)
+  // Az alapértelmezett 'pending' status NINCS explicit rekord az order_status táblában,
+  // ezért a régi logika nem találta a friss (nem-jóváhagyott) rendeléseket.
+  // Most: minden D.orders[k] rekord 'pending'-nek számít, kivéve ha explicit más státusz van.
+  Object.keys(D.orders || {}).forEach(function(k) {
+    if (k.indexOf('-' + y + '-' + m + '-') === -1) return;
+    var ords = D.orders[k] || {};
+    var totalQty = 0;
+    Object.values(ords).forEach(function(q){ totalQty += (Number(q) || 0); });
+    if (totalQty === 0) return; // 0-mennyiségű rendelés nem számít
+    var status = (D.orderStatus && D.orderStatus[k] && D.orderStatus[k].status) || 'pending';
+    if (status === 'pending') pendingOrders++;
   });
   var ob = document.getElementById('orders-badge');
   if (!ob) {
