@@ -251,6 +251,7 @@ async function doLogin() {
     currentUser = client;
     document.getElementById('login-screen').style.display = 'none';
     auditLog('login', currentUser.name||currentUser.id, 'Vevő belépés');
+    if (typeof kerekVevoSaveLogin === 'function') kerekVevoSaveLogin(val);
     if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
     const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
@@ -624,4 +625,52 @@ function applyVevoHeader() {
 if (typeof window !== 'undefined') {
   window.applyVevoHeader = applyVevoHeader;
   window.getBakingDayNamesText = getBakingDayNamesText;
+}
+
+
+// ============================================================
+// v2.44.0: "Maradjak bejelentkezve" — KEREK saját login-tárolás
+// localStorage-ban (KER-kód, email vagy név — amit a vevő megadott)
+// ============================================================
+const KEREK_VEVO_REMEMBER_KEY = 'kerek_vevo_remember_login';
+
+function kerekVevoSaveLogin(loginValue) {
+  try {
+    const cb = document.getElementById('remember-vevo-login');
+    if (cb && cb.checked && loginValue) {
+      localStorage.setItem(KEREK_VEVO_REMEMBER_KEY, btoa(unescape(encodeURIComponent(loginValue))));
+    } else {
+      localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY);
+    }
+  } catch(e) { console.warn('Vevő remember save failed:', e); }
+}
+
+function kerekVevoLoadLogin() {
+  try {
+    const saved = localStorage.getItem(KEREK_VEVO_REMEMBER_KEY);
+    if (!saved) return;
+    const val = decodeURIComponent(escape(atob(saved)));
+    const input = document.getElementById('login-input');
+    const cb = document.getElementById('remember-vevo-login');
+    if (input && !input.value) input.value = val;
+    if (cb) cb.checked = true;
+  } catch(e) { console.warn('Vevő remember load failed:', e); }
+}
+
+function kerekVevoForgetLogin() {
+  try { localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY); } catch(e) {}
+  const input = document.getElementById('login-input');
+  const cb = document.getElementById('remember-vevo-login');
+  if (input) input.value = '';
+  if (cb) cb.checked = false;
+}
+
+if (typeof window !== 'undefined') {
+  window.kerekVevoSaveLogin = kerekVevoSaveLogin;
+  window.kerekVevoForgetLogin = kerekVevoForgetLogin;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', kerekVevoLoadLogin);
+  } else {
+    kerekVevoLoadLogin();
+  }
 }
