@@ -132,7 +132,8 @@ async function loadAllData() {
       D.ingredients = (ings||[]).map(i => ({
         id: i.id, name: i.name, category: i.category, subType: i.sub_type,
         minStockOverrideG: i.min_stock_override_g, minStockAutoG: i.min_stock_auto_g,
-        maxStockOverrideG: i.max_stock_override_g, maxStockAutoG: i.max_stock_auto_g
+        maxStockOverrideG: i.max_stock_override_g, maxStockAutoG: i.max_stock_auto_g,
+        preferredSupplierId: i.preferred_supplier_id || null, materialType: i.material_type || null
       }));
     }),
     sb.query('ingredient_batches', { limit: 2000 }).then(batches => {
