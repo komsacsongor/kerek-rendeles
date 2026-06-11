@@ -1153,3 +1153,51 @@ A workflow_dispatch a main-en futtat — de a staging branch HEAD-jét is feltes
 **Jövőbeli javítás**: a deploy.yml módosítása hogy a staging branch push NE fail-eljen — esetleg külön job az artifact-build-re, közös deploy job.
 
 
+### 22.7 Vevő PWA scope hibalecke (v2.44.2 → v2.44.3 visszavonás)
+
+**Próbáltam**: vevő manifest `scope: ./vevo` → `/kerek-rendeles/vevo`, hogy elkülönítse a vevő-appot az admin-tól. A `start_url: ./vevo.html` látszólag a scope-on belül van string-prefix match-szel.
+
+**Chrome viselkedése**: a strict PWA spec szerint a scope-validáció **path-szegmens szerinti**, NEM karakter-szerinti string prefix. A `vevo` partial filename → a `vevo.html` NEM esik a scope `/kerek-rendeles/vevo` ALÁ → Chrome **INVALID-nak** jelöli a manifest-et → NINCS Telepítés gomb.
+
+**Tanulság**:
+- Scope-szűkítés CSAK directory-szegmensre (slash-szel végződő) működik, pl. `/kerek-rendeles/vevo/`
+- Részfájl-prefix (`/kerek-rendeles/vevo`) → strict spec szerint INVALID
+- Két különálló PWA megkülönböztetése: a `manifest.id` mező az elsődleges (W3C), NEM a scope
+- A scope-konfliktus (pl. admin app elnyeli a vevő-URL-t) **NEM kerülhető meg scope-szűkítéssel** → a megoldás: a felhasználó telepítse mindkét appot, és a Chrome a manifest URL alapján dönt
+
+**Visszaállás**: v2.44.3-ban `scope: ./` mindkét manifestben.
+
+### 22.8 Badge default-status handling (v2.44.4)
+
+**Bug**: `updatePendingBadge` (admin-ui.js) csak az `D.orderStatus`-ban LÉTEZŐ rekordokat iterálta. Az "új rendelés alapból pending" eset NEM rögzít rekordot az `order_status` táblába → a sidebar `orders-badge` 0-t mutatott, hiába volt az új rendelés.
+
+**Tanulság**: ha egy státusz-érték DEFAULT (nincs explicit rekord a táblában), a számláló NE az `orderStatus`-ot iterálja, hanem a **tényleges rendeléseket** (`D.orders`), és az `orderStatus`-t mint felülírást használja.
+
+**Fix**:
+```js
+Object.keys(D.orders || {}).forEach(function(k) {
+  if (k.indexOf('-' + y + '-' + m + '-') === -1) return;
+  var totalQty = 0;
+  Object.values(D.orders[k]).forEach(function(q){ totalQty += (Number(q) || 0); });
+  if (totalQty === 0) return; // 0-mennyiségű rendelés nem számít
+  var status = (D.orderStatus && D.orderStatus[k] && D.orderStatus[k].status) || 'pending';
+  if (status === 'pending') pendingOrders++;
+});
+```
+
+Ez a minta minden más default-status badge-re érvényes (pl. `confirmed` is lehet default ha auto-confirm fut). A kulcs: **iterálj az adat-táblát, és a status-rekord opcionális felülírás**.
+
+### 22.9 Két baking-list jelzés: 🔴 Hiány vs ⚠️ — különálló helyzetek
+
+A felhasználói tapasztalat alapján ez gyakran zavarkeltő:
+
+| Jelzés | Forrás | Helyzet |
+|---|---|---|
+| 🔴 **Hiány** piros | `stockBadge` (admin-baking.js:68) | Van recept, de a raktárban kevesebb alapanyag van mint amennyi a rendelés teljesítéséhez kell |
+| ⚠️ narancs háromszög | `!hasIngredientRecipe(p.id)` (admin-baking.js:157, 326, 345) | A termékhez NINCS recept feltöltve a Receptúra modulban → nem lehet kiszámolni az alapanyag-igényt |
+
+A két jelzés **EGYÜTT is megjelenhet**, ha a Hiány-számításhoz a recept létezik DE üres (nincs alapanyag rögzítve). A megoldás: töltsd fel a recepteket → mind a Hiány-számítás működik.
+
+**Tanulság**: ha UI elemek hasonlóak de mások a forrásai, érdemes egységes tooltip-szöveget adni hozzájuk + a help-section-ben magyarázni. Jövőbeli feladat: tooltip-magyarázat az ⚠️-ra.
+
+
