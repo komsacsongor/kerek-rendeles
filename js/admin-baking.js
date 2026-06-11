@@ -299,7 +299,9 @@ function renderBaking(){
       headerBadge = '<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700">✏️ Módosított</span>';
     }
 
-    html+='<div class="baking-day-card">';
+    const _dayKey = y + '-' + m + '-' + day;
+    const _isDayOpen = (window._openBakingDays && window._openBakingDays.has(_dayKey));
+    html+='<div class="baking-day-card" data-day-key="' + _dayKey + '">';
     html+='<div class="baking-day-head" onclick="toggleBakingDay(this)" style="cursor:pointer">';
     html+='<h4>🔥 ' + dayName + ', ' + MONTHS[m] + ' ' + day + '.</h4>';
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
@@ -314,7 +316,7 @@ function renderBaking(){
         '<button onclick="confirmDay(' + y + ',' + m + ',' + day + ')" style="background:var(--gold);color:var(--teal-dark);border:none;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;width:100%">✅ Mindent jóváhagy</button>' +
         '</div>'
       : '';
-    html+='<div class="baking-day-body">';
+    html+='<div class="baking-day-body' + (_isDayOpen ? ' open' : '') + '">';
     html+=confirmBtnInBody;
 
     activeP.forEach(function(p){
@@ -342,7 +344,7 @@ function renderBaking(){
         // Build product preview list (visible only when expanded)
         const previewItems = Object.entries(o).map(function(e){
           const pid=e[0], q=e[1]; const p=D.products.find(function(p){return p.id==pid;});
-          return p ? ((typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706" title="Üres recept!">⚠️</span> ' : '') + esc(p.name) + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
+          return p ? ((typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706" title="Üres recept!">⚠️</span> ' : '') + esc(p.name) + (p.weight ? ' <span style="color:#888;font-size:0.92em">' + esc(p.weight) + '</span>' : '') + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
         }).filter(Boolean).join(' · ');
 
         html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px">';
@@ -371,7 +373,19 @@ function renderBaking(){
 
   document.getElementById('baking-content').innerHTML=html||'<p class="text-soft">Nincsenek sütési napok.</p>';
 }
-function toggleBakingDay(el){ el.nextElementSibling.classList.toggle('open'); }
+// v2.44.6: nap-szintű open-state megőrzés (Realtime re-render-rel nem csukódik be)
+window._openBakingDays = window._openBakingDays || new Set();
+function toggleBakingDay(el){
+  const body = el.nextElementSibling;
+  const card = el.parentElement;
+  const dayKey = card.getAttribute('data-day-key');
+  const willOpen = !body.classList.contains('open');
+  body.classList.toggle('open');
+  if (dayKey) {
+    if (willOpen) window._openBakingDays.add(dayKey);
+    else window._openBakingDays.delete(dayKey);
+  }
+}
 
 // ===== BAKING CALENDAR =====
 function initBakingCalendar(){
