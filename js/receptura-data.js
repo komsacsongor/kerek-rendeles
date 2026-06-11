@@ -380,3 +380,51 @@ async function initApp() {
     } catch(e) { console.warn('Receptura polling:', e.message); }
   }, 30000);
 }
+
+
+// ============================================================
+// v2.43.11: "Maradjak bejelentkezve" — localStorage-ban tárolt jelszó
+// ============================================================
+const KEREK_REMEMBER_KEY = 'kerek_receptura_remember_pw';
+
+function kerekSaveRememberedPassword(pw) {
+  try {
+    const cb = document.getElementById('remember-pw');
+    if (cb && cb.checked && pw) {
+      localStorage.setItem(KEREK_REMEMBER_KEY, btoa(unescape(encodeURIComponent(pw))));
+    } else {
+      localStorage.removeItem(KEREK_REMEMBER_KEY);
+    }
+  } catch(e) { console.warn('Remember pw save failed:', e); }
+}
+
+function kerekLoadRememberedPassword() {
+  try {
+    const saved = localStorage.getItem(KEREK_REMEMBER_KEY);
+    if (!saved) return;
+    const pw = decodeURIComponent(escape(atob(saved)));
+    const input = document.getElementById('login-pw');
+    const cb = document.getElementById('remember-pw');
+    if (input && !input.value) input.value = pw;
+    if (cb) cb.checked = true;
+  } catch(e) { console.warn('Remember pw load failed:', e); }
+}
+
+function kerekForgetRememberedPassword() {
+  try { localStorage.removeItem(KEREK_REMEMBER_KEY); } catch(e) {}
+  const input = document.getElementById('login-pw');
+  const cb = document.getElementById('remember-pw');
+  if (input) input.value = '';
+  if (cb) cb.checked = false;
+}
+
+if (typeof window !== 'undefined') {
+  window.kerekSaveRememberedPassword = kerekSaveRememberedPassword;
+  window.kerekForgetRememberedPassword = kerekForgetRememberedPassword;
+  // Auto-load on DOMContentLoaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', kerekLoadRememberedPassword);
+  } else {
+    kerekLoadRememberedPassword();
+  }
+}

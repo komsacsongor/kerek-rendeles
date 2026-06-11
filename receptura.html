@@ -16,8 +16,8 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.43.10"></script>
-<script src="supabase.js?v=2.43.10"></script>
+<script src="kerek-constants.js?v=2.43.11"></script>
+<script src="supabase.js?v=2.43.11"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css">
 <style>
@@ -295,6 +295,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <label>Jelszó</label>
       <input type="password" id="login-pw" name="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
+      <div style="margin:4px 0 12px;font-size:0.82rem;color:#555">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="remember-pw" checked style="width:18px;height:18px;cursor:pointer;accent-color:var(--teal)">
+          <span>🔐 Maradjak bejelentkezve ezen az eszközön</span>
+        </label>
+      </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" data-action="doLogin">Belépés →</button>
     </form>
     <div id="login-error" class="login-error"></div>
@@ -961,23 +967,23 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.43.10"></script>
-<script src="js/receptura-ui.js?v=2.43.10"></script>
-<script src="js/receptura-recipes.js?v=2.43.10"></script>
-<script src="js/receptura-operational.js?v=2.43.10"></script>
-<script src="js/receptura-ingredients.js?v=2.43.10"></script>
-<script src="js/receptura-settings.js?v=2.43.10"></script>
-<script src="js/receptura-ing-cats.js?v=2.43.10"></script>
-<script src="js/receptura-recipe-cats.js?v=2.43.10"></script>
-<script src="js/receptura-processing.js?v=2.43.10"></script>
-  <script src="js/receptura-help.js?v=2.43.10"></script>
-  <script src="js/receptura-levain.js?v=2.43.10"></script>
-<script src="js/receptura-production.js?v=2.43.10"></script>
-<script src="js/receptura-stock.js?v=2.43.10"></script>
-<script src="js/receptura-modal.js?v=2.43.10"></script>
-<script src="js/receptura-ai.js?v=2.43.10"></script>
-<script src="js/receptura-shopping.js?v=2.43.10"></script>
-<script src="js/receptura-suppliers.js?v=2.43.10"></script>
+<script src="js/receptura-data.js?v=2.43.11"></script>
+<script src="js/receptura-ui.js?v=2.43.11"></script>
+<script src="js/receptura-recipes.js?v=2.43.11"></script>
+<script src="js/receptura-operational.js?v=2.43.11"></script>
+<script src="js/receptura-ingredients.js?v=2.43.11"></script>
+<script src="js/receptura-settings.js?v=2.43.11"></script>
+<script src="js/receptura-ing-cats.js?v=2.43.11"></script>
+<script src="js/receptura-recipe-cats.js?v=2.43.11"></script>
+<script src="js/receptura-processing.js?v=2.43.11"></script>
+  <script src="js/receptura-help.js?v=2.43.11"></script>
+  <script src="js/receptura-levain.js?v=2.43.11"></script>
+<script src="js/receptura-production.js?v=2.43.11"></script>
+<script src="js/receptura-stock.js?v=2.43.11"></script>
+<script src="js/receptura-modal.js?v=2.43.11"></script>
+<script src="js/receptura-ai.js?v=2.43.11"></script>
+<script src="js/receptura-shopping.js?v=2.43.11"></script>
+<script src="js/receptura-suppliers.js?v=2.43.11"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>
