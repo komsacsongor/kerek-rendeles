@@ -6,6 +6,7 @@ function renderSettings(){
   document.getElementById('s-conditions').value=D.helpConditions||'';
   document.getElementById('s-delivery').value=D.helpDelivery||'';
   renderCategoriesList();
+  const rs = document.getElementById('s-respect-shortage'); if (rs) rs.checked = D.settings?.auto_confirm_respect_shortage === true;
   if (typeof updateAdminPushBtn === 'function') updateAdminPushBtn();
 }
 

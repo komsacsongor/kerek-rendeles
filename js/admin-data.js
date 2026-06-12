@@ -154,7 +154,7 @@ async function loadAllData() {
 
   // Settings still sequential (small and depend on each other potentially)
   try {
-    const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery', 'admin_seen_msgs'];
+    const settingKeys = ['baking_days_default', 'categories', 'lang', 'currency', 'help_conditions', 'help_delivery', 'admin_seen_msgs', 'auto_confirm_respect_shortage'];
     const settingTasks = settingKeys.map(key => sb.getSetting(key).then(val => ({ key, val })));
     const settingResults = await Promise.allSettled(settingTasks);
     settingResults.forEach(r => {
@@ -167,6 +167,7 @@ async function loadAllData() {
       else if (key === 'help_conditions') D.helpConditions = val;
       else if (key === 'help_delivery') D.helpDelivery = val;
       else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
+      else if (key === 'auto_confirm_respect_shortage') D.settings.auto_confirm_respect_shortage = (val === true);
     });
   } catch(e) { console.error('loadAllData [settings]:', e.message); }
 

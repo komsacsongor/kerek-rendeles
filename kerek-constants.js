@@ -2,7 +2,11 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
+<<<<<<< Updated upstream
 const APP_VERSION = 'v2.45.3 (2026-06-12)';
+=======
+const APP_VERSION = 'v2.46.0 (2026-06-12)';
+>>>>>>> Stashed changes
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
