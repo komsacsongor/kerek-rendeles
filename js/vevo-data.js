@@ -148,6 +148,7 @@ let appData = JSON.parse(localStorage.getItem('kerek_vevo_data') || 'null') || {
 
 let currentUser = null;
 let _lastMsgSent = 0; // Rate limiting: 30 másodperc üzenetek között
+let _lastAdminOrderPush = 0; // Admin push throttle: 60 másodperc rendelés-értesítések között
 let selectedMonth = new Date().getMonth();
 let selectedYear = new Date().getFullYear();
 let summaryMonth = selectedMonth;

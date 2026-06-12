@@ -50,14 +50,16 @@ async function renderDataAudit() {
       batches.filter(b => (b.supplier_name || '').trim()).map(b => b.ingredient_id)
     );
     const noSupplierIngs = ingredients.filter(i =>
-      !i.preferred_supplier_id && !ingsWithBatch.has(i.id) && i.material_type !== 'tool'
+      !i.preferredSupplierId && !ingsWithBatch.has(i.id) && i.materialType !== 'tool'
     );
 
-    // 3. Gyanús min/max (< 50 g) — heurisztika: valószínűleg kg-ban gondolt
+    // 3. Gyanús min/max (< 50 g) — heurisztika: valószínűleg kg-ban gondolt.
+    // Effektív érték: override elsőbbség, fallback auto (mint a receptúrában).
+    const _effMin = i => Number(i.minStockOverrideG ?? i.minStockAutoG) || 0;
+    const _effMax = i => Number(i.maxStockOverrideG ?? i.maxStockAutoG) || 0;
     const absurdMinMax = ingredients.filter(i => {
-      const min = Number(i.min_stock_g) || 0;
-      const crit = Number(i.critical_stock_g) || 0;
-      return (min > 0 && min < 50) || (crit > 0 && crit < 50);
+      const min = _effMin(i), max = _effMax(i);
+      return (min > 0 && min < 50) || (max > 0 && max < 50);
     });
 
     // 4. PENDING vevők
@@ -81,8 +83,8 @@ async function renderDataAudit() {
       },
       {
         icon: '⚖️', title: 'Gyanús min/max értékek', count: absurdMinMax.length,
-        desc: 'Min vagy kritikus szint < 50 g — valószínűleg kg-ban gondolt amikor felvette (pl. Burgonya 1g)',
-        items: absurdMinMax.map(i => `${eh(i.name)} — min: ${eh(i.min_stock_g||'?')}g, kritikus: ${eh(i.critical_stock_g||'?')}g`),
+        desc: 'Min vagy max szint < 50 g — valószínűleg kg-ban gondolt amikor felvette (pl. Burgonya 1g)',
+        items: absurdMinMax.map(i => `${eh(i.name)} — min: ${eh(_effMin(i)||'?')}g, max: ${eh(_effMax(i)||'?')}g`),
         color: '#d97706', action: 'Receptúra → Alapanyagok & Készlet → szerkesztés → helyes érték (g-ben!)'
       },
       {

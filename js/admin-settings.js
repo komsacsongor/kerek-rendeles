@@ -6,6 +6,94 @@ function renderSettings(){
   document.getElementById('s-conditions').value=D.helpConditions||'';
   document.getElementById('s-delivery').value=D.helpDelivery||'';
   renderCategoriesList();
+  if (typeof updateAdminPushBtn === 'function') updateAdminPushBtn();
+}
+
+// ===== ADMIN PUSH ÉRTESÍTÉSEK (ezen az eszközön) =====
+// Az admin a fenntartott 'ADMIN' client_id alatt iratkozik fel a meglévő push_subscriptions táblába.
+// Ugyanaz a publikus VAPID kulcs mint a vevőnél.
+const ADMIN_PUSH_VAPID = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
+const ADMIN_PUSH_ID = 'ADMIN';
+
+function _adminUrlB64ToU8(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initAdminPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('⚠️ Ez a böngésző nem támogatja az értesítéseket.', true); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { toast('🔕 Az értesítések nem lettek engedélyezve.', true); await updateAdminPushBtn(); return; }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _adminUrlB64ToU8(ADMIN_PUSH_VAPID)
+      });
+    }
+    const j = sub.toJSON();
+    await sb.upsert('push_subscriptions', {
+      client_id: ADMIN_PUSH_ID,
+      endpoint: j.endpoint,
+      p256dh: j.keys.p256dh,
+      auth: j.keys.auth
+    }, 'client_id,endpoint');
+    toast('🔔 Értesítések bekapcsolva ezen az eszközön!');
+  } catch(e) { console.warn('Admin push init:', e.message); toast('⚠️ Hiba: ' + e.message, true); }
+  await updateAdminPushBtn();
+}
+
+async function toggleAdminPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('⚠️ Ez a böngésző nem támogatja az értesítéseket.', true); return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    try {
+      const j = existing.toJSON();
+      await existing.unsubscribe();
+      await sb.delete('push_subscriptions', `client_id=eq.${ADMIN_PUSH_ID}&endpoint=eq.${encodeURIComponent(j.endpoint)}`);
+    } catch(e) { console.warn('Admin push off:', e.message); }
+    toast('🔕 Értesítések kikapcsolva ezen az eszközön.');
+    await updateAdminPushBtn();
+  } else {
+    await initAdminPush();
+  }
+}
+
+async function updateAdminPushBtn() {
+  const btn = document.getElementById('admin-push-btn');
+  const status = document.getElementById('admin-push-status');
+  if (!btn) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    btn.style.display = 'none';
+    if (status) status.textContent = 'Ez a böngésző nem támogatja az értesítéseket.';
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    btn.disabled = true; btn.textContent = '🔕 Értesítések tiltva';
+    if (status) status.textContent = 'A böngésző beállításaiban engedélyezned kell az értesítéseket ehhez az oldalhoz.';
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    btn.disabled = false;
+    if (sub) {
+      btn.textContent = '🔕 Értesítések kikapcsolása';
+      if (status) status.textContent = '✅ Bekapcsolva ezen az eszközön.';
+    } else {
+      btn.textContent = '🔔 Értesítések bekapcsolása';
+      if (status) status.textContent = 'Jelenleg kikapcsolva ezen az eszközön.';
+    }
+  } catch(e) { console.warn('updateAdminPushBtn:', e.message); }
 }
 function renderCategoriesList(){
   document.getElementById('categories-list').innerHTML = D.categories.map((cat,i) => {
