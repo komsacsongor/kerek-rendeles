@@ -16,10 +16,10 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.47.0"></script>
-<script src="supabase.js?v=2.47.0"></script>
+<script src="kerek-constants.js?v=2.47.1"></script>
+<script src="supabase.js?v=2.47.1"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.47.0">
+<link rel="stylesheet" href="kerek-styles.css?v=2.47.1">
 <style>
 :root {
   --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6;
@@ -462,6 +462,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div style="font-size:0.8rem;color:var(--text-soft)">
         Nyers: <b id="op-raw-weight">—</b> g &nbsp;|&nbsp; Levain: <b id="op-levain-needed">—</b> g
       </div>
+    </div>
+    <div id="op-recipe-desc-wrap" style="display:none;margin-bottom:12px">
+      <div onclick="const b=document.getElementById('op-recipe-desc');const a=this.querySelector('.op-desc-arr');const o=b.style.display==='none';b.style.display=o?'block':'none';a.textContent=o?'▴':'▾'" style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--teal-pale);border-radius:8px;cursor:pointer;user-select:none">
+        <span style="font-weight:600;color:var(--teal-dark);font-size:0.85rem">📖 Recept leírás / folyamat</span>
+        <span style="font-size:0.72rem;color:var(--text-soft)">(új kollégának)</span>
+        <span class="op-desc-arr" style="margin-left:auto;color:var(--text-soft)">▾</span>
+      </div>
+      <div id="op-recipe-desc" style="display:none;padding:12px 16px;background:#fff;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;font-size:0.85rem;color:var(--teal-dark);line-height:1.5;white-space:pre-wrap"></div>
     </div>
     <div class="grid-2">
       <div>
@@ -982,23 +990,23 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.47.0"></script>
-<script src="js/receptura-ui.js?v=2.47.0"></script>
-<script src="js/receptura-recipes.js?v=2.47.0"></script>
-<script src="js/receptura-operational.js?v=2.47.0"></script>
-<script src="js/receptura-ingredients.js?v=2.47.0"></script>
-<script src="js/receptura-settings.js?v=2.47.0"></script>
-<script src="js/receptura-ing-cats.js?v=2.47.0"></script>
-<script src="js/receptura-recipe-cats.js?v=2.47.0"></script>
-<script src="js/receptura-processing.js?v=2.47.0"></script>
-  <script src="js/receptura-help.js?v=2.47.0"></script>
-  <script src="js/receptura-levain.js?v=2.47.0"></script>
-<script src="js/receptura-production.js?v=2.47.0"></script>
-<script src="js/receptura-stock.js?v=2.47.0"></script>
-<script src="js/receptura-modal.js?v=2.47.0"></script>
-<script src="js/receptura-ai.js?v=2.47.0"></script>
-<script src="js/receptura-shopping.js?v=2.47.0"></script>
-<script src="js/receptura-suppliers.js?v=2.47.0"></script>
+<script src="js/receptura-data.js?v=2.47.1"></script>
+<script src="js/receptura-ui.js?v=2.47.1"></script>
+<script src="js/receptura-recipes.js?v=2.47.1"></script>
+<script src="js/receptura-operational.js?v=2.47.1"></script>
+<script src="js/receptura-ingredients.js?v=2.47.1"></script>
+<script src="js/receptura-settings.js?v=2.47.1"></script>
+<script src="js/receptura-ing-cats.js?v=2.47.1"></script>
+<script src="js/receptura-recipe-cats.js?v=2.47.1"></script>
+<script src="js/receptura-processing.js?v=2.47.1"></script>
+  <script src="js/receptura-help.js?v=2.47.1"></script>
+  <script src="js/receptura-levain.js?v=2.47.1"></script>
+<script src="js/receptura-production.js?v=2.47.1"></script>
+<script src="js/receptura-stock.js?v=2.47.1"></script>
+<script src="js/receptura-modal.js?v=2.47.1"></script>
+<script src="js/receptura-ai.js?v=2.47.1"></script>
+<script src="js/receptura-shopping.js?v=2.47.1"></script>
+<script src="js/receptura-suppliers.js?v=2.47.1"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>
