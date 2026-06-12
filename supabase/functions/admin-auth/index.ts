@@ -55,10 +55,17 @@ Deno.serve(async (req: Request) => {
     if (typeof password !== 'string' || password.length === 0) {
       return json({ success: false, error: 'missing_password' }, 400)
     }
+    // v2.48.0: modul-specifikus jelszó. Whitelist a tetszőleges admin_secrets kulcs-olvasás ellen.
+    const ALLOWED_MODULES = ['admin', 'receptura', 'gyartas']
+    const moduleName = ALLOWED_MODULES.includes(body?.module) ? body.module : 'admin'
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
-    // v2.30.0+: admin_password moved to dedicated admin_secrets table with strict RLS
-    const { data, error } = await sb.from('admin_secrets').select('value').eq('key', 'admin_password').single()
+    // v2.30.0+: jelszavak az admin_secrets-ben (szigorú RLS). Modul jelszó; ha nincs külön
+    // beállítva (és nem admin), visszaesik az admin jelszóra (visszafelé kompatibilis).
+    let { data, error } = await sb.from('admin_secrets').select('value').eq('key', moduleName + '_password').maybeSingle()
+    if ((error || !data?.value) && moduleName !== 'admin') {
+      ;({ data, error } = await sb.from('admin_secrets').select('value').eq('key', 'admin_password').maybeSingle())
+    }
     if (error || !data?.value) return json({ success: false, error: 'not_configured' }, 500)
 
     // Stored value may be plain (legacy) or sha256 hex (current).
