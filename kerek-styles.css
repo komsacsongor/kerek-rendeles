@@ -169,50 +169,57 @@ body.has-sticky-total {
   padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
 
-/* ----- TOOLTIP rendszer (#4) ----- */
+/* ----- TOOLTIP rendszer (#4) — v2.45.2: tördelés + mobil tap ----- */
 [data-tip] {
   position: relative;
 }
 [data-tip]:hover::after,
-[data-tip]:focus-visible::after {
+[data-tip]:focus-visible::after,
+[data-tip].tip-open::after {
   content: attr(data-tip);
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 7px);
   left: 50%;
   transform: translateX(-50%);
   background: #1a2e31;
   color: #fff;
   font-size: 0.72rem;
   font-family: 'Kodchasan', sans-serif;
-  padding: 5px 9px;
-  border-radius: 5px;
-  white-space: nowrap;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  text-align: center;
+  line-height: 1.35;
   z-index: 10000;
   pointer-events: none;
   opacity: 0;
   animation: tipFadeIn 0.15s ease-out 0.4s forwards;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+}
+[data-tip]:hover::before,
+[data-tip]:focus-visible::before,
+[data-tip].tip-open::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1a2e31;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  animation: tipFadeIn 0.15s ease-out 0.4s forwards;
+}
+[data-tip].tip-open::after,
+[data-tip].tip-open::before {
+  animation: none;
+  opacity: 1;
 }
 @keyframes tipFadeIn { to { opacity: 1; } }
-/* Mobil: hover nincs, csak tap-on jelenjen meg long-press-szel */
-@media (hover: none) {
-  [data-tip]:active::after {
-    content: attr(data-tip);
-    opacity: 1;
-    animation: none;
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1a2e31; color: #fff;
-    font-size: 0.72rem;
-    padding: 5px 9px;
-    border-radius: 5px;
-    white-space: nowrap;
-    z-index: 10000;
-    pointer-events: none;
-  }
-}
 
 /* v2.38.2 — anchor-style nav-item (a href) inherits proper sidebar styling */
 a.nav-item {
