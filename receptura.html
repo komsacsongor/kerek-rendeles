@@ -16,10 +16,10 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.46.0"></script>
-<script src="supabase.js?v=2.46.0"></script>
+<script src="kerek-constants.js?v=2.47.0"></script>
+<script src="supabase.js?v=2.47.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.46.0">
+<link rel="stylesheet" href="kerek-styles.css?v=2.47.0">
 <style>
 :root {
   --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6;
@@ -334,7 +334,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <button class="nav-item" data-action="nav" data-arg1="levain-daily"><span class="icon">🧫</span>Napi levain igény</button>
     <button class="nav-item" data-action="nav" data-arg1="processing"><span class="icon">🏭</span>Malom / Feldolgozás</button>
     <button class="nav-item" id="nav-exp-bake" onclick="openExperimentalBake(currentRecipeId)" style="color:#b45309"><span class="icon">🧪</span>Kísérleti sütés</button>
+    <button class="nav-item" onclick="openExperimentalBake(null,'extra')" style="color:#92400e"><span class="icon">➕</span>Extra sütés</button>
     <button class="nav-item" data-action="nav" data-arg1="production-prep"><span class="icon">🏭</span>Gyártás előkészítés</button>
+    <button class="nav-item" data-action="nav" data-arg1="baking-log"><span class="icon">📒</span>Sütési napló</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
@@ -627,12 +629,25 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <button id="prod-done-btn-top" data-action="confirmBakingDone" style="display:none;margin-left:8px;padding:7px 16px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.82rem;font-family:'Kodchasan',sans-serif">✅ Sütés elvégezve</button>
         <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV" style="margin-left:8px">📥 CSV export</button>
         <button class="btn btn-primary btn-sm" data-action="generateShoppingList" style="margin-left:8px">🛒 Bevásárló lista</button>
+        <button class="btn btn-ghost btn-sm" onclick="openExperimentalBake(null,'extra')" style="margin-left:8px;color:#92400e;border-color:#fde68a;background:#fffbeb">➕ Extra sütés</button>
       </div>
     </div>
     <div id="prod-prep-result"></div>
     <div id="prod-done-btn" style="display:none"></div>
     <div id="shopping-list-panel" class="mb-16"></div>
     <div id="stock-alerts" class="mb-16"></div>
+  </div>
+
+  <!-- ===== SÜTÉSI NAPLÓ (P1) ===== -->
+  <div id="view-baking-log" class="view">
+    <div class="card mb-16">
+      <div class="card-head"><div class="card-title">📒 Sütési napló</div></div>
+      <div class="card-body">
+        <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);margin-right:8px">Nap:</label>
+        <input type="date" id="blog-date" onchange="renderBakingLog(this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif">
+      </div>
+    </div>
+    <div id="blog-result"></div>
   </div>
 
   <!-- ===== COST ANALYSIS ===== -->
@@ -967,23 +982,23 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.46.0"></script>
-<script src="js/receptura-ui.js?v=2.46.0"></script>
-<script src="js/receptura-recipes.js?v=2.46.0"></script>
-<script src="js/receptura-operational.js?v=2.46.0"></script>
-<script src="js/receptura-ingredients.js?v=2.46.0"></script>
-<script src="js/receptura-settings.js?v=2.46.0"></script>
-<script src="js/receptura-ing-cats.js?v=2.46.0"></script>
-<script src="js/receptura-recipe-cats.js?v=2.46.0"></script>
-<script src="js/receptura-processing.js?v=2.46.0"></script>
-  <script src="js/receptura-help.js?v=2.46.0"></script>
-  <script src="js/receptura-levain.js?v=2.46.0"></script>
-<script src="js/receptura-production.js?v=2.46.0"></script>
-<script src="js/receptura-stock.js?v=2.46.0"></script>
-<script src="js/receptura-modal.js?v=2.46.0"></script>
-<script src="js/receptura-ai.js?v=2.46.0"></script>
-<script src="js/receptura-shopping.js?v=2.46.0"></script>
-<script src="js/receptura-suppliers.js?v=2.46.0"></script>
+<script src="js/receptura-data.js?v=2.47.0"></script>
+<script src="js/receptura-ui.js?v=2.47.0"></script>
+<script src="js/receptura-recipes.js?v=2.47.0"></script>
+<script src="js/receptura-operational.js?v=2.47.0"></script>
+<script src="js/receptura-ingredients.js?v=2.47.0"></script>
+<script src="js/receptura-settings.js?v=2.47.0"></script>
+<script src="js/receptura-ing-cats.js?v=2.47.0"></script>
+<script src="js/receptura-recipe-cats.js?v=2.47.0"></script>
+<script src="js/receptura-processing.js?v=2.47.0"></script>
+  <script src="js/receptura-help.js?v=2.47.0"></script>
+  <script src="js/receptura-levain.js?v=2.47.0"></script>
+<script src="js/receptura-production.js?v=2.47.0"></script>
+<script src="js/receptura-stock.js?v=2.47.0"></script>
+<script src="js/receptura-modal.js?v=2.47.0"></script>
+<script src="js/receptura-ai.js?v=2.47.0"></script>
+<script src="js/receptura-shopping.js?v=2.47.0"></script>
+<script src="js/receptura-suppliers.js?v=2.47.0"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>
