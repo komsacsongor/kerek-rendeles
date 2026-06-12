@@ -3,12 +3,17 @@ name: Deploy to GitHub Pages
 # v2.41.0: dual-branch deploy
 #  - main → / (production)
 #  - staging → /staging/ (staging environment)
-# Mindkét branch push ugyanazt csinálja: a teljes Pages site újraépítése
-# main a root-ba + staging a /staging/ subdir-ba (mind a kettő egy artifact-ban).
+# Egy deploy-futás a teljes Pages site-ot építi: main a root-ba + staging a
+# /staging/ subdir-ba (mind a kettő egy artifact-ban).
+#
+# v2.45.1: a github-pages környezet védelmi szabálya csak a main branchről enged
+# deploy-t. Ezért a staging PUSH NEM indítja a deploy-t (különben elutasítás +
+# hibás e-mail). A staging tartalom frissítése a main-en futó workflow_dispatch-csel
+# történik (a SKILL 15.4 szerinti curl), ami szintén felteszi a /staging/ subdir-t.
 
 on:
   push:
-    branches: [ main, staging ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -22,6 +27,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Védelem: a github-pages környezetbe csak main / dispatch deployolhat (staging push kihagyva)
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
