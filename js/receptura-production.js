@@ -1,6 +1,11 @@
 // ===== PRODUCTION PREP =====
 let _prodSelectedMonth = null; // {year, month} aktuális szelektor állapot
 
+// Helyi dátum YYYY-MM-DD (NEM toISOString, ami UTC → éjfél környékén téves nap)
+function _prodLocalDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 async function initProductionPrep() {
   const now = new Date();
   _prodSelectedMonth = { year: now.getFullYear(), month: now.getMonth() };
@@ -443,7 +448,7 @@ async function confirmBakingDone() {
     }
 
     // Save production log
-    const now = new Date().toISOString().slice(0,10);
+    const now = _prodLocalDate();
     await sb.insert('production_logs', {
       date: now,
       log_type: 'customer',
@@ -646,7 +651,7 @@ async function confirmExperimentalBake(recipeId, mode='experimental') {
 
   try {
     await sb.insert('production_logs', {
-      date: new Date().toISOString().slice(0,10),
+      date: _prodLocalDate(),
       log_type: isExtra ? 'extra' : 'experimental',
       recipe_id: recipeId,
       pieces_planned: pieces,
@@ -666,8 +671,7 @@ async function confirmExperimentalBake(recipeId, mode='experimental') {
 function initBakingLog() {
   const inp = document.getElementById('blog-date');
   if (inp && !inp.value) {
-    const t = new Date();
-    inp.value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    inp.value = _prodLocalDate();
   }
   if (inp) renderBakingLog(inp.value);
 }
@@ -727,9 +731,9 @@ async function renderBakingLog(dateStr) {
     }
 
     // === PER-RENDELŐ CHECKLIST ===
-    const orders = await sb.query('orders', { filter: `and(year.eq.${y},month.eq.${m0},day.eq.${dd})`, limit: 5000 }) || [];
+    const orders = await sb.query('orders', { filter: `year=eq.${y}&month=eq.${m0}&day=eq.${dd}`, limit: 5000 }) || [];
     if (orders.length > 0) {
-      const statuses = await sb.query('order_status', { filter: `and(year.eq.${y},month.eq.${m0},day.eq.${dd})`, limit: 5000 }) || [];
+      const statuses = await sb.query('order_status', { filter: `year=eq.${y}&month=eq.${m0}&day=eq.${dd}`, limit: 5000 }) || [];
       const clients = await sb.query('clients', { select: 'id,name', limit: 1000 }) || [];
       const products = await sb.query('products', { select: 'id,name', limit: 1000 }) || [];
       const cName = id => { const c = clients.find(c => c.id === id); return c ? c.name.replace(/^\[(DELETED|PENDING)\]\s*/, '') : id; };
