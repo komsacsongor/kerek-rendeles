@@ -132,6 +132,7 @@ async function confirmSingleOrder(clientId, year, month, day) {
     if (!D.orderStatus) D.orderStatus = {};
     D.orderStatus[ok(clientId, year, month, day)] = { status: 'confirmed', deadline, confirmed_at: now };
     toast('✅ Rendelés jóváhagyva!');
+    sendPushToClient(clientId, 'confirmed', 'Rendelés visszaigazolva ✅', MONTHS[month] + ' ' + day + '. – rendelésedet jóváhagytuk.');
     if(typeof updatePendingBadge==='function') updatePendingBadge();
     renderBaking();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
