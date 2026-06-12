@@ -16,10 +16,17 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
+<<<<<<< Updated upstream
 <script src="kerek-constants.js?v=2.45.3"></script>
 <script src="supabase.js?v=2.45.3"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css?v=2.45.3">
+=======
+<script src="kerek-constants.js?v=2.46.0"></script>
+<script src="supabase.js?v=2.46.0"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kerek-styles.css?v=2.46.0">
+>>>>>>> Stashed changes
 <style>
 :root {
   --teal-dark:  #064C48;
@@ -668,6 +675,18 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
 
     <div class="settings-section">
+      <div class="settings-head" onclick="toggleSettings(this)">⚙️ Rendelés-zárás <span style="margin-left:auto">▾</span></div>
+      <div class="settings-body">
+        <p class="text-soft text-sm" style="margin-bottom:10px">A lejárt (határidőn túli) függő rendeléseket a rendszer naponta 18:00 után automatikusan jóváhagyja, és értesíti a vevőket.</p>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.88rem">
+          <input type="checkbox" id="s-respect-shortage" onchange="saveSetting('auto_confirm_respect_shortage', this.checked)">
+          <span>Hiányzó alapanyagú termékeket NE hagyja jóvá automatikusan</span>
+        </label>
+        <p class="text-soft" style="margin-top:6px;font-style:italic;font-size:0.75rem">⏳ Előkészítve – ez a B fázisban aktiválódik (amikor az alapanyaglista karbantartott). Jelenleg nincs hatása.</p>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-head" onclick="toggleSettings(this)">🔐 Admin jelszó módosítása <span style="margin-left:auto">▾</span></div>
       <div class="settings-body">
         <div class="form-row">
@@ -963,6 +982,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
+<<<<<<< Updated upstream
 <script src="js/admin-data.js?v=2.45.3"></script>
 <script src="js/admin-data-audit.js?v=2.45.3"></script>
 <script src="js/admin-ui.js?v=2.45.3"></script>
@@ -975,5 +995,19 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 <script src="js/admin-help.js?v=2.45.3"></script>
 <script src="js/admin-push.js?v=2.45.3"></script>
   <script src="js/admin-settings.js?v=2.45.3"></script>
+=======
+<script src="js/admin-data.js?v=2.46.0"></script>
+<script src="js/admin-data-audit.js?v=2.46.0"></script>
+<script src="js/admin-ui.js?v=2.46.0"></script>
+<script src="js/admin-messages.js?v=2.46.0"></script>
+<script src="js/admin-baking.js?v=2.46.0"></script>
+<script src="js/admin-orders.js?v=2.46.0"></script>
+<script src="js/admin-catalog.js?v=2.46.0"></script>
+<script src="js/admin-clients.js?v=2.46.0"></script>
+<script src="js/admin-reports.js?v=2.46.0"></script>
+<script src="js/admin-help.js?v=2.46.0"></script>
+<script src="js/admin-push.js?v=2.46.0"></script>
+  <script src="js/admin-settings.js?v=2.46.0"></script>
+>>>>>>> Stashed changes
 </body>
 </html>

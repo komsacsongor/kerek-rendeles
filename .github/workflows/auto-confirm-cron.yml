@@ -1,0 +1,26 @@
+name: Auto-confirm orders (daily)
+
+# Napi 16:00 UTC = 18:00 (téli, EET) / 19:00 (nyári, EEST) romániai idő.
+# Mindig a helyi 18:00 rendelési határidő UTÁN fut, így a lejárt pending/modified
+# rendeléseket lezárja. A függvény idempotens (csak a határidőn túliakat zárja).
+# Az anon (publishable) kulcs publikus (a kliens JS-ben is benne van).
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call auto-confirm-orders Edge Function
+        run: |
+          echo "⏰ Auto-confirm futtatása..."
+          curl -fsS -X POST \
+            -H "Authorization: Bearer sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN" \
+            -H "apikey: sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN" \
+            -H "Content-Type: application/json" \
+            "https://lfaxeihrmiylggahougl.supabase.co/functions/v1/auto-confirm-orders"
+          echo ""
+          echo "✅ Kész"
