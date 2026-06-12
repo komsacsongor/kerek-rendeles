@@ -196,32 +196,27 @@ async function kerekSetPassword(module, currentPw, newPw) {
   return { ok: res.ok && data.success, status: res.status, data };
 }
 
-async function changePassword(){
-  const old=document.getElementById('s-old-pw').value;
-  const n1=document.getElementById('s-new-pw').value;
-  const n2=document.getElementById('s-new-pw2').value;
-  if(!old){ toast('Add meg a jelenlegi jelszót!', true); return; }
-  if(!n1||n1!==n2){ toast('Az új jelszavak nem egyeznek!', true); return; }
-  if(n1.length<3){ toast('Az új jelszó túl rövid (min. 3 karakter).', true); return; }
-  const r = await kerekSetPassword('admin', old, n1);
-  if(r.status===429){ toast('⚠️ Túl sok próbálkozás, várj egy percet.', true); return; }
-  if(!r.ok){ toast(r.data?.error==='invalid_admin_password' ? '❌ Hibás jelenlegi jelszó!' : '⚠️ Hiba a jelszó mentésekor.', true); return; }
-  ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
-  toast('✅ Admin jelszó módosítva!');
-  auditLog('password_change', 'Admin', 'Jelszó módosítva');
-}
-
 async function setModulePassword(module){
-  const adminPw = document.getElementById('mp-admin-pw')?.value;
-  const newPw = document.getElementById('mp-'+module+'-pw')?.value;
-  if(!adminPw){ toast('Add meg a jelenlegi admin jelszót!', true); return; }
+  const adminPw = document.getElementById('pw-current-admin')?.value;
+  const newPw = document.getElementById('pw-new-'+module)?.value;
+  if(!adminPw){ toast('🔒 Add meg a jelenlegi admin jelszót (biztonsági megerősítés)!', true); return; }
   if(!newPw || newPw.length<3){ toast('Az új jelszó túl rövid (min. 3 karakter).', true); return; }
-  const r = await kerekSetPassword(module, adminPw, newPw);
-  if(r.status===429){ toast('⚠️ Túl sok próbálkozás, várj egy percet.', true); return; }
-  if(!r.ok){ toast(r.data?.error==='invalid_admin_password' ? '❌ Hibás admin jelszó!' : '⚠️ Hiba a mentéskor.', true); return; }
-  document.getElementById('mp-'+module+'-pw').value='';
-  toast(`✅ ${module==='receptura'?'Receptúra':'Gyártás'} jelszó beállítva!`);
-  auditLog('password_set', module, 'Modul jelszó beállítva');
+  try {
+    const r = await kerekSetPassword(module, adminPw, newPw);
+    if(r.status===429){ toast('⚠️ Túl sok próbálkozás, várj egy percet.', true); return; }
+    if(!r.ok){
+      const msg = r.data?.error==='invalid_admin_password' ? '❌ Hibás admin jelszó!'
+        : r.data?.error==='weak_new_password' ? 'Az új jelszó túl rövid.'
+        : ('⚠️ Hiba: ' + (r.data?.error || ('HTTP '+r.status)));
+      toast(msg, true); return;
+    }
+    document.getElementById('pw-new-'+module).value='';
+    const label = module==='admin'?'Admin':(module==='receptura'?'Receptúra':'Gyártás');
+    toast(`✅ ${label} jelszó beállítva!`);
+    auditLog('password_set', module, 'Modul jelszó beállítva');
+  } catch(e){
+    toast('⚠️ Hálózati/váratlan hiba: ' + (e?.message||e), true);
+  }
 }
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
 function loadSettings(){

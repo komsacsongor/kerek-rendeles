@@ -51,7 +51,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           echo "🚀 Deploying to ${{ steps.target.outputs.label }} (${{ steps.target.outputs.ref }})"
-          for fn in admin-auth auto-confirm-orders dynamic-service; do
+          for dir in supabase/functions/*/; do
+            fn=$(basename "$dir")
+            [ "$fn" = "_shared" ] && continue
             echo "📦 Deploying $fn..."
             supabase functions deploy "$fn" --project-ref ${{ steps.target.outputs.ref }} --no-verify-jwt
           done
