@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.45.1 (2026-06-11)';
+const APP_VERSION = 'v2.45.2 (2026-06-12)';
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
@@ -336,4 +336,44 @@ function startUnifiedPolling(callback, intervalMs) {
       .then(reg => console.log('[SW] Registered:', reg.scope))
       .catch(err => console.warn('[SW] Register failed:', err));
   });
+})();
+
+
+// ===== Tooltip normalizáció + mobil tap (v2.45.2) =====
+// Egységesíti a tooltipeket: a title-t data-tip-pé alakítja (nincs dupla natív tooltip,
+// és a csak-title elemek — pl. ⚠️ — is megkapják a szép buborékot). Érintőeszközön
+// tap-re nyílik/zárul (ragadós), nem csak nyomva tartásra.
+(function initKerekTooltips(){
+  function normalizeEl(el){
+    if (!el || el.nodeType !== 1 || !el.hasAttribute('title')) return;
+    const t = el.getAttribute('title');
+    if (t && !el.hasAttribute('data-tip')) el.setAttribute('data-tip', t);
+    if (el.hasAttribute('data-tip')) {
+      if (!el.hasAttribute('aria-label')) el.setAttribute('aria-label', el.getAttribute('data-tip'));
+      el.removeAttribute('title');
+    }
+  }
+  function normalizeTree(root){
+    if (!root || root.nodeType !== 1) return;
+    normalizeEl(root);
+    if (root.querySelectorAll) root.querySelectorAll('[title]').forEach(normalizeEl);
+  }
+  function start(){
+    if (!document.body) return;
+    normalizeTree(document.body);
+    try {
+      new MutationObserver(muts => {
+        for (const m of muts) for (const n of m.addedNodes) normalizeTree(n);
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch(e) {}
+    if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+      document.addEventListener('click', e => {
+        const tip = e.target.closest('[data-tip]');
+        document.querySelectorAll('[data-tip].tip-open').forEach(el => { if (el !== tip) el.classList.remove('tip-open'); });
+        if (tip) tip.classList.toggle('tip-open');
+      });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
