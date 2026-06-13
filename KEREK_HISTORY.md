@@ -69,6 +69,21 @@ A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --onelin
 ### Konverzációs fejlesztés Claude AI-val
 **Miért**: Iteráció gyorsabb mint klasszikus fejlesztéssel. **De**: nagyobb fegyelmet igényel push előtti verifikációban (lásd Claude-specifikus tanulságok az aktív SKILL.md-ben).
 
+### Gyártás-modul architektúra (v2.47+, tervezés)
+**Receptúra = tervezés** (recept-mesterek, alapanyag/beszállító/készlet, teszt-sütés előkészítés). **Gyártás = végrehajtás** (napi munka, tabletre, csak végrehajt+rögzít).
+
+A gyártás-nap egységes **„production run" 3 forrásból** — minden ami sül, ide fut be:
+- **rendelés** — auto a jóváhagyott rendelésekből,
+- **teszt** — a receptúrában előkészítve, betolva a megfelelő nap gyártásába,
+- **extra** — a gyártásvezető ad-hoc +1-e (pl. kollégáknak), **indoklással naplózva** (így nem kontrollálatlan, hanem követett).
+
+A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végrehajtási artefaktum, nem recept-tervezés). A recept-leírás **dropdown** az Üzemi nézetben — új kolléga lássa a folyamatot, ha kell.
+
+- **P1 (kész, staging):** sütési log — per-recept rendelt vs sütött (`production_logs`: order/extra/experimental), per-rendelő checklist (a **jövőbeli kiszállítás alapja**). NINCS DB-séma változás (meglévő mezők + a checklist a rendelésekből származik).
+- **P2 (tervezett):** `gyartas.html` különálló tablet-app a mai sütőnap rendeléseivel, lépésenkénti végrehajtással, rögzítés-munka-közben; a meglévő `receptura-production.js`/`operational.js` logikát újrahasznosítja.
+
+**Benchmark (Cybake ISB)** igazolta a víziót: kollégáknak „mit kell ma sütni" + lépés-checklist gyártási tételenként; zárt mesteradatok; a bizonyíték a munka melléktermékeként rögzül (minimal-click capture).
+
 ---
 
 ## 3. Anti-pattern megtörtént esetek (referencia)
@@ -330,6 +345,15 @@ A `navigator.credentials.store` blokk eltávolításakor a regex pattern túl sz
 
 ### v2.42.0 STAGING-FIRST megsértés
 A mobil-feature kódolásánál a `git checkout staging` lépést kihagytam, ami `sidebar-overlay HTML-bug`-ot élesbe juttatott. **Megelőzés**: ELSŐ KÖTELEZŐ szabály mostantól `git checkout staging` minden new feature előtt.
+
+### v2.45.0 Admin push — fenntartott client_id
+A `push_subscriptions.client_id` NEM FK a `clients`-re → fenntartott ID (`'ADMIN'`) használható az admin-feliratkozáshoz, séma-változás nélkül. Trigger **vevő-oldalról** (sikeres `saveOrder` / regisztráció) a meglévő push-pipeline-on (60s throttle, hogy ne spammeljen). A broadcast-'all' nem éri el (az a `clients` táblából származtat). Az `sw.js` a `notification.data.type` alapján routol (`new_order`/`new_client` → admin.html).
+
+### v2.46.0 Cron UTC/DST csapda
+A GitHub Actions cron CSAK UTC-ben jár. Románia UTC+2/+3 → a helyi 18:00 határidő = 16:00 (téli) / 15:00 (nyári) UTC. A **`0 16 * * *`** (16:00 UTC) MINDIG a helyi 18:00 UTÁN fut, év közben végig. A függvény **idempotens** (csak a `deadline <= now` rendeléseket zárja), ezért a pontos óra kevésbé kritikus.
+
+### deploy.yml — github-pages environment protection (v2.45)
+A staging branch push **failure**-t adott (hibás e-mail), mert a `github-pages` environment védelmi szabálya csak `main`-ről enged deploy-t — a staging push mégis elindította a workflow-t → elutasítás. **Fix**: staging eltávolítása a push-triggerből (`branches:[ main ]`) + `if: github.ref=='refs/heads/main' || workflow_dispatch` guard. A `/staging/` tartalom továbbra is a main-en futó `workflow_dispatch`-csel frissül.
 
 ### v2.44.2 scope-szűkítés tévedés
 Próbáltam `scope: ./vevo`-ra szűkíteni a vevő manifest-et — a Chrome strict spec-validáció miatt INVALID lett. **Tanulság**: scope-szűkítés CSAK directory-szegmensre (slash-szel végződő) működik, részfájl-prefix NEM elég.
