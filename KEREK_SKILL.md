@@ -427,12 +427,21 @@ for f in ['admin.html', 'receptura.html', 'vevo.html', 'index.html', 'register.h
     c = open(f).read()
     c = re.sub(r'(\?v=)[\d.]+"', rf'\g<1>{NEW_VER}"', c)
     open(f, 'w').write(c)
+# sw.js CACHE_NAME is KÖTELEZŐ (különben a régi cache marad):
+sw = open('sw.js').read()
+sw = re.sub(r"const CACHE_NAME = 'kerek-v[\d.]+'", f"const CACHE_NAME = 'kerek-v{NEW_VER}'", sw)
+open('sw.js', 'w').write(sw)
 ```
 
 ```bash
 TOKEN="[Claude memóriából]"
 git add -A && git commit -m "feat/fix: leírás (vX.Y.Z)"
-git push "https://${TOKEN}@github.com/komsacsongor/kerek-rendeles.git" main
+# ⚠️ STAGING-FIRST: előbb STAGING-re, NEM közvetlenül main-re!
+git push "https://${TOKEN}@github.com/komsacsongor/kerek-rendeles.git" staging
+# A /staging/ tartalom frissítése (dispatch):
+curl -X POST -H "Authorization: token $TOKEN" -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/komsacsongor/kerek-rendeles/actions/workflows/deploy.yml/dispatches" -d '{"ref":"main"}'
+# Felhasználói ellenőrzés UTÁN: merge main-be (lásd §2 + 'MERGE' szakasz) → production
 ```
 
 ---
@@ -647,7 +656,7 @@ A v2.36.0–v2.39.2 közötti összes 25+ bug **megoldva** — részletek: `git 
 **17.2.7 Tooltip rendszer (v2.36.0-tól)**
 - `data-tip="..."` attribútum + `kerek-styles.css [data-tip]:hover` CSS
 - Backward compatible: ha van `title="..."`, az duplikálódik `data-tip`-be is (Python regex)
-- Mobil: `@media (hover: none)` long-press szabály
+- Mobil: **tap-toggle** (`.tip-open` osztály) — v2.45.2 óta (a régi `@media (hover:none)` long-press HELYETT); tooltip tördelés `white-space:normal`, max-width 240px
 
 **17.2.8 Idempotens SQL migration (új konvenció)**
 A felhasználó futtatja az SQL-t a Supabase Dashboardban. Mindig **idempotens DO block** formában:
@@ -834,7 +843,7 @@ A bug egyik gyökér oka volt: én elhittem hogy "új feature" — pedig csak re
 | # | Tünet | Kategória | Prio | Megjegyzés |
 |---|---|---|---|---|
 | **#7** | Üzenet badge race — néha eltűnik mielőtt a felhasználó látta | C) State-sync timing | Közepes | v2.36.0 részleges fix (500ms debounce). TODO: timestamp-validáció `D.messagesLoadedAt > D.seenMsgsLoadedAt` |
-| **#14** | Tooltip nem mindig működik egyes gombokon | B) CSS | Alacsony | Felhasználói jelentés, képernyőmentés kell hogy melyik gomb. Gyanú: `position:relative` parent, `overflow:hidden`, z-index conflict |
+| **#14** | Tooltip nem mindig működik egyes gombokon | B) CSS | Alacsony | **v2.45.2 tooltip-újraírás valószínűleg megoldotta** (title→data-tip normalizáció, tördelés, mobil tap-toggle). Ha újra előjön: `position:relative` parent, `overflow:hidden`, z-index conflict gyanú — ellenőrizendő |
 | **#27** | Burgonya/Cirokliszt/Ecet/Cukor min/max értékei abszurdul kicsik (1-15 g) | E) Adat-bevitel | Közepes | A DB-ben minden alapanyag g-ban. A felhasználó kg-ban gondolta amikor 1-2-t írt. Ténylegesen 1000-2000 g lenne. M0 mértékegység-támogatás megoldja (lásd 19.1). Addig: felhasználó manuálisan korrigálja a stock view-ban |
 
 ### 18.2 Anti-pattern könyvtár (6 visszatérő kategória)
@@ -1068,8 +1077,8 @@ git push origin main                # → auto-deploy / URL-re (production)
 
 | Modul | Auth mechanizmus |
 |---|---|
-| `admin.html` | `admin-auth` Edge Function (settings.admin_password hash) |
-| `receptura.html` | `sb.getSetting('admin_password')` közvetlen + fallback `admin` |
+| `admin.html` | `admin-auth` Edge Function (jelszó: `admin_secrets.admin_password` hash) |
+| `receptura.html` | `admin-auth` Edge Function `module='receptura'` (v2.48) → `admin_secrets.receptura_password`, ennek híján admin-fallback. *(Régen: kliens-oldali compare + 'admin' fallback — elavult)* |
 | `index.html` (vevő) | `clients.id` (KER-XXXX-XXXX) — **NEM jelszó** |
 
 A vevő-modulba a vevő-kóddal lehet belépni, NEM jelszóval.
@@ -1092,7 +1101,7 @@ A vevő-modulba a vevő-kóddal lehet belépni, NEM jelszóval.
 | **2** | **PWA scope túl tág** — `/kerek-rendeles/` magában foglalja a `/kerek-rendeles/staging/`-et is | Új PWA feature kezdetekor SCOPE-ot előre meghatározd. Vevő-app: `/kerek-rendeles/vevo`; Admin-app: `/kerek-rendeles/` |
 | **3** | **Manifest abszolút path-ok staging-en INVALID-ok** — `scope: /kerek-rendeles/` egy `/staging/manifest.json`-ról betöltve a Chrome szerint NEM telepíthető | RELATÍV path-ok mindig: `start_url: ./vevo.html`, `scope: ./`, `icons.src: ./img/...` |
 | **4** | **Chrome data breach blockolja a credentials.store-t** — gyenge jelszó (pl. `admin`) Have I Been Pwned-ban van, Chrome ennek hatására megtagadja a mentést | NE használj `navigator.credentials.store()`-t demo-jelszókra. Helyette KEREK saját localStorage (l. 22.3) |
-| **5** | **A staging branch push MINDIG failure** a deploy workflow-ban (Pages csak main-rel deploy-ol) | Minden staging push UTÁN manuális `workflow_dispatch ref:main` — a workflow checkout-olja a staging branchet is és felteszi `/staging/` alá |
+| **5** | ~~A staging branch push MINDIG failure~~ **JAVÍTVA**: a `deploy.yml` most `branches:[main]` + `if: github.ref=='refs/heads/main' \|\| workflow_dispatch` → a staging push már NEM trigger-eli a failing deploy-t (nincs hibás e-mail) | A `/staging/` tartalom frissítéséhez staging push UTÁN továbbra is kell egy manuális `workflow_dispatch ref:main` (a workflow a staging branchet is felteszi `/staging/` alá) |
 
 ### 22.2 PWA architektúra (v2.43.x végleges)
 
@@ -1150,15 +1159,16 @@ Plus a height-et kicsivel emeld: 80→84px (admin/receptura), 72→76px (vevő),
 
 ### 22.6 Deploy concurrency hack
 
-A `.github/workflows/deploy.yml` jelenlegi viselkedése:
-- Trigger: `push: [main, staging]` + `workflow_dispatch`
+A `.github/workflows/deploy.yml` jelenlegi viselkedése (v2.45 óta javítva):
+- Trigger: `push: [ main ]` + `workflow_dispatch` (a staging már NINCS a push-triggerben)
+- Deploy job: `if: github.ref=='refs/heads/main' || github.event_name=='workflow_dispatch'`
 - Job: checkout main → `site/`, checkout staging → `site/staging/`, deploy artifact
 - Concurrency: `pages, cancel-in-progress: false`
 
-**Probléma**: a staging branch push-ja a Pages environment-ben FAIL-el (csak main engedélyezett). A workaround:
+**Korábbi probléma (MEGOLDVA)**: a staging branch push-ja a védett Pages environment-ben FAIL-elt (hibás e-mail). A fenti trigger-javítás ezt megszüntette — a staging push már nem fail-el. A `/staging/` tartalom frissítéséhez viszont továbbra is kell egy manuális dispatch:
 
 ```bash
-# Minden staging push UTÁN:
+# Minden staging push UTÁN (a /staging/ tartalom frissítéséhez):
 curl -X POST -H "Authorization: token $TOKEN" \
   -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/komsacsongor/kerek-rendeles/actions/workflows/deploy.yml/dispatches" \
@@ -1166,8 +1176,6 @@ curl -X POST -H "Authorization: token $TOKEN" \
 ```
 
 A workflow_dispatch a main-en futtat — de a staging branch HEAD-jét is felteszi a `/staging/` alá. **Tehát a staging URL frissül**, csak közvetett módon.
-
-**Jövőbeli javítás**: a deploy.yml módosítása hogy a staging branch push NE fail-eljen — esetleg külön job az artifact-build-re, közös deploy job.
 
 
 
