@@ -88,7 +88,7 @@ git pull
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting | komsacsongor.github.io/kerek-rendeles |
 | Deploy | GitHub push → GitHub Actions → automatikus |
-| Jelenlegi verzió | **v2.39.0 (2026-05-31)** |
+| Jelenlegi verzió | **v2.48.2 (2026-06-12)** |
 | Verziózás | v2.MINOR.PATCH – MINOR: új funkció, PATCH: hibajavítás |
 
 **Fontos:** Ha push blokkolva (GitHub titkoskulcs-detektor) – a SKILL.md-ben ne legyen token, Claude memóriából vedd.
@@ -520,13 +520,14 @@ read_console_messages toolon – MINDIG ellenőrizd, ne csak a screenshotot
 
 | # | Feladat | Prioritás |
 |---|---|---|
-| 1 | U4 Fizetési állapot tracking | Közepes |
-| 2 | U3 Napi kapacitás limit | Közepes |
-| 3 | Push értesítések (Web Push+VAPID) | Alacsony |
-| 4 | DB reset + termékárak javítása | Élesítés előtt |
-| 5 | +/- gomb tesztelés jövőbeli napon | Folyamatban |
-| 6 | Technológus nézet fejlesztése | Középtáv |
-| 7 | Valódi e-mail értesítés (reg. kód) | Középtáv |
+| 1 | **M0 mértékegység** — alapanyagok kg/l/db (most minden g-ban; lásd 17.5) | 🔴 Sürgős |
+| 2 | **Demo-takarítás** (anna/bela/cica kliensek + rendeléseik törlése) — SQL, Csongor futtatja | Élesítés előtt |
+| 3 | **P2 különálló gyártás app** (`gyartas.html`) — tabletre, mai sütőnap rendelései, lépésenkénti végrehajtás+rögzítés, kézi recept betolás. Dedikált jelszó kész (admin_secrets `gyartas_password`) | P1 után |
+| 4 | **Kiszállítás a sütési logból** — mi készült → hova ment (a per-rendelő checklist a jövőbeli alap) | Jövő |
+| 5 | Okos bevásárlólista — dinamikus min/max készletszintek | Alacsony |
+| 6 | U4 Fizetési állapot tracking / U3 Napi kapacitás limit | Közepes |
+
+**Kész (korábban roadmapen volt):** ✅ SC3 admin.html→modulok (M7 refactor, 12 modul) · ✅ Termék soft-delete (`deleted_at`, archive cascade, v2.36/2.38) · ✅ Auto-zárás 18:00 (v2.46) · ✅ Admin+vevő push (v2.45–2.46) · ✅ P1 sütési log (v2.47) · ✅ Modul-jelszó kezelő (v2.48)
 
 ---
 
@@ -536,7 +537,12 @@ read_console_messages toolon – MINDIG ellenőrizd, ne csak a screenshotot
 - **v2.0–2.10** – Receptúra modul: FIFO készlet, levain, gyártás, önköltség
 - **v2.11–2.20** – Stabilitás: 14 audit hiba javítása, soft delete, rate limiting
 - **v2.21** – Vevő önregisztráció: `[PENDING]`/`[DELETED]` prefix, email UNIQUE, 3 belépési mód
-- **v2.22** – PWA + mobiloptimalizáció: manifest, service worker, kategória tab-ok, hónap rövidítés, badge auto-update, deaktivált vevők szekció
+- **v2.22** – PWA + mobiloptimalizáció: manifest, service worker, kategória tab-ok, badge auto-update
+- **v2.36–2.39** – Modularizáció (M7: admin.html→12 modul), Realtime fix, központi CSS, tooltip, bevásárló lista v2
+- **v2.40–2.44** – Beszállítók CRUD, staging environment (dual-branch, sync, Edge Function deploy), adat-állapot audit
+- **v2.45–2.46** – Admin+vevő push értesítések, auto-zárás 18:00 (EF cron)
+- **v2.47** – P1 sütési log (rendelt vs sütött, extra/teszt, per-rendelő checklist), recept-leírás dropdown
+- **v2.48** – Modul-jelszó kezelő (admin/receptúra/gyártás), receptúra biztonságos login, admin jelszó-bugfix
 
 ---
 
@@ -590,6 +596,17 @@ Az alábbi szekciók a 2026-05-26 → 2026-05-31 közötti session-ek tanulsága
 | **v2.41.0** ⭐ INFRA | Staging environment subpath-tal, dual-branch deploy, sync workflow, Edge Function deploy |
 | **v2.41.1** | Szerkeszthető vevő fejléc szöveg ({BAKING_DAYS}, {BR} placeholder) |
 | **v2.41.3** | Üres recept ⚠️ figyelmeztetés (admin + receptúra), Csongor email sync exception |
+| **v2.42.0** | Mobil-feature (tanulság: a `git checkout staging` kihagyása sidebar-overlay bugot vitt élesbe) |
+| **v2.44.4** | Adat-állapot audit nézet (5 anomália-kategória), staging munkamenet stabilizálás |
+| **v2.45.0** | ✨ Admin push értesítés (ÚJ rendelés/regisztráció → admin telefon); `client_id='ADMIN'` feliratkozás |
+| **v2.45.1** | Adat-audit mezőnév-bugfix: `D.ingredients` camelCase (`minStockOverrideG`/`minStockAutoG`...), #27 detektálás javítva |
+| **v2.45.2** | Tooltip: tördelés (`white-space:normal`, max-width 240px) + mobil tap-toggle (long-press helyett) |
+| **v2.45.3** | `confirmSingleOrder` vevő-push konzisztencia (eddig csak a „Mindent jóváhagy" küldött) |
+| **v2.46.0** ⭐ | Auto-zárás 18:00: `auto-confirm-orders` EF újraírva + vevő-push, új `auto-confirm-cron.yml` (`0 16 * * *` UTC) |
+| **v2.47.0** ⭐ P1 | Sütési log alap: per-recept rendelt vs sütött (`production_logs` log_type `order`), extra (+1) sütés, 📒 Sütési napló nézet + per-rendelő checklist |
+| **v2.47.1** | Recept-leírás dropdown az Üzemi nézetben (új kollégának, kinyitható, csak ha van leírás) |
+| **v2.48.0–.1** ⭐ | Modul-jelszó kezelő: admin UI (egységes „🔑 Jelszavak"), új `admin-set-password` EF, `admin-auth` modul-param (admin/receptura/gyartas + admin-fallback), receptúra biztonságos login. Bugfix: admin jelszó eddig `settings`-be írt (admin-auth `admin_secrets`-ből olvas → nem hatott). Bugfix: edge-deploy hardkódolt lista → **auto-felismerés** |
+| **v2.48.2** | P1 önellenőrzés: hibás PostgREST compound szűrő (`and(...)` → implicit AND `year=eq.X&month=eq.Y`), UTC dátum → helyi dátum (`_prodLocalDate`) a sütési logban |
 
 A v2.36.0–v2.39.2 közötti összes 25+ bug **megoldva** — részletek: `git log --oneline`.
 
@@ -1153,3 +1170,36 @@ A workflow_dispatch a main-en futtat — de a staging branch HEAD-jét is feltes
 **Jövőbeli javítás**: a deploy.yml módosítása hogy a staging branch push NE fail-eljen — esetleg külön job az artifact-build-re, közös deploy job.
 
 
+
+---
+
+## 23. Gyártás + jelszó session tanulságai (v2.45.0 – v2.48.2, 2026-06-12)
+
+### 23.1 Kulcs-tanulságok
+1. **Edge Function deploy lista**: a `deploy-edge-functions.yml` HARDKÓDOLT listával deployolt (`admin-auth auto-confirm-orders dynamic-service`) → új függvény (`admin-set-password`) ki sem került → 404 → fetch CORS-hibaként dőlt el → némán (nincs toast). **Javítva: auto-felismerés** (`for dir in supabase/functions/*/`). Új EF-nél ezt MINDIG ellenőrizd.
+2. **Jelszó-architektúra**: a jelszavak az `admin_secrets` táblában (key/value, key PK, szigorú RLS, csak service_role ír). A kliens NEM tud bele írni/olvasni → minden jelszó-művelet Edge Function-ön át megy. Validálás: `admin-auth` (`module` param: admin/receptura/gyartas, whitelist + admin-fallback). Írás: `admin-set-password` (előbb az admin jelszót validálja).
+3. **Régi jelszó-bug**: a `changePassword` a `settings` táblába írt (`setSetting('admin_password')`), de az `admin-auth` az `admin_secrets`-ből olvas → a jelszó-módosítás SOSEM hatott. Tanulság: írás és olvasás ugyanabból a forrásból.
+4. **Receptúra login**: eddig kliens-oldali hash-compare → 'admin' fallback (gyenge). Most `admin-auth(module='receptura')` Edge Function. **FIGYELEM**: prod-on a valódi admin jelszót kéri (vagy a külön receptúra jelszót), NEM a régi 'admin'-t.
+5. **PostgREST compound szűrő**: a `sb.query` filtert nyersen fűzi a query stringbe. Több feltétel ANDja: `year=eq.X&month=eq.Y&day=eq.Z` (implicit AND), NEM `and(year.eq.X,...)`. A rossz szintaxis 400-at dob vagy minden sort visszaad.
+6. **Dátum-kulcs**: a `production_logs.date`-hez HELYI dátum kell (`_prodLocalDate()`), NEM `toISOString().slice(0,10)` (UTC → éjfél környékén téves nap). A napló-szűrő és a beszúrás dátum-formátuma egyezzen.
+
+### 23.2 Gyártás modul architektúra (döntések)
+- **Receptúra = tervezés** (recept-mesterek, alapanyag/beszállító/készlet, teszt-sütés előkészítés). **Gyártás = végrehajtás** (napi munka, tabletre).
+- A gyártás-nap = egységes „production run" 3 forrásból: **rendelés** (auto a jóváhagyott rendelésekből), **teszt** (receptúrából betolva), **extra** (gyártásvezető ad-hoc +1-e, indoklással naplózva).
+- A mise-en-place + levain-előkészítés a GYÁRTÁS modulba tartozik (végrehajtási artefaktum).
+- **P1 (kész, staging):** sütési log alap. `production_logs` log_type-ok: `order` (rendelt, planned vs actual), `extra` (+1), `experimental` (teszt). 📒 Sütési napló nézet: nap → per-recept rendelt/sütött/extra/teszt + per-rendelő checklist (legyártva ✓ az `order_status='fulfilled'`-ből). NINCS DB-séma változás (a meglévő mezők elégségesek, a checklist a rendelésekből származik).
+- **P2 (tervezve, nem kódolva):** `gyartas.html` különálló tablet-app, mai sütőnap rendeléseivel, lépésenkénti végrehajtással, rögzítés-munka-közben. A meglévő `receptura-production.js`/`receptura-operational.js` logikát újrahasznosítja.
+
+### 23.3 Elavult SKILL-flagek (javítva ebben a frissítésben)
+- **SC3 (admin.html szétbontás): KÉSZ** (M7 refactor, 12 modul, nincs inline JS) — nem „pending".
+- **Termék soft-delete: KÉSZ** (v2.36/2.38).
+- A 13. roadmap és a 14./17.1 verzió-történet frissítve v2.48.2-ig.
+
+### 23.4 Új Edge Function-ök (v2.46–2.48)
+| Függvény | Szerep |
+|---|---|
+| `auto-confirm-orders` | 18:00-i auto-zárás (lejárt pending/modified → fulfilled + vevő-push), cron `0 16 * * *` UTC |
+| `admin-auth` (bővítve) | Modul-jelszó validálás (`module` param, whitelist, admin-fallback) |
+| `admin-set-password` (új) | Modul jelszó beállítás (admin jelszó-validálás után upsert `admin_secrets`-be) |
+
+> **Megjegyzés a verzió-drift-ről**: a repó `KEREK_SKILL.md` korábban a verzió-mezőben v2.39.0-n állt, miközben a feltöltött master v2.44.x volt. Ez a frissítés a repó-példányt hozza v2.48.2-re. Ha külön mestert tartasz, érdemes összevetni.
