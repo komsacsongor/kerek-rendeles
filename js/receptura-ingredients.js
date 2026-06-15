@@ -79,7 +79,7 @@ function openIngredientModal(id=null) {
     document.getElementById('i-subtype').value = 'flour';
     document.getElementById('i-material-type').value = 'consumable';
     document.getElementById('i-family').value = '';
-    modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:new Date().toISOString().slice(0,10)}];
+    modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:localToday()}];
     document.getElementById('ing-modal-title').textContent = 'Új alapanyag';
   }
   // v2.40.0: preferred supplier dropdown feltöltése
@@ -115,7 +115,7 @@ function renderSupplierRows() {
         <div class="form-group" style="min-width:80px"><label>Készlet (g)</label>
           <input type="number" value="${s.stock||0}" onchange="updateSupplier(${i},'stock',parseFloat(this.value)||0)"></div>
         <div class="form-group" style="min-width:100px"><label>Dátum (FIFO)</label>
-          <input type="date" value="${s.date||new Date().toISOString().slice(0,10)}" onchange="updateSupplier(${i},'date',this.value)"></div>
+          <input type="date" value="${s.date||localToday()}" onchange="updateSupplier(${i},'date',this.value)"></div>
         ${i>0?`<button class="btn btn-danger btn-xs" style="align-self:flex-end;margin-bottom:4px" onclick="removeSupplier(${i})">✕</button>`:''}
       </div>
     </div>`).join('');
@@ -129,7 +129,7 @@ function updateSupplierNet(i) {
   if(el) el.value = s.priceNet.toFixed(2);
 }
 function addSupplierRow() {
-  modalSuppliers.push({source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:new Date().toISOString().slice(0,10)});
+  modalSuppliers.push({source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:localToday()});
   renderSupplierRows();
 }
 function removeSupplier(i) { modalSuppliers.splice(i,1); renderSupplierRows(); }

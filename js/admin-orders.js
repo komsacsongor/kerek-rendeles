@@ -81,7 +81,7 @@ function exportClients(){
     });
     rows.push([c.name, c.id, c.email||'', c.phone||'', c.joinDate||'', totalQty, totalRev, c.note||'']);
   });
-  downloadCSV('kerek_vevok_'+new Date().toISOString().slice(0,10)+'.csv', rows);
+  downloadCSV('kerek_vevok_'+localToday()+'.csv', rows);
 }
 
 function exportBakingList(){
@@ -264,7 +264,7 @@ function exportAll(){
   const blob = new Blob([data], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href=url; a.download='kerek_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  a.href=url; a.download='kerek_backup_'+localToday()+'.json'; a.click();
   URL.revokeObjectURL(url);
   toast('✅ Biztonsági mentés letöltve! (jelszó és személyes adatok nélkül)');
 }

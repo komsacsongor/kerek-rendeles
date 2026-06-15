@@ -340,7 +340,7 @@ async function confirmStockIntake(ingId) {
     // FIX: INSERT into ingredient_batches (not just R.stock settings!)
     const batchRow = {
       ingredient_id: ingId,
-      received_date: new Date().toISOString().slice(0,10),
+      received_date: localToday(),
       qty_received_g: amountG,
       qty_remaining_g: amountG,
       price_per_g: pricePerG,

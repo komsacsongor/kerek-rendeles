@@ -267,11 +267,11 @@ function renderAuditLogTable() {
     const group = AUDIT_TYPE_GROUPS[_auditFilter.type];
     if (group && !group.includes(l.action)) return false;
     if (_auditFilter.dateFrom) {
-      const d = new Date(l.created_at).toISOString().slice(0,10);
+      const d = localDateOf(l.created_at);
       if (d < _auditFilter.dateFrom) return false;
     }
     if (_auditFilter.dateTo) {
-      const d = new Date(l.created_at).toISOString().slice(0,10);
+      const d = localDateOf(l.created_at);
       if (d > _auditFilter.dateTo) return false;
     }
     if (_auditFilter.search) {
@@ -462,8 +462,8 @@ function auditExportCSV() {
   const group = AUDIT_TYPE_GROUPS[_auditFilter.type];
   const filtered = _auditLogs.filter(l => {
     if (group && !group.includes(l.action)) return false;
-    if (_auditFilter.dateFrom && new Date(l.created_at).toISOString().slice(0,10) < _auditFilter.dateFrom) return false;
-    if (_auditFilter.dateTo && new Date(l.created_at).toISOString().slice(0,10) > _auditFilter.dateTo) return false;
+    if (_auditFilter.dateFrom && localDateOf(l.created_at) < _auditFilter.dateFrom) return false;
+    if (_auditFilter.dateTo && localDateOf(l.created_at) > _auditFilter.dateTo) return false;
     if (_auditFilter.search) {
       const s = _auditFilter.search.toLowerCase();
       if (!(l.entity_name||'').toLowerCase().includes(s) && !(l.details||'').toLowerCase().includes(s)) return false;
@@ -478,7 +478,7 @@ function auditExportCSV() {
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
-  a.download = `kerek-naplo-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `kerek-naplo-${localToday()}.csv`;
   a.click();
 }
 
