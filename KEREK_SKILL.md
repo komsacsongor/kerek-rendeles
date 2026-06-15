@@ -1,6 +1,6 @@
 ---
 name: kerek-workflow
-description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.44.4. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
+description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.48.2. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
 ---
 
 # KEREK – Fejlesztési Skill (lean)
@@ -65,7 +65,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Aktuális verzió** | **v2.44.4 (2026-06-11)** |
+| **Aktuális verzió** | **v2.48.2 (2026-06-12)** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ Token NE legyen a SKILL.md-ben (push-blokk a secret-detektor miatt). Claude memóriából vedd.
@@ -96,8 +96,8 @@ Indok: session-compactation után a régi tanulság elveszhet, de a git megőrzi
 
 | Modul | URL | Belépés |
 |---|---|---|
-| **Admin** | `admin.html` | `admin-auth` Edge Function (settings.admin_password hash) |
-| **Receptúra** | `receptura.html` | `sb.getSetting('admin_password')` + fallback `admin` |
+| **Admin** | `admin.html` | `admin-auth` Edge Function (`admin_secrets.admin_password` hash) |
+| **Receptúra** | `receptura.html` | `admin-auth` EF `module='receptura'` (v2.48) → `admin_secrets.receptura_password`, ennek híján admin-fallback |
 | **Vevő** | `vevo.html` | `clients.id` (KER-XXXX-XXXX) **NEM jelszó** — 3 mód: kód / email / név |
 
 **Belépési adatok dev/demo**:
@@ -183,9 +183,11 @@ messages:          id, client_id, year, month, text, created_at
 settings:          key, value, updated_at
 audit_log:         id, action, entity_name, details, created_at
 push_subscriptions: client_id, endpoint, p256dh, auth, created_at
-admin_secrets:     RLS-védett — kliens NEM olvashatja
-production_logs:   id, date, log_type, recipe_id, pieces_planned,
+admin_secrets:     key (PK), value, updated_at — szigorú RLS, csak service_role ír/olvas
+                   Kulcsok: admin_password, receptura_password, gyartas_password (jelszó-hashek)
+production_logs:   id, date (HELYI dátum!), log_type, recipe_id, pieces_planned,
                    pieces_actual, ingredient_usage (JSONB), total_cost
+                   log_type: order (rendelt) | extra (+1) | experimental (teszt) | customer (FIFO aggregát)
 monthly_active_products: id, year, month, product_id
 baking_calendar:   üres a DB-ben (default Kedd/Péntek/Szombat kliens-side)
 ```
@@ -297,6 +299,14 @@ A Chrome / Samsung Pass nem ajánl mentést PWA standalone módban. Saját stora
 Helper minta `kerek*Save/Load/Forget*`. Auto-load `DOMContentLoaded`-en. Save a `doLogin` SIKERES ágában.
 Checkbox a login képernyőn: "🔐 Maradjak bejelentkezve ezen az eszközön" (default: checked).
 NEM titkosított — saját eszközön elfogadható.
+
+### Modul-jelszó kezelés (v2.48 — biztonságos)
+
+A belépési jelszavak az **`admin_secrets`** táblában (key/value, szigorú RLS, csak service_role). A kliens NEM ír/olvas közvetlenül — minden művelet Edge Function-ön át:
+- **`admin-auth`** validál: `{password, module}` (module ∈ admin/receptura/gyartas, whitelist + admin-fallback ha a modul-jelszó nincs beállítva).
+- **`admin-set-password`** ír: előbb a jelenlegi admin jelszót validálja, majd upsertel `${module}_password` hash-t.
+- **Admin UI**: „🔑 Jelszavak" szekció — elkülönített 🔒 biztonsági blokk (jelenlegi admin jelszó) + admin/receptúra/gyártás új-jelszó sorok.
+- ⚠️ A receptúra mostantól a valódi admin (vagy külön receptúra) jelszót kéri, NEM a régi `'admin'` fallbackot.
 
 ---
 
@@ -411,6 +421,8 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
 | `navigator.credentials.store()` gyenge jelszóra | Chrome data breach blokk → KEREK saját localStorage |
 | Badge számolás csak status-rekord alapján | DEFAULT-status (pending): iterálj az adat-táblát, status mint felülírás |
 | Új feature közvetlen main-be push | STAGING-FIRST: `git checkout staging` legyen első parancs |
+| Edge Function deploy hardkódolt listával | `deploy-edge-functions.yml` auto-felismeri `supabase/functions/*/`-t — új EF ne maradjon ki (404 → néma fetch-hiba) |
+| Jelszó `settings`-be írása / kliens-oldali compare | Jelszavak az `admin_secrets`-ben; írás csak `admin-set-password` EF-en át, validálás `admin-auth`-on (`module` param); alfanumerikus jelszó |
 
 ---
 
@@ -448,7 +460,7 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
 ### 13.6 Tooltip rendszer
 - `data-tip="..."` attribútum + CSS `[data-tip]:hover`
 - Backward compat: ha van `title="..."`, duplikálódik `data-tip`-be is
-- Mobil: `@media (hover: none)` long-press szabály
+- Mobil: **tap-toggle** (`.tip-open` osztály) v2.45.2 óta — a régi long-press HELYETT; tördelés `white-space:normal`
 
 ### 13.7 Idempotens SQL migration
 A felhasználó futtatja Supabase Dashboardban. Mindig `DO $$ BEGIN IF NOT EXISTS (...) THEN ALTER... END IF; END $$` formában.
@@ -529,7 +541,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → staging Supabase (xgcwxlwjloh
 ### 15.2 GitHub Workflows
 - `deploy.yml` — dual-branch deploy
 - `sync-staging.yml` — heti prod→staging sync (pg_dump → restore → GRANT → cache reload → anonimizáció)
-- `deploy-edge-functions.yml` — admin-auth, auto-confirm-orders, dynamic-service
+- `deploy-edge-functions.yml` — **auto-felismeri** a `supabase/functions/*/`-t (v2.48; NE hardkódolj listát!). Jelenleg: admin-auth, admin-set-password, auto-confirm-orders, dynamic-service
 
 ### 15.3 GitHub Secrets
 | Secret | Mire |
@@ -538,8 +550,8 @@ komsacsongor.github.io/kerek-rendeles/staging/ → staging Supabase (xgcwxlwjloh
 | `SUPABASE_STAGING_DB_URL` | sync restore |
 | `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy (sbp_...) |
 
-### 15.4 Staging branch deploy hack
-A staging push **mindig failure** a Pages-en (csak main deployol). Workaround minden staging push UTÁN:
+### 15.4 Staging branch deploy
+A `deploy.yml` v2.45 óta `branches:[main]` + `if: github.ref=='refs/heads/main' || workflow_dispatch` → a staging push **már NEM fail-el**. A `/staging/` tartalom frissítéséhez viszont továbbra is dispatch kell minden staging push UTÁN:
 ```bash
 curl -X POST -H "Authorization: token $TOKEN" \
   -H "Accept: application/vnd.github+json" \
@@ -580,7 +592,7 @@ Plus a height-et kicsivel emeld: 80→84px (admin/receptura), 72→76px (vevő),
 | # | Tünet | Kategória | Prio |
 |---|---|---|---|
 | **#7** | Üzenet badge race — néha eltűnik mielőtt látszott | C state-sync | Közepes |
-| **#14** | Tooltip nem mindig működik egyes gombokon | B CSS | Alacsony |
+| **#14** | Tooltip — v2.45.2 újraírás valószínűleg megoldotta (ellenőrizendő) | B CSS | Alacsony |
 | **#27** | Burgonya/Cirokliszt min/max abszurdul kicsi (1-15 g) | E adat | Közepes |
 
 ---
@@ -598,18 +610,19 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 | **S5-S6** | Kísérleti sütés verziókezelés | 🟢 Új session |
 | **B1-B6** | Backlog (szezonalitás, trend, reverse lookup, stb.) | 🟢 |
 | — | DB reset demo-vevők (élesítés előtt) | ⏳ Felhasználói feladat |
-| — | Hibrid auto-confirm cron (18:00) | 🟡 |
-| — | Web Push VAPID (3 type) | 🟢 |
-| — | SC3 admin.html → js/* modulokra | 🟢 |
+| **P2** | Különálló gyártás app (`gyartas.html`, tablet) — P1 után | 🟡 |
+| — | Kiszállítás a sütési logból (per-rendelő checklist a jövőbeli alap) | 🟢 Jövő |
+
+**✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7 refactor) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
 
 ---
 
-## 19. Aktuális állapot (2026-06-11)
+## 19. Aktuális állapot (2026-06-12)
 
-- **Production**: v2.44.4 (main `fc9a91d`)
-- **Staging**: szinkronban a main-nel
-- **Legutóbbi session**: PWA + mobil (v2.42-2.44 séria)
-- **Élesben működik**: 2 PWA app (Vevő teal + Admin gold), KEREK saját jelszó-tárolás minden modulban, mobil hamburger, sidebar pending-badge fix
+- **Production**: v2.46.0 (admin/vevő push + auto-zárás 18:00 élesben)
+- **Staging**: v2.48.2 — P1 sütési log, recept-leírás dropdown, modul-jelszó kezelő (verifikálva), receptúra biztonságos login. Adat-teszteléshez receptek/alapanyagok kellenek.
+- **Legutóbbi session**: gyártás-modul (P1 sütési log) + modul-jelszó kezelő (admin_secrets + Edge Function-ök)
+- **Vár**: P1 adattal tesztelése → merge prod; P2 különálló gyártás app (`gyartas.html`)
 
 ---
 

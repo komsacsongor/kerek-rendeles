@@ -30,6 +30,10 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.42.x** | 2026-06-11 | Mobil hamburger drawer + touch targets |
 | **v2.43.x** | 2026-06-11 | 2 PWA app (vevő + admin), KEREK saját jelszó-tárolás, mobil UX finomítás |
 | **v2.44.x** | 2026-06-11 | Vevő "Maradj bejelentkezve", sidebar pending-badge fix |
+| **v2.45.x** | 2026-06-12 | Admin push (új rendelés/reg), adat-audit camelCase fix, tooltip tap-toggle, confirmSingleOrder vevő-push |
+| **v2.46.0** ⭐ | 2026-06-12 | **Auto-zárás 18:00**: `auto-confirm-orders` EF + vevő-push, `auto-confirm-cron.yml` (`0 16 * * *` UTC) |
+| **v2.47.x** | 2026-06-12 | **P1 sütési log**: per-recept rendelt vs sütött (`production_logs` order/extra/experimental), 📒 napló + per-rendelő checklist; recept-leírás dropdown az Üzemi nézetben |
+| **v2.48.x** ⭐ | 2026-06-12 | **Modul-jelszó kezelő**: admin UI + `admin-set-password` EF + `admin-auth` modul-param, receptúra biztonságos login; admin jelszó-bugfix (settings→admin_secrets); edge-deploy auto-felismerés; P1 önellenőrzés fixek (PostgREST AND, helyi dátum) |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 
@@ -64,6 +68,21 @@ A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --onelin
 
 ### Konverzációs fejlesztés Claude AI-val
 **Miért**: Iteráció gyorsabb mint klasszikus fejlesztéssel. **De**: nagyobb fegyelmet igényel push előtti verifikációban (lásd Claude-specifikus tanulságok az aktív SKILL.md-ben).
+
+### Gyártás-modul architektúra (v2.47+, tervezés)
+**Receptúra = tervezés** (recept-mesterek, alapanyag/beszállító/készlet, teszt-sütés előkészítés). **Gyártás = végrehajtás** (napi munka, tabletre, csak végrehajt+rögzít).
+
+A gyártás-nap egységes **„production run" 3 forrásból** — minden ami sül, ide fut be:
+- **rendelés** — auto a jóváhagyott rendelésekből,
+- **teszt** — a receptúrában előkészítve, betolva a megfelelő nap gyártásába,
+- **extra** — a gyártásvezető ad-hoc +1-e (pl. kollégáknak), **indoklással naplózva** (így nem kontrollálatlan, hanem követett).
+
+A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végrehajtási artefaktum, nem recept-tervezés). A recept-leírás **dropdown** az Üzemi nézetben — új kolléga lássa a folyamatot, ha kell.
+
+- **P1 (kész, staging):** sütési log — per-recept rendelt vs sütött (`production_logs`: order/extra/experimental), per-rendelő checklist (a **jövőbeli kiszállítás alapja**). NINCS DB-séma változás (meglévő mezők + a checklist a rendelésekből származik).
+- **P2 (tervezett):** `gyartas.html` különálló tablet-app a mai sütőnap rendeléseivel, lépésenkénti végrehajtással, rögzítés-munka-közben; a meglévő `receptura-production.js`/`operational.js` logikát újrahasznosítja.
+
+**Benchmark (Cybake ISB)** igazolta a víziót: kollégáknak „mit kell ma sütni" + lépés-checklist gyártási tételenként; zárt mesteradatok; a bizonyíték a munka melléktermékeként rögzül (minimal-click capture).
 
 ---
 
@@ -124,6 +143,21 @@ A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --onelin
 - Tünet: a sidebar `orders-badge` 0-t mutatott, hiába volt új rendelés
 - Ok: `updatePendingBadge` csak az `D.orderStatus`-ban LÉTEZŐ rekordokat iterálta. Az új rendelés default-pending (nincs explicit rekord)
 - Fix: iteráld a `D.orders`-t, és az `orderStatus`-t mint felülírást használd
+
+### Edge Function deploy hardkódolt lista (v2.48.0-1)
+- Tünet: az új `admin-set-password` hívása némán elhalt (nincs toast), a jelszó-módosítás nem hatott
+- Ok: a `deploy-edge-functions.yml` HARDKÓDOLT listával deployolt (`admin-auth auto-confirm-orders dynamic-service`) → az új függvény ki sem került → 404 → a fetch CORS-hibaként dőlt el
+- Fix: auto-felismerés `for dir in supabase/functions/*/`. Új EF-nél MINDIG ellenőrizd, hogy deployol-e.
+
+### Jelszó write/read forrás-eltérés (v2.48.0-1)
+- Tünet: az admin jelszó-módosítás SOSEM hatott
+- Ok: a `changePassword` a `settings` táblába írt (`setSetting('admin_password')`), de az `admin-auth` az `admin_secrets`-ből olvas
+- Fix: minden jelszó-művelet az `admin_secrets`-en át (write: `admin-set-password` EF, read/validate: `admin-auth`). Tanulság: írás és olvasás ugyanabból a forrásból.
+
+### PostgREST compound szűrő + UTC dátum (v2.48.2, P1 önellenőrzés)
+- Tünet: a per-rendelő checklist hibázott / minden rendelést hozott; a sütési log éjfél környékén téves napra esett
+- Ok: `and(year.eq.X,...)` rossz szintaxis (helyes: implicit AND `year=eq.X&month=eq.Y`); `toISOString().slice(0,10)` UTC dátumot ad
+- Fix: implicit AND szűrő; `_prodLocalDate()` helyi dátum a `production_logs.date`-hez (a napló-szűrő és a beszúrás formátuma egyezzen)
 
 ### Chrome data breach blokk a `credentials.store()`-on (v2.43.10-12)
 - Tünet: Chrome figyelmeztetés "The password you just used was found in a data breach", Close gomb NEM ment
@@ -246,10 +280,11 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 | U4 Fizetési állapot tracking | Közepes |
 | U3 Napi kapacitás limit | Közepes |
 | DB reset demo-vevők (élesítés előtt) | ⏳ Felhasználói |
-| Hibrid auto-confirm cron (18:00) | 🟡 |
-| Web Push VAPID (3 type) | 🟢 |
-| SC3 admin.html → js/* modulokra szétbontás | 🟢 |
+| P2 különálló gyártás app (`gyartas.html`, tablet) — P1 után | 🟡 |
+| Kiszállítás a sütési logból | 🟢 Jövő |
 | Valódi e-mail értesítés (reg. kód) | Középtáv |
+
+**✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
 
 ---
 
@@ -263,8 +298,8 @@ display:block; margin:0 auto; padding-bottom:4px
 ```
 Plus height-emelés: 80→84px (admin/receptura), 72→76px (vevő), 100→104px (index).
 
-### Deploy concurrency hack
-A staging branch push **mindig failure** a Pages-en (csak main deployol). Workaround minden staging push UTÁN:
+### Deploy concurrency (v2.45 óta JAVÍTVA)
+Korábban a staging branch push **failure**-t adott a védett Pages environment-ben. A `deploy.yml` javítva: `branches:[main]` + `if: github.ref=='refs/heads/main' || workflow_dispatch` → a staging push már nem fail-el. A `/staging/` tartalom frissítéséhez viszont továbbra is dispatch kell staging push UTÁN:
 ```bash
 curl -X POST -H "Authorization: token $TOKEN" \
   -H "Accept: application/vnd.github+json" \
@@ -273,8 +308,6 @@ curl -X POST -H "Authorization: token $TOKEN" \
 ```
 
 A workflow_dispatch a main-en fut, DE az `actions/checkout@v4 ref:staging` a staging tartalmat is felteszi `/staging/` alá. **Tehát a staging URL frissül, csak közvetett módon.**
-
-**Jövőbeli javítás**: a `deploy.yml` módosítása hogy a staging branch push NE fail-eljen — esetleg külön artifact-build job, közös deploy.
 
 ### Baking-list 🔴 Hiány vs ⚠️ — különálló helyzetek
 
@@ -312,6 +345,15 @@ A `navigator.credentials.store` blokk eltávolításakor a regex pattern túl sz
 
 ### v2.42.0 STAGING-FIRST megsértés
 A mobil-feature kódolásánál a `git checkout staging` lépést kihagytam, ami `sidebar-overlay HTML-bug`-ot élesbe juttatott. **Megelőzés**: ELSŐ KÖTELEZŐ szabály mostantól `git checkout staging` minden new feature előtt.
+
+### v2.45.0 Admin push — fenntartott client_id
+A `push_subscriptions.client_id` NEM FK a `clients`-re → fenntartott ID (`'ADMIN'`) használható az admin-feliratkozáshoz, séma-változás nélkül. Trigger **vevő-oldalról** (sikeres `saveOrder` / regisztráció) a meglévő push-pipeline-on (60s throttle, hogy ne spammeljen). A broadcast-'all' nem éri el (az a `clients` táblából származtat). Az `sw.js` a `notification.data.type` alapján routol (`new_order`/`new_client` → admin.html).
+
+### v2.46.0 Cron UTC/DST csapda
+A GitHub Actions cron CSAK UTC-ben jár. Románia UTC+2/+3 → a helyi 18:00 határidő = 16:00 (téli) / 15:00 (nyári) UTC. A **`0 16 * * *`** (16:00 UTC) MINDIG a helyi 18:00 UTÁN fut, év közben végig. A függvény **idempotens** (csak a `deadline <= now` rendeléseket zárja), ezért a pontos óra kevésbé kritikus.
+
+### deploy.yml — github-pages environment protection (v2.45)
+A staging branch push **failure**-t adott (hibás e-mail), mert a `github-pages` environment védelmi szabálya csak `main`-ről enged deploy-t — a staging push mégis elindította a workflow-t → elutasítás. **Fix**: staging eltávolítása a push-triggerből (`branches:[ main ]`) + `if: github.ref=='refs/heads/main' || workflow_dispatch` guard. A `/staging/` tartalom továbbra is a main-en futó `workflow_dispatch`-csel frissül.
 
 ### v2.44.2 scope-szűkítés tévedés
 Próbáltam `scope: ./vevo`-ra szűkíteni a vevő manifest-et — a Chrome strict spec-validáció miatt INVALID lett. **Tanulság**: scope-szűkítés CSAK directory-szegmensre (slash-szel végződő) működik, részfájl-prefix NEM elég.

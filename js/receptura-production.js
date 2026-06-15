@@ -1,6 +1,11 @@
 // ===== PRODUCTION PREP =====
 let _prodSelectedMonth = null; // {year, month} aktuális szelektor állapot
 
+// Helyi dátum YYYY-MM-DD (NEM toISOString, ami UTC → éjfél környékén téves nap)
+function _prodLocalDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 async function initProductionPrep() {
   const now = new Date();
   _prodSelectedMonth = { year: now.getFullYear(), month: now.getMonth() };
@@ -224,7 +229,13 @@ async function calcProductionPrep() {
           <span class="prod-arr" style="color:white;font-size:0.9rem">${openDefault ? '▴' : '▾'}</span>
         </div>
       </div>
-      <div id="${rid}" class="prod-recipe-body" style="display:${openDefault ? 'block' : 'none'};padding:12px 16px">`;
+      <div id="${rid}" class="prod-recipe-body" style="display:${openDefault ? 'block' : 'none'};padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--teal-pale);border-radius:8px;flex-wrap:wrap">
+          <span style="font-size:0.8rem;color:var(--teal-dark)">Rendelt: <b>${totalPieces} db</b></span>
+          <span style="font-size:0.8rem;color:var(--teal-dark);margin-left:6px">Ténylegesen sütött:</span>
+          <input type="number" id="prod-actual-${recipe.id}" min="0" value="${totalPieces}" style="width:72px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;box-sizing:border-box" onclick="event.stopPropagation()">
+          <span style="font-size:0.72rem;color:var(--text-soft)">db</span>
+        </div>`;
 
     // Group ingredients by sub_type
     const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
@@ -342,6 +353,10 @@ async function calcProductionPrep() {
   document.getElementById('prod-prep-result').innerHTML = html;
   window._lastProductionNeeds = needs;
   window._lastProductionDays = selected;
+  // P1 sütési log: per-recept bontás (recept_id + rendelt db) a planned/actual rögzítéshez
+  window._lastProductionRecipes = Object.values(recipeBreakdown).map(({ recipe, totalPieces }) => ({
+    recipe_id: recipe.id, name: recipe.name, planned: totalPieces
+  }));
 
   // Show 'Sütés elvégezve' button in top bar
   const doneBtnTop = document.getElementById('prod-done-btn-top');
@@ -433,7 +448,7 @@ async function confirmBakingDone() {
     }
 
     // Save production log
-    const now = new Date().toISOString().slice(0,10);
+    const now = _prodLocalDate();
     await sb.insert('production_logs', {
       date: now,
       log_type: 'customer',
@@ -444,6 +459,20 @@ async function confirmBakingDone() {
       notes: `Sütési napok: ${days?.join(', ') || '—'}`
     });
 
+    // P1 sütési log: per-recept planned (rendelt) vs actual (ténylegesen sütött)
+    const prodRecipes = window._lastProductionRecipes || [];
+    for (const pr of prodRecipes) {
+      const actualEl = document.getElementById('prod-actual-' + pr.recipe_id);
+      const actual = actualEl ? (parseInt(actualEl.value) || 0) : pr.planned;
+      if (actual <= 0) continue; // nem sült belőle
+      try {
+        await sb.insert('production_logs', {
+          date: now, log_type: 'order', recipe_id: pr.recipe_id,
+          pieces_planned: pr.planned, pieces_actual: actual,
+          total_cost: 0, notes: `Sütési napok: ${days?.join(', ') || '—'}`
+        });
+      } catch(e) { console.warn('per-recipe log:', e.message); }
+    }
     // Set FULFILLED on all orders for baked days (per client)
     // H3+H5 fix: single OR-query for all days, then 1 bulk upsert (was N+1 nested loops)
     let fulfilledCount = 0;
@@ -499,7 +528,8 @@ async function confirmBakingDone() {
 }
 
 // ===== KÍSÉRLETI SÜTÉS =====
-async function openExperimentalBake(recipeId) {
+async function openExperimentalBake(recipeId, mode='experimental') {
+  const isExtra = mode === 'extra';
   // If no recipeId, show proper recipe picker modal
   if (!recipeId) {
     const active = R.recipes.filter(r => !r.archived);
@@ -512,9 +542,9 @@ async function openExperimentalBake(recipeId) {
       document.body.appendChild(m); return m;
     })();
     picker.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:420px">
-      <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 16px">🧪 Kísérleti sütés – recept választás</h3>
+      <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 16px">${isExtra ? '➕ Extra sütés' : '🧪 Kísérleti sütés'} – recept választás</h3>
       <div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto">
-        ${active.map(r => `<button onclick="document.getElementById('exp-recipe-picker').style.display='none';openExperimentalBake(${r.id})"
+        ${active.map(r => `<button onclick="document.getElementById('exp-recipe-picker').style.display='none';openExperimentalBake(${r.id}, '${mode}')"
           style="text-align:left;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:white;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.9rem;color:var(--teal-dark);font-weight:600;transition:all 0.15s"
           onmouseover="this.style.background='var(--teal-pale)'" onmouseout="this.style.background='white'">
           ${esc(r.name)}
@@ -537,10 +567,10 @@ async function openExperimentalBake(recipeId) {
   })();
 
   modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:420px">
-    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">🧪 Kísérleti sütés</h3>
+    <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">${isExtra ? '➕ Extra sütés (plusz)' : '🧪 Kísérleti sütés'}</h3>
     <div style="font-weight:600;margin-bottom:14px">${esc(recipe.name)}</div>
     <div style="background:#fef3c7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:#92400e">
-      ⚠️ A kísérleti sütés levonja az alapanyagokat a készletből, de <b>nem</b> kerül a rendelési statisztikákba.
+      ${isExtra ? '➕ Az extra sütés a kollégáknak/pluszba készül: levonja az alapanyagokat és <b>extra</b>-ként naplózódik (nem rendelés).' : '⚠️ A kísérleti sütés levonja az alapanyagokat a készletből, de <b>nem</b> kerül a rendelési statisztikákba.'}
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Darabszám</label>
@@ -548,11 +578,11 @@ async function openExperimentalBake(recipeId) {
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Megjegyzés (opcionális)</label>
-      <input type="text" id="exp-notes" placeholder="pl. új psyllium teszt, alacsonyabb só..." style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
+      <input type="text" id="exp-notes" placeholder="${isExtra ? 'pl. kollégáknak helyben, kóstoló...' : 'pl. új psyllium teszt, alacsonyabb só...'}" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
     </div>
     <div id="exp-cost-preview" style="background:var(--bg-soft);border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.8rem"></div>
     <div style="display:flex;gap:8px">
-      <button onclick="confirmExperimentalBake(${recipeId})" class="btn btn-primary" style="flex:1">🧪 Rögzít + Készlet levonat</button>
+      <button onclick="confirmExperimentalBake(${recipeId}, '${mode}')" class="btn btn-primary" style="flex:1">${isExtra ? '➕' : '🧪'} Rögzít + Készlet levonat</button>
       <button onclick="document.getElementById('exp-bake-modal').style.display='none'" style="padding:8px 14px;border:1px solid var(--border);background:none;border-radius:8px;cursor:pointer">Mégse</button>
     </div>
   </div>`;
@@ -579,7 +609,8 @@ async function openExperimentalBake(recipeId) {
   updatePreview();
 }
 
-async function confirmExperimentalBake(recipeId) {
+async function confirmExperimentalBake(recipeId, mode='experimental') {
+  const isExtra = mode === 'extra';
   const recipe = R.recipes.find(r => r.id === recipeId);
   if (!recipe) return;
   const pieces = parseInt(document.getElementById('exp-pieces')?.value) || 1;
@@ -620,17 +651,120 @@ async function confirmExperimentalBake(recipeId) {
 
   try {
     await sb.insert('production_logs', {
-      date: new Date().toISOString().slice(0,10),
-      log_type: 'experimental',
+      date: _prodLocalDate(),
+      log_type: isExtra ? 'extra' : 'experimental',
       recipe_id: recipeId,
       pieces_planned: pieces,
       pieces_actual: pieces,
       ingredient_usage: JSON.stringify(usage),
       total_cost: totalCost,
-      notes: notes || 'Kísérleti sütés'
+      notes: notes || (isExtra ? 'Extra sütés' : 'Kísérleti sütés')
     });
     document.getElementById('exp-bake-modal').style.display = 'none';
-    toast(`✅ Kísérleti sütés rögzítve: ${pieces} db ${recipe.name}. Önköltség: ${totalCost.toFixed(2)} lej`);
+    toast(`✅ ${isExtra ? 'Extra' : 'Kísérleti'} sütés rögzítve: ${pieces} db ${recipe.name}. Önköltség: ${totalCost.toFixed(2)} lej`);
     renderStock();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
+// ===== SÜTÉSI NAPLÓ (P1) =====
+// Egy napra: per-recept rendelt vs sütött (rendelés/extra/teszt) + per-rendelő checklist (legyártva).
+function initBakingLog() {
+  const inp = document.getElementById('blog-date');
+  if (inp && !inp.value) {
+    inp.value = _prodLocalDate();
+  }
+  if (inp) renderBakingLog(inp.value);
+}
+
+async function renderBakingLog(dateStr) {
+  const box = document.getElementById('blog-result');
+  if (!box || !dateStr) return;
+  box.innerHTML = '<p class="text-soft text-sm">Betöltés...</p>';
+  const [y, mm, dd] = dateStr.split('-').map(Number);
+  const m0 = mm - 1; // orders.month 0-alapú
+
+  try {
+    const logs = await sb.query('production_logs', { filter: `date=eq.${dateStr}`, limit: 2000 }) || [];
+    const recipeName = id => (R.recipes.find(r => r.id === id)?.name) || ('Recept #' + id);
+
+    // Per-recept aggregálás típusonként
+    const byRecipe = {};
+    logs.forEach(l => {
+      if (!l.recipe_id) return; // aggregát 'customer' log kihagyva
+      const r = byRecipe[l.recipe_id] || (byRecipe[l.recipe_id] = { ordered_plan:0, ordered_act:0, extra:0, test:0 });
+      const act = Number(l.pieces_actual) || 0;
+      if (l.log_type === 'order')        { r.ordered_plan += Number(l.pieces_planned)||0; r.ordered_act += act; }
+      else if (l.log_type === 'extra')   { r.extra += act; }
+      else if (l.log_type === 'experimental') { r.test += act; }
+    });
+
+    let html = '';
+    if (Object.keys(byRecipe).length === 0) {
+      html += `<div class="card mb-16"><div class="card-body"><p class="text-soft text-sm">Erre a napra nincs rögzített sütés.</p></div></div>`;
+    } else {
+      html += `<div class="card mb-16"><div class="card-head"><div class="card-title">🍞 Legyártott termékek – ${dateStr}</div></div><div class="card-body-np">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0;font-size:0.8rem">
+          <div style="padding:8px 12px;font-weight:700;color:var(--teal-dark);background:var(--bg-soft)">Termék</div>
+          <div style="padding:8px 12px;font-weight:700;color:var(--teal-dark);background:var(--bg-soft);text-align:right">Rendelt</div>
+          <div style="padding:8px 12px;font-weight:700;color:var(--teal-dark);background:var(--bg-soft);text-align:right">Sütött</div>
+          <div style="padding:8px 12px;font-weight:700;color:#92400e;background:var(--bg-soft);text-align:right">Extra</div>
+          <div style="padding:8px 12px;font-weight:700;color:#b45309;background:var(--bg-soft);text-align:right">Teszt</div>`;
+      let tP=0,tA=0,tE=0,tT=0;
+      Object.entries(byRecipe).forEach(([rid, r]) => {
+        tP+=r.ordered_plan; tA+=r.ordered_act; tE+=r.extra; tT+=r.test;
+        const diff = r.ordered_act - r.ordered_plan;
+        const diffBadge = (r.ordered_plan>0 && diff!==0) ? ` <span style="font-size:0.68rem;color:${diff>0?'#059669':'#dc2626'}">(${diff>0?'+':''}${diff})</span>` : '';
+        html += `
+          <div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,0.05);color:var(--teal-dark)">${esc(recipeName(Number(rid)))}</div>
+          <div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,0.05);text-align:right">${r.ordered_plan||'–'}</div>
+          <div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,0.05);text-align:right;font-weight:700">${r.ordered_act||'–'}${diffBadge}</div>
+          <div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,0.05);text-align:right;color:#92400e">${r.extra||'–'}</div>
+          <div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,0.05);text-align:right;color:#b45309">${r.test||'–'}</div>`;
+      });
+      html += `
+          <div style="padding:9px 12px;border-top:2px solid var(--teal);font-weight:800;color:var(--teal-dark);background:var(--teal-pale)">Összesen</div>
+          <div style="padding:9px 12px;border-top:2px solid var(--teal);text-align:right;font-weight:800;background:var(--teal-pale)">${tP}</div>
+          <div style="padding:9px 12px;border-top:2px solid var(--teal);text-align:right;font-weight:800;background:var(--teal-pale)">${tA}</div>
+          <div style="padding:9px 12px;border-top:2px solid var(--teal);text-align:right;font-weight:800;color:#92400e;background:var(--teal-pale)">${tE}</div>
+          <div style="padding:9px 12px;border-top:2px solid var(--teal);text-align:right;font-weight:800;color:#b45309;background:var(--teal-pale)">${tT}</div>
+        </div></div></div>`;
+    }
+
+    // === PER-RENDELŐ CHECKLIST ===
+    const orders = await sb.query('orders', { filter: `year=eq.${y}&month=eq.${m0}&day=eq.${dd}`, limit: 5000 }) || [];
+    if (orders.length > 0) {
+      const statuses = await sb.query('order_status', { filter: `year=eq.${y}&month=eq.${m0}&day=eq.${dd}`, limit: 5000 }) || [];
+      const clients = await sb.query('clients', { select: 'id,name', limit: 1000 }) || [];
+      const products = await sb.query('products', { select: 'id,name', limit: 1000 }) || [];
+      const cName = id => { const c = clients.find(c => c.id === id); return c ? c.name.replace(/^\[(DELETED|PENDING)\]\s*/, '') : id; };
+      const pName = id => (products.find(p => p.id === id)?.name) || ('Termék #' + id);
+      const statusOf = cid => (statuses.find(s => s.client_id === cid)?.status) || 'pending';
+
+      const byClient = {};
+      orders.forEach(o => {
+        if (!Number(o.quantity)) return;
+        (byClient[o.client_id] = byClient[o.client_id] || []).push(o);
+      });
+
+      html += `<div class="card mb-16"><div class="card-head"><div class="card-title">✅ Rendelők – legyártva (${Object.keys(byClient).length})</div></div><div class="card-body-np">`;
+      Object.entries(byClient).forEach(([cid, items]) => {
+        const st = statusOf(cid);
+        const done = st === 'fulfilled';
+        const mark = done ? '✅' : (st === 'confirmed' ? '🔵' : '⏳');
+        const stLabel = done ? 'legyártva' : (st === 'confirmed' ? 'jóváhagyva' : 'függő');
+        html += `<div style="padding:9px 14px;border-top:1px solid rgba(0,0,0,0.05);display:flex;gap:10px;align-items:flex-start">
+          <span style="font-size:1rem">${mark}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:var(--teal-dark);font-size:0.86rem">${esc(cName(cid))} <span style="font-weight:400;font-size:0.72rem;color:var(--text-soft)">— ${stLabel}</span></div>
+            <div style="font-size:0.79rem;color:var(--text-soft);margin-top:2px">${items.map(o => `${esc(pName(o.product_id))} × ${o.quantity}`).join(' · ')}</div>
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = `<div class="card"><div class="card-body"><p style="color:#dc2626">⚠️ Hiba a napló betöltésekor: ${esc(e.message)}</p></div></div>`;
+  }
 }

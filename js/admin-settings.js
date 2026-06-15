@@ -185,19 +185,38 @@ function saveHelpTexts(){
   sb.setSetting('help_delivery', D.helpDelivery).catch(e=>console.warn(e));
   save(); toast('Szövegek mentve! A vevői súgóban megjelennek.');
 }
-function changePassword(){
-  const old=document.getElementById('s-old-pw').value;
-  const n1=document.getElementById('s-new-pw').value;
-  const n2=document.getElementById('s-new-pw2').value;
-  if(old!==(D.settings?.adminPw||'admin')){toast('Hibás jelenlegi jelszó!');return;}
-  if(!n1||n1!==n2){toast('Az új jelszavak nem egyeznek!');return;}
-  if(!D.settings) D.settings={};
-  D.settings.adminPw=n1;
-  hashPassword(n1).then(hash => sb.setSetting('admin_password', hash).catch(e=>console.warn(e)));
-  save();
-  ['s-old-pw','s-new-pw','s-new-pw2'].forEach(i=>document.getElementById(i).value='');
-  toast('Jelszó sikeresen módosítva!');
-  auditLog('password_change', 'Admin', 'Jelszó módosítva');
+// v2.48.0: modul jelszó beállítás az admin-set-password Edge Function-ön át (service_role írás admin_secrets-be)
+async function kerekSetPassword(module, currentPw, newPw) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+    body: JSON.stringify({ current_password: currentPw, module, new_password: newPw })
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok && data.success, status: res.status, data };
+}
+
+async function setModulePassword(module){
+  const adminPw = document.getElementById('pw-current-admin')?.value;
+  const newPw = document.getElementById('pw-new-'+module)?.value;
+  if(!adminPw){ toast('🔒 Add meg a jelenlegi admin jelszót (biztonsági megerősítés)!', true); return; }
+  if(!newPw || newPw.length<3){ toast('Az új jelszó túl rövid (min. 3 karakter).', true); return; }
+  try {
+    const r = await kerekSetPassword(module, adminPw, newPw);
+    if(r.status===429){ toast('⚠️ Túl sok próbálkozás, várj egy percet.', true); return; }
+    if(!r.ok){
+      const msg = r.data?.error==='invalid_admin_password' ? '❌ Hibás admin jelszó!'
+        : r.data?.error==='weak_new_password' ? 'Az új jelszó túl rövid.'
+        : ('⚠️ Hiba: ' + (r.data?.error || ('HTTP '+r.status)));
+      toast(msg, true); return;
+    }
+    document.getElementById('pw-new-'+module).value='';
+    const label = module==='admin'?'Admin':(module==='receptura'?'Receptúra':'Gyártás');
+    toast(`✅ ${label} jelszó beállítva!`);
+    auditLog('password_set', module, 'Modul jelszó beállítva');
+  } catch(e){
+    toast('⚠️ Hálózati/váratlan hiba: ' + (e?.message||e), true);
+  }
 }
 function toggleSettings(el){ el.nextElementSibling.classList.toggle('open'); }
 function loadSettings(){

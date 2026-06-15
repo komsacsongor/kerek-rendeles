@@ -123,9 +123,16 @@ async function doLogin() {
   const pw = document.getElementById('login-pw').value;
   if(!pw) { loginError('⚠️ Add meg a jelszót!'); return; }
   try {
-    const storedPw = await sb.getSetting('admin_password');
-    const adminPw = storedPw || 'admin';
-    if (pw === adminPw) {
+    // v2.48.0: biztonságos szerver-oldali validálás (admin-auth, module=receptura).
+    // Ha nincs külön receptúra jelszó, visszaesik az admin jelszóra.
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify({ password: pw, module: 'receptura' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) { loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} mp-et.`); return; }
+    if (res.ok && data.success) {
       loggedIn = true;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
@@ -133,13 +140,7 @@ async function doLogin() {
       if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
     } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
   } catch(e) {
-    // Fallback
-    if (pw === 'admin') {
-      loggedIn = true;
-      document.getElementById('login-screen').style.display = 'none';
-      initApp();
-      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
-    } else { loginError('❌ Hibás jelszó!'); }
+    loginError('⚠️ Hálózati hiba a belépéskor. Próbáld újra.');
   }
 }
 function logout() {

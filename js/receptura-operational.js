@@ -31,6 +31,14 @@ function renderOpDetail() {
   document.getElementById('op-raw-weight').textContent = rawWeight.toLocaleString();
   document.getElementById('op-levain-needed').textContent = levainNeeded;
 
+  // Recept leírás dropdown (új kollégának) – csak ha van leírás
+  const descWrap = document.getElementById('op-recipe-desc-wrap');
+  const descEl = document.getElementById('op-recipe-desc');
+  if (descWrap && descEl) {
+    if (r.desc && r.desc.trim()) { descEl.textContent = r.desc; descWrap.style.display = 'block'; }
+    else { descWrap.style.display = 'none'; }
+  }
+
   renderLevainBox('op-levain-box', levainNeeded, r.levainAmount);
 
   // Ingredients list
