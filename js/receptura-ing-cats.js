@@ -200,7 +200,7 @@ function openStockIntakeModal(ingId) {
     </div>
     <div style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-bottom:16px">
       <div style="font-weight:700;font-size:0.95rem;color:var(--teal-dark)">${esc(ing.name)}</div>
-      <div style="font-size:0.82rem;color:var(--text-soft);margin-top:4px">Jelenlegi készlet: <b>${currentStock.toLocaleString()} g</b></div>
+      <div style="font-size:0.82rem;color:var(--text-soft);margin-top:4px">Jelenlegi készlet: <b>${fmtQtyUnit(currentStock, ing.unit)}</b></div>
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Bevételezett mennyiség</label>
@@ -209,10 +209,7 @@ function openStockIntakeModal(ingId) {
           style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif">
         <select id="si-unit" onchange="updateSiPriceLabel()"
           style="width:80px;padding:10px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:'Kodchasan',sans-serif">
-          <option value="g">g</option>
-          <option value="kg">kg</option>
-          <option value="ml">ml</option>
-          <option value="L">L</option>
+          ${unitIntakeOptions(ing.unit).map(([v,l])=>`<option value="${v}"${v===ing.unit||(ing.unit==='l'&&v==='L')?' selected':''}>${l}</option>`).join('')}
         </select>
       </div>
       <div id="si-amount-preview" style="font-size:0.72rem;color:var(--text-soft);margin-top:3px"></div>
@@ -221,8 +218,8 @@ function openStockIntakeModal(ingId) {
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Ár megadása</label>
       <select id="si-price-mode" onchange="updateSiPriceLabel()"
         style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.84rem;font-family:'Kodchasan',sans-serif;margin-bottom:6px">
-        <option value="per_kg">Egységár (lej/kg)</option>
-        <option value="total">Teljes összeg (lej) – rendszer számolja kg-árat</option>
+        <option value="per_kg">Egységár (lej/${unitBigLabel(ing.unit)})</option>
+        <option value="total">Teljes összeg (lej) – rendszer számolja az egységárat</option>
       </select>
       <input type="number" id="si-price" min="0" step="0.01" placeholder="pl. 8.50" oninput="updateSiPriceLabel()"
         style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
@@ -267,29 +264,29 @@ function updateSiPriceLabel() {
   const preview = document.getElementById('si-price-preview');
   const amountPreview = document.getElementById('si-amount-preview');
 
-  // Convert to grams for preview
-  let amountG = amountRaw;
-  if (unit === 'kg') amountG = amountRaw * 1000;
-  else if (unit === 'L') amountG = amountRaw * 1000;
-  else if (unit === 'ml') amountG = amountRaw;
+  // Bázisra váltás (kg/l →1000, g/ml/db →1); a bázis g (mass/vol) vagy db (count)
+  const f = unitFactor(unit);
+  const amountBase = amountRaw * f;
+  const big = unitBigLabel(unit);          // ár-egység: kg|l|db
+  const bigF = unitFactor(big);            // kg/l →1000, db →1
 
-  if (amountPreview && amountRaw > 0 && unit !== 'g') {
-    amountPreview.textContent = `→ ${amountG.toLocaleString()} g`;
+  if (amountPreview && amountRaw > 0 && f !== 1) {
+    amountPreview.textContent = `→ ${amountBase.toLocaleString('hu')} g`;
   } else if (amountPreview) {
     amountPreview.textContent = '';
   }
 
   if (!preview) return;
   if (mode === 'total') {
-    if (amountG > 0 && priceInput > 0) {
-      const perKg = priceInput / (amountG / 1000);
-      preview.textContent = `→ Egységár: ${perKg.toFixed(2)} lej/kg`;
+    if (amountBase > 0 && priceInput > 0) {
+      const perBig = priceInput / (amountBase / bigF);
+      preview.textContent = `→ Egységár: ${perBig.toFixed(2)} lej/${big}`;
     } else {
       preview.textContent = 'Add meg a mennyiséget és az összeget';
     }
   } else {
-    if (priceInput > 0 && amountG > 0) {
-      const total = (amountG / 1000) * priceInput;
+    if (priceInput > 0 && amountBase > 0) {
+      const total = (amountBase / bigF) * priceInput;
       preview.textContent = `→ Teljes: ${total.toFixed(2)} lej`;
     } else {
       preview.textContent = '';
@@ -308,15 +305,11 @@ async function confirmStockIntake(ingId) {
   const amountRaw = parseFloat(amountEl?.value) || 0;
   if (amountRaw <= 0) { toast('⚠️ Add meg a mennyiséget!', true); return; }
 
-  // Convert to grams (1ml = 1g approximation)
+  // Bázisra váltás: kg/l →1000, g/ml/db →1 (a bázis g mass/vol esetén, db count esetén)
   const unit = unitEl?.value || 'g';
-  let amountG = amountRaw;
-  if (unit === 'kg') amountG = amountRaw * 1000;
-  else if (unit === 'L') amountG = amountRaw * 1000;
-  else if (unit === 'ml') amountG = amountRaw;
-  // g stays as is
+  const amountG = amountRaw * unitFactor(unit);
 
-  // Price calculation
+  // Price calculation — pricePerG = lej / bázis-egység (lej/g vagy lej/db)
   const priceMode = priceModeEl?.value || 'per_kg';
   const priceInput = parseFloat(priceEl?.value) || 0;
   let pricePerG = 0;
@@ -324,8 +317,8 @@ async function confirmStockIntake(ingId) {
     if (priceMode === 'total') {
       pricePerG = amountG > 0 ? priceInput / amountG : 0;
     } else {
-      // per_kg → per_g
-      pricePerG = priceInput / 1000;
+      // egységár (lej/kg|l|db) → lej/bázis
+      pricePerG = priceInput / unitFactor(unitBigLabel(unit));
     }
   }
 

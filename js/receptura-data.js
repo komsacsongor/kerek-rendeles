@@ -247,6 +247,7 @@ async function initApp() {
       });
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
+        unit: i.unit || 'g',  // M0: natív mértékegység (g/kg/ml/l/db)
         materialType: i.material_type || 'consumable',  // v2.35.0
         preferredSupplierId: i.preferred_supplier_id || null,  // v2.40.0
         familyId: i.family_id || null,                  // v2.35.0

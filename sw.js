@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.48.3';
+const CACHE_NAME = 'kerek-v2.49.0';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',

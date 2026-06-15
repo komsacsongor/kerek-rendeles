@@ -15,7 +15,7 @@ function renderStockAlerts() {
       ${critical.length?'🔴 Kritikus készletszint':'🟡 Alacsony készlet'}
     </div>
     ${alerts.map(i=>`<div style="font-size:0.8rem;color:${critical.includes(i)?'#dc2626':'#b45309'}">
-      ${i.name}: <b>${Math.round(getTotalStock(i)).toLocaleString()}g</b> (min: ${i.minStock.toLocaleString()}g)
+      ${i.name}: <b>${fmtQtyUnit(getTotalStock(i), i.unit)}</b> (min: ${fmtQtyUnit(i.minStock, i.unit)})
     </div>`).join('')}
   </div>`;
 }
@@ -90,14 +90,14 @@ function renderStock() {
       const fifoP = ing.fifoPrice || 0;
       const avgP = ing.avgPrice || 0;
       const priceStr = fifoP > 0
-        ? `FIFO: <b>${(fifoP*1000).toFixed(2)} lej/kg</b>${avgP !== fifoP ? ` · Átlag: ${(avgP*1000).toFixed(2)} lej/kg` : ''}`
+        ? `FIFO: <b>${fmtPriceUnit(fifoP, ing.unit)}</b>${avgP !== fifoP ? ` · Átlag: ${fmtPriceUnit(avgP, ing.unit)}` : ''}`
         : '<span style="color:var(--text-soft)">Nincs árinfo</span>';
 
       // Min/max display
       const mmLabel = ing.isOverride
-        ? `<span title="Kézi beállítás" data-tip="Kézi beállítás" style="color:#7c3aed">🔒 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+        ? `<span title="Kézi beállítás" data-tip="Kézi beállítás" style="color:#7c3aed">🔒 ${fmtQtyUnit(minS, ing.unit)}–${fmtQtyUnit(maxS, ing.unit)}</span>`
         : ing.minStockAutoG > 0
-          ? `<span title="Automatikus számítás" data-tip="Automatikus számítás">🤖 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+          ? `<span title="Automatikus számítás" data-tip="Automatikus számítás">🤖 ${fmtQtyUnit(minS, ing.unit)}–${fmtQtyUnit(maxS, ing.unit)}</span>`
           : '<span style="color:var(--text-soft)">Nincs adat még</span>';
 
       // Batches count
@@ -107,10 +107,10 @@ function renderStock() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:0.9rem">${esc(ing.name)}</div>
-            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}${ing.basePriceG>0&&fifoP===0?' · <span style="color:#b45309">📌 Alap: '+(ing.basePriceG*1000).toFixed(2)+' lej/kg</span>':''}</div>
+            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}${ing.basePriceG>0&&fifoP===0?' · <span style="color:#b45309">📌 Alap: '+fmtPriceUnit(ing.basePriceG, ing.unit)+'</span>':''}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${stock.toLocaleString()}g</div>
+            <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${fmtQtyUnit(stock, ing.unit)}</div>
             <div style="font-size:0.7rem;background:${statusBg};color:${statusColor};padding:1px 8px;border-radius:10px;font-weight:600">${statusLabel}</div>
           </div>
         </div>
@@ -137,8 +137,8 @@ function renderStock() {
           <b>Batch-ek (FIFO):</b>
           ${batches.sort((a,b)=>a.receivedDate.localeCompare(b.receivedDate)).map((b,i) => `
             <span style="display:inline-block;background:${i===0?'var(--teal-pale)':'#f9fafb'};border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin:2px">
-              ${b.receivedDate} · ${Math.round(b.qtyRemainingG).toLocaleString()}g
-              ${b.pricePerG>0 ? `· ${(b.pricePerG*1000).toFixed(2)} lej/kg` : ''}
+              ${b.receivedDate} · ${fmtQtyUnit(b.qtyRemainingG, ing.unit)}
+              ${b.pricePerG>0 ? `· ${fmtPriceUnit(b.pricePerG, ing.unit)}` : ''}
               ${b.supplierName ? `· ${esc(b.supplierName)}` : ''}
             </span>`).join('')}
         </div>` : ''}
@@ -177,7 +177,7 @@ function openMinMaxEditor(ingId) {
     <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">✏️ Min/Max szint</h3>
     <div style="font-weight:600;margin-bottom:16px">${esc(ing.name)}</div>
     <div style="background:var(--bg-soft);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem">
-      🤖 Auto számított: min <b>${ing.minStockAutoG.toLocaleString()}g</b> · max <b>${ing.maxStockAutoG.toLocaleString()}g</b>
+      🤖 Auto számított: min <b>${fmtQtyUnit(ing.minStockAutoG, ing.unit)}</b> · max <b>${fmtQtyUnit(ing.maxStockAutoG, ing.unit)}</b>
       ${ing.autoUpdatedAt ? `<br><span style="color:var(--text-soft)">${new Date(ing.autoUpdatedAt).toLocaleDateString('hu-HU')}</span>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
