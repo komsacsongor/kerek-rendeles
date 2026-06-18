@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization',
+  'Access-Control-Allow-Headers': 'content-type, authorization, apikey',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 const json = (body: any, status = 200) =>
