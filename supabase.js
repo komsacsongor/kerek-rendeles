@@ -10,6 +10,43 @@ const SUPABASE_KEY = IS_STAGING
   ? 'sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1'
   : 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
+// ===== SEC Fázis 1: authentikált adat-proxy (admin-data EF) =====
+// Az anon-tól LEZÁRT táblákhoz (pl. suppliers). A modul-jelszót (window._kerekPw,
+// login után memóriában) küldi; az EF service_role-lal továbbít PostgREST-re.
+// Interfész tükrözi az `sb`-t, így a hívás-helyek minimálisan változnak.
+const kData = {
+  async _call(table, method, { query = '', body = null, prefer = null } = {}) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-data`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        module: (typeof window !== 'undefined' && window.KEREK_MODULE) || 'receptura',
+        password: (typeof window !== 'undefined') ? window._kerekPw : null,
+        table, method, query, body, prefer,
+      }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || 'admin-data hiba');
+    return j.data;
+  },
+  query(table, opts = {}) {
+    let q = '';
+    if (opts.select) q += `select=${opts.select}&`;
+    if (opts.filter) q += `${opts.filter}&`;
+    if (opts.order) q += `order=${opts.order}&`;
+    if (opts.limit) q += `limit=${opts.limit}&`;
+    return this._call(table, 'GET', { query: q });
+  },
+  insert(table, data, upsert = false, onConflict = null) {
+    const q = (upsert && onConflict) ? `on_conflict=${onConflict}` : '';
+    return this._call(table, 'POST', { query: q, body: data, prefer: upsert ? 'resolution=merge-duplicates,return=representation' : 'return=representation' });
+  },
+  upsert(table, data, onConflict = null) { return this.insert(table, data, true, onConflict); },
+  update(table, data, filter) { return this._call(table, 'PATCH', { query: filter, body: data, prefer: 'return=representation' }); },
+  updateFields(table, data, filter) { return this.update(table, data, filter); },
+  delete(table, filter) { return this._call(table, 'DELETE', { query: filter }); },
+};
+
 // ===== PASSWORD HASHING =====
 async function hashPassword(pw) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));

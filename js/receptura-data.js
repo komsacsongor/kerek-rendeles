@@ -99,7 +99,7 @@ async function reloadReceptData() {
     } catch(e) { console.warn('Ingredients reload:', e.message); }
     // v2.40.0: suppliers reload
     try {
-      const dbSuppliers = await sb.query('suppliers', {order: 'name'});
+      const dbSuppliers = await kData.query('suppliers', {order: 'name'});
       if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') {
         R.suppliers = dbSuppliers.map(mapSupplierDb);
       }
@@ -134,6 +134,7 @@ async function doLogin() {
     if (res.status === 429) { loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} mp-et.`); return; }
     if (res.ok && data.success) {
       loggedIn = true;
+      if (typeof window !== 'undefined') window._kerekPw = pw;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
       initApp();
