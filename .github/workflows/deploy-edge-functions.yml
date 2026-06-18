@@ -19,9 +19,9 @@ on:
           - staging
           - production
         default: staging
-  push:
-    branches: [main]
-    paths: ['supabase/functions/**']
+  # v2.50.0: a `push: main` auto-trigger eltávolítva — redundáns volt (a bevett
+  # munkafolyamat a manuális dispatch: staging-first, majd prod), és main-push után
+  # stagingre próbált deployolni, ami felesleges hibás futásokat + e-maileket okozott.
 
 jobs:
   deploy:
