@@ -158,7 +158,7 @@ function openProcessingModal() {
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">' +
         '<div>' +
           '<label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:4px">Dátum</label>' +
-          '<input type="date" id="proc-date" value="' + new Date().toISOString().slice(0,10) + '" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:\'Kodchasan\',sans-serif;box-sizing:border-box">' +
+          '<input type="date" id="proc-date" value="' + localToday() + '" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:\'Kodchasan\',sans-serif;box-sizing:border-box">' +
         '</div>' +
         '<div>' +
           '<label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:4px">Munkaidő (perc)</label>' +

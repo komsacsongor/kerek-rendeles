@@ -15,7 +15,7 @@ function renderStockAlerts() {
       ${critical.length?'🔴 Kritikus készletszint':'🟡 Alacsony készlet'}
     </div>
     ${alerts.map(i=>`<div style="font-size:0.8rem;color:${critical.includes(i)?'#dc2626':'#b45309'}">
-      ${i.name}: <b>${Math.round(getTotalStock(i)).toLocaleString()}g</b> (min: ${i.minStock.toLocaleString()}g)
+      ${i.name}: <b>${fmtQtyUnit(getTotalStock(i), i.unit)}</b> (min: ${fmtQtyUnit(i.minStock, i.unit)})
     </div>`).join('')}
   </div>`;
 }
@@ -90,14 +90,14 @@ function renderStock() {
       const fifoP = ing.fifoPrice || 0;
       const avgP = ing.avgPrice || 0;
       const priceStr = fifoP > 0
-        ? `FIFO: <b>${(fifoP*1000).toFixed(2)} lej/kg</b>${avgP !== fifoP ? ` · Átlag: ${(avgP*1000).toFixed(2)} lej/kg` : ''}`
+        ? `FIFO: <b>${fmtPriceUnit(fifoP, ing.unit)}</b>${avgP !== fifoP ? ` · Átlag: ${fmtPriceUnit(avgP, ing.unit)}` : ''}`
         : '<span style="color:var(--text-soft)">Nincs árinfo</span>';
 
       // Min/max display
       const mmLabel = ing.isOverride
-        ? `<span title="Kézi beállítás" data-tip="Kézi beállítás" style="color:#7c3aed">🔒 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+        ? `<span title="Kézi beállítás" data-tip="Kézi beállítás" style="color:#7c3aed">🔒 ${fmtQtyUnit(minS, ing.unit)}–${fmtQtyUnit(maxS, ing.unit)}</span>`
         : ing.minStockAutoG > 0
-          ? `<span title="Automatikus számítás" data-tip="Automatikus számítás">🤖 ${minS.toLocaleString()}–${maxS.toLocaleString()}g</span>`
+          ? `<span title="Automatikus számítás" data-tip="Automatikus számítás">🤖 ${fmtQtyUnit(minS, ing.unit)}–${fmtQtyUnit(maxS, ing.unit)}</span>`
           : '<span style="color:var(--text-soft)">Nincs adat még</span>';
 
       // Batches count
@@ -107,10 +107,10 @@ function renderStock() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:0.9rem">${esc(ing.name)}</div>
-            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}${ing.basePriceG>0&&fifoP===0?' · <span style="color:#b45309">📌 Alap: '+(ing.basePriceG*1000).toFixed(2)+' lej/kg</span>':''}</div>
+            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">${priceStr}${ing.basePriceG>0&&fifoP===0?' · <span style="color:#b45309">📌 Alap: '+fmtPriceUnit(ing.basePriceG, ing.unit)+'</span>':''}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${stock.toLocaleString()}g</div>
+            <div style="font-size:1.1rem;font-weight:800;color:${statusColor};font-family:'Fraunces',serif">${fmtQtyUnit(stock, ing.unit)}</div>
             <div style="font-size:0.7rem;background:${statusBg};color:${statusColor};padding:1px 8px;border-radius:10px;font-weight:600">${statusLabel}</div>
           </div>
         </div>
@@ -137,8 +137,8 @@ function renderStock() {
           <b>Batch-ek (FIFO):</b>
           ${batches.sort((a,b)=>a.receivedDate.localeCompare(b.receivedDate)).map((b,i) => `
             <span style="display:inline-block;background:${i===0?'var(--teal-pale)':'#f9fafb'};border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin:2px">
-              ${b.receivedDate} · ${Math.round(b.qtyRemainingG).toLocaleString()}g
-              ${b.pricePerG>0 ? `· ${(b.pricePerG*1000).toFixed(2)} lej/kg` : ''}
+              ${b.receivedDate} · ${fmtQtyUnit(b.qtyRemainingG, ing.unit)}
+              ${b.pricePerG>0 ? `· ${fmtPriceUnit(b.pricePerG, ing.unit)}` : ''}
               ${b.supplierName ? `· ${esc(b.supplierName)}` : ''}
             </span>`).join('')}
         </div>` : ''}
@@ -177,7 +177,7 @@ function openMinMaxEditor(ingId) {
     <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">✏️ Min/Max szint</h3>
     <div style="font-weight:600;margin-bottom:16px">${esc(ing.name)}</div>
     <div style="background:var(--bg-soft);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem">
-      🤖 Auto számított: min <b>${ing.minStockAutoG.toLocaleString()}g</b> · max <b>${ing.maxStockAutoG.toLocaleString()}g</b>
+      🤖 Auto számított: min <b>${fmtQtyUnit(ing.minStockAutoG, ing.unit)}</b> · max <b>${fmtQtyUnit(ing.maxStockAutoG, ing.unit)}</b>
       ${ing.autoUpdatedAt ? `<br><span style="color:var(--text-soft)">${new Date(ing.autoUpdatedAt).toLocaleDateString('hu-HU')}</span>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
@@ -217,18 +217,19 @@ function openPriceEditor(ingId) {
     document.body.appendChild(m); return m;
   })();
 
-  const fifoP = (ing.fifoPrice || 0) * 1000;
-  const baseP = (ing.basePriceG || 0) * 1000;
+  const peBigF = unitFactor(unitBigLabel(ing.unit));
+  const fifoP = (ing.fifoPrice || 0) * peBigF;
+  const baseP = (ing.basePriceG || 0) * peBigF;
 
   modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:400px">
     <h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 8px">💰 Alap ár beállítás</h3>
     <div style="font-weight:600;margin-bottom:12px">${esc(ing.name)}</div>
     <div style="background:var(--bg-soft);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem">
-      ${fifoP > 0 ? `🔄 FIFO ár (legutóbbi batch): <b>${fifoP.toFixed(2)} lej/kg</b>` : '⚠️ Nincs batch bevételezés, ezért nincs FIFO ár.'}
+      ${fifoP > 0 ? `🔄 FIFO ár (legutóbbi batch): <b>${fifoP.toFixed(2)} lej/${unitBigLabel(ing.unit)}</b>` : '⚠️ Nincs batch bevételezés, ezért nincs FIFO ár.'}
       <div style="font-size:0.75rem;color:var(--text-soft);margin-top:4px">Az alap ár a kalkuláció fallback-je ha nincs batch.</div>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Alap ár (lej/kg)</label>
+      <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Alap ár (lej/${unitBigLabel(ing.unit)})</label>
       <input type="number" id="pe-price" min="0" step="0.1" value="${baseP > 0 ? baseP.toFixed(2) : ''}" placeholder="pl. 12.50"
         style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box">
     </div>
@@ -245,11 +246,11 @@ async function saveBasePrice(ingId) {
   const ing = getIng(ingId);
   if (!ing) return;
   const pricePerKg = parseFloat(document.getElementById('pe-price')?.value) || 0;
-  ing.basePriceG = pricePerKg / 1000;
+  ing.basePriceG = pricePerKg / unitFactor(unitBigLabel(ing.unit));
   try {
-    await sb.update('ingredients', { base_price_per_g: ing.basePriceG }, `id=eq.\${ingId}`);
+    await sb.update('ingredients', { base_price_per_g: ing.basePriceG }, `id=eq.${ingId}`);
     document.getElementById('price-edit-modal').style.display = 'none';
-    toast(`✅ Alap ár mentve: \${pricePerKg.toFixed(2)} lej/kg`);
+    toast(`✅ Alap ár mentve: ${pricePerKg.toFixed(2)} lej/${unitBigLabel(ing.unit)}`);
     renderStock();
   } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
 }
@@ -264,9 +265,9 @@ async function deleteIngredient(ingId) {
     toast('⚠️ Ez az alapanyag receptekben van használatban. Előbb vedd ki a receptekből!', true);
     return;
   }
-  if (!(await confirmDialog(`Törlöd: "\${ing.name}"? Ez nem visszavonható!`))) return;
+  if (!(await confirmDialog(`Törlöd: "${ing.name}"? Ez nem visszavonható!`))) return;
   try {
-    await sb.delete('ingredients', `id=eq.\${ingId}`);
+    await sb.delete('ingredients', `id=eq.${ingId}`);
     R.ingredients = R.ingredients.filter(i => i.id !== ingId);
     toast('✅ Alapanyag törölve.');
     renderStock();
@@ -275,20 +276,22 @@ async function deleteIngredient(ingId) {
 
 function exportShoppingListCSV() {
   const productionNeeds = window._lastProductionNeeds || {};
-  const rows = [['Alapanyag', 'Készlet (g)', 'Szükséges (g)', 'Hiány (g)', 'FIFO ár (lej/kg)', 'Átlagár (lej/kg)', 'Forrás']];
+  const rows = [['Alapanyag', 'Egység', 'Készlet', 'Szükséges', 'Hiány', 'FIFO ár (lej/egység)', 'Átlagár (lej/egység)', 'Forrás']];
   R.ingredients.forEach(ing => {
     const stock = Math.round(getTotalStock(ing));
     const needed = Math.round(productionNeeds[ing.id]?.total || 0);
     const deficit = Math.max(0, needed - stock);
     if (stock === 0 && needed === 0) return;
-    rows.push([ing.name, stock, needed, deficit,
-      (ing.fifoPrice*1000).toFixed(2), (ing.avgPrice*1000).toFixed(2),
+    const f = unitFactor(ing.unit), bf = unitFactor(unitBigLabel(ing.unit));
+    rows.push([ing.name, unitBigLabel(ing.unit),
+      +(stock/f).toFixed(3), +(needed/f).toFixed(3), +(deficit/f).toFixed(3),
+      (ing.fifoPrice*bf).toFixed(2), (ing.avgPrice*bf).toFixed(2),
       ing.suppliers?.join('; ') || '']);
   });
   const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
-  a.download = `keszlet_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `keszlet_${localToday()}.csv`;
   a.click();
 }

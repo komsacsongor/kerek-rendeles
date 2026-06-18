@@ -99,7 +99,7 @@ async function reloadReceptData() {
     } catch(e) { console.warn('Ingredients reload:', e.message); }
     // v2.40.0: suppliers reload
     try {
-      const dbSuppliers = await sb.query('suppliers', {order: 'name'});
+      const dbSuppliers = await kData.query('suppliers', {order: 'name'});
       if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') {
         R.suppliers = dbSuppliers.map(mapSupplierDb);
       }
@@ -134,6 +134,7 @@ async function doLogin() {
     if (res.status === 429) { loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} mp-et.`); return; }
     if (res.ok && data.success) {
       loggedIn = true;
+      if (typeof window !== 'undefined') window._kerekPw = pw;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
       initApp();
@@ -247,6 +248,7 @@ async function initApp() {
       });
       R.ingredients = dbIngList.map(i => ({
         id: i.id, name: i.name, cat: i.category, subType: i.sub_type,
+        unit: i.unit || 'g',  // M0: natív mértékegység (g/kg/ml/l/db)
         materialType: i.material_type || 'consumable',  // v2.35.0
         preferredSupplierId: i.preferred_supplier_id || null,  // v2.40.0
         familyId: i.family_id || null,                  // v2.35.0

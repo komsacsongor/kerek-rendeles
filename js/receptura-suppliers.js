@@ -376,7 +376,7 @@ async function saveSupplier() {
   try {
     if (editingSupplierId) {
       // UPDATE (anti-spread: csak named fields)
-      await sb.updateFields('suppliers', data, 'id=eq.' + editingSupplierId);
+      await kData.updateFields('suppliers', data, 'id=eq.' + editingSupplierId);
       const idx = R.suppliers.findIndex(s => s.id === editingSupplierId);
       if (idx >= 0) {
         R.suppliers[idx] = mapSupplierDb({ ...data, id: editingSupplierId });
@@ -385,9 +385,9 @@ async function saveSupplier() {
       toast('✅ Beszállító frissítve');
     } else {
       // INSERT — explicit MAX+1 (anti-sequence-collision)
-      const allSup = await sb.query('suppliers', { order: 'id.desc', limit: 1 });
+      const allSup = await kData.query('suppliers', { order: 'id.desc', limit: 1 });
       const nextId = (allSup?.[0]?.id || 0) + 1;
-      const inserted = await sb.insert('suppliers', { id: nextId, ...data });
+      const inserted = await kData.insert('suppliers', { id: nextId, ...data });
       const newSup = mapSupplierDb({ id: nextId, ...data, created_at: new Date().toISOString() });
       R.suppliers = R.suppliers || [];
       R.suppliers.push(newSup);
@@ -415,7 +415,7 @@ async function deleteSupplier(id) {
   }
   if (!(await confirmDialog(msg))) return;
   try {
-    await sb.delete('suppliers', 'id=eq.' + s.id);
+    await kData.delete('suppliers', 'id=eq.' + s.id);
     R.suppliers = R.suppliers.filter(x => x.id !== s.id);
     // Ingredients preferredSupplierId nullázása lokálisan
     R.ingredients.forEach(i => { if (i.preferredSupplierId === s.id) i.preferredSupplierId = null; });

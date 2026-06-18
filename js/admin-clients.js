@@ -113,7 +113,7 @@ async function saveClient(){
     email: document.getElementById('c-email').value,
     phone: document.getElementById('c-phone').value,
     note: document.getElementById('c-note').value,
-    joinDate: new Date().toISOString().slice(0,10)
+    joinDate: localToday()
   };
   try {
     await sb.upsert('clients', {

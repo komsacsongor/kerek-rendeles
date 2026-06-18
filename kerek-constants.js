@@ -2,7 +2,46 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.48.2 (2026-06-12)';
+const APP_VERSION = 'v2.50.0 (2026-06-18)';
+
+// Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function localDateOf(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ===== M0: mértékegység (natív) =====
+// Bázis-tárolás: mass/volume → g (volume 1 ml ≈ 1 g, ahogy a bevételezés is); count → db (natív).
+// Az alapanyag `unit` mezője a MEGJELENÍTÉSI egység (g/kg/ml/l/db). Pontos váltás (×1000) — nincs sűrűség/darab-súly.
+function unitDim(u){ u=(u||'g'); return u==='db'?'count':((u==='ml'||u==='l'||u==='L')?'vol':'mass'); }
+function unitFactor(u){ return (u==='kg'||u==='l'||u==='L')?1000:1; } // megjelenítés↔bázis szorzó
+function unitLabel(u){ return (u==='L')?'l':(u||'g'); }
+function unitBigLabel(u){ const d=unitDim(u); return d==='count'?'db':(d==='vol'?'l':'kg'); } // ár-egység
+// baseQty (g vagy db) → megjelenítés az alapanyag egységében
+function fmtQtyUnit(baseQty, u){
+  baseQty = baseQty||0; const f=unitFactor(u); const v=baseQty/f;
+  if(u==='db') return Math.round(v).toLocaleString('hu')+' db';
+  if(f===1000) return v.toLocaleString('hu',{maximumFractionDigits:2})+' '+unitLabel(u);
+  return Math.round(v).toLocaleString('hu')+' '+unitLabel(u);
+}
+// pricePerBase (lej/g vagy lej/db) → "X lej/kg|l|db"
+function fmtPriceUnit(pricePerBase, u){
+  pricePerBase = pricePerBase||0; const d=unitDim(u);
+  const per = d==='count' ? pricePerBase : pricePerBase*1000;
+  return per.toFixed(d==='count'?2:3)+' lej/'+unitBigLabel(u);
+}
+// a bevételezésnél felajánlható egységek az alapanyag dimenziója szerint
+function unitIntakeOptions(u){
+  const d=unitDim(u);
+  if(d==='count') return [['db','db']];
+  if(d==='vol') return [['ml','ml'],['L','l']];
+  return [['g','g'],['kg','kg']];
+}
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];

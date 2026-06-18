@@ -286,6 +286,16 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 
 **✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
 
+### 🐞 Ismert hibák — megoldandó (recept↔termék szinkron, pre-existing)
+A receptúra a `recipes.product_price` mezőt kezeli, az admin viszont a `products.price`-t — emiatt:
+- **Ár 0 / nem módosul:** meglévő (admin-definiált) recept ára 0-ként jön a receptúrában (a `recipes.product_price` üres), és a módosítás a recept-sorba megy, nem az admin termékbe.
+- **Törlés nem szinkronizál:** receptúrában recept-törlés a recept-sort törli, de az admin **terméket nem** (új, receptúrában létrehozott receptnél igen — onnan az aszimmetria).
+- **Teendő:** fel kell térképezni az admin↔receptúra ár-írás/olvasás útvonalát és a kívánt szinkron-irányt, majd egységesíteni (egy authoritatív ár-forrás + kétirányú törlés-szinkron).
+
+### 🔒 Biztonsági lockdown (SEC) — folyamatban
+- **Fázis 1 (suppliers pilot) — kész:** `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist), a receptúra suppliers-hívásai EF-re terelve, `suppliers` anon-lezárva (RLS). Minta a többi admin/receptúra-only táblához.
+- **Hátra:** Fázis 1 kiterjesztése (recipes/IP, ingredients, gyártás stb. EF mögé) → Fázis 2 vevő-PII (`clients`/`orders`/`messages`) `client-data` EF-fel → Fázis 3 katalógus. Részletek: `SECURITY_AUDIT.md`.
+
 ---
 
 ## 6. PWA + Mobil session részletes tanulságai (v2.42-2.44)
