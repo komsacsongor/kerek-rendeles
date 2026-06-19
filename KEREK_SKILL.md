@@ -1,6 +1,6 @@
 ---
 name: kerek-workflow
-description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.48.2. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
+description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.51.0. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
 ---
 
 # KEREK – Fejlesztési Skill (lean)
@@ -65,7 +65,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Aktuális verzió** | **v2.48.2 (2026-06-12)** |
+| **Aktuális verzió** | **v2.51.0 (2026-06-18)** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ Token NE legyen a SKILL.md-ben (push-blokk a secret-detektor miatt). Claude memóriából vedd.
@@ -252,6 +252,12 @@ mk(year, month)      → "2026-4"     // admin (0-indexed hónap!)
 getKey(month, year)  → "2026-4"     // vevo — FORDÍTOTT sorrend!
 // dateStr: MINDIG local date, soha toISOString() → timezone bug
 ```
+
+### Biztonsági lockdown — admin-data EF + kData (SEC, v2.50+)
+- Az anon kulcs **PUBLIKUS** (repo + kliens-JS) → minden RLS-nyitott tábla bárkinek elérhető. Valódi védelem: anon-hozzáférés szűkítése + műveletek **EF (service_role)** mögé. Anon-kulcs rotálás NEM segít.
+- `admin-data` EF: authentikált PostgREST-proxy — modul-jelszó (SHA-256 vs `admin_secrets`, admin-fallback) + tábla/metódus **whitelist** + service_role továbbít. `kData` kliens-helper tükrözi a `sb`-t, az EF-en át (jelszó: `window._kerekPw`, login után memóriában).
+- Fázis 1 = admin/receptúra-only táblák EF mögé (**suppliers kész**). Hátra: recipes/IP, ingredients, gyártás → Fázis 2 vevő-PII → Fázis 3 katalógus. Terv: `SECURITY_AUDIT.md`.
+- ⚠️ Új EF-nél a CORS `Allow-Headers` fedje a tényleges kliens-fejléceket (`apikey` is!), különben a preflight bukik → "Failed to fetch".
 
 ### Mobile vs Desktop
 ```javascript
