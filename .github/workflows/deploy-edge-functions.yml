@@ -51,10 +51,18 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           echo "🚀 Deploying to ${{ steps.target.outputs.label }} (${{ steps.target.outputs.ref }})"
+          failed=""
           for dir in supabase/functions/*/; do
             fn=$(basename "$dir")
             [ "$fn" = "_shared" ] && continue
             echo "📦 Deploying $fn..."
-            supabase functions deploy "$fn" --project-ref ${{ steps.target.outputs.ref }} --no-verify-jwt
+            if ! supabase functions deploy "$fn" --project-ref ${{ steps.target.outputs.ref }} --no-verify-jwt; then
+              echo "❌ $fn deploy FAILED"
+              failed="$failed $fn"
+            fi
           done
+          if [ -n "$failed" ]; then
+            echo "❌ Sikertelen függvény(ek):$failed"
+            exit 1
+          fi
           echo "✅ All Edge Functions deployed to ${{ steps.target.outputs.label }}"
