@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.51.0 (2026-06-19)';
+const APP_VERSION = 'v2.52.0 (2026-06-19)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -41,6 +41,18 @@ function unitIntakeOptions(u){
   if(d==='count') return [['db','db']];
   if(d==='vol') return [['ml','ml'],['L','l']];
   return [['g','g'],['kg','kg']];
+}
+
+// M0 2a: recept-alapanyag mennyiség → gramm a tömeg/nedvesség/% aggregációhoz.
+// db (számláló) alapanyagnál a másodlagos egységgel vált (1 db = altFactor g, ml≈g);
+// mass/vol alapanyagnál az amount már gramm. altFactor hiányában 0 (csak darabként, tömegbe nem számít).
+function recipeAmountToGrams(amount, baseIng){
+  amount = amount || 0;
+  if (baseIng && typeof unitDim==='function' && unitDim(baseIng.unit)==='count') {
+    const f = (baseIng.altFactor > 0) ? baseIng.altFactor : 0;
+    return f > 0 ? amount * f : 0;
+  }
+  return amount;
 }
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',

@@ -161,7 +161,7 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
     else { dedupMap[key] = { ...ing }; }
   });
   const allIngs = Object.values(dedupMap);
-  const totalBase = allIngs.reduce((a,i)=>a+i.amount, 0) + recipe.levainAmount;
+  const totalBase = allIngs.reduce((a,i)=>a+recipeAmountToGrams(i.amount, getIng(i.ingredientId)), 0) + recipe.levainAmount;
 
   // Group by subType
   const groups = {};
@@ -170,7 +170,7 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
     const subType = baseIng ? getIngSubType(baseIng) : (ing.subType || 'other_dry');
     if (!groups[subType]) groups[subType] = {items:[], total:0};
     groups[subType].items.push(ing);
-    groups[subType].total += ing.amount;
+    groups[subType].total += recipeAmountToGrams(ing.amount, baseIng);
   });
 
   // Display order
@@ -188,22 +188,29 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
 
     let sectionCost = 0;
     grp.items.forEach(ing => {
-      const scaled = Math.round(ing.amount * scale * 10) / 10;
-      const pct = ((ing.amount / totalBase) * 100).toFixed(1);
-      const cost = calcIngCost(ing.ingredientId, scaled);
+      const baseIng = getIng(ing.ingredientId);
+      const isCount = baseIng && unitDim(baseIng.unit) === 'count';
+      const gBase = recipeAmountToGrams(ing.amount, baseIng);        // gramm (skálázatlan)
+      const gScaled = Math.round(gBase * scale * 10) / 10;           // gramm (skálázott) — tömeg/%
+      const costScaled = Math.round(ing.amount * scale * 10) / 10;   // bázis-egységben (db v g) — költség
+      const pct = ((gBase / totalBase) * 100).toFixed(1);
+      const cost = calcIngCost(ing.ingredientId, costScaled);
       sectionCost += cost;
       grandIngCost += cost;
-      const baseIng = getIng(ing.ingredientId);
       const supplier = baseIng?.suppliers?.[0]?.source || '—';
-      const fifoPrice = baseIng ? (getFifoPrice(baseIng) * 1000).toFixed(3) : '—';
+      const fifoPrice = baseIng ? (getFifoPrice(baseIng) * (isCount?1:1000)).toFixed(3) : '—';
+      const priceUnit = isCount ? 'db' : 'kg';
+      const amtDisplay = isCount
+        ? `${Math.round(costScaled*10)/10} db${gScaled>0 ? ` <span style="color:var(--text-soft);font-weight:400">(≈${Math.round(gScaled)}g)</span>` : ''}`
+        : `${gScaled} g`;
 
       html += `<div class="ing-row">
         <span class="ing-name">${ing.name}
           ${baseIng ? `<span class="ing-source" onclick="showIngDetail(${ing.ingredientId})" title="Kattints az árjegyzék tételre" data-tip="Kattints az árjegyzék tételre">🔍 ${supplier}</span>` : ''}
         </span>
         <span class="ing-pct">${pct}%</span>
-        <span class="ing-amount">${scaled} g</span>
-        <span class="ing-cost" title="${fifoPrice} lej/kg" data-tip="${fifoPrice} lej/kg">${cost > 0 ? cost.toFixed(3)+' lej' : '—'}</span>
+        <span class="ing-amount">${amtDisplay}</span>
+        <span class="ing-cost" title="${fifoPrice} lej/${priceUnit}" data-tip="${fifoPrice} lej/${priceUnit}">${cost > 0 ? cost.toFixed(3)+' lej' : '—'}</span>
       </div>`;
     });
 
@@ -211,7 +218,7 @@ function renderIngredientsDetail(recipe, pieces, rawWeight, scale) {
     html += `<div class="ing-row" style="background:#f7f5f0;font-weight:600;font-size:0.78rem">
       <span class="ing-name" style="color:var(--text-soft)">Szekció összesen</span>
       <span class="ing-pct"></span>
-      <span class="ing-amount" style="color:var(--text-soft)">${Math.round(grp.items.reduce((a,i)=>a+i.amount*scale,0)*10)/10} g</span>
+      <span class="ing-amount" style="color:var(--text-soft)">${Math.round(grp.items.reduce((a,i)=>a+recipeAmountToGrams(i.amount, getIng(i.ingredientId))*scale,0)*10)/10} g</span>
       <span class="ing-cost" style="color:var(--gold-dark)">${sectionCost.toFixed(3)} lej</span>
     </div>`;
     html += `</div>`;
@@ -360,16 +367,18 @@ function printRecipeDatasheet() {
     : `<div style="width:140px;height:140px;border-radius:10px;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:2rem">🍞</div>`;
 
   // Ingredients
-  const dryRows = (r.dryIngredients||[]).map(i => {
-    const scaled = Math.round(i.amount * scale);
-    const pct = Math.round(i.amount / r.basePortion * 100);
-    return `<tr><td>${i.name}</td><td style="text-align:right">${i.amount} g</td><td style="text-align:right">${scaled} g</td><td style="text-align:right;color:#6b7280">${pct}%</td></tr>`;
-  }).join('');
-  const wetRows = (r.wetIngredients||[]).map(i => {
-    const scaled = Math.round(i.amount * scale);
-    const pct = Math.round(i.amount / r.basePortion * 100);
-    return `<tr><td>${i.name}</td><td style="text-align:right">${i.amount} g</td><td style="text-align:right">${scaled} g</td><td style="text-align:right;color:#6b7280">${pct}%</td></tr>`;
-  }).join('');
+  const mkRow = (i) => {
+    const baseIng = getIng(i.ingredientId);
+    const isCount = baseIng && unitDim(baseIng.unit) === 'count';
+    const gBase = recipeAmountToGrams(i.amount, baseIng);
+    const scaledG = Math.round(gBase * scale);
+    const pct = Math.round(gBase / r.basePortion * 100);
+    const baseDisp = isCount ? `${i.amount} db${gBase>0?` (≈${Math.round(gBase)}g)`:''}` : `${i.amount} g`;
+    const scaledDisp = isCount ? `${Math.round(i.amount*scale*10)/10} db${scaledG>0?` (≈${scaledG}g)`:''}` : `${scaledG} g`;
+    return `<tr><td>${i.name}</td><td style="text-align:right">${baseDisp}</td><td style="text-align:right">${scaledDisp}</td><td style="text-align:right;color:#6b7280">${pct}%</td></tr>`;
+  };
+  const dryRows = (r.dryIngredients||[]).map(mkRow).join('');
+  const wetRows = (r.wetIngredients||[]).map(mkRow).join('');
 
   // Steps
   const stepsHtml = (r.steps||[]).map((s,i) => `<div style="margin-bottom:8px"><span style="font-weight:700;color:#064C48">${i+1}.</span> <strong>${s.name||''}</strong>${s.desc ? ' – '+s.desc : ''}${s.time ? ` <span style="color:#6b7280">(${s.time} perc)</span>` : ''}</div>`).join('');
@@ -457,7 +466,7 @@ ${r.marketing ? `<div class="marketing" style="margin-bottom:14px">${r.marketing
     <table>
       <tr><th>Összetevő</th><th style="text-align:right">Alap</th><th style="text-align:right">${pieces} db</th><th style="text-align:right">%</th></tr>
       ${dryRows || '<tr><td colspan="4" style="color:#9ca3af">–</td></tr>'}
-      <tr style="font-weight:700;background:#e5e7eb"><td>Összesen</td><td style="text-align:right">${(r.dryIngredients||[]).reduce((s,i)=>s+i.amount,0)}g</td><td style="text-align:right">${Math.round((r.dryIngredients||[]).reduce((s,i)=>s+i.amount,0)*scale)}g</td><td></td></tr>
+      <tr style="font-weight:700;background:#e5e7eb"><td>Összesen</td><td style="text-align:right">${Math.round((r.dryIngredients||[]).reduce((s,i)=>s+recipeAmountToGrams(i.amount, getIng(i.ingredientId)),0))}g</td><td style="text-align:right">${Math.round((r.dryIngredients||[]).reduce((s,i)=>s+recipeAmountToGrams(i.amount, getIng(i.ingredientId)),0)*scale)}g</td><td></td></tr>
     </table>
   </div>
   <div>
@@ -465,7 +474,7 @@ ${r.marketing ? `<div class="marketing" style="margin-bottom:14px">${r.marketing
     <table>
       <tr><th>Összetevő</th><th style="text-align:right">Alap</th><th style="text-align:right">${pieces} db</th><th style="text-align:right">%</th></tr>
       ${wetRows || '<tr><td colspan="4" style="color:#9ca3af">–</td></tr>'}
-      <tr style="font-weight:700;background:#e5e7eb"><td>Összesen</td><td style="text-align:right">${(r.wetIngredients||[]).reduce((s,i)=>s+i.amount,0)}g</td><td style="text-align:right">${Math.round((r.wetIngredients||[]).reduce((s,i)=>s+i.amount,0)*scale)}g</td><td></td></tr>
+      <tr style="font-weight:700;background:#e5e7eb"><td>Összesen</td><td style="text-align:right">${Math.round((r.wetIngredients||[]).reduce((s,i)=>s+recipeAmountToGrams(i.amount, getIng(i.ingredientId)),0))}g</td><td style="text-align:right">${Math.round((r.wetIngredients||[]).reduce((s,i)=>s+recipeAmountToGrams(i.amount, getIng(i.ingredientId)),0)*scale)}g</td><td></td></tr>
     </table>
   </div>
 </div>

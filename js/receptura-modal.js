@@ -79,24 +79,30 @@ function renderModalIngredients() {
   const ingOptions = R.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
   ['dry','wet'].forEach(type=>{
     const list = type==='dry' ? modalDryIngs : modalWetIngs;
-    document.getElementById(type+'-ingredients-list').innerHTML = list.map((ing,i)=>`
+    document.getElementById(type+'-ingredients-list').innerHTML = list.map((ing,i)=>{
+      const bi = ing.ingredientId ? R.ingredients.find(x=>x.id===ing.ingredientId) : null;
+      const isCount = bi && unitDim(bi.unit)==='count';
+      const uLabel = isCount ? 'db' : 'g';
+      const gHint = (isCount && bi.altFactor>0) ? '≈'+Math.round((ing.amount||0)*bi.altFactor)+'g' : '';
+      return `
       <div class="ing-row" style="background:white;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;padding:8px 10px">
         <div style="flex:2;display:flex;flex-direction:column;gap:4px">
           <input type="text" value="${ing.name}" placeholder="Összetevő neve" style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
             onchange="updateModalIng('${type}',${i},'name',this.value)">
           <select style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;outline:none;color:var(--text-soft)"
-            onchange="updateModalIng('${type}',${i},'ingredientId',parseInt(this.value))">
+            onchange="updateModalIng('${type}',${i},'ingredientId',parseInt(this.value));renderModalIngredients()">
             <option value="">— Árjegyzékből —</option>
             ${ingOptions}
           </select>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <input type="number" value="${ing.amount}" placeholder="g" style="width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:700;outline:none"
+          <input type="number" value="${ing.amount}" placeholder="${uLabel}" style="width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:700;outline:none"
             onchange="updateModalIng('${type}',${i},'amount',parseFloat(this.value))">
-          <span style="font-size:0.75rem;color:var(--text-soft)">g</span>
+          <span style="font-size:0.75rem;color:var(--text-soft)">${uLabel}${gHint?` <span style="opacity:.55">${gHint}</span>`:''}</span>
           <button class="btn btn-danger btn-xs" onclick="removeModalIng('${type}',${i})">✕</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     // Set ingredient select values
     const rows = document.getElementById(type+'-ingredients-list').querySelectorAll('select');

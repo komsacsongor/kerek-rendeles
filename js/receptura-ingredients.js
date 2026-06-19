@@ -69,6 +69,8 @@ function openIngredientModal(id=null) {
     document.getElementById('i-category').value = i.cat;
     document.getElementById('i-subtype').value = i.subType || 'flour';
     document.getElementById('i-unit').value = i.unit || 'g';
+    document.getElementById('i-alt-unit').value = i.altUnit || '';
+    document.getElementById('i-alt-factor').value = i.altFactor || '';
     document.getElementById('i-material-type').value = i.materialType || 'consumable';
     document.getElementById('i-family').value = i.familyId || '';
     document.getElementById('i-min-stock').value = i.minStock||0;
@@ -79,6 +81,8 @@ function openIngredientModal(id=null) {
     ['i-name','i-min-stock','i-critical-stock'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('i-subtype').value = 'flour';
     document.getElementById('i-unit').value = 'g';
+    document.getElementById('i-alt-unit').value = '';
+    document.getElementById('i-alt-factor').value = '';
     document.getElementById('i-material-type').value = 'consumable';
     document.getElementById('i-family').value = '';
     modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:localToday()}];
@@ -147,6 +151,8 @@ async function saveIngredient() {
   const firstSupplier = sortedSuppliers[0];
   const materialType = document.getElementById('i-material-type')?.value || 'consumable';
   const unit = document.getElementById('i-unit')?.value || 'g';
+  const altUnit = document.getElementById('i-alt-unit')?.value || null;
+  const altFactor = parseFloat(document.getElementById('i-alt-factor')?.value) || null;
   const familyIdRaw = document.getElementById('i-family')?.value || '';
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
   const data = {
@@ -154,6 +160,8 @@ async function saveIngredient() {
     cat: document.getElementById('i-category').value,
     subType: document.getElementById('i-subtype').value,
     unit,
+    altUnit,
+    altFactor,
     materialType,
     familyId,
     suppliers: sortedSuppliers,
@@ -165,7 +173,7 @@ async function saveIngredient() {
     Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
     // v2.35.0: persist material_type + family_id + unit to DB
     try {
-      await sb.update('ingredients', { material_type: materialType, family_id: familyId, unit }, 'id=eq.' + editingIngId);
+      await sb.update('ingredients', { material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
     } catch(e) { console.warn('DB ingredient update failed:', e.message); }
     toast('Alapanyag frissítve!');
   } else {
