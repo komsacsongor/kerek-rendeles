@@ -362,6 +362,7 @@ async function saveRecipe() {
     steps: modalSteps,
     laborH: parseFloat(document.getElementById('r-labor-h').value)||1,
     electricity: parseFloat(document.getElementById('r-electricity').value)||5,
+    productPrice: (() => { const v = parseFloat(document.getElementById('r-product-price')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
   };
   if (editingRecipeId) {
     Object.assign(R.recipes.find(r=>r.id===editingRecipeId), data);
@@ -379,8 +380,12 @@ async function saveRecipe() {
           (p.name||'').trim().toLowerCase() === nameToCheck && !p.deleted_at
         );
         if (existing) {
-          toast(`⚠️ Már létezik "${existing.name}" nevű termék. Válassz más nevet!`, true);
-          return; // Modal nyitva marad
+          if (await confirmDialog(`Van már "${existing.name}" nevű termék (kód: ${existing.code||existing.id}). Hozzákapcsolod ehhez a recepthez? (Az ár és a termékadatok ehhez a meglévő termékhez fognak tartozni.)`)) {
+            data.product_id = existing.id; // linkelés a meglévő (admin) termékhez
+            data.productPrice = null;      // a meglévő termék árát NE írjuk felül linkeléskor
+          } else {
+            return; // Modal nyitva marad — válasszon más nevet
+          }
         }
       } catch(e) { console.warn('Dup check:', e.message); }
     }
@@ -403,7 +408,8 @@ function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
 async function deleteCurrentRecipe() {
   if (!(await confirmDialog('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===currentRecipeId);
-  const prodId = rec?.product_id;
+  let prodId = rec?.product_id;
+  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
     await sb.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
@@ -460,7 +466,8 @@ async function restoreRecipe(recipeId) {
 async function deleteArchivedRecipe(recipeId) {
   if (!(await confirmDialog('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===recipeId);
-  const prodId = rec?.product_id;
+  let prodId = rec?.product_id;
+  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
   try {
     await sb.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);

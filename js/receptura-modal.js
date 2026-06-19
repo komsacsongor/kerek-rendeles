@@ -46,7 +46,7 @@ function openRecipeModal(id=null) {
       if (linkedProd?.product_family_id) famSel.value = linkedProd.product_family_id;
       updateRecipeFamilyPreview();
     }
-    if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;   if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;
+    if(document.getElementById('r-product-price')) { const _lp = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).find(p => p.id === r.product_id); document.getElementById('r-product-price').value = (_lp && _lp.price != null) ? _lp.price : (r.productPrice||0); }
     modalDryIngs = JSON.parse(JSON.stringify(r.dryIngredients||[]));
     modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
     modalSteps = JSON.parse(JSON.stringify(r.steps||[]));

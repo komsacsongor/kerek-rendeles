@@ -117,7 +117,6 @@ async function syncRecipeToSupabase(data, existingId) {
     const productPayload = {
       name: data.name,
       weight: `${data.unitWeight||data.basePortion} g`,
-      price: data.productPrice || suggestedPrice,
       category: data.category||'Kenyér',
       description: data.desc||'',
       marketing_desc: data.marketing||'',
@@ -128,6 +127,13 @@ async function syncRecipeToSupabase(data, existingId) {
     };
     let prodId = data.product_id || null;
     let newlyCreatedProdId = null; // rollback-hez
+    // Ár: csak ha a felhasználó adott meg árat → azt írjuk. Ha nem: új terméknél javasolt,
+    // MEGLÉVŐ terméknél NEM piszkáljuk (megőrizzük az admin által beállított árat).
+    if (data.productPrice != null) {
+      productPayload.price = data.productPrice;
+    } else if (!prodId) {
+      productPayload.price = suggestedPrice;
+    }
     if (prodId) {
       // Meglévő termék frissítése (kód nem változik)
       await sb.update('products', productPayload, `id=eq.${prodId}`);
