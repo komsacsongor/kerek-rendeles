@@ -314,6 +314,7 @@ Gyökérok volt: a modal a `recipes.product_price`-t kezelte, az admin a `produc
 ### ⏳ Ellenőrzésre vár (felhasználói teszt + SQL)
 - **SEC Fázis 1 PROD:** beszállító felvétele (EF-úton), majd lezáró SQL a prod Supabase-en (`ALTER TABLE suppliers ENABLE RLS` + `REVOKE anon`), Advisor ERROR eltűnés.
 - **v2.51.0 recept-szinkron STAGING:** migrációs SQL futtatása + a 6 pontos teszt-lista; utána prodra (merge + Pages + migráció prodon).
+- **v2.52.0 egység 2a STAGING:** `ALTER TABLE ingredients ADD alt_unit/alt_factor` + teszt (Tojás L db+ml/70, recept tömeg/nedvesség/költség). v2.51-gyel együtt mehet prodra.
 - **Node 20→24 deprecation:** `actions/checkout@v4`, `supabase/setup-cli@v1` action-verziók bumpja (warning, nem sürgős; csak deploy-teszttel együtt).
 
 ---
