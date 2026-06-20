@@ -13,7 +13,7 @@ function renderSettings(){
 // ===== ADMIN PUSH ÉRTESÍTÉSEK (ezen az eszközön) =====
 // Az admin a fenntartott 'ADMIN' client_id alatt iratkozik fel a meglévő push_subscriptions táblába.
 // Ugyanaz a publikus VAPID kulcs mint a vevőnél.
-const ADMIN_PUSH_VAPID = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
+const ADMIN_PUSH_VAPID = 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8';
 const ADMIN_PUSH_ID = 'ADMIN';
 
 function _adminUrlB64ToU8(base64String) {
@@ -30,6 +30,13 @@ async function initAdminPush() {
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      // v2.53.0: új VAPID kulcs → ha a meglévő feliratkozás mással készült, újrakötés
+      const curKey = new Uint8Array(sub.options?.applicationServerKey || []);
+      const wantKey = _adminUrlB64ToU8(ADMIN_PUSH_VAPID);
+      const sameKey = curKey.length === wantKey.length && curKey.every((b,i)=>b===wantKey[i]);
+      if (!sameKey) { try { await sub.unsubscribe(); } catch(_){} sub = null; }
+    }
     if (!sub) {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') { toast('🔕 Az értesítések nem lettek engedélyezve.', true); await updateAdminPushBtn(); return; }
