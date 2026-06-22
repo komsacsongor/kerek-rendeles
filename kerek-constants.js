@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.50.0 (2026-06-18)';
+const APP_VERSION = 'v2.53.3 (2026-06-22)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -233,8 +233,12 @@ async function auditLog(action, entityName='', details='') {
 }
 
 // ===== PUSH NOTIFICATION SENDER =====
-const PUSH_FN_URL = 'https://lfaxeihrmiylggahougl.supabase.co/functions/v1/dynamic-service';
-const PUSH_ANON = 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
+// v2.53.x: env-erzekeny (onallo /staging/ detektalas, load-order fuggetlen)
+const _PUSH_IS_STAGING = (typeof location !== 'undefined') && location.pathname.includes('/staging/');
+const _PUSH_SUPA = _PUSH_IS_STAGING ? 'https://xgcwxlwjlohzbzpcapnw.supabase.co' : 'https://lfaxeihrmiylggahougl.supabase.co';
+const _PUSH_BASE = _PUSH_IS_STAGING ? '/kerek-rendeles/staging' : '/kerek-rendeles';
+const PUSH_FN_URL = _PUSH_SUPA + '/functions/v1/dynamic-service';
+const PUSH_ANON = _PUSH_IS_STAGING ? 'sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1' : 'sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN';
 
 async function sendPushToClient(clientId, type, title, body) {
   try {
@@ -242,7 +246,7 @@ async function sendPushToClient(clientId, type, title, body) {
     const resp = await fetch(PUSH_FN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + PUSH_ANON },
-      body: JSON.stringify({ client_id: clientId, type, title, body, url: '/kerek-rendeles/vevo.html' })
+      body: JSON.stringify({ client_id: clientId, type, title, body, url: _PUSH_BASE + '/' + (clientId === 'ADMIN' ? 'admin.html' : 'vevo.html') })
     });
     const text = await resp.text();
     let parsed = null;
@@ -275,13 +279,13 @@ async function sendPushBroadcast(type, title, body, filter) {
       // Active = had at least one order in last 90 days
       const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
       const cutoffStr = cutoff.toISOString();
-      const recentOrders = await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/orders?created_at=gte.${cutoffStr}&select=client_id`, {
+      const recentOrders = await fetch(`${_PUSH_SUPA}/rest/v1/orders?created_at=gte.${cutoffStr}&select=client_id`, {
         headers: { 'apikey': PUSH_ANON, 'Authorization': 'Bearer ' + PUSH_ANON }
       }).then(r => r.json());
       clientIds = [...new Set((recentOrders||[]).map(o => o.client_id))];
     } else {
       // All non-deleted/non-pending clients
-      const allClients = await fetch(`https://lfaxeihrmiylggahougl.supabase.co/rest/v1/clients?select=id,name`, {
+      const allClients = await fetch(`${_PUSH_SUPA}/rest/v1/clients?select=id,name`, {
         headers: { 'apikey': PUSH_ANON, 'Authorization': 'Bearer ' + PUSH_ANON }
       }).then(r => r.json());
       clientIds = (allClients||[])

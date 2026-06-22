@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.50.0';
+const CACHE_NAME = 'kerek-v2.53.3';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -49,6 +49,8 @@ self.addEventListener('fetch', event => {
   if (event.request.url.includes('supabase.co')) return;
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+  // Skip non-http(s) schemes (chrome-extension:// stb. — a Cache API nem támogatja)
+  if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     fetch(event.request)

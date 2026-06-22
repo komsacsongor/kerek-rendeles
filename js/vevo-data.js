@@ -517,7 +517,9 @@ async function reloadVevoData() {
 }
 
 // ===== WEB PUSH =====
-const VAPID_PUBLIC_KEY = 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
+const VAPID_PUBLIC_KEY = (typeof location !== 'undefined' && location.pathname.includes('/staging/'))
+  ? 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8'
+  : 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -533,8 +535,12 @@ async function initPushSubscription() {
     const reg = await navigator.serviceWorker.register('/kerek-rendeles/sw.js');
     const existing = await reg.pushManager.getSubscription();
     if (existing) {
-      await savePushSubscription(existing);
-      return;
+      // v2.53.0: ha a feliratkozás más VAPID kulccsal készült, újra kell kötni (különben a küldés elutasul)
+      const curKey = new Uint8Array(existing.options?.applicationServerKey || []);
+      const wantKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      const sameKey = curKey.length === wantKey.length && curKey.every((b,i)=>b===wantKey[i]);
+      if (sameKey) { await savePushSubscription(existing); return; }
+      try { await existing.unsubscribe(); } catch(_){}
     }
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return;
