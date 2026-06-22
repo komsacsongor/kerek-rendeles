@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.53.3';
+const CACHE_NAME = 'kerek-v2.53.4';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -16,6 +16,7 @@ const CACHE_URLS = [
   '/kerek-rendeles/img/icon-admin-512.png',
   '/kerek-rendeles/img/logo_teal_vert.png',
   '/kerek-rendeles/img/logo_white_horiz.png',
+  '/kerek-rendeles/img/badge-96.png',
   // Vevő modul JS
   '/kerek-rendeles/js/vevo-data.js',
   '/kerek-rendeles/js/vevo-orders-render.js',
@@ -77,7 +78,7 @@ self.addEventListener('push', event => {
   event.waitUntil(self.registration.showNotification(data.title || 'KEREK Pékség', {
     body: data.body || '',
     icon: '/kerek-rendeles/img/icon-192.png',
-    badge: '/kerek-rendeles/img/icon-192.png',
+    badge: '/kerek-rendeles/img/badge-96.png',
     tag: data.tag || 'kerek-notification',
     data: { url: data.url || '/kerek-rendeles/vevo.html', type: data.type },
     requireInteraction: true,  // v2.38.4: tartós megjelenítés desktop Chrome/Firefox-on
