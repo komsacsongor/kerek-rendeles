@@ -121,14 +121,14 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'VAPID env hiányzik (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)' }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
-    const { client_id, type, title, body } = await req.json()
+    const { client_id, type, title, body, url } = await req.json()
     if (!client_id) return new Response(JSON.stringify({ error: 'missing client_id' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
     const { data: subs } = await sb.from('push_subscriptions').select('*').eq('client_id', client_id)
     if (!subs?.length) return new Response(JSON.stringify({ sent: 0, subs: 0 }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
 
-    const payload = JSON.stringify({ title: title || 'KEREK Pékség', body: body || '', type: type || 'info', tag: type })
+    const payload = JSON.stringify({ title: title || 'KEREK Pékség', body: body || '', type: type || 'info', tag: type, url: url || undefined })
     let sent = 0
     const statuses: number[] = []
 
