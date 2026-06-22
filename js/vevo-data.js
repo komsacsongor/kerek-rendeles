@@ -466,7 +466,7 @@ async function reloadVevoData() {
     (userOrders||[]).forEach(o => {
       const k = getOrderKey(o.client_id, o.year, o.month, o.day);
       if (!appData.orders[k]) appData.orders[k] = {};
-      appData.orders[k][o.product_id] = o.qty;
+      appData.orders[k][o.product_id] = o.quantity;
     });
     // Status
     appData.orderStatus = {};
