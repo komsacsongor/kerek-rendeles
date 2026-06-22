@@ -116,7 +116,7 @@ async function saveOrder() {
       for (const day of affectedDays) {
         const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
         const st = (appData.orderStatus && appData.orderStatus[key]) || {};
-        if (st.status === 'confirmed' || st.status === 'modified') {
+        if (st.status === 'confirmed' || st.status === 'modified' || st.status === 'cancelled') {
           const newRow = { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
             status: 'pending', admin_note: st.admin_note || null };
           await sb.upsert('order_status', newRow, 'client_id,year,month,day');
