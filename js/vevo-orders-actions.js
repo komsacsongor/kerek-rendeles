@@ -90,13 +90,16 @@ async function saveOrder() {
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
     if(appData.orders[key]) {
       Object.entries(appData.orders[key]).forEach(([pid, qty]) => {
+        const product_id = parseInt(pid);
+        const quantity = Number(qty);
+        if (!Number.isInteger(product_id) || !Number.isFinite(quantity) || quantity <= 0) return;
         upserts.push({
           client_id: currentUser.id,
           year: selectedYear,
           month: selectedMonth,
           day: day,
-          product_id: parseInt(pid),
-          quantity: qty
+          product_id: product_id,
+          quantity: quantity
         });
       });
     }
