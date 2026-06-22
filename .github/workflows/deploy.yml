@@ -35,13 +35,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch (production)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           path: site
 
       - name: Checkout staging branch into site/staging/
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: staging
           path: site/staging
