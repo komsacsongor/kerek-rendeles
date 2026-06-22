@@ -517,7 +517,9 @@ async function reloadVevoData() {
 }
 
 // ===== WEB PUSH =====
-const VAPID_PUBLIC_KEY = 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8';
+const VAPID_PUBLIC_KEY = (typeof location !== 'undefined' && location.pathname.includes('/staging/'))
+  ? 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8'
+  : 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);

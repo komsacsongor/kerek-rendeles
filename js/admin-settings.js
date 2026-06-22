@@ -13,7 +13,9 @@ function renderSettings(){
 // ===== ADMIN PUSH ÉRTESÍTÉSEK (ezen az eszközön) =====
 // Az admin a fenntartott 'ADMIN' client_id alatt iratkozik fel a meglévő push_subscriptions táblába.
 // Ugyanaz a publikus VAPID kulcs mint a vevőnél.
-const ADMIN_PUSH_VAPID = 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8';
+const ADMIN_PUSH_VAPID = (typeof location !== 'undefined' && location.pathname.includes('/staging/'))
+  ? 'BAuR41VyGa6UGQTYIE1IozwYIzq9Eqm5cBoLLsCrR8emUM_qGmNKZAXEbNLGgyzozv-X6DhU1kgtjiFhPIHFgC8'
+  : 'BKnbS6hp1HTdh5BcNOvVTtBdmYWNj48F0jSG6NgQ1vVkboNvsATvbn2uoSP0pFpDTIQlMQ6wa4nI9j8v1jo-7SM';
 const ADMIN_PUSH_ID = 'ADMIN';
 
 function _adminUrlB64ToU8(base64String) {
