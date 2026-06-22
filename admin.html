@@ -16,10 +16,10 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.1"></script>
-<script src="supabase.js?v=2.53.1"></script>
+<script src="kerek-constants.js?v=2.53.2"></script>
+<script src="supabase.js?v=2.53.2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.53.1">
+<link rel="stylesheet" href="kerek-styles.css?v=2.53.2">
 <style>
 :root {
   --teal-dark:  #064C48;
@@ -664,6 +664,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
         <p class="text-soft text-sm" style="margin-bottom:10px">Kapj értesítést a telefonodra, amikor új rendelés érkezik, vagy valaki regisztrál és jóváhagyásra vár. Kapcsold be ezen az eszközön (telefon / gép), ahol az admin appot használod.</p>
         <button id="admin-push-btn" class="btn btn-primary btn-sm" data-action="toggleAdminPush">🔔 Értesítések bekapcsolása</button>
         <p id="admin-push-status" class="text-soft text-sm" style="margin-top:8px"></p>
+        <button id="admin-push-test-btn" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="testAdminPush()">🔔 Teszt értesítés magamnak</button>
+        <p id="admin-push-test-status" class="text-soft text-sm" style="margin-top:6px;word-break:break-word"></p>
       </div>
     </div>
 
@@ -981,17 +983,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
-<script src="js/admin-data.js?v=2.53.1"></script>
-<script src="js/admin-data-audit.js?v=2.53.1"></script>
-<script src="js/admin-ui.js?v=2.53.1"></script>
-<script src="js/admin-messages.js?v=2.53.1"></script>
-<script src="js/admin-baking.js?v=2.53.1"></script>
-<script src="js/admin-orders.js?v=2.53.1"></script>
-<script src="js/admin-catalog.js?v=2.53.1"></script>
-<script src="js/admin-clients.js?v=2.53.1"></script>
-<script src="js/admin-reports.js?v=2.53.1"></script>
-<script src="js/admin-help.js?v=2.53.1"></script>
-<script src="js/admin-push.js?v=2.53.1"></script>
-  <script src="js/admin-settings.js?v=2.53.1"></script>
+<script src="js/admin-data.js?v=2.53.2"></script>
+<script src="js/admin-data-audit.js?v=2.53.2"></script>
+<script src="js/admin-ui.js?v=2.53.2"></script>
+<script src="js/admin-messages.js?v=2.53.2"></script>
+<script src="js/admin-baking.js?v=2.53.2"></script>
+<script src="js/admin-orders.js?v=2.53.2"></script>
+<script src="js/admin-catalog.js?v=2.53.2"></script>
+<script src="js/admin-clients.js?v=2.53.2"></script>
+<script src="js/admin-reports.js?v=2.53.2"></script>
+<script src="js/admin-help.js?v=2.53.2"></script>
+<script src="js/admin-push.js?v=2.53.2"></script>
+  <script src="js/admin-settings.js?v=2.53.2"></script>
 </body>
 </html>

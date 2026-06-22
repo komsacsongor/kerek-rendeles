@@ -76,6 +76,27 @@ async function toggleAdminPush() {
   }
 }
 
+async function testAdminPush() {
+  const el = document.getElementById('admin-push-test-status');
+  if (el) el.textContent = 'Küldés...';
+  try {
+    const r = await sendPushToClient(ADMIN_PUSH_ID, 'test', '🔔 KEREK teszt', 'Ha látod ezt, a push működik ✅');
+    let msg;
+    if (!r || r.ok === false) {
+      msg = '❌ Hiba: ' + (r && r.status ? r.status + ' ' : '') + (r && (r.error || r.body) ? String(r.error || r.body).substring(0, 160) : '');
+    } else {
+      const sent = (r.sent != null ? r.sent : '?');
+      const subs = (r.subs != null ? r.subs : '?');
+      const st = Array.isArray(r.statuses) ? r.statuses.join(',') : '';
+      msg = (Number(r.sent) > 0 ? '✅' : '⚠️') + ' sent=' + sent + ' / subs=' + subs + (st ? ' | státusz: ' + st : '');
+    }
+    if (el) el.textContent = msg;
+    toast(msg);
+  } catch (e) {
+    if (el) el.textContent = '❌ ' + e.message;
+  }
+}
+
 async function updateAdminPushBtn() {
   const btn = document.getElementById('admin-push-btn');
   const status = document.getElementById('admin-push-status');
