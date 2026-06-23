@@ -571,6 +571,12 @@ async function togglePushSubscription() {
   const reg = await navigator.serviceWorker.ready;
   const existing = await reg.pushManager.getSubscription();
   if (existing) {
+    // v2.53.x: ha a feliratkozás MÁS (régi) VAPID kulccsal készült, az nem működő stale
+    // állapot → ne kapcsoljuk KI, hanem kössük újra az aktuális kulccsal (initPushSubscription kezeli)
+    const curKey = new Uint8Array(existing.options?.applicationServerKey || []);
+    const wantKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    const sameKey = curKey.length === wantKey.length && curKey.every((b, i) => b === wantKey[i]);
+    if (!sameKey) { await initPushSubscription(); await updatePushBtn(); return; }
     await existing.unsubscribe();
     await sb.delete('push_subscriptions', `client_id=eq.${currentUser.id}`);
     toast('🔕 Értesítések kikapcsolva.');
