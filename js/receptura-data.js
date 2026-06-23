@@ -312,7 +312,7 @@ async function initApp() {
   if (typeof sb.subscribe === 'function') {
     try {
       let _rDebounce = null;
-      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches', 'suppliers'];
+      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches']; // suppliers kivéve: anon-lezárt (RLS), realtime nem kapna eseményt
       window._kerekReceptUnsub = sb.subscribe(RECEPT_RT_TABLES, ({table}) => {
         if (_rDebounce) clearTimeout(_rDebounce);
         _rDebounce = setTimeout(async () => {
