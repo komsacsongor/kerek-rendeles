@@ -66,6 +66,12 @@ async function toggleAdminPush() {
   const reg = await navigator.serviceWorker.ready;
   const existing = await reg.pushManager.getSubscription();
   if (existing) {
+    // v2.53.x: ha a meglévő feliratkozás MÁS (régi) VAPID kulccsal készült, az nem működő stale
+    // állapot → ne kapcsoljuk KI, hanem kössük újra az aktuális kulccsal (initAdminPush kezeli)
+    const curKey = new Uint8Array(existing.options?.applicationServerKey || []);
+    const wantKey = _adminUrlB64ToU8(ADMIN_PUSH_VAPID);
+    const sameKey = curKey.length === wantKey.length && curKey.every((b, i) => b === wantKey[i]);
+    if (!sameKey) { await initAdminPush(); return; }
     try {
       const j = existing.toJSON();
       await existing.unsubscribe();
