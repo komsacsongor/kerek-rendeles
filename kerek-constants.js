@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.3 (2026-06-22)';
+const APP_VERSION = 'v2.53.11 (2026-06-23)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -41,18 +41,6 @@ function unitIntakeOptions(u){
   if(d==='count') return [['db','db']];
   if(d==='vol') return [['ml','ml'],['L','l']];
   return [['g','g'],['kg','kg']];
-}
-
-// M0 2a: recept-alapanyag mennyiség → gramm a tömeg/nedvesség/% aggregációhoz.
-// db (számláló) alapanyagnál a másodlagos egységgel vált (1 db = altFactor g, ml≈g);
-// mass/vol alapanyagnál az amount már gramm. altFactor hiányában 0 (csak darabként, tömegbe nem számít).
-function recipeAmountToGrams(amount, baseIng){
-  amount = amount || 0;
-  if (baseIng && typeof unitDim==='function' && unitDim(baseIng.unit)==='count') {
-    const f = (baseIng.altFactor > 0) ? baseIng.altFactor : 0;
-    return f > 0 ? amount * f : 0;
-  }
-  return amount;
 }
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
@@ -245,7 +233,7 @@ async function auditLog(action, entityName='', details='') {
 }
 
 // ===== PUSH NOTIFICATION SENDER =====
-// v2.53.1: env-erzekeny (onallo /staging/ detektalas, load-order fuggetlen)
+// v2.53.x: env-erzekeny (onallo /staging/ detektalas, load-order fuggetlen)
 const _PUSH_IS_STAGING = (typeof location !== 'undefined') && location.pathname.includes('/staging/');
 const _PUSH_SUPA = _PUSH_IS_STAGING ? 'https://xgcwxlwjlohzbzpcapnw.supabase.co' : 'https://lfaxeihrmiylggahougl.supabase.co';
 const _PUSH_BASE = _PUSH_IS_STAGING ? '/kerek-rendeles/staging' : '/kerek-rendeles';
@@ -388,8 +376,15 @@ function startUnifiedPolling(callback, intervalMs) {
   // serviceWorker.register idempotens ugyanazon scope-ra, így nem konfliktusol a vevő-saját push logikával
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/kerek-rendeles/sw.js')
-      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .then(reg => { console.log('[SW] Registered:', reg.scope); reg.update(); })
       .catch(err => console.warn('[SW] Register failed:', err));
+    // Auto-update: amikor egy új SW átveszi az irányítást, egyszer újratöltünk (friss kód+ikon)
+    let _swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloaded) return;
+      _swReloaded = true;
+      location.reload();
+    });
   });
 })();
 
