@@ -87,7 +87,7 @@ async function syncRecipeToSupabase(data, existingId) {
 
     // Delete old ingredients and steps, re-insert
     await sb.delete('recipe_ingredients', `recipe_id=eq.${recId}`);
-    await sb.delete('recipe_steps', `recipe_id=eq.${recId}`);
+    await kData.delete('recipe_steps', `recipe_id=eq.${recId}`);
 
     // Insert dry ingredients
     const dryRows = (data.dryIngredients||[]).map((ing,i) => ({
@@ -107,7 +107,7 @@ async function syncRecipeToSupabase(data, existingId) {
       recipe_id: recId, title: s.title, description: s.desc||'',
       timer_minutes: s.timer||0, sort_order: i,
     }));
-    if(stepRows.length > 0) await sb.insert('recipe_steps', stepRows);
+    if(stepRows.length > 0) await kData.insert('recipe_steps', stepRows);
 
     // Javasolt ár számítása receptúra alapján
     const laborCost = (data.laborH||1) * (R.settings.labor||55);

@@ -36,7 +36,7 @@ async function reloadReceptData() {
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
       sb.query('recipes', {order:'id', limit:500}),
       sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
-      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
+      kData.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
     ]);
     if (dbRecipes && dbRecipes.length > 0) {
       R.recipes = dbRecipes.map(r => ({
@@ -179,7 +179,7 @@ async function initApp() {
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
       sb.query('recipes', {order:'id', limit:500}),
       sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
-      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
+      kData.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
     ]);
     if(dbRecipes && dbRecipes.length > 0) {
       R.recipes = dbRecipes.map(r => ({

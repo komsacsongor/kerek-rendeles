@@ -413,7 +413,7 @@ async function deleteCurrentRecipe() {
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
     await sb.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
-    await sb.delete('recipe_steps', `recipe_id=eq.${currentRecipeId}`);
+    await kData.delete('recipe_steps', `recipe_id=eq.${currentRecipeId}`);
     await sb.delete('recipes', `id=eq.${currentRecipeId}`);
     if(prodId) {
       await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
@@ -471,7 +471,7 @@ async function deleteArchivedRecipe(recipeId) {
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
   try {
     await sb.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);
-    await sb.delete('recipe_steps', `recipe_id=eq.${recipeId}`);
+    await kData.delete('recipe_steps', `recipe_id=eq.${recipeId}`);
     await sb.delete('recipes', `id=eq.${recipeId}`);
     if(prodId) {
       await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
@@ -515,12 +515,12 @@ async function newRecipeVersion() {
   // Copy ingredients and steps
   try {
     const ings = await sb.query('recipe_ingredients', {filter:`recipe_id=eq.${r.id}`});
-    const steps = await sb.query('recipe_steps', {filter:`recipe_id=eq.${r.id}`});
+    const steps = await kData.query('recipe_steps', {filter:`recipe_id=eq.${r.id}`});
     if (ings.length) {
       await sb.insert('recipe_ingredients', ings.map(i => ({...i, id:undefined, recipe_id:newId})));
     }
     if (steps.length) {
-      await sb.insert('recipe_steps', steps.map(s => ({...s, id:undefined, recipe_id:newId})));
+      await kData.insert('recipe_steps', steps.map(s => ({...s, id:undefined, recipe_id:newId})));
     }
   } catch(e) { console.warn('version clone ings/steps:', e); }
 

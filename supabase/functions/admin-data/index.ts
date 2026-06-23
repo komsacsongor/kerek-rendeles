@@ -23,6 +23,7 @@ async function sha256(text: string): Promise<string> {
 const ALLOWED: Record<string, Record<string, string[]>> = {
   receptura: {
     suppliers: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_steps: ['GET', 'POST', 'PATCH', 'DELETE'],
   },
   admin: {},
   gyartas: {},
