@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.3 (2026-06-22)';
+const APP_VERSION = 'v2.53.11 (2026-06-23)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -376,8 +376,15 @@ function startUnifiedPolling(callback, intervalMs) {
   // serviceWorker.register idempotens ugyanazon scope-ra, így nem konfliktusol a vevő-saját push logikával
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/kerek-rendeles/sw.js')
-      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .then(reg => { console.log('[SW] Registered:', reg.scope); reg.update(); })
       .catch(err => console.warn('[SW] Register failed:', err));
+    // Auto-update: amikor egy új SW átveszi az irányítást, egyszer újratöltünk (friss kód+ikon)
+    let _swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloaded) return;
+      _swReloaded = true;
+      location.reload();
+    });
   });
 })();
 
