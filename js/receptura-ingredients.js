@@ -195,7 +195,7 @@ async function openNewFamilyDialog() {
     return;
   }
   try {
-    const result = await sb.insert('ingredient_families', { name: trimmed });
+    const result = await kData.insert('ingredient_families', { name: trimmed });
     const newFam = result?.[0];
     if (!newFam) throw new Error('Nem jött vissza új család');
     if (!R.ingredientFamilies) R.ingredientFamilies = [];

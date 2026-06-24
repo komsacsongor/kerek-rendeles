@@ -228,7 +228,7 @@ async function initApp() {
       [dbIngList, dbBatches, dbFamilies] = await Promise.all([
         sb.query('ingredients', {order:'category,name', limit:500}),
         sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
-        sb.query('ingredient_families', {order:'name', limit:200}).catch(()=>[]),
+        kData.query('ingredient_families', {order:'name', limit:200}).catch(()=>[]),
       ]);
     } catch(batchErr) {
       // ingredient_batches might not exist yet - try ingredients only
@@ -312,7 +312,7 @@ async function initApp() {
   if (typeof sb.subscribe === 'function') {
     try {
       let _rDebounce = null;
-      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches']; // suppliers kivéve: anon-lezárt (RLS), realtime nem kapna eseményt
+      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches']; // suppliers + processing_batches kivéve: anon-lezárt (RLS), realtime nem kapna eseményt
       window._kerekReceptUnsub = sb.subscribe(RECEPT_RT_TABLES, ({table}) => {
         if (_rDebounce) clearTimeout(_rDebounce);
         _rDebounce = setTimeout(async () => {
