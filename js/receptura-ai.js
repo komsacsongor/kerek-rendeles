@@ -391,7 +391,7 @@ async function saveRecipe() {
     }
     // Sequence: DB-ből kérdezzük a max id-t
     try {
-      const dbMax = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
+      const dbMax = await kData.query('recipes', {select:'id', order:'id.desc', limit:1});
       data.id = dbMax.length ? dbMax[0].id + 1 : Math.max(...R.recipes.map(r=>r.id),0)+1;
     } catch(e) {
       data.id = Math.max(...R.recipes.map(r=>r.id),0)+1;
@@ -412,9 +412,9 @@ async function deleteCurrentRecipe() {
   if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
-    await sb.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
+    await kData.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
     await kData.delete('recipe_steps', `recipe_id=eq.${currentRecipeId}`);
-    await sb.delete('recipes', `id=eq.${currentRecipeId}`);
+    await kData.delete('recipes', `id=eq.${currentRecipeId}`);
     if(prodId) {
       await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
       await sb.delete('products', `id=eq.${prodId}`);
@@ -431,7 +431,7 @@ async function archiveCurrentRecipe() {
   rec.archived = true;
   const prodId = rec.product_id;
   try {
-    await sb.update('recipes', {archived: true}, `id=eq.${currentRecipeId}`);
+    await kData.update('recipes', {archived: true}, `id=eq.${currentRecipeId}`);
     if(prodId) {
       // Kivesszük az összes havi aktív termékből (jelen és jövőbeli hónapok)
       const now = new Date();
@@ -448,7 +448,7 @@ async function restoreRecipe(recipeId) {
   rec.archived = false;
   const prodId = rec.product_id;
   try {
-    await sb.update('recipes', {archived: false}, `id=eq.${recipeId}`);
+    await kData.update('recipes', {archived: false}, `id=eq.${recipeId}`);
     // Hozzáadjuk a jelenlegi hónaphoz mint potenciális termék
     if(prodId) {
       const now = new Date();
@@ -470,9 +470,9 @@ async function deleteArchivedRecipe(recipeId) {
   if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
   try {
-    await sb.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);
+    await kData.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);
     await kData.delete('recipe_steps', `recipe_id=eq.${recipeId}`);
-    await sb.delete('recipes', `id=eq.${recipeId}`);
+    await kData.delete('recipes', `id=eq.${recipeId}`);
     if(prodId) {
       await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
       await sb.delete('products', `id=eq.${prodId}`);
@@ -489,14 +489,14 @@ async function newRecipeVersion() {
 
   // Archive current
   r.archived = true;
-  await sb.update('recipes', {archived: true}, `id=eq.${r.id}`);
+  await kData.update('recipes', {archived: true}, `id=eq.${r.id}`);
   auditLog('recipe_archive', r.name, `v${r.version||1} archiválva, új verzió indul`);
 
   // Clone with new id and version+1
   const newVer = (r.version || 1) + 1;
   let newId;
   try {
-    const dbMax = await sb.query('recipes', {select:'id', order:'id.desc', limit:1});
+    const dbMax = await kData.query('recipes', {select:'id', order:'id.desc', limit:1});
     newId = dbMax.length ? dbMax[0].id + 1 : Math.max(...R.recipes.map(x=>x.id),0)+1;
   } catch(e) {
     newId = Math.max(...R.recipes.map(x=>x.id),0)+1;
@@ -514,10 +514,10 @@ async function newRecipeVersion() {
 
   // Copy ingredients and steps
   try {
-    const ings = await sb.query('recipe_ingredients', {filter:`recipe_id=eq.${r.id}`});
+    const ings = await kData.query('recipe_ingredients', {filter:`recipe_id=eq.${r.id}`});
     const steps = await kData.query('recipe_steps', {filter:`recipe_id=eq.${r.id}`});
     if (ings.length) {
-      await sb.insert('recipe_ingredients', ings.map(i => ({...i, id:undefined, recipe_id:newId})));
+      await kData.insert('recipe_ingredients', ings.map(i => ({...i, id:undefined, recipe_id:newId})));
     }
     if (steps.length) {
       await kData.insert('recipe_steps', steps.map(s => ({...s, id:undefined, recipe_id:newId})));

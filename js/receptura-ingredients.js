@@ -173,7 +173,7 @@ async function saveIngredient() {
     Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
     // v2.35.0: persist material_type + family_id + unit to DB
     try {
-      await sb.update('ingredients', { material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
+      await kData.update('ingredients', { material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
     } catch(e) { console.warn('DB ingredient update failed:', e.message); }
     toast('Alapanyag frissítve!');
   } else {

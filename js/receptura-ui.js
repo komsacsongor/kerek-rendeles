@@ -290,7 +290,7 @@ async function calcAutoMinMax() {
   // Batch save to DB
   for (const upd of updates) {
     try {
-      await sb.update('ingredients', upd, `id=eq.${upd.id}`);
+      await kData.update('ingredients', upd, `id=eq.${upd.id}`);
     } catch(e) { console.warn('autoMinMax save:', e.message); }
   }
 
@@ -309,7 +309,7 @@ async function setStockOverride(ingId, minG, maxG) {
   ing.minStockOverrideG = minG !== null ? parseInt(minG) : null;
   ing.maxStockOverrideG = maxG !== null ? parseInt(maxG) : null;
   try {
-    await sb.update('ingredients', {
+    await kData.update('ingredients', {
       min_stock_override_g: ing.minStockOverrideG,
       max_stock_override_g: ing.maxStockOverrideG,
     }, `id=eq.${ingId}`);

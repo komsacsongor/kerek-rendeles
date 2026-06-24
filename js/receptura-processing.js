@@ -590,7 +590,7 @@ async function saveProcessingBatch() {
         batch.qtyRemainingG -= take;
         rem -= take;
         if (batch.id) {
-          try { await sb.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, 'id=eq.' + batch.id); }
+          try { await kData.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, 'id=eq.' + batch.id); }
           catch(e) { console.warn('FIFO update fail:', e.message); }
         }
       }
@@ -602,7 +602,7 @@ async function saveProcessingBatch() {
     for (const o of outputs) {
       let resultingBatchId = null;
       if (o.destination === 'stock') {
-        const newBatch = await sb.insert('ingredient_batches', {
+        const newBatch = await kData.insert('ingredient_batches', {
           ingredient_id: o.ingredient_id,
           received_date: date,
           qty_received_g: o.amount_g,

@@ -429,7 +429,7 @@ async function confirmBakingDone() {
         batch.qtyRemainingG -= take;
         remaining -= take;
         try {
-          await sb.update('ingredient_batches',
+          await kData.update('ingredient_batches',
             { qty_remaining_g: Math.max(0, batch.qtyRemainingG) },
             `id=eq.${batch.id}`);
         } catch(e) { console.warn('batch update:', e.message); }
@@ -643,7 +643,7 @@ async function confirmExperimentalBake(recipeId, mode='experimental') {
       totalCost += take * batch.pricePerG;
       usage.push({ ingredient_id: parseInt(ingId), batch_id: batch.id, qty_g: take, cost: take * batch.pricePerG });
       batch.qtyRemainingG -= take; rem -= take;
-      try { await sb.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, `id=eq.${batch.id}`); } catch(e) {}
+      try { await kData.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, `id=eq.${batch.id}`); } catch(e) {}
     }
     const ing = getIng(parseInt(ingId));
     if (ing) ing.totalStockG = Math.max(0, (ing.totalStockG||0) - qty);

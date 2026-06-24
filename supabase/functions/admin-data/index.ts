@@ -30,8 +30,17 @@ const ALLOWED: Record<string, Record<string, string[]>> = {
     processing_outputs: ['GET', 'POST', 'PATCH', 'DELETE'],
     production_logs: ['GET', 'POST', 'PATCH', 'DELETE'],
     processing_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
   },
-  admin: {},
+  admin: {
+    recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
+  },
   gyartas: {},
 }
 

@@ -235,7 +235,7 @@ async function recordLevainBatch(totalG) {
   try {
     const today = new Date();
     const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    await sb.insert('ingredient_batches', {
+    await kData.insert('ingredient_batches', {
       ingredient_id: 105,
       received_date: dateStr,
       qty_received_g: totalG,

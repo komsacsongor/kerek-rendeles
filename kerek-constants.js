@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.16-sec (2026-06-23)';
+const APP_VERSION = 'v2.53.17-sec (2026-06-24)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
