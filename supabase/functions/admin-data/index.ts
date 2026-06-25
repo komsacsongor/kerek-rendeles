@@ -23,8 +23,24 @@ async function sha256(text: string): Promise<string> {
 const ALLOWED: Record<string, Record<string, string[]>> = {
   receptura: {
     suppliers: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_steps: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_families: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_milling_profile: ['GET', 'POST', 'PATCH', 'DELETE'],
+    processing_inputs: ['GET', 'POST', 'PATCH', 'DELETE'],
+    processing_outputs: ['GET', 'POST', 'PATCH', 'DELETE'],
+    production_logs: ['GET', 'POST', 'PATCH', 'DELETE'],
+    processing_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
   },
-  admin: {},
+  admin: {
+    recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
+    recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
+    ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
+  },
   gyartas: {},
 }
 
