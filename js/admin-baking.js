@@ -276,8 +276,9 @@ function renderBaking(){
       if(!o) return;
       const qty=Object.values(o).reduce(function(a,b){return a+b;},0);
       if(!qty) return;
-      Object.entries(o).forEach(function(e){ const pid=e[0],q=e[1]; aggr[pid]=(aggr[pid]||0)+q; totalQty+=q; const p=D.products.find(function(p){return p.id==pid;}); if(p)totalRev+=p.price*q; });
       const st=getOrderStatus(c.id,y,m,day);
+      if(st && st.status==='cancelled') return; // visszautasított rendelés kihagyása a sütési összesítésből (db/levain/forgalom)
+      Object.entries(o).forEach(function(e){ const pid=e[0],q=e[1]; aggr[pid]=(aggr[pid]||0)+q; totalQty+=q; const p=D.products.find(function(p){return p.id==pid;}); if(p)totalRev+=p.price*q; });
       dayClients.push({ c:c, key:key, o:o, st:st });
     });
 
