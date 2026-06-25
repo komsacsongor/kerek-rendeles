@@ -34,9 +34,9 @@ async function reloadReceptData() {
 
     // Recipes újraolvasása DB-ből (felülírja R.recipes-t a friss adatokkal)
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
-      sb.query('recipes', {order:'id', limit:500}),
-      sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
-      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
+      kData.query('recipes', {order:'id', limit:500}),
+      kData.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
+      kData.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
     ]);
     if (dbRecipes && dbRecipes.length > 0) {
       R.recipes = dbRecipes.map(r => ({
@@ -79,8 +79,8 @@ async function reloadReceptData() {
     // Ingredient batches reload (stock értékek frissülnek)
     try {
       const [dbIngList, dbBatches] = await Promise.all([
-        sb.query('ingredients', {order:'category,name', limit:500}),
-        sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+        kData.query('ingredients', {order:'category,name', limit:500}),
+        kData.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
       ]);
       if (dbIngList && dbIngList.length > 0) {
         // Csak a stock-frissítés (a többi mező marad)
@@ -177,9 +177,9 @@ async function initApp() {
   // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
   try {
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
-      sb.query('recipes', {order:'id', limit:500}),
-      sb.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
-      sb.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
+      kData.query('recipes', {order:'id', limit:500}),
+      kData.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
+      kData.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
     ]);
     if(dbRecipes && dbRecipes.length > 0) {
       R.recipes = dbRecipes.map(r => ({
@@ -226,13 +226,13 @@ async function initApp() {
     let dbIngList = [], dbBatches = [], dbFamilies = [];
     try {
       [dbIngList, dbBatches, dbFamilies] = await Promise.all([
-        sb.query('ingredients', {order:'category,name', limit:500}),
-        sb.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
-        sb.query('ingredient_families', {order:'name', limit:200}).catch(()=>[]),
+        kData.query('ingredients', {order:'category,name', limit:500}),
+        kData.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
+        kData.query('ingredient_families', {order:'name', limit:200}).catch(()=>[]),
       ]);
     } catch(batchErr) {
       // ingredient_batches might not exist yet - try ingredients only
-      try { dbIngList = await sb.query('ingredients', {order:'category,name', limit:500}); } catch(e) {}
+      try { dbIngList = await kData.query('ingredients', {order:'category,name', limit:500}); } catch(e) {}
       console.warn('ingredient_batches nem elérhető - futtasd a DB migrációt!');
     }
     R.ingredientFamilies = dbFamilies || [];  // v2.35.0
@@ -312,7 +312,7 @@ async function initApp() {
   if (typeof sb.subscribe === 'function') {
     try {
       let _rDebounce = null;
-      const RECEPT_RT_TABLES = ['recipes', 'recipe_ingredients', 'products', 'ingredients', 'ingredient_batches', 'processing_batches']; // suppliers kivéve: anon-lezárt (RLS), realtime nem kapna eseményt
+      const RECEPT_RT_TABLES = ['products']; // csak products marad anon (vevő-facing, Fázis 2); a többi anon-lezárt (RLS)
       window._kerekReceptUnsub = sb.subscribe(RECEPT_RT_TABLES, ({table}) => {
         if (_rDebounce) clearTimeout(_rDebounce);
         _rDebounce = setTimeout(async () => {
@@ -338,7 +338,7 @@ async function initApp() {
   startUnifiedPolling(async () => {
     try {
       // Re-fetch ingredient batches (FIFO stock changes from purchases/baking)
-      const batches = await sb.query('ingredient_batches', { limit: 2000 });
+      const batches = await kData.query('ingredient_batches', { limit: 2000 });
       const newBatchesJson = JSON.stringify((batches||[]).map(b=>({i:b.ingredient_id,r:b.qty_remaining_g})));
       const oldBatchesJson = JSON.stringify((R.batches||[]).map(b=>({i:b.ingredientId,r:b.qtyRemainingG})));
       if (newBatchesJson !== oldBatchesJson) {

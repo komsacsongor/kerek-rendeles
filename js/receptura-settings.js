@@ -70,7 +70,7 @@ async function syncRecipeToSupabase(data, existingId) {
     const recId = existingId || data.id;
     
     // Upsert recipe
-    await sb.upsert('recipes', {
+    await kData.upsert('recipes', {
       id: recId, name: data.name, category: data.category, version: data.version||1,
       activated_at: data.activatedAt || new Date().toISOString(),
       product_id: data.product_id || null,
@@ -86,8 +86,8 @@ async function syncRecipeToSupabase(data, existingId) {
     });
 
     // Delete old ingredients and steps, re-insert
-    await sb.delete('recipe_ingredients', `recipe_id=eq.${recId}`);
-    await sb.delete('recipe_steps', `recipe_id=eq.${recId}`);
+    await kData.delete('recipe_ingredients', `recipe_id=eq.${recId}`);
+    await kData.delete('recipe_steps', `recipe_id=eq.${recId}`);
 
     // Insert dry ingredients
     const dryRows = (data.dryIngredients||[]).map((ing,i) => ({
@@ -99,7 +99,7 @@ async function syncRecipeToSupabase(data, existingId) {
       ingredient_id: ing.ingredientId||null, sub_type: 'wet', sort_order: i,
     }));
     if(dryRows.length + wetRows.length > 0) {
-      await sb.insert('recipe_ingredients', [...dryRows, ...wetRows]);
+      await kData.insert('recipe_ingredients', [...dryRows, ...wetRows]);
     }
 
     // Insert steps
@@ -107,7 +107,7 @@ async function syncRecipeToSupabase(data, existingId) {
       recipe_id: recId, title: s.title, description: s.desc||'',
       timer_minutes: s.timer||0, sort_order: i,
     }));
-    if(stepRows.length > 0) await sb.insert('recipe_steps', stepRows);
+    if(stepRows.length > 0) await kData.insert('recipe_steps', stepRows);
 
     // Javasolt ár számítása receptúra alapján
     const laborCost = (data.laborH||1) * (R.settings.labor||55);
@@ -141,12 +141,12 @@ async function syncRecipeToSupabase(data, existingId) {
     }
     // Visszalinkeljük a product_id-t a recepthez
     try {
-      await sb.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
+      await kData.update('recipes', {product_id: prodId}, `id=eq.${recId}`);
     } catch(linkErr) {
       // Rollback: ha az új termék már létrejött de a link sikertelen, töröljük
       if (newlyCreatedProdId) {
         try { await sb.delete('products', `id=eq.${newlyCreatedProdId}`); } catch(e) {}
-        try { await sb.delete('recipes', `id=eq.${recId}`); } catch(e) {}
+        try { await kData.delete('recipes', `id=eq.${recId}`); } catch(e) {}
       }
       throw linkErr; // továbbadjuk a catch-nek
     }

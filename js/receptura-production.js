@@ -429,7 +429,7 @@ async function confirmBakingDone() {
         batch.qtyRemainingG -= take;
         remaining -= take;
         try {
-          await sb.update('ingredient_batches',
+          await kData.update('ingredient_batches',
             { qty_remaining_g: Math.max(0, batch.qtyRemainingG) },
             `id=eq.${batch.id}`);
         } catch(e) { console.warn('batch update:', e.message); }
@@ -449,7 +449,7 @@ async function confirmBakingDone() {
 
     // Save production log
     const now = _prodLocalDate();
-    await sb.insert('production_logs', {
+    await kData.insert('production_logs', {
       date: now,
       log_type: 'customer',
       pieces_planned: 0,
@@ -466,7 +466,7 @@ async function confirmBakingDone() {
       const actual = actualEl ? (parseInt(actualEl.value) || 0) : pr.planned;
       if (actual <= 0) continue; // nem sült belőle
       try {
-        await sb.insert('production_logs', {
+        await kData.insert('production_logs', {
           date: now, log_type: 'order', recipe_id: pr.recipe_id,
           pieces_planned: pr.planned, pieces_actual: actual,
           total_cost: 0, notes: `Sütési napok: ${days?.join(', ') || '—'}`
@@ -643,14 +643,14 @@ async function confirmExperimentalBake(recipeId, mode='experimental') {
       totalCost += take * batch.pricePerG;
       usage.push({ ingredient_id: parseInt(ingId), batch_id: batch.id, qty_g: take, cost: take * batch.pricePerG });
       batch.qtyRemainingG -= take; rem -= take;
-      try { await sb.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, `id=eq.${batch.id}`); } catch(e) {}
+      try { await kData.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, `id=eq.${batch.id}`); } catch(e) {}
     }
     const ing = getIng(parseInt(ingId));
     if (ing) ing.totalStockG = Math.max(0, (ing.totalStockG||0) - qty);
   }
 
   try {
-    await sb.insert('production_logs', {
+    await kData.insert('production_logs', {
       date: _prodLocalDate(),
       log_type: isExtra ? 'extra' : 'experimental',
       recipe_id: recipeId,
@@ -684,7 +684,7 @@ async function renderBakingLog(dateStr) {
   const m0 = mm - 1; // orders.month 0-alapú
 
   try {
-    const logs = await sb.query('production_logs', { filter: `date=eq.${dateStr}`, limit: 2000 }) || [];
+    const logs = await kData.query('production_logs', { filter: `date=eq.${dateStr}`, limit: 2000 }) || [];
     const recipeName = id => (R.recipes.find(r => r.id === id)?.name) || ('Recept #' + id);
 
     // Per-recept aggregálás típusonként

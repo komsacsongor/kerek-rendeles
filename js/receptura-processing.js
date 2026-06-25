@@ -70,10 +70,10 @@ function getFilteredIngredientsForOperation(operationType, role, inputIngredient
 async function initProcessingView() {
   try {
     const [batches, inputs, outputs, profiles] = await Promise.all([
-      sb.query('processing_batches', { order: 'date.desc', limit: 50 }).catch(() => []),
-      sb.query('processing_inputs',  { limit: 500 }).catch(() => []),
-      sb.query('processing_outputs', { limit: 500 }).catch(() => []),
-      sb.query('ingredient_milling_profile', { limit: 200 }).catch(() => [])
+      kData.query('processing_batches', { order: 'date.desc', limit: 50 }).catch(() => []),
+      kData.query('processing_inputs',  { limit: 500 }).catch(() => []),
+      kData.query('processing_outputs', { limit: 500 }).catch(() => []),
+      kData.query('ingredient_milling_profile', { limit: 200 }).catch(() => [])
     ]);
     _processingBatches = batches || [];
     _processingInputs = inputs || [];
@@ -546,7 +546,7 @@ async function saveProcessingBatch() {
 
   try {
     // 1. Insert processing_batches
-    const batchRow = await sb.insert('processing_batches', {
+    const batchRow = await kData.insert('processing_batches', {
       batch_code: batchCode,
       operation_type: operation,
       date: date,
@@ -577,7 +577,7 @@ async function saveProcessingBatch() {
       amount_g: i.amount_g,
       unit_cost: i.unit_cost
     }));
-    await sb.insert('processing_inputs', inputRows);
+    await kData.insert('processing_inputs', inputRows);
 
     // 3. Deduct inputs from ingredient_batches (FIFO) — like the old code
     for (const inp of inputs) {
@@ -590,7 +590,7 @@ async function saveProcessingBatch() {
         batch.qtyRemainingG -= take;
         rem -= take;
         if (batch.id) {
-          try { await sb.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, 'id=eq.' + batch.id); }
+          try { await kData.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG) }, 'id=eq.' + batch.id); }
           catch(e) { console.warn('FIFO update fail:', e.message); }
         }
       }
@@ -602,7 +602,7 @@ async function saveProcessingBatch() {
     for (const o of outputs) {
       let resultingBatchId = null;
       if (o.destination === 'stock') {
-        const newBatch = await sb.insert('ingredient_batches', {
+        const newBatch = await kData.insert('ingredient_batches', {
           ingredient_id: o.ingredient_id,
           received_date: date,
           qty_received_g: o.amount_g,
@@ -630,7 +630,7 @@ async function saveProcessingBatch() {
         const ing = getIng(o.ingredient_id);
         if (ing) ing.totalStockG = (ing.totalStockG || 0) + o.amount_g;
       }
-      await sb.insert('processing_outputs', {
+      await kData.insert('processing_outputs', {
         batch_id: batchId,
         ingredient_id: o.ingredient_id,
         amount_g: o.amount_g,
@@ -730,7 +730,7 @@ async function saveMillingProfile(ingredientId) {
     return;
   }
   try {
-    await sb.upsert('ingredient_milling_profile', profile, 'ingredient_id');
+    await kData.upsert('ingredient_milling_profile', profile, 'ingredient_id');
     _millingProfiles[id] = profile;
     closeMillingProfile();
     toast('✅ Profil mentve!');

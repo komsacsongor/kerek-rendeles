@@ -248,7 +248,7 @@ async function saveBasePrice(ingId) {
   const pricePerKg = parseFloat(document.getElementById('pe-price')?.value) || 0;
   ing.basePriceG = pricePerKg / unitFactor(unitBigLabel(ing.unit));
   try {
-    await sb.update('ingredients', { base_price_per_g: ing.basePriceG }, `id=eq.${ingId}`);
+    await kData.update('ingredients', { base_price_per_g: ing.basePriceG }, `id=eq.${ingId}`);
     document.getElementById('price-edit-modal').style.display = 'none';
     toast(`✅ Alap ár mentve: ${pricePerKg.toFixed(2)} lej/${unitBigLabel(ing.unit)}`);
     renderStock();
@@ -267,7 +267,7 @@ async function deleteIngredient(ingId) {
   }
   if (!(await confirmDialog(`Törlöd: "${ing.name}"? Ez nem visszavonható!`))) return;
   try {
-    await sb.delete('ingredients', `id=eq.${ingId}`);
+    await kData.delete('ingredients', `id=eq.${ingId}`);
     R.ingredients = R.ingredients.filter(i => i.id !== ingId);
     toast('✅ Alapanyag törölve.');
     renderStock();

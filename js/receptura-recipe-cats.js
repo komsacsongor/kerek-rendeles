@@ -103,7 +103,7 @@ async function reassignRecipe(recipeId, newCat, refreshIdx){
   const oldCat = r.category;
   r.category = newCat;
   try {
-    await sb.update('recipes', {category: newCat}, `id=eq.${recipeId}`);
+    await kData.update('recipes', {category: newCat}, `id=eq.${recipeId}`);
     toast(`✅ "${r.name}" átrendelve: ${oldCat} → ${newCat}`);
   } catch(e) { r.category = oldCat; toast('Átrendelés sikertelen: '+e.message, true); return; }
   save();
@@ -165,7 +165,7 @@ async function migrateRecipeProductIds() {
         code: `REC-${String(rec.id).padStart(3,'0')}`,
       });
       // Recept frissítése
-      await sb.update('recipes', {product_id: prodId}, `id=eq.${rec.id}`);
+      await kData.update('recipes', {product_id: prodId}, `id=eq.${rec.id}`);
       rec.product_id = prodId; // lokális frissítés
       fixed++;
     } catch(e) { console.warn(`migrate recipe ${rec.id}:`, e.message); }

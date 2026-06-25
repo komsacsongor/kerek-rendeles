@@ -113,7 +113,7 @@ A "${from}" kategória véglegesen törlődik.`))) return;
   try {
     // 1) Update minden érintett ingredient category-jét
     for (const ing of affectedIngs) {
-      await sb.updateFields('ingredients', { category: to }, 'id=eq.' + ing.id);
+      await kData.updateFields('ingredients', { category: to }, 'id=eq.' + ing.id);
       ing.cat = to;  // local update
     }
     // 2) Töröljük a forrás kategóriát a settings-ből
@@ -344,7 +344,7 @@ async function confirmStockIntake(ingId) {
       notes: unit !== 'g' ? `Bevételezve: ${amountRaw} ${unit}` : ''
     };
 
-    await sb.insert('ingredient_batches', batchRow);
+    await kData.insert('ingredient_batches', batchRow);
 
     // Update local R.batches
     if (!R.batches) R.batches = [];

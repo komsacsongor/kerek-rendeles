@@ -116,10 +116,10 @@ async function loadAllData() {
         D.messages[k].push({ text: r.text, ts: r.created_at });
       });
     }),
-    sb.query('recipes', { limit: 500 }).then(recipes => {
+    kData.query('recipes', { limit: 500 }).then(recipes => {
       D.recipes = (recipes||[]).filter(r => r.activated_at);
     }),
-    sb.query('recipe_ingredients', { limit: 5000 }).then(recIngs => {
+    kData.query('recipe_ingredients', { limit: 5000 }).then(recIngs => {
       D.recipeIngredients = {};
       (recIngs||[]).forEach(ri => {
         if (!D.recipeIngredients[ri.recipe_id]) D.recipeIngredients[ri.recipe_id] = [];
@@ -128,7 +128,7 @@ async function loadAllData() {
         });
       });
     }),
-    sb.query('ingredients', { limit: QUERY_LIMIT_PRODUCTS }).then(ings => {
+    kData.query('ingredients', { limit: QUERY_LIMIT_PRODUCTS }).then(ings => {
       D.ingredients = (ings||[]).map(i => ({
         id: i.id, name: i.name, category: i.category, subType: i.sub_type,
         minStockOverrideG: i.min_stock_override_g, minStockAutoG: i.min_stock_auto_g,
@@ -136,7 +136,7 @@ async function loadAllData() {
         preferredSupplierId: i.preferred_supplier_id || null, materialType: i.material_type || null
       }));
     }),
-    sb.query('ingredient_batches', { limit: 2000 }).then(batches => {
+    kData.query('ingredient_batches', { limit: 2000 }).then(batches => {
       D.ingredientBatches = batches || [];
     }),
     sb.query('baking_calendar', { limit: 200 }).then(cal => {
@@ -237,6 +237,7 @@ async function doLogin(){
     }
 
     if (data?.success === true) {
+      window._kerekPw = pw; // Fázis1-sec: kData (admin-data EF) jelszava
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();
@@ -313,8 +314,8 @@ function initApp(){
 async function loadProductRecipeStatus() {
   try {
     const [recipes, recIng] = await Promise.all([
-      sb.query('recipes', {select: 'id,product_id', limit: 500}),
-      sb.query('recipe_ingredients', {select: 'recipe_id', limit: 5000})
+      kData.query('recipes', {select: 'id,product_id', limit: 500}),
+      kData.query('recipe_ingredients', {select: 'recipe_id', limit: 5000})
     ]);
     const ingCountByRecipe = {};
     (recIng || []).forEach(ri => {

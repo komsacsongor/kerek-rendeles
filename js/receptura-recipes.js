@@ -549,13 +549,13 @@ async function restoreRecipeVersion(id) {
   // Jelenlegi aktív archiválása
   if (currentActive) {
     currentActive.archived = true;
-    await sb.update('recipes', {archived: true}, `id=eq.${currentActive.id}`);
+    await kData.update('recipes', {archived: true}, `id=eq.${currentActive.id}`);
   }
 
   // Visszaállítás
   toRestore.archived = false;
   toRestore.activatedAt = new Date().toISOString();
-  await sb.update('recipes', {
+  await kData.update('recipes', {
     archived: false,
     activated_at: toRestore.activatedAt
   }, `id=eq.${id}`);

@@ -92,9 +92,9 @@ async function archiveProduct(id) {
   try {
     // v2.36.0 fix #1: only deleted_at — NO spread of client object (which has 'desc' not 'description')
     await sb.updateFields('products', { deleted_at: now }, 'id=eq.' + id);
-    const relRecipes = await sb.query('recipes', {filter: 'product_id=eq.'+id, limit: 10});
+    const relRecipes = await kData.query('recipes', {filter: 'product_id=eq.'+id, limit: 10});
     for (const r of (relRecipes||[])) {
-      if (!r.archived) await sb.updateFields('recipes', { archived: true }, 'id=eq.' + r.id);
+      if (!r.archived) await kData.updateFields('recipes', { archived: true }, 'id=eq.' + r.id);
     }
     await sb.delete('monthly_active_products', 'product_id=eq.'+id);
     // v2.38.2: archív cache külön — áthelyezzük a terméket D.products-ból D.productsArchived-be
@@ -227,7 +227,7 @@ function openProductModal(id=null){
   const recipeNameEl = document.getElementById('p-recipe-name');
   if(id && recipeInfo) {
     // Lekérdezzük a kapcsolt receptet Supabase-ből
-    sb.query('recipes', {filter:'product_id=eq.'+id, select:'id,name'}).then(rows=>{
+    kData.query('recipes', {filter:'product_id=eq.'+id, select:'id,name'}).then(rows=>{
       if(rows&&rows.length>0) {
         recipeNameEl.textContent = rows[0].name;
         recipeInfo.style.display = 'block';
@@ -425,7 +425,7 @@ async function saveProduct(){
         // v2.36.0 fix #2: explicit ID (max+1) to avoid recipes_pkey collision when DB sequence is out of sync
         let nextId = 1;
         try {
-          const maxRow = await sb.query('recipes', { order: 'id.desc', limit: 1 });
+          const maxRow = await kData.query('recipes', { order: 'id.desc', limit: 1 });
           if (maxRow && maxRow.length > 0) nextId = (maxRow[0].id || 0) + 1;
         } catch(_) {}
         const newRecipe = {
@@ -438,7 +438,7 @@ async function saveProduct(){
           labor_h: 1, electricity: 5,
           marketing_desc: '', ingredient_label: '', allergens: '', nutrition: null
         };
-        await sb.insert('recipes', newRecipe);
+        await kData.insert('recipes', newRecipe);
         toast('✅ Termék és recept létrehozva! Töltsd ki a receptet a Receptúra modulban.');
       } catch(e2) {
         toast('Termék mentve, de recept létrehozás sikertelen: '+e2.message, true);

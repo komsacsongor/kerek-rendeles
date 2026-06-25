@@ -165,7 +165,7 @@ async function saveIngredient() {
     Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
     // v2.35.0: persist material_type + family_id + unit to DB
     try {
-      await sb.update('ingredients', { material_type: materialType, family_id: familyId, unit }, 'id=eq.' + editingIngId);
+      await kData.update('ingredients', { material_type: materialType, family_id: familyId, unit }, 'id=eq.' + editingIngId);
     } catch(e) { console.warn('DB ingredient update failed:', e.message); }
     toast('Alapanyag frissítve!');
   } else {
@@ -187,7 +187,7 @@ async function openNewFamilyDialog() {
     return;
   }
   try {
-    const result = await sb.insert('ingredient_families', { name: trimmed });
+    const result = await kData.insert('ingredient_families', { name: trimmed });
     const newFam = result?.[0];
     if (!newFam) throw new Error('Nem jött vissza új család');
     if (!R.ingredientFamilies) R.ingredientFamilies = [];
