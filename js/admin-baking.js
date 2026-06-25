@@ -363,7 +363,7 @@ function renderBaking(){
         html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px' + (x.cancelled?';opacity:0.6;background:#fef2f2':'') + '">';
         // Header row (clickable)
         html+='<div onclick="toggleClientPreview(\'' + rowId + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none">';
-        html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + ' <span id="arrow-' + rowId + '" style="color:var(--text-soft);font-size:0.75rem">' + (isOpen?'▴':'▾') + '</span></span>';
+        html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + ' <span id="arrow-' + rowId + '" style="color:' + (x.cancelled?'#b91c1c':'var(--text-soft)') + ';font-size:' + (x.cancelled?'0.85rem':'0.75rem') + (x.cancelled?';font-weight:700':'') + '">' + (isOpen?'▴':'▾') + '</span></span>';
         html+='<span style="font-size:0.82rem;color:var(--text-soft)' + (x.cancelled?';text-decoration:line-through':'') + '">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
         html+=statusBadge(st.status);
         if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';

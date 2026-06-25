@@ -4,6 +4,13 @@
 // =============================================================
 
 
+// v2.53.21: csak a vevő által ténylegesen módosított napokat jelöljük "dirty"-nek,
+// hogy a saveOrder NE állítsa vissza pending-re a nem érintett (pl. korábban jóváhagyott) napokat.
+const _dirtyOrderDays = new Set();
+function markOrderDirty(day) {
+  if (currentUser) _dirtyOrderDays.add(getOrderKey(currentUser.id, selectedYear, selectedMonth, day));
+}
+
 function pivotChangeQty(day, pid, delta) {
   if (!currentUser) return;
   const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
@@ -21,6 +28,7 @@ function pivotChangeQty(day, pid, delta) {
     }
   }
   if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+  markOrderDirty(day);
   // Re-render the pivot fully (cheaper than surgical update; only ~150 cells)
   renderProductPivot();
   if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, newVal);
@@ -112,7 +120,10 @@ async function saveOrder() {
     if(upserts.length > 0) {
       await sb.upsert('orders', upserts, 'client_id,year,month,day,product_id');
       // Ha jóváhagyott/módosított nap rendelését változtatta meg a vevő → vissza PENDING
-      const affectedDays = [...new Set(upserts.map(u => u.day))];
+      // v2.53.21 FIX: CSAK a vevő által ténylegesen módosított (dirty) napokat reseteljük,
+      // ne az összes rendelt napot (különben a korábban jóváhagyott napok is visszaesnének).
+      const affectedDays = [...new Set(upserts.map(u => u.day))].filter(day =>
+        _dirtyOrderDays.has(getOrderKey(currentUser.id, selectedYear, selectedMonth, day)));
       for (const day of affectedDays) {
         const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
         const st = (appData.orderStatus && appData.orderStatus[key]) || {};
@@ -124,6 +135,9 @@ async function saveOrder() {
           appData.orderStatus[key] = { ...st, status: 'pending' };
         }
       }
+      // elmentett napok dirty-jelének törlése (már szinkronban a DB-vel)
+      [...new Set(upserts.map(u => u.day))].forEach(day =>
+        _dirtyOrderDays.delete(getOrderKey(currentUser.id, selectedYear, selectedMonth, day)));
       // Admin értesítés új/módosított rendelésről (60s throttle, hogy ne spammeljen)
       try {
         const now = Date.now();
@@ -202,6 +216,7 @@ function mobChangeQty(day, pid, delta) {
     }
   }
   if(Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
+  markOrderDirty(day);
 
   // Update display
   const display = document.getElementById(`mob-qty-${day}-${pid}`);

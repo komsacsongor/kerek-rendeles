@@ -149,6 +149,7 @@ async function copyLastOrder() {
     const srcDay = lastByDow[dow];
     const tk = getOrderKey(currentUser.id, selectedYear, selectedMonth, td.getDate());
     appData.orders[tk] = {...prevByDay[srcDay]};
+    if (typeof markOrderDirty === 'function') markOrderDirty(td.getDate());
   });
 
   // Show persistent banner about unmapped days (toast not enough per user request)
