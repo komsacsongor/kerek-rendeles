@@ -277,14 +277,19 @@ function renderBaking(){
       const qty=Object.values(o).reduce(function(a,b){return a+b;},0);
       if(!qty) return;
       const st=getOrderStatus(c.id,y,m,day);
-      if(st && st.status==='cancelled') return; // visszautasított rendelés kihagyása a sütési összesítésből (db/levain/forgalom)
-      Object.entries(o).forEach(function(e){ const pid=e[0],q=e[1]; aggr[pid]=(aggr[pid]||0)+q; totalQty+=q; const p=D.products.find(function(p){return p.id==pid;}); if(p)totalRev+=p.price*q; });
-      dayClients.push({ c:c, key:key, o:o, st:st });
+      const _cancelled = (st && st.status==='cancelled');
+      if(!_cancelled){ // visszautasított NEM számít: aggr/totalQty/totalRev/levain
+        Object.entries(o).forEach(function(e){ const pid=e[0],q=e[1]; aggr[pid]=(aggr[pid]||0)+q; totalQty+=q; const p=D.products.find(function(p){return p.id==pid;}); if(p)totalRev+=p.price*q; });
+      }
+      dayClients.push({ c:c, key:key, o:o, st:st, cancelled:_cancelled }); // cancelled is bekerül a listába (log-szerűen)
     });
+    // visszautasított rendelések a lista aljára
+    dayClients.sort(function(a,b){ return (a.cancelled===b.cancelled)?0:(a.cancelled?1:-1); });
 
-    const allConfirmed = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='confirmed';});
-    const allFulfilled = dayClients.length > 0 && dayClients.every(function(x){return x.st.status==='fulfilled';});
-    const hasPending = dayClients.some(function(x){return x.st.status==='pending';});
+    const _active = dayClients.filter(function(x){return !x.cancelled;});
+    const allConfirmed = _active.length > 0 && _active.every(function(x){return x.st.status==='confirmed';});
+    const allFulfilled = _active.length > 0 && _active.every(function(x){return x.st.status==='fulfilled';});
+    const hasPending = _active.some(function(x){return x.st.status==='pending';});
     const hasNoOrders = totalQty === 0;
 
     // Fejléc státusz badge (összecsukva is látható)
@@ -330,12 +335,18 @@ function renderBaking(){
       html+='<div class="baking-line"><span style="font-weight:600">' + (typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706;margin-right:4px" title="Üres recept — nincs alapanyag rögzítve!">⚠️</span>' : '') + esc(p.name) + ' <span class="text-xs text-soft">' + esc(p.weight) + '</span></span><span class="baking-qty">' + totalForP + ' db' + stockBadge + '</span></div>';
     });
 
-    if(totalQty===0){
+    if(dayClients.length===0){
       html+='<div class="baking-line text-soft">Nincs rendelés erre a napra.</div>';
     } else {
-      html+='<div class="baking-line" style="background:var(--teal-pale);font-weight:700"><span>ÖSSZESEN</span><span style="color:var(--teal-dark)">' + totalQty + ' db &middot; ' + totalRev + ' lej</span></div>';
+      if(totalQty>0){
+        html+='<div class="baking-line" style="background:var(--teal-pale);font-weight:700"><span>ÖSSZESEN</span><span style="color:var(--teal-dark)">' + totalQty + ' db &middot; ' + totalRev + ' lej</span></div>';
+      } else {
+        html+='<div class="baking-line text-soft">Nincs aktív rendelés (csak visszautasított).</div>';
+      }
       html+='<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">';
+      var _cancelHeaderShown=false;
       dayClients.forEach(function(x){
+        if(x.cancelled && !_cancelHeaderShown){ _cancelHeaderShown=true; html+='<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 4px;padding-top:10px;border-top:1px dashed #fca5a5">❌ Visszautasított rendelések (log — nem számít a sütésbe)</div>'; }
         const c=x.c, o=x.o, st=x.st;
         const cQty=Object.values(o).reduce(function(a,b){return a+b;},0);
         const cRev=Object.entries(o).reduce(function(a,e){ const pid=e[0],q=e[1]; const p=D.products.find(function(p){return p.id==pid;}); return a+(p?p.price*q:0); },0);
@@ -349,11 +360,12 @@ function renderBaking(){
           return p ? ((typeof hasIngredientRecipe === 'function' && !hasIngredientRecipe(p.id) ? '<span style="color:#d97706" title="Üres recept!">⚠️</span> ' : '') + esc(p.name) + (p.weight ? ' <span style="color:#888;font-size:0.92em">' + esc(p.weight) + '</span>' : '') + ' <span style="color:var(--gold-dark);font-weight:700">×' + q + '</span>') : '';
         }).filter(Boolean).join(' · ');
 
-        html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px">';
+        html+='<div style="border-bottom:1px solid var(--border);padding:8px 4px' + (x.cancelled?';opacity:0.6;background:#fef2f2':'') + '">';
         // Header row (clickable)
         html+='<div onclick="toggleClientPreview(\'' + rowId + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none">';
         html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + ' <span id="arrow-' + rowId + '" style="color:var(--text-soft);font-size:0.75rem">' + (isOpen?'▴':'▾') + '</span></span>';
-        html+='<span style="font-size:0.82rem;color:var(--text-soft)">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
+        html+='<span style="font-size:0.82rem;color:var(--text-soft)' + (x.cancelled?';text-decoration:line-through':'') + '">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
+        if(x.cancelled) html+='<span style="font-size:0.72rem;color:#b91c1c;font-style:italic">(nem számít)</span>';
         html+=statusBadge(st.status);
         if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';
         if(st.status !== 'cancelled') {
