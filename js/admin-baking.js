@@ -346,7 +346,7 @@ function renderBaking(){
       html+='<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">';
       var _cancelHeaderShown=false;
       dayClients.forEach(function(x){
-        if(x.cancelled && !_cancelHeaderShown){ _cancelHeaderShown=true; html+='<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 4px;padding-top:10px;border-top:1px dashed #fca5a5">❌ Visszautasított rendelések (log — nem számít a sütésbe)</div>'; }
+        if(x.cancelled && !_cancelHeaderShown){ _cancelHeaderShown=true; html+='<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 4px;padding-top:10px;border-top:1px dashed #fca5a5">❌ Visszautasított rendelések</div>'; }
         const c=x.c, o=x.o, st=x.st;
         const cQty=Object.values(o).reduce(function(a,b){return a+b;},0);
         const cRev=Object.entries(o).reduce(function(a,e){ const pid=e[0],q=e[1]; const p=D.products.find(function(p){return p.id==pid;}); return a+(p?p.price*q:0); },0);
@@ -365,7 +365,6 @@ function renderBaking(){
         html+='<div onclick="toggleClientPreview(\'' + rowId + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none">';
         html+='<span style="min-width:120px;font-size:0.88rem;font-weight:600">👤 ' + esc(c.name) + ' <span id="arrow-' + rowId + '" style="color:var(--text-soft);font-size:0.75rem">' + (isOpen?'▴':'▾') + '</span></span>';
         html+='<span style="font-size:0.82rem;color:var(--text-soft)' + (x.cancelled?';text-decoration:line-through':'') + '">' + cQty + ' db &middot; ' + cRev + ' lej</span>';
-        if(x.cancelled) html+='<span style="font-size:0.72rem;color:#b91c1c;font-style:italic">(nem számít)</span>';
         html+=statusBadge(st.status);
         if(st.admin_note) html+='<span style="font-size:0.75rem;color:var(--text-soft);font-style:italic;width:100%;padding-left:4px">📝 ' + esc(st.admin_note) + '</span>';
         if(st.status !== 'cancelled') {
