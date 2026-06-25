@@ -140,7 +140,11 @@ function getMonthOrders(y,m){
   D.clients.forEach(c=>{
     getDays(y,m).forEach(d=>{
       const day=d.getDate(), key=ok(c.id,y,m,day);
-      if(D.orders[key]){ if(!res[day])res[day]={}; Object.entries(D.orders[key]).forEach(([pid,qty])=>{ res[day][pid]=(res[day][pid]||0)+qty; }); }
+      if(D.orders[key]){
+        const _st=getOrderStatus(c.id,y,m,day);
+        if(_st && _st.status==='cancelled') return; // visszautasított rendelés NEM számít az összesítésekbe (sütés/levain/forgalom)
+        if(!res[day])res[day]={}; Object.entries(D.orders[key]).forEach(([pid,qty])=>{ res[day][pid]=(res[day][pid]||0)+qty; });
+      }
     });
   });
   return res;
