@@ -196,7 +196,15 @@ function renderProductPivot() {
       const isLocked = dlLeft !== null ? dlLeft <= 0 : defaultDeadlinePassed(d);
       const stStatus = orderSt.status || '';
       const disabled = isPast || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled';
-      const stIcon = stStatus === 'fulfilled' ? '🎉' : stStatus === 'confirmed' ? '✅' : stStatus === 'modified' ? '✏️' : stStatus === 'cancelled' ? '❌' : '';
+      const stIcon = stStatus === 'fulfilled' ? '🎉' : stStatus === 'confirmed' ? '✅' : stStatus === 'modified' ? '✏️' : stStatus === 'cancelled' ? '❌' : stStatus === 'pending' ? '⏳' : '';
+      // #1+#2: státusz-jelzés CSAK az aktuális+jövőbeli napokon, színes badge-ként (a múltbelin nincs)
+      let stLabelStyle = '';
+      if (!isPast && stStatus) {
+        const stColor = (stStatus === 'confirmed' || stStatus === 'fulfilled') ? 'background:#dcfce7;color:#166534'
+          : stStatus === 'cancelled' ? 'background:#fee2e2;color:#b91c1c'
+          : 'background:#fef3c7;color:#92400e'; // pending / modified
+        stLabelStyle = ` style="${stColor};border-radius:6px;padding:1px 6px;font-weight:700"`;
+      }
 
       const cellCls = ['pivot-day-cell'];
       if (isPast) cellCls.push('past');
@@ -205,7 +213,7 @@ function renderProductPivot() {
       if (qty > 0) cellCls.push('has-qty');
 
       html += `<div class="${cellCls.join(' ')}">
-        <div class="pivot-cell-label">${dayShort} ${stIcon}</div>
+        <div class="pivot-cell-label"${stLabelStyle}>${dayShort}${(!isPast && stIcon) ? ' ' + stIcon : ''}</div>
         <div class="pivot-cell-date">${day}</div>
         ${disabled
           ? `<div class="pivot-cell-readonly">${qty || '—'}</div>`
