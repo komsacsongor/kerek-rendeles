@@ -1,4 +1,7 @@
 // ===== ORDERS =====
+// Visszautasított (cancelled) rendelés kiszűrése az exportokból — ugyanaz a kulcs, mint a D.orders-é
+function _orderCancelled(key){ return !!(D.orderStatus && D.orderStatus[key] && D.orderStatus[key].status === 'cancelled'); }
+
 function renderOrders(){
   const sel=document.getElementById('orders-month-sel');
   sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
@@ -77,6 +80,7 @@ function exportClients(){
     let totalQty=0, totalRev=0;
     Object.entries(D.orders).forEach(([key,o])=>{
       if(!key.startsWith(c.id+'-')) return;
+      if(_orderCancelled(key)) return;
       Object.entries(o).forEach(([pid,qty])=>{totalQty+=qty;const p=D.products.find(p=>p.id==pid);if(p)totalRev+=p.price*qty;});
     });
     rows.push([c.name, c.id, c.email||'', c.phone||'', c.joinDate||'', totalQty, totalRev, c.note||'']);
@@ -106,6 +110,7 @@ function exportBakingList(){
     D.clients.forEach(c=>{
       const key=ok(c.id,y,m,day);
       if(!D.orders[key]) return;
+      if(_orderCancelled(key)) return;
       Object.entries(D.orders[key]).forEach(([pid,qty])=>{
         if(!clientQtys[pid]) clientQtys[pid]={};
         clientQtys[pid][c.id]=qty;
@@ -164,6 +169,7 @@ function exportOrders(){
     const qties = bdays.map(d=>{
       return D.clients.reduce((acc,c)=>{
         const key=ok(c.id,y,m,d.getDate());
+        if(_orderCancelled(key)) return acc;
         return acc+((D.orders[key]||{})[p.id]||0);
       },0);
     });
@@ -176,6 +182,7 @@ function exportOrders(){
     return activeP.reduce((acc,p)=>{
       return acc+D.clients.reduce((a,c)=>{
         const key=ok(c.id,y,m,d.getDate());
+        if(_orderCancelled(key)) return a;
         return a+((D.orders[key]||{})[p.id]||0);
       },0);
     },0);
@@ -184,6 +191,7 @@ function exportOrders(){
   const grandRev = activeP.reduce((acc,p)=>{
     const t=bdays.reduce((a,d)=>a+D.clients.reduce((b,c)=>{
       const key=ok(c.id,y,m,d.getDate());
+      if(_orderCancelled(key)) return b;
       return b+((D.orders[key]||{})[p.id]||0);
     },0),0);
     return acc+t*p.price;
@@ -202,6 +210,7 @@ function exportOrdersDetailed(){
     getDays(y,m).forEach(d=>{
       const key=ok(c.id,y,m,d.getDate());
       if(!D.orders[key]) return;
+      if(_orderCancelled(key)) return;
       const dateStr=`${y}.${String(m+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
       Object.entries(D.orders[key]).forEach(([pid,qty])=>{
         const p=D.products.find(p=>p.id==pid);
@@ -245,6 +254,7 @@ function exportReport(){
     let tot=0,rev=0;
     getDays(y,m).forEach(d=>{
       const key=ok(c.id,y,m,d.getDate()); if(!D.orders[key]) return;
+      if(_orderCancelled(key)) return;
       Object.entries(D.orders[key]).forEach(([pid,qty])=>{tot+=qty;const p=D.products.find(p=>p.id==pid);if(p)rev+=p.price*qty;});
     });
     if(tot>0) rows.push([c.name,tot,'',rev]);
