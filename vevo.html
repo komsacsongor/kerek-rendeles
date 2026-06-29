@@ -1105,6 +1105,37 @@ body.has-sticky-total { padding-bottom: calc(64px + env(safe-area-inset-bottom))
   width: 28px; height: 28px; cursor: pointer; color: var(--teal); font-weight: 700;
 }
 
+.pivot-standing {
+  background: var(--cream); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;
+}
+.ps-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ps-tog {
+  width: 36px; height: 21px; border-radius: 11px; background: var(--border);
+  border: none; position: relative; cursor: pointer; flex: 0 0 auto; padding: 0;
+}
+.ps-tog::after {
+  content: ''; position: absolute; width: 17px; height: 17px; border-radius: 50%;
+  background: #fff; top: 2px; left: 2px; transition: all 0.15s;
+}
+.ps-tog.on { background: var(--teal); }
+.ps-tog.on::after { left: 17px; }
+.ps-lbl { font-size: 0.8rem; color: var(--text-soft); }
+.ps-qbtn {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--teal);
+  background: #fff; color: var(--teal); font-size: 1rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto;
+}
+.ps-qbtn:hover { background: var(--teal); color: #fff; }
+.ps-qty { font-size: 0.85rem; font-weight: 600; color: var(--teal-dark); min-width: 34px; text-align: center; }
+.ps-min { font-size: 0.78rem; color: var(--text-soft); }
+.ps-dow {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border);
+  background: #fff; color: var(--text-soft); font-size: 0.7rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto;
+}
+.ps-dow.on { background: var(--teal); color: #fff; border-color: var(--teal); }
+.ps-sum { font-size: 0.75rem; color: var(--teal); margin-top: 6px; }
 .pivot-day-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
   gap: 6px;
@@ -1516,13 +1547,13 @@ body.has-sticky-total { padding-bottom: calc(64px + env(safe-area-inset-bottom))
 
 <div id="toast"></div>
 
-<script src="js/vevo-data.js?v=2.53.13"></script>
+<script src="js/vevo-data.js?v=2.53.25"></script>
 <script src="js/vevo-ui.js?v=2.53.13"></script>
 <script src="js/vevo-analytics.js?v=2.53.13"></script>
-<script src="js/vevo-orders-render.js?v=2.53.22"></script>
-<script src="js/vevo-orders-actions.js?v=2.53.21"></script>
+<script src="js/vevo-orders-render.js?v=2.53.25"></script>
+<script src="js/vevo-orders-actions.js?v=2.53.25"></script>
 <script src="js/vevo-orders-extras.js?v=2.53.21"></script>
-<script src="js/vevo-standing.js?v=2.53.24"></script>
+<script src="js/vevo-standing.js?v=2.53.25"></script>
 <!-- STICKY HAVI TOTÁL BOTTOM BAR (shown after login) -->
 <div id="sticky-month-total" style="display:none">
   <div class="sticky-label">🧺 Havi össz:</div>

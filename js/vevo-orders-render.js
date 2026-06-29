@@ -179,6 +179,7 @@ function renderProductPivot() {
         </div>
         ${prodTotalQty > 0 ? `<div class="pivot-prod-total">${prodTotalQty} db<br><span class="sub">${prodTotalQty*p.price} lej</span></div>` : '<button class="pivot-info-btn" onclick="event.stopPropagation();showProductModal('+p.id+')">ℹ</button>'}
       </div>
+      ${typeof renderStandingBar === 'function' ? renderStandingBar(p.id) : ''}
       <div class="pivot-day-grid">`;
 
     bakingDays.forEach(d => {

@@ -453,13 +453,14 @@ async function reloadVevoData() {
   if (!currentUser) return;
   try {
     const monthFilter = ''; // load all months
-    const [userOrders, userStatuses, userMsgs, dbProducts, dbMonthly, dbBaking] = await Promise.all([
+    const [userOrders, userStatuses, userMsgs, dbProducts, dbMonthly, dbBaking, dbStanding] = await Promise.all([
       sb.query('orders', {filter: `client_id=eq.${currentUser.id}`, limit: 1000}),
       sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500}),
       sb.query('messages', {filter: `client_id=eq.${currentUser.id}`, order: 'created_at', limit: 200}),
       sb.query('products', {filter: 'deleted_at=is.null', limit: 500}).catch(() => null),
       sb.query('monthly_active_products', {limit: 500}).catch(() => null),
       sb.query('baking_calendar', {limit: 500}).catch(() => null),
+      sb.query('standing_orders', {filter: `client_id=eq.${currentUser.id}`, limit: 500}).catch(() => null),
     ]);
     // Orders
     appData.orders = {};
@@ -473,6 +474,13 @@ async function reloadVevoData() {
     (userStatuses||[]).forEach(r => {
       const k = getOrderKey(r.client_id, r.year, r.month, r.day);
       appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
+    });
+    // Állandó rendelések (havi szabályok) — hónap-kulcsos: appData.standingOrders["YYYY-M"][product_id] = szabály
+    appData.standingOrders = {};
+    (dbStanding||[]).forEach(r => {
+      const mk = r.year + '-' + r.month;
+      if (!appData.standingOrders[mk]) appData.standingOrders[mk] = {};
+      appData.standingOrders[mk][r.product_id] = r;
     });
     // Messages
     appData.messages = {};

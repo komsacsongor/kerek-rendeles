@@ -29,6 +29,8 @@ function pivotChangeQty(day, pid, delta) {
   }
   if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
   markOrderDirty(day);
+  // Ha van állandó szabály erre a termékre, a kézi módosítás zárolja ezt a napot (a szabály nem írja felül)
+  if (typeof markStandingOverride === 'function') markStandingOverride(pid, day);
   // Re-render the pivot fully (cheaper than surgical update; only ~150 cells)
   renderProductPivot();
   if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.qtyChange(day, pid, newVal);
