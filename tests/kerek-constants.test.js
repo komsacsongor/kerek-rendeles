@@ -43,7 +43,7 @@ describe('generateProductCode()', () => {
 });
 
 describe('APP_VERSION', () => {
-  test('v2.x.x formátum', () => expect(APP_VERSION).toMatch(/^v2\.\d+\.\d+ \(\d{4}-\d{2}-\d{2}\)$/));
+  test('v2.x.x formátum', () => expect(APP_VERSION).toMatch(/^v2\.\d+\.\d+(-[a-z]+)? \(\d{4}-\d{2}-\d{2}\)$/));
 });
 
 describe('DEFAULT_BAKING_DAYS', () => {
