@@ -216,13 +216,27 @@ async function markStandingOverride(pid, day) {
   }
 }
 
+// A hónapban ténylegesen előforduló sütési-napok hét-napjai (getDay), heti sorrendben
+function _bakingDowsOfMonth(year, month) {
+  const set = {};
+  for (let d = 1; d <= 31; d++) {
+    const dt = new Date(year, month, d);
+    if (dt.getMonth() !== month) break;
+    if (isBakingDay(dt)) set[dt.getDay()] = true;
+  }
+  return [1, 2, 3, 4, 5, 6, 0].filter(dw => set[dw]);
+}
+
 // A termék-kártya szabály-vezérlő sávjának HTML-je (a pivot hívja)
 function renderStandingBar(pid) {
   const rule = getStandingRule(selectedYear, selectedMonth, pid);
   const active = !!(rule && rule.active);
   const qty = rule ? (rule.qty | 0) : 1;
   const dows = (rule && rule.dows) || [];
-  const dowBtns = [1, 2, 3, 4, 5, 6, 0].map(dw =>
+  // CSAK a hónapban előforduló sütési hét-napok (+ a szabályban már kiválasztottak, hogy levehetők legyenek)
+  const bakingDows = _bakingDowsOfMonth(selectedYear, selectedMonth);
+  const shownDows = [1, 2, 3, 4, 5, 6, 0].filter(dw => bakingDows.indexOf(dw) > -1 || dows.indexOf(dw) > -1);
+  const dowBtns = shownDows.map(dw =>
     `<button class="ps-dow${active && dows.indexOf(dw) > -1 ? ' on' : ''}" onclick="vevoStandingDow(${pid},${dw})">${STANDING_DOW[dw]}</button>`
   ).join('');
   return `<div class="pivot-standing">
