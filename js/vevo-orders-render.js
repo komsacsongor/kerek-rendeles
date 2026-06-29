@@ -182,6 +182,7 @@ function renderProductPivot() {
       ${typeof renderStandingBar === 'function' ? renderStandingBar(p.id) : ''}
       <div class="pivot-day-grid">`;
 
+    const _srule = (typeof getStandingRule === 'function') ? getStandingRule(selectedYear, selectedMonth, p.id) : null;
     bakingDays.forEach(d => {
       const day = d.getDate();
       const dow = d.getDay();
@@ -213,6 +214,15 @@ function renderProductPivot() {
       if (isTodayFlag) cellCls.push('today');
       if (qty > 0) cellCls.push('has-qty');
 
+      // Szabály / módosítva jelzés (csak aktuális+jövőbeli napon, ha van állandó szabály)
+      let psTag = '';
+      if (!isPast && _srule) {
+        const isOv = (_srule.override_days || []).indexOf(day) > -1;
+        const isRuleDay = !!_srule.active && (_srule.dows || []).indexOf(dow) > -1;
+        if (isOv) psTag = `<div class="ps-celltag ov">${qty > 0 ? 'módosítva' : 'kihagyva'}</div>`;
+        else if (isRuleDay) psTag = '<div class="ps-celltag rule">szabály</div>';
+      }
+
       html += `<div class="${cellCls.join(' ')}">
         <div class="pivot-cell-label"${stLabelStyle}>${dayShort}${(!isPast && stIcon) ? ' ' + stIcon : ''}</div>
         <div class="pivot-cell-date">${day}</div>
@@ -224,6 +234,7 @@ function renderProductPivot() {
               <button class="pivot-qty-btn" onclick="pivotChangeQty(${day},${p.id},1)">＋</button>
             </div>`
         }
+        ${psTag}
       </div>`;
     });
 

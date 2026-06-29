@@ -227,9 +227,25 @@ function _bakingDowsOfMonth(year, month) {
   return [1, 2, 3, 4, 5, 6, 0].filter(dw => set[dw]);
 }
 
+// Van-e még RENDELHETŐ (nem múltbeli) sütési nap a hónapban?
+function _hasOrderableBakingDay(year, month) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (let d = 1; d <= 31; d++) {
+    const dt = new Date(year, month, d);
+    if (dt.getMonth() !== month) break;
+    if (isBakingDay(dt)) { const dd = new Date(year, month, d); dd.setHours(0, 0, 0, 0); if (dd >= today) return true; }
+  }
+  return false;
+}
+
 // A termék-kártya szabály-vezérlő sávjának HTML-je (a pivot hívja)
 function renderStandingBar(pid) {
   const rule = getStandingRule(selectedYear, selectedMonth, pid);
+  // Eltelt hónap (nincs már rendelhető sütési nap) → teljesen inaktív, csak olvasható jelzés
+  if (!_hasOrderableBakingDay(selectedYear, selectedMonth)) {
+    if (!rule || !rule.active) return '';
+    return `<div class="pivot-standing disabled"><div class="ps-sum" style="color:var(--text-soft)">🔁 ${_standingRuleSummary(rule)} · eltelt hónap</div></div>`;
+  }
   const active = !!(rule && rule.active);
   const qty = rule ? (rule.qty | 0) : 1;
   const dows = (rule && rule.dows) || [];
