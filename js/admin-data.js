@@ -270,7 +270,7 @@ function initApp(){
   buildTopbarMonths();
 
   // ===== SUPABASE REALTIME (instant push when available) =====
-  const LIVE_TABLES = ['orders','messages','clients','products','monthly_active_products','order_status','ingredient_batches'];
+  const LIVE_TABLES = ['orders','messages','clients','products','monthly_active_products','order_status'];
   // C5 fix: Debounce realtime callback to coalesce bulk inserts (was N× loadAllData per N events)
   let _wsDebounceTimer = null;
   let _wsLastEvent = null;
