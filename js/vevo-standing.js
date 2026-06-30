@@ -203,13 +203,26 @@ function vevoStandingDow(pid, dow) {
   });
 }
 
-// A vevő kézzel állított egy napot a sávban → zárolás (a szabály nem írja felül).
+// A vevő kézzel állított egy napot a sávban → override-jelölés VAGY visszaolvadás.
+// Ha a kézi érték visszaáll a szabály "természetes" értékére, az override törlődik.
 async function markStandingOverride(pid, day) {
   const rule = getStandingRule(selectedYear, selectedMonth, pid);
   if (!rule) return;
   rule.override_days = rule.override_days || [];
-  if (rule.override_days.indexOf(day) === -1) {
-    rule.override_days.push(day);
+  // aktuális qty a változtatás UTÁN
+  const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  const curQty = (appData.orders[k] && (appData.orders[k][pid] || appData.orders[k][String(pid)])) || 0;
+  // a szabály "természetes" értéke erre a napra
+  const dow = new Date(selectedYear, selectedMonth, day).getDay();
+  const natural = (rule.active && (rule.dows || []).indexOf(dow) > -1) ? (rule.qty | 0) : 0;
+  const idx = rule.override_days.indexOf(day);
+  let changed = false;
+  if (curQty === natural) {
+    if (idx > -1) { rule.override_days.splice(idx, 1); changed = true; } // visszaolvad
+  } else {
+    if (idx === -1) { rule.override_days.push(day); changed = true; }     // eltér → override
+  }
+  if (changed) {
     rule.updated_at = new Date().toISOString();
     try { await sb.upsert('standing_orders', [rule], 'client_id,product_id,year,month'); }
     catch (e) { console.warn('override mentés:', e && e.message); }
@@ -264,7 +277,6 @@ function renderStandingBar(pid) {
       <button class="ps-qbtn" onclick="vevoStandingQty(${pid},1)" aria-label="több">＋</button>
       <span class="ps-min">minden</span>${dowBtns}
     </div>
-    ${active ? `<div class="ps-sum">🔁 ${_standingRuleSummary(rule)}</div>` : ''}
   </div>`;
 }
 

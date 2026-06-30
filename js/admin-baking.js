@@ -257,9 +257,28 @@ async function cancelOrder(clientId, year, month, day, clientName) {
 }
 
 // ===== BAKING =====
+// Van-e jóváhagyásra váró (pending / státusz nélküli, qty>0) rendelés az adott hónapban?
+function _monthHasPending(year, month){
+  const prefix = '-' + year + '-' + month + '-';
+  const keys = Object.keys(D.orders || {});
+  for (let i = 0; i < keys.length; i++){
+    const k = keys[i];
+    if (k.indexOf(prefix) === -1) continue;
+    const ords = D.orders[k] || {};
+    let totalQty = 0; for (const q of Object.values(ords)) totalQty += (Number(q) || 0);
+    if (totalQty === 0) continue;
+    const status = (D.orderStatus && D.orderStatus[k] && D.orderStatus[k].status) || 'pending';
+    if (status === 'pending') return true;
+  }
+  return false;
+}
+
 function renderBaking(){
   const sel=document.getElementById('baking-month-sel');
-  sel.innerHTML=MONTHS.map(function(mo,i){ return '<button class="month-btn ' + (i===selMonth?'active':'') + '" onclick="selectMonth(' + i + ')">' + mo + '</button>'; }).join('');
+  sel.innerHTML=MONTHS.map(function(mo,i){
+    const dot = _monthHasPending(selYear, i) ? ' <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#eab308;vertical-align:middle" title="Jóváhagyásra váró rendelés"></span>' : '';
+    return '<button class="month-btn ' + (i===selMonth?'active':'') + '" onclick="selectMonth(' + i + ')">' + mo + dot + '</button>';
+  }).join('');
   const y=selYear,m=selMonth;
   const bdays=getBakingDays(y,m);
   const activeP=getActiveProds(y,m);

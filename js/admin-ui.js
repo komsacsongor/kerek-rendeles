@@ -57,13 +57,16 @@ function updatePendingBadge() {
   if (pb) { pb.textContent = pendingClients; pb.style.display = pendingClients > 0 ? 'inline' : 'none'; }
 
   var pendingOrders = 0;
-  var m = new Date().getMonth(); var y = new Date().getFullYear();
-  // v2.44.4 FIX: D.orders-t iterálom (NEM csak D.orderStatus-t)
-  // Az alapértelmezett 'pending' status NINCS explicit rekord az order_status táblában,
-  // ezért a régi logika nem találta a friss (nem-jóváhagyott) rendeléseket.
-  // Most: minden D.orders[k] rekord 'pending'-nek számít, kivéve ha explicit más státusz van.
+  var curM = new Date().getMonth(); var curY = new Date().getFullYear();
+  // v2.44.4: státusz nélküli = pending. v2.53.x FIX: ne csak az aktuális hónapot,
+  // hanem MINDEN aktuális+jövőbeli hónapot számoljunk (a múltbeli pending már moot).
+  // A kulcs felépítése: clientId-year-month-day → az utolsó 3 tag a dátum (clientId kötőjelei nem zavarnak).
   Object.keys(D.orders || {}).forEach(function(k) {
-    if (k.indexOf('-' + y + '-' + m + '-') === -1) return;
+    var parts = k.split('-');
+    var oM = parseInt(parts[parts.length - 2], 10);
+    var oY = parseInt(parts[parts.length - 3], 10);
+    if (isNaN(oY) || isNaN(oM)) return;
+    if (oY < curY || (oY === curY && oM < curM)) return; // múltbeli hónap kihagyása
     var ords = D.orders[k] || {};
     var totalQty = 0;
     Object.values(ords).forEach(function(q){ totalQty += (Number(q) || 0); });
