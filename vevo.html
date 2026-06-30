@@ -1137,7 +1137,6 @@ body.has-sticky-total { padding-bottom: calc(64px + env(safe-area-inset-bottom))
 .ps-dow.on { background: var(--teal); color: #fff; border-color: var(--teal); }
 .ps-sum { font-size: 0.75rem; color: var(--teal); margin-top: 6px; }
 .ps-celltag { font-size: 0.58rem; font-weight: 600; margin-top: 3px; border-radius: 4px; padding: 1px 2px; }
-.ps-celltag.rule { color: #166534; background: #dcfce7; }
 .ps-celltag.ov { color: #92400e; background: #fef3c7; }
 .pivot-day-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
@@ -1149,6 +1148,7 @@ body.has-sticky-total { padding-bottom: calc(64px + env(safe-area-inset-bottom))
   transition: all 0.15s;
 }
 .pivot-day-cell.has-qty { background: var(--teal-pale); border-color: var(--teal-mid); }
+.pivot-day-cell.ps-rule-cell { background: #dcfce7; border-color: #86efac; }
 .pivot-day-cell.past { opacity: 0.55; background: #f3f4f6; }
 .pivot-day-cell.locked { background: #fef9e7; }
 .pivot-day-cell.today { box-shadow: 0 0 0 2px var(--gold); }
@@ -1568,7 +1568,7 @@ body.has-sticky-total { padding-bottom: calc(64px + env(safe-area-inset-bottom))
 <script src="js/vevo-data.js?v=2.53.25"></script>
 <script src="js/vevo-ui.js?v=2.53.13"></script>
 <script src="js/vevo-analytics.js?v=2.53.13"></script>
-<script src="js/vevo-orders-render.js?v=2.53.27"></script>
+<script src="js/vevo-orders-render.js?v=2.53.30"></script>
 <script src="js/vevo-orders-actions.js?v=2.53.25"></script>
 <script src="js/vevo-orders-extras.js?v=2.53.21"></script>
 <script src="js/vevo-standing.js?v=2.53.29"></script>

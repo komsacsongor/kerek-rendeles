@@ -214,13 +214,13 @@ function renderProductPivot() {
       if (isTodayFlag) cellCls.push('today');
       if (qty > 0) cellCls.push('has-qty');
 
-      // Szabály / módosítva jelzés (csak aktuális+jövőbeli napon, ha van állandó szabály)
+      // Override jelzés szöveggel (érthető a vevőnek); a szabály-nap CSAK zöld háttérrel (szöveg nélkül)
       let psTag = '';
       if (!isPast && _srule) {
         const isOv = (_srule.override_days || []).indexOf(day) > -1;
         const isRuleDay = !!_srule.active && (_srule.dows || []).indexOf(dow) > -1;
         if (isOv) psTag = `<div class="ps-celltag ov">${qty > 0 ? 'módosítva' : 'kihagyva'}</div>`;
-        else if (isRuleDay) psTag = '<div class="ps-celltag rule">szabály</div>';
+        else if (isRuleDay) cellCls.push('ps-rule-cell');
       }
 
       html += `<div class="${cellCls.join(' ')}">
