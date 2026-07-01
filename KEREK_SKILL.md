@@ -292,6 +292,30 @@ function isMobile() { return window.innerWidth <= 640; }
 /* ⚠️ NE tedd pointer-events:none az egész .mob-locked divre! */
 ```
 
+### UI koherencia — paletta, táblázatok, kiemelések (KÖTELEZŐ minden modulra)
+**Elv:** finom kiemelés. A szín információt hordoz, nem dekoráció — világos tint + vékony keret + színes ikon/szöveg, NEM nagy telített felület.
+
+**Csak `:root` tokent használj, soha ne hardcode hexet.** A tokenek MINDEN HTML saját inline `:root`-jában külön szerepelnek (admin/vevo/receptura), és ez felülírja a `kerek-styles.css`-t → új token felvételekor MIND a 4 helyre (css + 3 HTML) tedd be. (Tanulság: `--bg-soft` sokáig sehol sem volt definiálva → mindenhol átlátszó volt; v2.53.37-ben pótolva `#EFF5F3`.)
+
+**Szemantikus színek (de-facto, a kódban egységes):**
+- Aktív / „sül" / elsődleges → kiemelés `--teal`, tint háttér `--teal-pale`, szöveg/ikon `--teal-dark`.
+- Extra / figyelem / kiegészítő gomb → `--gold`, `--gold-dark`.
+- Veszély / törölve / elmarad / visszavonva → háttér `#fee2e2`, szöveg `#b91c1c`, keret `#fca5a5` (projekt de-facto piros — amíg nincs `--danger*` token).
+- Semleges → `--text`, halvány `--text-soft`, keret `--border`, lágy háttér `--bg-soft`, off-white `--cream`.
+
+**Táblázat-konvenció:**
+- Konténer: `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér.
+- Fejléc: `--text-soft` félkövér, alul `1px var(--border)`; sorok közt felül `1px var(--border)`.
+- Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky, fehér háttér = freeze-pane).
+- Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ikon.
+- Kiemelés: „ma" `--teal-dark`; hétvége `--gold-dark`; lezárt/múlt `--bg-soft` + 🔒.
+- Üres állapot: középre igazított `--text-soft` üzenet.
+
+**Chip/szűrő/gomb:** aktív `btn-primary`, inaktív `btn-ghost`, kis méret `btn-sm`.
+**Státusz-jelölés:** kis színes pötty/ikon + rövid felirat, NEM nagy háttérsáv.
+
+**Minta-komponens (freeze-pane mátrix):** `renderMonthPlan()` (admin-catalog.js) — ez a referencia a jövőbeli rácsos táblákhoz.
+
 ### PWA architektúra (v2.43.x végleges)
 
 **2 különálló telepíthető PWA**:
