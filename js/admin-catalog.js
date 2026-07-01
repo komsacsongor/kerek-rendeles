@@ -254,7 +254,7 @@ function renderMonthPlan(){
   if(!days.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Ebben a hónapban nincs sütési nap.</div>'; return; }
   const prods=_planProds();
   if(!prods.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Nincs aktív termék ebben a hónapban (aktiválj a Termékek fülön).</div>'; return; }
-  const PW=140, DW=58, SB='#fff';
+  const PW=176, DW=58, SB='#fff';
   const CZ=`position:sticky;top:0;left:0;z-index:4;background:${SB};border-bottom:1px solid var(--border);border-right:1px solid var(--border);`;
   const HZ=`position:sticky;top:0;z-index:3;background:${SB};border-bottom:1px solid var(--border);`;
   const LZ=`position:sticky;left:0;z-index:2;background:${SB};border-right:1px solid var(--border);`;
@@ -268,7 +268,7 @@ function renderMonthPlan(){
   });
   h+='</tr></thead><tbody>';
   prods.forEach(p=>{
-    h+=`<tr><td onclick="planRowToggle(${p.id})" title="egész hónap be/ki" style="width:${PW}px;${LZ}cursor:pointer;padding:5px 8px;border-top:1px solid var(--border);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</td>`;
+    h+=`<tr><td onclick="planRowToggle(${p.id})" title="${esc(p.name)}" style="width:${PW}px;${LZ}cursor:pointer;padding:5px 8px;border-top:1px solid var(--border)"><div style="font-weight:600;font-size:12px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.name)}</div>${p.code?`<div style="font-size:9px;color:var(--text-soft);margin-top:1px">${esc(p.code)}</div>`:''}</td>`;
     days.forEach(d=>{
       const day=d.getDate(), past=_planPast(d), on=_planAvail(p.id,day);
       const cell=past
