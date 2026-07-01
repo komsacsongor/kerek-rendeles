@@ -64,7 +64,7 @@ function renderCatalog(){
     ? activeProds.map(p => productCard(p, true)).join('')
     : '<p class="text-soft text-sm">Még nincs aktív termék ebben a hónapban.</p>';
 }
-function selectCatalogMonth(m){ catalogMonth=m; renderCatalog(); }
+function selectCatalogMonth(m){ catalogMonth=m; renderCatalog(); const pv=document.getElementById('catalog-plan-view'); if(pv && pv.style.display!=='none') renderMonthPlan(); }
 function toggleProduct(id){
   const p = D.products.find(p=>p.id===id);
   if(p && p.deleted_at) { toast('⚠️ Archivált termék nem aktiválható. Először állítsd vissza az archivúmból.', true); return; }
@@ -177,23 +177,108 @@ function renderArchive() {
 
 
 
-// ===== Per-sütinap: alap sütő-napok választó a termék-modálban =====
-const _PM_DOW_LABELS = ['V','H','K','Sze','Cs','P','Szo']; // getDay 0..6
-let _pBakingDows = [];
-function _pmRenderBakingDows(){
-  const cont = document.getElementById('p-baking-dows');
-  if(!cont) return;
-  const baking = (D.bakingDaysDefault && D.bakingDaysDefault.length) ? D.bakingDaysDefault : [1,2,3,4,5,6,0];
-  const order = [1,2,3,4,5,6,0].filter(dw => baking.indexOf(dw) > -1);
-  cont.innerHTML = order.map(dw => {
-    const on = _pBakingDows.indexOf(dw) > -1;
-    return `<button type="button" class="btn btn-sm ${on?'btn-primary':'btn-ghost'}" onclick="pmToggleBakingDow(${dw})" style="min-width:44px">${_PM_DOW_LABELS[dw]}</button>`;
-  }).join('');
+// ===== HAVI TERV MÁTRIX (per-sütinap termékkatalógus) =====
+let _planCat = 'all';
+const _PLAN_DOW = ['V','H','K','Sze','Cs','P','Szo'];
+function _planKey(){ return `${selYear}-${catalogMonth}`; }
+function _planEx(){ return (D.productDayExceptions && D.productDayExceptions[_planKey()]) || null; }
+function _planAvail(pid, day){
+  const ex=_planEx(); const pe=ex&&ex[pid];
+  if(pe && Object.prototype.hasOwnProperty.call(pe,day)) return !!pe[day];
+  return true;
 }
-function pmToggleBakingDow(dw){
-  const i = _pBakingDows.indexOf(dw);
-  if(i>-1) _pBakingDows.splice(i,1); else _pBakingDows.push(dw);
-  _pmRenderBakingDows();
+function _planPast(d){ const t=new Date(); t.setHours(0,0,0,0); const x=new Date(d); x.setHours(0,0,0,0); return x<t; }
+function _planToday(d){ const t=new Date(); return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate(); }
+function _planDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function _planDayHasOrders(day){
+  const y=selYear,m=catalogMonth;
+  return Object.keys(D.orders||{}).some(k=>{ const p=k.split('-'); const d=+p[p.length-1],mo=+p[p.length-2],yr=+p[p.length-3]; return yr===y&&mo===m&&d===day&&Object.keys(D.orders[k]||{}).length>0; });
+}
+function _planActiveIds(){ return D.monthlyActiveProducts[_planKey()]||[]; }
+function _planProds(){
+  const ids=_planActiveIds();
+  let list=D.products.filter(p=>ids.includes(p.id)&&!p.deleted_at);
+  if(_planCat!=='all') list=list.filter(p=>(p.category||'Egyéb')===_planCat);
+  return list;
+}
+function planSetCat(c){ _planCat=c; renderMonthPlan(); }
+function planWarn(msg){ const w=document.getElementById('plan-warn'); if(!w) return; if(!msg){w.style.display='none';return;} w.textContent=msg; w.style.display='block'; }
+function _planLocalSet(pid,day,val){ const k=_planKey(); if(!D.productDayExceptions[k])D.productDayExceptions[k]={}; if(!D.productDayExceptions[k][pid])D.productDayExceptions[k][pid]={}; if(val===undefined) delete D.productDayExceptions[k][pid][day]; else D.productDayExceptions[k][pid][day]=val; }
+async function _planWriteFalse(rows){ if(!rows.length) return; try{ await sb.upsert('product_day_exceptions', rows, 'year,month,product_id,day'); }catch(e){ console.warn('plan upsert:', e.message); toast('⚠️ Mentés sikertelen: '+e.message, true); } }
+async function _planDelete(filter){ try{ await sb.delete('product_day_exceptions', filter); }catch(e){ console.warn('plan delete:', e.message); } }
+
+async function planCellToggle(pid, day){
+  planWarn(''); const nowOn=_planAvail(pid,day); const y=selYear,m=catalogMonth;
+  if(nowOn){ _planLocalSet(pid,day,false); await _planWriteFalse([{year:y,month:m,product_id:pid,day:day,available:false,updated_at:new Date().toISOString()}]); }
+  else { _planLocalSet(pid,day,undefined); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}&day=eq.${day}`); }
+  renderMonthPlan();
+}
+async function planRowToggle(pid){
+  planWarn(''); const days=getBakingDays(selYear,catalogMonth).filter(d=>!_planPast(d)); if(!days.length) return;
+  const allOn=days.every(d=>_planAvail(pid,d.getDate())); const y=selYear,m=catalogMonth;
+  if(allOn){ const rows=days.map(d=>({year:y,month:m,product_id:pid,day:d.getDate(),available:false,updated_at:new Date().toISOString()})); days.forEach(d=>_planLocalSet(pid,d.getDate(),false)); await _planWriteFalse(rows); }
+  else { days.forEach(d=>_planLocalSet(pid,d.getDate(),undefined)); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}&day=in.(${days.map(d=>d.getDate()).join(',')})`); }
+  renderMonthPlan();
+}
+async function planColToggle(day){
+  planWarn(''); const prods=_planProds(); if(!prods.length) return;
+  const allOn=prods.every(p=>_planAvail(p.id,day)); const y=selYear,m=catalogMonth;
+  if(allOn){ const rows=prods.map(p=>({year:y,month:m,product_id:p.id,day:day,available:false,updated_at:new Date().toISOString()})); prods.forEach(p=>_planLocalSet(p.id,day,false)); await _planWriteFalse(rows); }
+  else { prods.forEach(p=>_planLocalSet(p.id,day,undefined)); await _planDelete(`year=eq.${y}&month=eq.${m}&day=eq.${day}&product_id=in.(${prods.map(p=>p.id).join(',')})`); }
+  renderMonthPlan();
+}
+async function planRemoveDay(dateStr, day){
+  if(_planDayHasOrders(day)){ planWarn(`A(z) ${day}. napon már van rendelés — előbb kezeld a rendeléseket, mielőtt kiveszed a napot.`); return; }
+  planWarn(''); const key=_planKey(); const cal=(D.bakingCalendar&&D.bakingCalendar[key])||{extra:[],removed:[]};
+  const defaults=D.bakingDaysDefault||[2,5]; const [yy,mm,dd]=dateStr.split('-').map(Number); const dow=new Date(yy,mm-1,dd).getDay();
+  await toggleCalDay(dateStr, defaults.includes(dow), cal.extra.includes(dateStr), cal.removed.includes(dateStr), key);
+  renderMonthPlan();
+}
+function planAddDaySel(){
+  const sel=document.getElementById('plan-add-day'); if(!sel||!sel.value) return; const dateStr=sel.value; const key=_planKey();
+  const cal=(D.bakingCalendar&&D.bakingCalendar[key])||{extra:[],removed:[]}; const defaults=D.bakingDaysDefault||[2,5];
+  const [yy,mm,dd]=dateStr.split('-').map(Number); const dow=new Date(yy,mm-1,dd).getDay(); planWarn('');
+  toggleCalDay(dateStr, defaults.includes(dow), cal.extra.includes(dateStr), cal.removed.includes(dateStr), key);
+  renderMonthPlan();
+}
+
+function renderMonthPlan(){
+  const scroller=document.getElementById('plan-scroller'); if(!scroller) return;
+  const activeIds=_planActiveIds();
+  const catBar=document.getElementById('plan-cats');
+  const cats=[...new Set(D.products.filter(p=>activeIds.includes(p.id)&&!p.deleted_at).map(p=>p.category||'Egyéb'))].sort();
+  if(catBar){ catBar.innerHTML=['all',...cats].map(c=>{ const on=_planCat===c; const label=c==='all'?'🧺 Összes':c; return `<button class="btn btn-sm ${on?'btn-primary':'btn-ghost'}" onclick="planSetCat('${String(c).replace(/'/g,"\\'")}')">${label}</button>`; }).join(''); }
+  const addSel=document.getElementById('plan-add-day');
+  if(addSel){ const bset=new Set(getBakingDays(selYear,catalogMonth).map(d=>d.getDate())); const cand=getDays(selYear,catalogMonth).filter(d=>!bset.has(d.getDate())&&!_planPast(d)); addSel.innerHTML=cand.length? cand.map(d=>`<option value="${_planDateStr(d)}">${d.getDate()}. (${_PLAN_DOW[d.getDay()]})</option>`).join('') : '<option value="">nincs több nap</option>'; }
+  const days=getBakingDays(selYear,catalogMonth);
+  if(!days.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Ebben a hónapban nincs sütési nap.</div>'; return; }
+  const prods=_planProds();
+  if(!prods.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Nincs aktív termék ebben a hónapban (aktiválj a Termékek fülön).</div>'; return; }
+  const PW=140, DW=58, SB='#fff';
+  const CZ=`position:sticky;top:0;left:0;z-index:4;background:${SB};border-bottom:1px solid var(--border);border-right:1px solid var(--border);`;
+  const HZ=`position:sticky;top:0;z-index:3;background:${SB};border-bottom:1px solid var(--border);`;
+  const LZ=`position:sticky;left:0;z-index:2;background:${SB};border-right:1px solid var(--border);`;
+  let h=`<table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:${PW+days.length*DW}px;font-size:12px">`;
+  h+=`<thead><tr><th style="width:${PW}px;${CZ}text-align:left;padding:6px 8px;font-weight:700;color:var(--text-soft);vertical-align:bottom">termék \\ nap</th>`;
+  days.forEach(d=>{
+    const day=d.getDate(), dow=d.getDay(), past=_planPast(d), today=_planToday(d), ds=_planDateStr(d), wknd=(dow===0||dow===6);
+    const hd=`<div ${past?'':`onclick="planColToggle(${day})" style="cursor:pointer"`}><div style="font-size:10px;color:${wknd?'var(--gold-dark)':'var(--text-soft)'}">${_PLAN_DOW[dow]}</div><div style="font-size:14px;font-weight:700;${today?'color:var(--teal-dark)':''}">${day}</div></div>`;
+    const ctrl=past?'<span style="font-size:11px">🔒</span>':`<button onclick="planRemoveDay('${ds}',${day})" title="nap elvétele" style="border:none;background:none;cursor:pointer;color:var(--text-soft);font-size:12px">✕</button>`;
+    h+=`<th style="width:${DW}px;padding:3px;text-align:center;vertical-align:top;${HZ}">${hd}<div style="margin-top:2px">${ctrl}</div></th>`;
+  });
+  h+='</tr></thead><tbody>';
+  prods.forEach(p=>{
+    h+=`<tr><td onclick="planRowToggle(${p.id})" title="egész hónap be/ki" style="width:${PW}px;${LZ}cursor:pointer;padding:5px 8px;border-top:1px solid var(--border);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</td>`;
+    days.forEach(d=>{
+      const day=d.getDate(), past=_planPast(d), on=_planAvail(p.id,day);
+      const cell=past
+        ? `<div style="height:30px;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);border-radius:5px;color:var(--text-soft)">${on?'✓':''}</div>`
+        : `<div onclick="planCellToggle(${p.id},${day})" style="height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:${on?'var(--teal-pale)':'#fff'};border:1px solid ${on?'var(--teal)':'var(--border)'};border-radius:5px;color:var(--teal-dark);font-weight:700">${on?'✓':''}</div>`;
+      h+=`<td style="padding:2px;border-top:1px solid var(--border)">${cell}</td>`;
+    });
+    h+='</tr>';
+  });
+  scroller.innerHTML=h+'</tbody></table>';
 }
 
 function openProductModal(id=null){
@@ -222,7 +307,6 @@ function openProductModal(id=null){
     if(imgVal){ showProductImagePreview(imgVal); }
     else { document.getElementById('p-image-preview').style.display='none'; }
     document.getElementById('p-type').value=p.ptype||'production';
-    _pBakingDows = (p.baking_dows || []).slice();
     document.getElementById('pm-title').textContent='Termék szerkesztése';
     // Kód mező: manual flag alaphelyzetbe – szerkesztéskor is frissülhet névvel/kategóriával
     const codeField = document.getElementById('p-code');
@@ -233,7 +317,6 @@ function openProductModal(id=null){
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('p-type').value='production';
-    _pBakingDows = [];
     clearProductImage();
     document.getElementById('pm-title').textContent='Új termék';
     // Új terméknél kód mező üres, manual flag reset
@@ -259,7 +342,6 @@ function openProductModal(id=null){
   } else if(recipeInfo) {
     recipeInfo.style.display = 'none';
   }
-  _pmRenderBakingDows();
   document.getElementById('product-modal').classList.add('open');
 }
 function handleProductImageUpload(input){
@@ -409,7 +491,6 @@ async function saveProduct(){
   const code=document.getElementById('p-code').value.trim();
   const familyIdRaw = document.getElementById('p-family-id')?.value;
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
-  const bakingDows = (_pBakingDows && _pBakingDows.length) ? _pBakingDows.slice().sort((a,b)=>a-b) : null;
   // Névütközés ellenőrzés
   const duplicate = D.products.find(p =>
     p.name.trim().toLowerCase() === name.toLowerCase() &&
@@ -425,21 +506,21 @@ async function saveProduct(){
   if(editingProductId){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight,price,category,desc,image,ptype,code,familyId,baking_dows:bakingDows});
+    Object.assign(p,{name,weight,price,category,desc,image,ptype,code,familyId});
   }
   try {
     let realProdId;
     if(editingProductId) {
       // UPDATE – v2.38.1 fix: only fields that ACTUALLY exist in products table (no recipe-level fields like marketing_desc/allergens which belong to recipes table)
-      await sb.updateFields('products', {name,weight,price,category,description:desc,product_family_id:familyId,image,code,baking_dows:bakingDows}, 'id=eq.'+editingProductId);
+      await sb.updateFields('products', {name,weight,price,category,description:desc,product_family_id:familyId,image,code}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
-      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,product_family_id:familyId,baking_dows:bakingDows});
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,product_family_id:familyId});
       realProdId = savedProds[0].id;
       const autoCode = generateProductCode(name, category, realProdId);
       await sb.update('products', {code: autoCode}, 'id=eq.'+realProdId);
-      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode,baking_dows:bakingDows});
+      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode});
     }
     prodId = realProdId;
     // Ha gyártási termék és új termék → automatikus recept létrehozás
@@ -510,12 +591,14 @@ function switchCatalogTab(tab) {
   const prodView = document.getElementById('catalog-products-view');
   const famView = document.getElementById('catalog-families-view');
   const arcView = document.getElementById('catalog-archive-view');
+  const planView = document.getElementById('catalog-plan-view');
   const tabProd = document.getElementById('catalog-tab-products');
   const tabFam = document.getElementById('catalog-tab-families');
   const tabArc = document.getElementById('catalog-tab-archive');
+  const tabPlan = document.getElementById('catalog-tab-plan');
 
-  [prodView, famView, arcView].forEach(v => { if(v) v.style.display = 'none'; });
-  [tabProd, tabFam, tabArc].forEach(t => { if(t) t.style.borderBottom = ''; });
+  [prodView, famView, arcView, planView].forEach(v => { if(v) v.style.display = 'none'; });
+  [tabProd, tabFam, tabArc, tabPlan].forEach(t => { if(t) t.style.borderBottom = ''; });
 
   if (tab === 'families') {
     if(famView) famView.style.display = 'block';
@@ -525,6 +608,10 @@ function switchCatalogTab(tab) {
     if(arcView) arcView.style.display = 'block';
     if(tabArc) tabArc.style.borderBottom = '2px solid var(--teal-dark)';
     renderArchive();
+  } else if (tab === 'plan') {
+    if(planView) planView.style.display = 'block';
+    if(tabPlan) tabPlan.style.borderBottom = '2px solid var(--teal-dark)';
+    renderMonthPlan();
   } else {
     if(prodView) prodView.style.display = 'block';
     if(tabProd) tabProd.style.borderBottom = '2px solid var(--teal-dark)';
