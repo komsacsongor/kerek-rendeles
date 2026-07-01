@@ -603,6 +603,7 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 
 | # | Feladat | Prioritás |
 |---|---|---|
+| **SEC** | **Per-vevő adatvédelem (B irány)** — lásd a szekció utáni ⚠️ blokkot | 🔴 FONTOS, később |
 | **M0** | Mértékegység támogatás (`unit`, `unit_to_g_ratio`) | 🔴 Sürgős |
 | **M1** | Bevásárló lista folytatás (overrides, wizard, history) | 🟡 Folytatás |
 | **S2** | EOQ + MOQ pénzügyi optimalizáció | 🟢 Új session |
@@ -614,6 +615,17 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 | — | Kiszállítás a sütési logból (per-rendelő checklist a jövőbeli alap) | 🟢 Jövő |
 
 **✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7 refactor) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
+
+### ⚠️ SEC — Per-vevő adatvédelem (B irány) — FONTOS, később
+
+**Probléma:** a vevő a publikus anon-kulccsal dolgozik (benne a kiszolgált JS-ben, DevTools Network-ből triviálisan kiolvasható — a Supabase-modellben ez szándékosan publikus). A jelenlegi RLS művelet-szinten szigorított (receptúra/gyártás/alapanyag/beszállító **service_role-only lezárva**; vevő-oldalon nincs kliens-DELETE, settings-write, messages-UPDATE stb.), **DE nincs per-vevő sor-szintű szűrés**: aki kinyeri a kulcsot, elvileg **olvashatja ÉS írhatja BÁRMELY vevő adatát**:
+- olvasás: `clients` (nevek + **email + telefonszám**), `orders` (teljes rendeléstörténet), `messages` (privát üzenetek)
+- írás: hamis/módosított/törölt rendelés, katalógus-módosítás, státusz-állítás
+Zárt, meghívásos vevőkörnél a valós fenyegetettség **alacsony-közepes** (szándékos, hozzáértő támadó kell), de a hozzáférés akkor **teljes**. Kulcs-elrejtés/obfuszkálás nem véd (a hálózati kérés így is látszik).
+
+**Megoldás — B irány (eldöntve, halasztva):** vevő EF write-proxy a receptúra `kData`/`admin-data` mintájára — egy `vevo-data` EF (service_role) validálja a vevő tokenjét és `client_id`-re szűkítve végez műveletet; az olvasásokat is ezen kell átterelni a sor-szintű szűréshez; utána a vevő-táblák service_role-only-ra zárhatók. Marad a jelenlegi meghívásos belépés.
+
+**Skálázáskor / webshopnál:** áttérés **A irányra (Supabase Auth)** — `auth.uid()`-alapú RLS, standard megoldás. Költség 1000 kliensnél is **0** (Auth: 50k MAU free / 100k Pro; EF: 500k hívás free / 2M Pro). Tudatos döntés: **B most halasztva** (webshop előtt kötelező), **A a webshop-fázisban**.
 
 ---
 
