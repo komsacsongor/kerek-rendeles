@@ -183,10 +183,11 @@ async function doLogin() {
 
   try {
     // Mindig Supabase-ből tölt – friss termékek, kliensek, beállítások
-    const [clients, products, maps, settings_cond, settings_del, settings_bake, settings_header] = await Promise.all([
+    const [clients, products, maps, exceptions, settings_cond, settings_del, settings_bake, settings_header] = await Promise.all([
       sb.query('clients', {limit: 500}),
       sb.query('products', {order:'id', limit: 500}),
       sb.query('monthly_active_products', {limit: 2000}),
+      sb.query('product_day_exceptions', {limit: 5000}),
       sb.getSetting('help_conditions'),
       sb.getSetting('help_delivery'),
       sb.getSetting('baking_days_default'),
@@ -201,7 +202,8 @@ async function doLogin() {
         id:p.id, name:p.name, weight:p.weight||'', price:p.price||0,
         category:p.category||'', desc:p.description||'', image:p.image||null,
         marketing_desc:p.marketing_desc||'', ingredient_label:p.ingredient_label||'',
-        allergens:p.allergens||'', nutrition:p.nutrition||null
+        allergens:p.allergens||'', nutrition:p.nutrition||null,
+        baking_dows:p.baking_dows||null
       }));
     }
     if(maps?.length) {
@@ -212,6 +214,13 @@ async function doLogin() {
         appData.monthlyActiveProducts[k].push(r.product_id);
       });
     }
+    appData.productDayExceptions = {};
+    (exceptions||[]).forEach(r=>{
+      const k=`${r.year}-${r.month}`;
+      if(!appData.productDayExceptions[k]) appData.productDayExceptions[k]={};
+      if(!appData.productDayExceptions[k][r.product_id]) appData.productDayExceptions[k][r.product_id]={};
+      appData.productDayExceptions[k][r.product_id][r.day]=r.available;
+    });
     if(settings_cond) appData.helpConditions = settings_cond;
     if(settings_del) appData.helpDelivery = settings_del;
     if(settings_bake) appData.bakingDaysDefault = settings_bake;
@@ -333,7 +342,7 @@ async function doLogin() {
     if (typeof sb.subscribe === 'function') {
       try {
         let _rtDebounce = null;
-        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar', 'settings', 'settings'];
+        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar', 'settings', 'settings', 'product_day_exceptions'];
         window._kerekVevoUnsub = sb.subscribe(VEVO_RT_TABLES, ({table, event}) => {
           if (_rtDebounce) clearTimeout(_rtDebounce);
           _rtDebounce = setTimeout(async () => {
@@ -383,7 +392,8 @@ async function doLogin() {
             image: p.image || null, code: p.code || '',
             marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
             allergens: p.allergens || '', nutrition: p.nutrition || null,
-            familyId: p.product_family_id || null
+            familyId: p.product_family_id || null,
+            baking_dows: p.baking_dows || null
           }));
           changed = true;
         }

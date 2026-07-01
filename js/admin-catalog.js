@@ -177,6 +177,25 @@ function renderArchive() {
 
 
 
+// ===== Per-sütinap: alap sütő-napok választó a termék-modálban =====
+const _PM_DOW_LABELS = ['V','H','K','Sze','Cs','P','Szo']; // getDay 0..6
+let _pBakingDows = [];
+function _pmRenderBakingDows(){
+  const cont = document.getElementById('p-baking-dows');
+  if(!cont) return;
+  const baking = (D.bakingDaysDefault && D.bakingDaysDefault.length) ? D.bakingDaysDefault : [1,2,3,4,5,6,0];
+  const order = [1,2,3,4,5,6,0].filter(dw => baking.indexOf(dw) > -1);
+  cont.innerHTML = order.map(dw => {
+    const on = _pBakingDows.indexOf(dw) > -1;
+    return `<button type="button" class="btn btn-sm ${on?'btn-primary':'btn-ghost'}" onclick="pmToggleBakingDow(${dw})" style="min-width:44px">${_PM_DOW_LABELS[dw]}</button>`;
+  }).join('');
+}
+function pmToggleBakingDow(dw){
+  const i = _pBakingDows.indexOf(dw);
+  if(i>-1) _pBakingDows.splice(i,1); else _pBakingDows.push(dw);
+  _pmRenderBakingDows();
+}
+
 function openProductModal(id=null){
   editingProductId=id;
   const catSel=document.getElementById('p-category');
@@ -203,6 +222,7 @@ function openProductModal(id=null){
     if(imgVal){ showProductImagePreview(imgVal); }
     else { document.getElementById('p-image-preview').style.display='none'; }
     document.getElementById('p-type').value=p.ptype||'production';
+    _pBakingDows = (p.baking_dows || []).slice();
     document.getElementById('pm-title').textContent='Termék szerkesztése';
     // Kód mező: manual flag alaphelyzetbe – szerkesztéskor is frissülhet névvel/kategóriával
     const codeField = document.getElementById('p-code');
@@ -213,6 +233,7 @@ function openProductModal(id=null){
   } else {
     ['p-name','p-weight','p-price','p-desc','p-image'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('p-type').value='production';
+    _pBakingDows = [];
     clearProductImage();
     document.getElementById('pm-title').textContent='Új termék';
     // Új terméknél kód mező üres, manual flag reset
@@ -238,6 +259,7 @@ function openProductModal(id=null){
   } else if(recipeInfo) {
     recipeInfo.style.display = 'none';
   }
+  _pmRenderBakingDows();
   document.getElementById('product-modal').classList.add('open');
 }
 function handleProductImageUpload(input){
@@ -387,6 +409,7 @@ async function saveProduct(){
   const code=document.getElementById('p-code').value.trim();
   const familyIdRaw = document.getElementById('p-family-id')?.value;
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
+  const bakingDows = (_pBakingDows && _pBakingDows.length) ? _pBakingDows.slice().sort((a,b)=>a-b) : null;
   // Névütközés ellenőrzés
   const duplicate = D.products.find(p =>
     p.name.trim().toLowerCase() === name.toLowerCase() &&
@@ -402,21 +425,21 @@ async function saveProduct(){
   if(editingProductId){
     prodId=editingProductId;
     const p=D.products.find(p=>p.id===editingProductId);
-    Object.assign(p,{name,weight,price,category,desc,image,ptype,code,familyId});
+    Object.assign(p,{name,weight,price,category,desc,image,ptype,code,familyId,baking_dows:bakingDows});
   }
   try {
     let realProdId;
     if(editingProductId) {
       // UPDATE – v2.38.1 fix: only fields that ACTUALLY exist in products table (no recipe-level fields like marketing_desc/allergens which belong to recipes table)
-      await sb.updateFields('products', {name,weight,price,category,description:desc,product_family_id:familyId,image,code}, 'id=eq.'+editingProductId);
+      await sb.updateFields('products', {name,weight,price,category,description:desc,product_family_id:familyId,image,code,baking_dows:bakingDows}, 'id=eq.'+editingProductId);
       realProdId = editingProductId;
     } else {
       // INSERT – Supabase generálja az ID-t, kód az ID alapján generálódik
-      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,product_family_id:familyId});
+      const savedProds = await sb.insert('products', {name,weight,price,category,description:desc,product_family_id:familyId,baking_dows:bakingDows});
       realProdId = savedProds[0].id;
       const autoCode = generateProductCode(name, category, realProdId);
       await sb.update('products', {code: autoCode}, 'id=eq.'+realProdId);
-      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode});
+      D.products.push({id:realProdId,name,weight,price,category,desc,image,ptype,code:autoCode,baking_dows:bakingDows});
     }
     prodId = realProdId;
     // Ha gyártási termék és új termék → automatikus recept létrehozás

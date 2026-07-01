@@ -109,6 +109,14 @@ async function applyStanding(year, month, productId, ruleFields) {
 
   const ctx = buildStandingCtx(year, month);
   const targets = computeStandingTargets(rule, ctx);
+  // Per-sütinap termékkatalógus: ahol a termék nem elérhető azon a napon, a standing NE hozzon létre
+  // rendelést (0-ra állítjuk → meglévő törlődik, új nem jön létre).
+  const _exForMonth = (appData.productDayExceptions || {})[year + '-' + month] || null;
+  const _prodForStanding = (appData.products || []).find(p => p.id == productId) || { id: productId };
+  targets.forEach(t => {
+    const _dow = new Date(year, month, t.day).getDay();
+    if (typeof isProductAvailableOnDay === 'function' && !isProductAvailableOnDay(_prodForStanding, t.day, _dow, _exForMonth)) t.qty = 0;
+  });
   const upsertRows = [], removeDays = [], ops = { upserts: [], removes: [] };
   targets.forEach(t => {
     const cur = _curQty(year, month, t.day, productId) | 0;
@@ -262,9 +270,13 @@ function renderStandingBar(pid) {
   const active = !!(rule && rule.active);
   const qty = rule ? (rule.qty | 0) : 1;
   const dows = (rule && rule.dows) || [];
-  // CSAK a hónapban előforduló sütési hét-napok (+ a szabályban már kiválasztottak, hogy levehetők legyenek)
+  // CSAK a hónapban előforduló sütési hét-napok, a termék alap-napjaira szűkítve
+  // (+ a szabályban már kiválasztottak, hogy levehetők legyenek)
   const bakingDows = _bakingDowsOfMonth(selectedYear, selectedMonth);
-  const shownDows = [1, 2, 3, 4, 5, 6, 0].filter(dw => bakingDows.indexOf(dw) > -1 || dows.indexOf(dw) > -1);
+  const _prodS = (appData.products || []).find(p => p.id == pid);
+  const _prodDows = (_prodS && _prodS.baking_dows && _prodS.baking_dows.length) ? _prodS.baking_dows : null; // null = minden nap
+  const _availDows = _prodDows ? bakingDows.filter(dw => _prodDows.indexOf(dw) > -1) : bakingDows;
+  const shownDows = [1, 2, 3, 4, 5, 6, 0].filter(dw => _availDows.indexOf(dw) > -1 || dows.indexOf(dw) > -1);
   const dowBtns = shownDows.map(dw =>
     `<button class="ps-dow${active && dows.indexOf(dw) > -1 ? ' on' : ''}" onclick="vevoStandingDow(${pid},${dw})">${STANDING_DOW[dw]}</button>`
   ).join('');
