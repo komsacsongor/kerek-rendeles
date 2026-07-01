@@ -629,12 +629,12 @@ Zárt, meghívásos vevőkörnél a valós fenyegetettség **alacsony-közepes**
 
 ---
 
-## 19. Aktuális állapot (2026-06-12)
+## 19. Aktuális állapot (2026-07-01)
 
-- **Production**: v2.46.0 (admin/vevő push + auto-zárás 18:00 élesben)
-- **Staging**: v2.48.2 — P1 sütési log, recept-leírás dropdown, modul-jelszó kezelő (verifikálva), receptúra biztonságos login. Adat-teszteléshez receptek/alapanyagok kellenek.
-- **Legutóbbi session**: gyártás-modul (P1 sütési log) + modul-jelszó kezelő (admin_secrets + Edge Function-ök)
-- **Vár**: P1 adattal tesztelése → merge prod; P2 különálló gyártás app (`gyartas.html`)
+- **Production**: v2.53.23 — állandó rendelés (per-termék havi szabály), admin sárga-badge fix (jövőbeli hónapok is), RLS biztonsági hardening (receptúra/gyártás/alapanyag/beszállító **service_role-only lezárva** + vevő-oldali művelet-szigorítás), audit_log INSERT policy.
+- **Staging**: v2.53.31-sec — a fentiek + receptúra-modul munka (M0 mértékegység `unit`/`unit_to_g_ratio` + recept-javítások). **Validálásra + prod-portra vár** — a felhasználó szándékosan tartja vissza prodból.
+- **Legutóbbi session**: RLS audit + hardening mindkét környezetben (staging+prod), állandó rendelés feature élesben, audit_log regresszió javítva, SEC/B irány feljegyezve (18. szekció).
+- **Vár**: (1) receptúra staging→prod port a felhasználó szavára; (2) per-sütinap termékkatalógus (következő feature); (3) SEC/B irány per-vevő biztonság (halasztva, webshop előtt kötelező); (4) DB reset go-live előtt.
 
 ---
 
