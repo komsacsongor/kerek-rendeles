@@ -187,7 +187,7 @@ async function doLogin() {
       sb.query('clients', {limit: 500}),
       sb.query('products', {order:'id', limit: 500}),
       sb.query('monthly_active_products', {limit: 2000}),
-      sb.query('product_day_exceptions', {limit: 5000}),
+      sb.query('product_day_exceptions', {limit: 5000}).catch(()=>[]),
       sb.getSetting('help_conditions'),
       sb.getSetting('help_delivery'),
       sb.getSetting('baking_days_default'),

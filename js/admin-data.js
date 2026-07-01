@@ -102,7 +102,7 @@ async function loadAllData() {
         if (!D.productDayExceptions[k][r.product_id]) D.productDayExceptions[k][r.product_id] = {};
         D.productDayExceptions[k][r.product_id][r.day] = r.available;
       });
-    }),
+    }).catch(() => { D.productDayExceptions = D.productDayExceptions || {}; }),
     sb.query('orders', { limit: QUERY_LIMIT_ORDERS }).then(orders => {
       D.orders = {};
       (orders||[]).forEach(r => {
