@@ -439,6 +439,32 @@ function initBakingCalendar(){
   renderBakingCalendar();
 }
 
+// ===== SÜTÉSI TERVEZÉS nézet (naptár + havi terv, közös hónap) =====
+let _bpTab = 'days';
+function renderBakingPlan(){
+  const sel=document.getElementById('cal-month-sel');
+  if(sel && !sel.options.length) initBakingCalendar();
+  if(sel && sel.value){ const p=sel.value.split('-').map(Number); selYear=p[0]; catalogMonth=p[1]; }
+  bpTab(_bpTab);
+}
+function bpTab(which){
+  _bpTab=which;
+  const dp=document.getElementById('bp-days-panel'), pp=document.getElementById('bp-plan-panel');
+  const td=document.getElementById('bp-tab-days'), tp=document.getElementById('bp-tab-plan');
+  if(dp) dp.style.display=which==='days'?'block':'none';
+  if(pp) pp.style.display=which==='plan'?'block':'none';
+  if(td) td.className='btn btn-sm '+(which==='days'?'btn-primary':'btn-ghost');
+  if(tp) tp.className='btn btn-sm '+(which==='plan'?'btn-primary':'btn-ghost');
+  if(which==='days'){ if(typeof renderBakingCalendar==='function') renderBakingCalendar(); }
+  else { if(typeof renderMonthPlan==='function') renderMonthPlan(); }
+}
+function bpMonthChange(){
+  const sel=document.getElementById('cal-month-sel'); if(!sel||!sel.value) return;
+  const p=sel.value.split('-').map(Number); selYear=p[0]; catalogMonth=p[1];
+  if(typeof renderBakingCalendar==='function') renderBakingCalendar();
+  if(typeof renderMonthPlan==='function') renderMonthPlan();
+}
+
 function renderDefaultDayToggles(){
   const days=['V','H','K','Sze','Cs','P','Szo'];
   const defaults=D.bakingDaysDefault||[2,5];

@@ -704,10 +704,6 @@ function switchCatalogTab(tab) {
     if(arcView) arcView.style.display = 'block';
     if(tabArc) tabArc.style.borderBottom = '2px solid var(--teal-dark)';
     renderArchive();
-  } else if (tab === 'plan') {
-    if(planView) planView.style.display = 'block';
-    if(tabPlan) tabPlan.style.borderBottom = '2px solid var(--teal-dark)';
-    renderMonthPlan();
   } else {
     if(prodView) prodView.style.display = 'block';
     if(tabProd) tabProd.style.borderBottom = '2px solid var(--teal-dark)';
