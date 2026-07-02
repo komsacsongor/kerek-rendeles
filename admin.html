@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.42"></script>
+<script src="kerek-constants.js?v=2.53.43"></script>
 <script>window.KEREK_MODULE='admin';</script>
 <script src="supabase.js?v=2.53.21"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -353,15 +353,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Törzsadatok</div>
-    <button class="nav-item" data-action="nav" data-arg1="catalog"><span class="icon">📦</span>Termékkatalógus</button>
+    <button class="nav-item" data-action="nav" data-arg1="catalog"><span class="icon">📦</span>Termékek</button>
     <button class="nav-item" data-action="nav" data-arg1="clients"><span class="icon">👥</span>Kliensek</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Elemzések</div>
-    <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📈</span>Kimutatások</button>
-    <button class="nav-item" data-action="nav" data-arg1="export"><span class="icon">📤</span>Export</button>
-    <button class="nav-item" data-action="nav" data-arg1="data-audit"><span class="icon">🔍</span>Adat-állapot</button>
-    <button class="nav-item" data-action="nav" data-arg1="categories"><span class="icon">🏷</span>Kategória bontás</button>
+    <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📊</span>Elemzések</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Modulok</div>
@@ -381,6 +378,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <button id="btn-refresh-all" data-action="refreshAll" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:all 0.2s">🔄 Frissítés</button>
     <button class="btn-logout" onclick="window.location.href='index.html'" style="margin-bottom:6px">← Főmenü</button>
     <button class="btn-logout" data-action="logout">Kilépés</button>
+    <div id="app-version" style="margin-top:8px;font-size:0.62rem;color:var(--teal-mid);text-align:center;letter-spacing:0.5px"></div>
   </div>
 </aside>
 
@@ -574,6 +572,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== REPORTS ===== -->
   <div id="view-reports" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="categories">🏷 Kategória</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
   <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
     <button class="btn btn-ghost btn-sm" data-action="toggleAnnualSummary" id="annual-toggle-btn">📊 Éves összesítő</button>
   </div>
@@ -605,6 +609,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== CATEGORIES ===== -->
   <div id="view-categories" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="categories">🏷 Kategória</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
     <div class="month-row" id="cat-month-sel"></div>
     <div class="grid-4 mb-20" id="cat-stats"></div>
     <div class="grid-2">
@@ -625,6 +635,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== EXPORT ===== -->
   <div id="view-export" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="categories">🏷 Kategória</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
     <div class="grid-2 mb-20">
       <div class="card">
         <div class="card-head"><div class="card-title">👥 Vevők exportálása</div></div>
@@ -813,6 +829,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   </div><!-- main-pad -->
   <div id="view-data-audit" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="categories">🏷 Kategória</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
     <div id="view-data-audit-content"></div>
   </div>
   <div id="view-audit-log" class="view"></div>
@@ -993,7 +1015,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
 <script src="js/admin-data.js?v=2.53.35"></script>
 <script src="js/admin-data-audit.js?v=2.53.21"></script>
-<script src="js/admin-ui.js?v=2.53.41"></script>
+<script src="js/admin-ui.js?v=2.53.43"></script>
 <script src="js/admin-messages.js?v=2.53.21"></script>
 <script src="js/admin-baking.js?v=2.53.42"></script>
 <script src="js/admin-orders.js?v=2.53.23"></script>
