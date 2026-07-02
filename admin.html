@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.41"></script>
+<script src="kerek-constants.js?v=2.53.42"></script>
 <script>window.KEREK_MODULE='admin';</script>
 <script src="supabase.js?v=2.53.21"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -503,12 +503,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== SÜTÉSI TERVEZÉS (naptár + havi terv) ===== -->
   <div id="view-baking-plan" class="view">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <select id="cal-month-sel" onchange="bpMonthChange()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.9rem;outline:none;font-weight:600"></select>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-sm btn-primary" id="bp-tab-days" onclick="bpTab('days')">📅 Sütési napok</button>
-        <button class="btn btn-sm btn-ghost" id="bp-tab-plan" onclick="bpTab('plan')">🗓️ Havi terv</button>
-      </div>
+    <div class="month-row" id="bp-month-sel"></div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-primary" id="bp-tab-days" onclick="bpTab('days')">📅 Sütési napok</button>
+      <button class="btn btn-sm btn-ghost" id="bp-tab-plan" onclick="bpTab('plan')">🗓️ Havi terv</button>
     </div>
     <div id="bp-days-panel">
       <div class="form-group" style="margin-bottom:14px">
@@ -997,13 +995,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 <script src="js/admin-data-audit.js?v=2.53.21"></script>
 <script src="js/admin-ui.js?v=2.53.41"></script>
 <script src="js/admin-messages.js?v=2.53.21"></script>
-<script src="js/admin-baking.js?v=2.53.41"></script>
+<script src="js/admin-baking.js?v=2.53.42"></script>
 <script src="js/admin-orders.js?v=2.53.23"></script>
 <script src="js/admin-catalog.js?v=2.53.41"></script>
 <script src="js/admin-clients.js?v=2.53.21"></script>
 <script src="js/admin-reports.js?v=2.53.21"></script>
 <script src="js/admin-help.js?v=2.53.21"></script>
 <script src="js/admin-push.js?v=2.53.21"></script>
-  <script src="js/admin-settings.js?v=2.53.21"></script>
+  <script src="js/admin-settings.js?v=2.53.42"></script>
 </body>
 </html>
