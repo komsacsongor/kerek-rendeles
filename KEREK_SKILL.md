@@ -305,7 +305,7 @@ function isMobile() { return window.innerWidth <= 640; }
 
 **Táblázat-konvenció — KÉT család (koherencia!):**
 - **(1) Adat / kimutatás** → `class="tbl"`: fejléc `--slate` háttér + `--cream` szöveg (pénzügy, riportok, listák).
-- **(2) Beállító / tervező** (pl. Havi terv, sütés-fejlécek) → fejléc `--teal-pale` háttér + `--teal-dark` szöveg (mint `.mob-day-head.baking`). Ez a családi jelzés: a „beállítható" táblák teal-fejlécet kapnak, az „olvasható adat" táblák slate-et.
+- **(2) Beállító / tervező** (pl. Havi terv, sütés) → fejléc **solid `--teal-dark` háttér + `--cream` szöveg** (párhuzam az adat-tábla `--slate`+`--cream`-jével, csak teal hue-val). ⚠️ A `--teal-pale` a **kiválasztott/bepipált cella** tintje — ezért a fejléc NEM lehet teal-pale, különben összeolvad a cellákkal. Mai nap kiemelés a sötét fejlécen: `--gold` pill.
 - Közös: konténer `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér; sorok közt `1px var(--border)`.
 - Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky = freeze-pane); a sticky fejléc a család színét kapja, az első (termék)oszlop fehér.
 - Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ✓.
