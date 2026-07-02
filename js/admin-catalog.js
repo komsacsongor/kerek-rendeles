@@ -195,36 +195,71 @@ function _planDayHasOrders(day){
   return Object.keys(D.orders||{}).some(k=>{ const p=k.split('-'); const d=+p[p.length-1],mo=+p[p.length-2],yr=+p[p.length-3]; return yr===y&&mo===m&&d===day&&Object.keys(D.orders[k]||{}).length>0; });
 }
 function _planActiveIds(){ return D.monthlyActiveProducts[_planKey()]||[]; }
+function _planActive(pid){ return _planActiveIds().includes(pid); }
+function _planCellOn(pid, day){ return _planActive(pid) && _planAvail(pid, day); }
 function _planProds(){
-  const ids=_planActiveIds();
-  let list=D.products.filter(p=>ids.includes(p.id)&&!p.deleted_at);
+  let list=D.products.filter(p=>!p.deleted_at);
   if(_planCat!=='all') list=list.filter(p=>(p.category||'Egyéb')===_planCat);
   return list;
 }
 function planSetCat(c){ _planCat=c; renderMonthPlan(); }
 function planWarn(msg){ const w=document.getElementById('plan-warn'); if(!w) return; if(!msg){w.style.display='none';return;} w.textContent=msg; w.style.display='block'; }
 function _planLocalSet(pid,day,val){ const k=_planKey(); if(!D.productDayExceptions[k])D.productDayExceptions[k]={}; if(!D.productDayExceptions[k][pid])D.productDayExceptions[k][pid]={}; if(val===undefined) delete D.productDayExceptions[k][pid][day]; else D.productDayExceptions[k][pid][day]=val; }
+function _planClearEx(pid){ const k=_planKey(); if(D.productDayExceptions[k]) delete D.productDayExceptions[k][pid]; }
+function _planActivateLocal(pid){ const k=_planKey(); if(!D.monthlyActiveProducts[k])D.monthlyActiveProducts[k]=[]; if(!D.monthlyActiveProducts[k].includes(pid)) D.monthlyActiveProducts[k].push(pid); }
+function _planDeactivateLocal(pid){ const k=_planKey(); if(D.monthlyActiveProducts[k]) D.monthlyActiveProducts[k]=D.monthlyActiveProducts[k].filter(x=>x!==pid); }
+function _planAvailDayCount(pid){ return getBakingDays(selYear,catalogMonth).filter(d=>_planAvail(pid,d.getDate())).length; }
 async function _planWriteFalse(rows){ if(!rows.length) return; try{ await sb.upsert('product_day_exceptions', rows, 'year,month,product_id,day'); }catch(e){ console.warn('plan upsert:', e.message); toast('⚠️ Mentés sikertelen: '+e.message, true); } }
 async function _planDelete(filter){ try{ await sb.delete('product_day_exceptions', filter); }catch(e){ console.warn('plan delete:', e.message); } }
+async function _planActivateDB(pid){ try{ await sb.upsert('monthly_active_products', {year:selYear, month:catalogMonth, product_id:pid}, 'year,month,product_id'); }catch(e){ console.warn('activate:', e.message); } }
+async function _planDeactivateDB(pid){ try{ await sb.delete('monthly_active_products', `year=eq.${selYear}&month=eq.${catalogMonth}&product_id=eq.${pid}`); }catch(e){ console.warn('deactivate:', e.message); } }
+// inaktív termék aktiválása CSAK egy napra (mikro-szabály): a többi sütőnapra false-kivétel
+function _planActivateSingleDay(pid, day){
+  const y=selYear,m=catalogMonth; _planActivateLocal(pid);
+  const others=getBakingDays(y,m).filter(d=>d.getDate()!==day);
+  _planLocalSet(pid,day,undefined); others.forEach(d=>_planLocalSet(pid,d.getDate(),false));
+  return others.map(d=>({year:y,month:m,product_id:pid,day:d.getDate(),available:false,updated_at:new Date().toISOString()}));
+}
+async function _planDeactivateFull(pid){
+  const y=selYear,m=catalogMonth; _planDeactivateLocal(pid); _planClearEx(pid);
+  await _planDeactivateDB(pid); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}`);
+}
 
 async function planCellToggle(pid, day){
-  planWarn(''); const nowOn=_planAvail(pid,day); const y=selYear,m=catalogMonth;
-  if(nowOn){ _planLocalSet(pid,day,false); await _planWriteFalse([{year:y,month:m,product_id:pid,day:day,available:false,updated_at:new Date().toISOString()}]); }
-  else { _planLocalSet(pid,day,undefined); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}&day=eq.${day}`); }
+  planWarn(''); const y=selYear,m=catalogMonth;
+  if(_planCellOn(pid,day)){
+    _planLocalSet(pid,day,false);
+    await _planWriteFalse([{year:y,month:m,product_id:pid,day:day,available:false,updated_at:new Date().toISOString()}]);
+    if(_planAvailDayCount(pid)===0) await _planDeactivateFull(pid); // utolsó nap levéve → deaktivál
+  } else if(!_planActive(pid)){
+    const rows=_planActivateSingleDay(pid,day); await _planActivateDB(pid); await _planWriteFalse(rows);
+  } else {
+    _planLocalSet(pid,day,undefined); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}&day=eq.${day}`);
+  }
   renderMonthPlan();
 }
 async function planRowToggle(pid){
-  planWarn(''); const days=getBakingDays(selYear,catalogMonth).filter(d=>!_planPast(d)); if(!days.length) return;
-  const allOn=days.every(d=>_planAvail(pid,d.getDate())); const y=selYear,m=catalogMonth;
-  if(allOn){ const rows=days.map(d=>({year:y,month:m,product_id:pid,day:d.getDate(),available:false,updated_at:new Date().toISOString()})); days.forEach(d=>_planLocalSet(pid,d.getDate(),false)); await _planWriteFalse(rows); }
-  else { days.forEach(d=>_planLocalSet(pid,d.getDate(),undefined)); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}&day=in.(${days.map(d=>d.getDate()).join(',')})`); }
+  planWarn(''); const y=selYear,m=catalogMonth;
+  if(_planActive(pid)){ await _planDeactivateFull(pid); }
+  else { _planActivateLocal(pid); _planClearEx(pid); await _planActivateDB(pid); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${pid}`); }
   renderMonthPlan();
 }
 async function planColToggle(day){
-  planWarn(''); const prods=_planProds(); if(!prods.length) return;
-  const allOn=prods.every(p=>_planAvail(p.id,day)); const y=selYear,m=catalogMonth;
-  if(allOn){ const rows=prods.map(p=>({year:y,month:m,product_id:p.id,day:day,available:false,updated_at:new Date().toISOString()})); prods.forEach(p=>_planLocalSet(p.id,day,false)); await _planWriteFalse(rows); }
-  else { prods.forEach(p=>_planLocalSet(p.id,day,undefined)); await _planDelete(`year=eq.${y}&month=eq.${m}&day=eq.${day}&product_id=in.(${prods.map(p=>p.id).join(',')})`); }
+  planWarn(''); const prods=_planProds(); if(!prods.length) return; const y=selYear,m=catalogMonth;
+  const allOn=prods.every(p=>_planCellOn(p.id,day));
+  if(allOn){
+    const rows=[]; prods.forEach(p=>{ _planLocalSet(p.id,day,false); rows.push({year:y,month:m,product_id:p.id,day:day,available:false,updated_at:new Date().toISOString()}); });
+    await _planWriteFalse(rows);
+    for(const p of prods){ if(_planActive(p.id) && _planAvailDayCount(p.id)===0) await _planDeactivateFull(p.id); }
+  } else {
+    let falseRows=[];
+    for(const p of prods){
+      if(_planCellOn(p.id,day)) continue;
+      if(!_planActive(p.id)){ falseRows=falseRows.concat(_planActivateSingleDay(p.id,day)); await _planActivateDB(p.id); }
+      else { _planLocalSet(p.id,day,undefined); await _planDelete(`year=eq.${y}&month=eq.${m}&product_id=eq.${p.id}&day=eq.${day}`); }
+    }
+    await _planWriteFalse(falseRows);
+  }
   renderMonthPlan();
 }
 async function planRemoveDay(dateStr, day){
@@ -244,16 +279,15 @@ function planAddDaySel(){
 
 function renderMonthPlan(){
   const scroller=document.getElementById('plan-scroller'); if(!scroller) return;
-  const activeIds=_planActiveIds();
   const catBar=document.getElementById('plan-cats');
-  const cats=[...new Set(D.products.filter(p=>activeIds.includes(p.id)&&!p.deleted_at).map(p=>p.category||'Egyéb'))].sort();
+  const cats=[...new Set(D.products.filter(p=>!p.deleted_at).map(p=>p.category||'Egyéb'))].sort();
   if(catBar){ catBar.innerHTML=['all',...cats].map(c=>{ const on=_planCat===c; const label=c==='all'?'🧺 Összes':c; return `<button class="btn btn-sm ${on?'btn-primary':'btn-ghost'}" onclick="planSetCat('${String(c).replace(/'/g,"\\'")}')">${label}</button>`; }).join(''); }
   const addSel=document.getElementById('plan-add-day');
   if(addSel){ const bset=new Set(getBakingDays(selYear,catalogMonth).map(d=>d.getDate())); const cand=getDays(selYear,catalogMonth).filter(d=>!bset.has(d.getDate())&&!_planPast(d)); addSel.innerHTML=cand.length? cand.map(d=>`<option value="${_planDateStr(d)}">${d.getDate()}. (${_PLAN_DOW[d.getDay()]})</option>`).join('') : '<option value="">nincs több nap</option>'; }
   const days=getBakingDays(selYear,catalogMonth);
   if(!days.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Ebben a hónapban nincs sütési nap.</div>'; return; }
   const prods=_planProds();
-  if(!prods.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Nincs aktív termék ebben a hónapban (aktiválj a Termékek fülön).</div>'; return; }
+  if(!prods.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Nincs termék ebben a kategóriában.</div>'; return; }
   const PW=176, DW=58, SB='#fff';
   const CZ=`position:sticky;top:0;left:0;z-index:4;background:${SB};border-bottom:1px solid var(--border);border-right:1px solid var(--border);`;
   const HZ=`position:sticky;top:0;z-index:3;background:${SB};border-bottom:1px solid var(--border);`;
@@ -270,7 +304,7 @@ function renderMonthPlan(){
   prods.forEach(p=>{
     h+=`<tr><td onclick="planRowToggle(${p.id})" title="${esc(p.name)}" style="width:${PW}px;${LZ}cursor:pointer;padding:5px 8px;border-top:1px solid var(--border)"><div style="font-weight:600;font-size:12px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.name)}</div>${p.code?`<div style="font-size:9px;color:var(--text-soft);margin-top:1px">${esc(p.code)}</div>`:''}</td>`;
     days.forEach(d=>{
-      const day=d.getDate(), past=_planPast(d), on=_planAvail(p.id,day);
+      const day=d.getDate(), past=_planPast(d), on=_planCellOn(p.id,day);
       const cell=past
         ? `<div style="height:30px;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);border-radius:5px;color:var(--text-soft)">${on?'✓':''}</div>`
         : `<div onclick="planCellToggle(${p.id},${day})" style="height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:${on?'var(--teal-pale)':'#fff'};border:1px solid ${on?'var(--teal)':'var(--border)'};border-radius:5px;color:var(--teal-dark);font-weight:700">${on?'✓':''}</div>`;
