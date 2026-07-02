@@ -303,12 +303,13 @@ function isMobile() { return window.innerWidth <= 640; }
 - Veszély / törölve / elmarad / visszavonva → háttér `#fee2e2`, szöveg `#b91c1c`, keret `#fca5a5` (projekt de-facto piros — amíg nincs `--danger*` token).
 - Semleges → `--text`, halvány `--text-soft`, keret `--border`, lágy háttér `--bg-soft`, off-white `--cream`.
 
-**Táblázat-konvenció:**
-- Konténer: `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér.
-- Fejléc: `--text-soft` félkövér, alul `1px var(--border)`; sorok közt felül `1px var(--border)`.
-- Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky, fehér háttér = freeze-pane).
-- Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ikon.
-- Kiemelés: „ma" `--teal-dark`; hétvége `--gold-dark`; lezárt/múlt `--bg-soft` + 🔒.
+**Táblázat-konvenció — KÉT család (koherencia!):**
+- **(1) Adat / kimutatás** → `class="tbl"`: fejléc `--slate` háttér + `--cream` szöveg (pénzügy, riportok, listák).
+- **(2) Beállító / tervező** (pl. Havi terv, sütés-fejlécek) → fejléc `--teal-pale` háttér + `--teal-dark` szöveg (mint `.mob-day-head.baking`). Ez a családi jelzés: a „beállítható" táblák teal-fejlécet kapnak, az „olvasható adat" táblák slate-et.
+- Közös: konténer `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér; sorok közt `1px var(--border)`.
+- Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky = freeze-pane); a sticky fejléc a család színét kapja, az első (termék)oszlop fehér.
+- Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ✓.
+- Kiemelés: „ma" = `--teal` pill fehér szöveggel; hétvége `--gold-dark`; lezárt/múlt `--bg-soft` + 🔒.
 - Üres állapot: középre igazított `--text-soft` üzenet.
 
 **Chip/szűrő/gomb:** aktív `btn-primary`, inaktív `btn-ghost`, kis méret `btn-sm`.

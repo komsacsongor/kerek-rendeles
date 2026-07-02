@@ -288,15 +288,16 @@ function renderMonthPlan(){
   if(!days.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Ebben a hónapban nincs sütési nap.</div>'; return; }
   const prods=_planProds();
   if(!prods.length){ scroller.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-soft)">Nincs termék ebben a kategóriában.</div>'; return; }
-  const PW=176, DW=58, SB='#fff';
-  const CZ=`position:sticky;top:0;left:0;z-index:4;background:${SB};border-bottom:1px solid var(--border);border-right:1px solid var(--border);`;
-  const HZ=`position:sticky;top:0;z-index:3;background:${SB};border-bottom:1px solid var(--border);`;
+  const PW=176, DW=58, SB='#fff', HB='var(--teal-pale)';
+  const CZ=`position:sticky;top:0;left:0;z-index:4;background:${HB};border-bottom:1px solid var(--teal-light);border-right:1px solid var(--border);`;
+  const HZ=`position:sticky;top:0;z-index:3;background:${HB};border-bottom:1px solid var(--teal-light);`;
   const LZ=`position:sticky;left:0;z-index:2;background:${SB};border-right:1px solid var(--border);`;
   let h=`<table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:${PW+days.length*DW}px;font-size:12px">`;
-  h+=`<thead><tr><th style="width:${PW}px;${CZ}text-align:left;padding:6px 8px;font-weight:700;color:var(--text-soft);vertical-align:bottom">termék \\ nap</th>`;
+  h+=`<thead><tr><th style="width:${PW}px;${CZ}text-align:left;padding:6px 8px;font-weight:700;color:var(--teal-dark);vertical-align:bottom">termék \\ nap</th>`;
   days.forEach(d=>{
     const day=d.getDate(), dow=d.getDay(), past=_planPast(d), today=_planToday(d), ds=_planDateStr(d), wknd=(dow===0||dow===6);
-    const hd=`<div ${past?'':`onclick="planColToggle(${day})" style="cursor:pointer"`}><div style="font-size:10px;color:${wknd?'var(--gold-dark)':'var(--text-soft)'}">${_PLAN_DOW[dow]}</div><div style="font-size:14px;font-weight:700;${today?'color:var(--teal-dark)':''}">${day}</div></div>`;
+    const dcol=today?'color:#fff;background:var(--teal);border-radius:4px;padding:0 5px':'color:var(--teal-dark)';
+    const hd=`<div ${past?'':`onclick="planColToggle(${day})" style="cursor:pointer"`}><div style="font-size:10px;color:${wknd?'var(--gold-dark)':'var(--teal-dark)'};opacity:.75">${_PLAN_DOW[dow]}</div><div style="font-size:14px;font-weight:700;${dcol}">${day}</div></div>`;
     const ctrl=past?'<span style="font-size:11px">🔒</span>':`<button onclick="planRemoveDay('${ds}',${day})" title="nap elvétele" style="border:none;background:none;cursor:pointer;color:var(--text-soft);font-size:12px">✕</button>`;
     h+=`<th style="width:${DW}px;padding:3px;text-align:center;vertical-align:top;${HZ}">${hd}<div style="margin-top:2px">${ctrl}</div></th>`;
   });
