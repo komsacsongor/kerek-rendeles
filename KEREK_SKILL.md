@@ -106,32 +106,40 @@ Indok: session-compactation után a régi tanulság elveszhet, de a git megőrzi
 
 ---
 
-## 6. Fájlstruktúra
+## 6. Fájlstruktúra (funkció → fájl térkép)
 
 ```
-index.html, admin.html, vevo.html, receptura.html, register.html
-manifest.json (Vevő PWA)          manifest-admin.json (Admin PWA)
-sw.js (network-first, Supabase kizárva)
-supabase.js                       kerek-constants.js  kerek-styles.css
+index.html · admin.html · vevo.html · receptura.html · register.html
+manifest.json (Vevő PWA) · manifest-admin.json (Admin PWA)
+sw.js (network-first, Supabase kizárva) · supabase.js · kerek-constants.js · kerek-styles.css
 
-js/admin-data.js          → D, loadAllData(), doLogin(), initApp()
-js/admin-ui.js            → nav(), RENDERS, updatePendingBadge()
-js/admin-baking.js        → sütési naptár, confirmDay(), statusBadge()
-js/admin-orders.js        → renderOrders(), CSV export
-js/admin-catalog.js       → saveProduct(), renderFamilies()
-js/admin-clients.js       → _clientCard(), approveClient(), deleteClient()
-js/admin-messages.js      → renderMessages(), updateMsgBadge()
-js/admin-reports.js, admin-settings.js, admin-help.js, admin-data-audit.js
+── ADMIN (admin.html, 13 modul) ──────────────────────────────
+admin-data.js         → D state, loadAllData(), doLogin(), initApp(), realtime
+admin-ui.js           → nav()/RENDERS/VIEW_TITLES, selectMonth(), badge-ek
+admin-baking.js       → Sütési lista + naptár + „Sütési tervezés" nézet (bpTab/renderBakingPlan/renderBpMonths), confirmDay(), toggleCalDay()
+admin-catalog.js      → Termékek: lista, modal+kép, kód-generálás, saveProduct, családok, archívum, switchCatalogTab
+admin-catalog-plan.js → Havi terv MÁTRIX (per-sütinap elérhetőség: renderMonthPlan, plan*) + termék-visszavonás/override (openWithdrawDialog, wd*)
+admin-orders.js       → renderOrders() összesítő, CSV export
+admin-reports.js      → Elemzések: kimutatások + kategória-bontás (renderReports→renderCategories)
+admin-clients.js      → kliensek, approveClient()/deleteClient()
+admin-messages.js     → üzenetek, msg-badge
+admin-settings.js · admin-data-audit.js · admin-push.js · admin-help.js
 
-js/receptura-data.js      → R, initApp()
-js/receptura-ui.js        → calcScaleFactor(), getFifoPrice()
-js/receptura-recipes.js, modal.js, ai.js, stock.js, production.js,
-  processing.js, levain.js, operational.js, shopping.js, settings.js, help.js
+── VEVŐ (vevo.html, 7 modul) ─────────────────────────────────
+vevo-data.js          → appData, doLogin() (3 mód), initApp()
+vevo-ui.js            → hónap-választók, termék-modal
+vevo-orders-render.js → rendelési pivot/nézet (per-sütinap szűrés)
+vevo-orders-actions.js→ saveOrder() mentés
+vevo-orders-extras.js · vevo-standing.js (állandó rendelés) · vevo-analytics.js
 
-js/vevo-data.js           → appData, doLogin() (3 mód), initApp()
-js/vevo-ui.js             → buildMonthSelectors(), showProductModal()
-js/vevo-orders.js         → renderOrderTable(), renderMobileOrderCards()
-js/vevo-analytics.js, vevo-orders-render/actions/extras.js
+── RECEPTÚRA (receptura.html, 17 modul) ──────────────────────
+receptura-data.js (R, initApp) · ui.js (calcScaleFactor, getFifoPrice) · recipes.js · production.js · processing.js
+receptura-ai.js · suppliers.js · stock.js · shopping.js · ingredients.js · ing-cats.js · recipe-cats.js
+receptura-levain.js · settings.js · modal.js · operational.js · help.js
+
+── MEGOSZTOTT ────────────────────────────────────────────────
+kerek-constants.js    → APP_VERSION, konstansok, közös helperek (getBakingDays, getOrderKey, isProductAvailableOnDay, MONTHS…)
+kerek-styles.css · sw.js · supabase.js
 ```
 
 ---
