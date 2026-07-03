@@ -157,12 +157,12 @@ function renderReports(){
   bdhtml+='</tbody></table>';
   document.getElementById('baking-day-revenue').innerHTML=bdhtml;
   renderFamilyReport();
+  renderCategories();
 }
 
 // ===== CATEGORIES =====
 function renderCategories(){
-  const sel=document.getElementById('cat-month-sel');
-  sel.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===selMonth?'active':''}" onclick="selectMonth(${i})">${mo}</button>`).join('');
+  if(!document.getElementById('cat-stats')) return;
   const y=selYear,m=selMonth;
   const mo=getMonthOrders(y,m);
 
