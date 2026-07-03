@@ -16,11 +16,11 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Admin</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.18"></script>
+<script src="kerek-constants.js?v=2.53.44"></script>
 <script>window.KEREK_MODULE='admin';</script>
-<script src="supabase.js?v=2.53.18"></script>
+<script src="supabase.js?v=2.53.21"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.53.18">
+<link rel="stylesheet" href="kerek-styles.css?v=2.53.37">
 <style>
 :root {
   --teal-dark:  #064C48;
@@ -38,6 +38,7 @@
   --text:       #1A2E31;
   --text-soft:  #5A7A80;
   --border:     #C8DDD9;
+  --bg-soft:    #EFF5F3;
   --shadow:     rgba(6,76,72,0.12);
   --sidebar-w:  220px;
 }
@@ -348,18 +349,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <div class="nav-section-label">Rendelések</div>
     <button class="nav-item" data-action="nav" data-arg1="baking"><span class="icon">🔥</span>Sütési lista</button>
     <button class="nav-item" data-action="nav" data-arg1="orders"><span class="icon">📋</span>Összesítő</button>
+    <button class="nav-item" data-action="nav" data-arg1="baking-plan"><span class="icon">🗓️</span>Sütési tervezés</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Törzsadatok</div>
-    <button class="nav-item" data-action="nav" data-arg1="catalog"><span class="icon">📦</span>Termékkatalógus</button>
+    <button class="nav-item" data-action="nav" data-arg1="catalog"><span class="icon">📦</span>Termékek</button>
     <button class="nav-item" data-action="nav" data-arg1="clients"><span class="icon">👥</span>Kliensek</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Elemzések</div>
-    <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📈</span>Kimutatások</button>
-    <button class="nav-item" data-action="nav" data-arg1="export"><span class="icon">📤</span>Export</button>
-    <button class="nav-item" data-action="nav" data-arg1="data-audit"><span class="icon">🔍</span>Adat-állapot</button>
-    <button class="nav-item" data-action="nav" data-arg1="categories"><span class="icon">🏷</span>Kategória bontás</button>
+    <button class="nav-item" data-action="nav" data-arg1="reports"><span class="icon">📊</span>Elemzések</button>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Modulok</div>
@@ -379,6 +378,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <button id="btn-refresh-all" data-action="refreshAll" style="width:100%;margin-bottom:8px;padding:8px;background:rgba(239,176,54,0.12);color:var(--gold);border:1px solid rgba(239,176,54,0.25);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:'Kodchasan',sans-serif;transition:all 0.2s">🔄 Frissítés</button>
     <button class="btn-logout" onclick="window.location.href='index.html'" style="margin-bottom:6px">← Főmenü</button>
     <button class="btn-logout" data-action="logout">Kilépés</button>
+    <div id="app-version" style="margin-top:8px;font-size:0.62rem;color:var(--teal-mid);text-align:center;letter-spacing:0.5px"></div>
   </div>
 </aside>
 
@@ -496,6 +496,41 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     <div id="catalog-families-view" style="display:none">
       <div id="families-grid"></div>
     </div>
+
+  </div>
+
+  <!-- ===== SÜTÉSI TERVEZÉS (naptár + havi terv) ===== -->
+  <div id="view-baking-plan" class="view">
+    <div class="month-row" id="bp-month-sel"></div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-primary" id="bp-tab-days" onclick="bpTab('days')">📅 Sütési napok</button>
+      <button class="btn btn-sm btn-ghost" id="bp-tab-plan" onclick="bpTab('plan')">🗓️ Havi terv</button>
+    </div>
+    <div id="bp-days-panel">
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Alapértelmezett sütési napok</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="default-baking-days"></div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--text-soft);margin-bottom:10px">Kattints egy napra: <span class="badge badge-green">hozzáad</span> extra sütési napot, <span class="badge badge-red">kivesz</span> egy alap napot. ⚠️ a vevő naptárát is módosítja.</div>
+      <div id="baking-calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.78rem;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--teal)"></div> Alap sütési nap</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--gold)"></div> Extra sütési nap</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:#fee2e2;border:1px solid #fca5a5"></div> Kihagyott nap</div>
+      </div>
+      <div id="baking-cal-summary" style="font-size:0.82rem;color:var(--text-soft)"></div>
+    </div>
+    <div id="bp-plan-panel" style="display:none">
+      <div id="plan-cats" class="flex gap-8 flex-wrap" style="margin-bottom:12px"></div>
+      <div class="flex gap-8 items-center flex-wrap" style="margin-bottom:12px">
+        <span class="text-sm text-soft">Nap hozzáadása:</span>
+        <select id="plan-add-day" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem"></select>
+        <button class="btn btn-ghost btn-sm" onclick="planAddDaySel()">＋ nap</button>
+      </div>
+      <div id="plan-warn" style="display:none;margin-bottom:10px;padding:8px 12px;border-radius:8px;background:#fee2e2;color:#b91c1c;font-size:0.85rem"></div>
+      <div id="plan-scroller" style="overflow:auto;max-height:560px;border:1px solid var(--border);border-radius:12px;background:var(--bg-soft)"></div>
+      <div class="text-sm text-soft" style="margin-top:12px">Cella: sül / nem sül · <b>termék nevére</b> = egész hónap · <b>nap fejlécére</b> = az adott nap · 🔒 lezárt nap</div>
+    </div>
   </div>
 
   <!-- ===== CLIENTS ===== -->
@@ -537,6 +572,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== REPORTS ===== -->
   <div id="view-reports" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
   <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
     <button class="btn btn-ghost btn-sm" data-action="toggleAnnualSummary" id="annual-toggle-btn">📊 Éves összesítő</button>
   </div>
@@ -564,11 +604,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
       </div>
       <div class="card-body" id="family-report-body"></div>
     </div>
-  </div>
-
-  <!-- ===== CATEGORIES ===== -->
-  <div id="view-categories" class="view">
-    <div class="month-row" id="cat-month-sel"></div>
+    <div class="card mt-20"><div class="card-head"><div class="card-title">🏷 Kategória bontás</div></div></div>
     <div class="grid-4 mb-20" id="cat-stats"></div>
     <div class="grid-2">
       <div class="card">
@@ -588,6 +624,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   <!-- ===== EXPORT ===== -->
   <div id="view-export" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
     <div class="grid-2 mb-20">
       <div class="card">
         <div class="card-head"><div class="card-title">👥 Vevők exportálása</div></div>
@@ -756,36 +797,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
     </div>
 
     <div class="settings-section">
-      <div class="settings-head" onclick="toggleSettings(this)">📅 Sütési naptár <span style="margin-left:auto">▾</span></div>
-      <div class="settings-body open" id="baking-calendar-body">
-        <div class="form-row" style="margin-bottom:16px">
-          <div class="form-group">
-            <label>Alapértelmezett sütési napok</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="default-baking-days"></div>
-          </div>
-        </div>
-        <div class="sep"></div>
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-          <div class="form-group" style="flex:0 0 auto">
-            <label>Hónap</label>
-            <select id="cal-month-sel" onchange="renderBakingCalendar()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none"></select>
-          </div>
-          <div style="flex:1;font-size:0.82rem;color:var(--text-soft);padding-top:18px">
-            Kattints egy napra a hónapban: <span class="badge badge-green">hozzáad</span> extra sütési napot, <span class="badge badge-red">kivesz</span> egy alap sütési napot.
-          </div>
-        </div>
-        <div id="baking-calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px"></div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.78rem;margin-bottom:14px">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--teal)"></div> Alap sütési nap</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:var(--gold)"></div> Extra sütési nap</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:#fee2e2;border:1px solid #fca5a5"></div> Kihagyott nap</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:4px;background:#f3f4f6;border:1px solid #e5e7eb"></div> Normál nap</div>
-        </div>
-        <div id="baking-cal-summary" style="font-size:0.82rem;color:var(--text-soft)"></div>
-      </div>
-    </div>
-
-    <div class="settings-section">
       <div class="settings-head" onclick="toggleSettings(this)">🔔 Értesítések <span style="margin-left:auto">▾</span></div>
       <div class="settings-body">
         <div class="toggle-row">
@@ -806,6 +817,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 
   </div><!-- main-pad -->
   <div id="view-data-audit" class="view">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="reports">📈 Kimutatások</button>
+      <button class="btn btn-sm btn-ghost" data-action="nav" data-arg1="export">📤 Export</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg1="data-audit">🔍 Adat-állapot</button>
+    </div>
     <div id="view-data-audit-content"></div>
   </div>
   <div id="view-audit-log" class="view"></div>
@@ -984,17 +1000,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.82rem;}
 </div>
 <div id="toast"></div>
 
-<script src="js/admin-data.js?v=2.53.23"></script>
-<script src="js/admin-data-audit.js?v=2.53.18"></script>
-<script src="js/admin-ui.js?v=2.53.20"></script>
-<script src="js/admin-messages.js?v=2.53.18"></script>
-<script src="js/admin-baking.js?v=2.53.20"></script>
-<script src="js/admin-orders.js?v=2.53.19"></script>
-<script src="js/admin-catalog.js?v=2.53.18"></script>
-<script src="js/admin-clients.js?v=2.53.18"></script>
-<script src="js/admin-reports.js?v=2.53.18"></script>
-<script src="js/admin-help.js?v=2.53.18"></script>
-<script src="js/admin-push.js?v=2.53.18"></script>
-  <script src="js/admin-settings.js?v=2.53.18"></script>
+<script src="js/admin-data.js?v=2.53.35"></script>
+<script src="js/admin-data-audit.js?v=2.53.21"></script>
+<script src="js/admin-ui.js?v=2.53.43"></script>
+<script src="js/admin-messages.js?v=2.53.21"></script>
+<script src="js/admin-baking.js?v=2.53.42"></script>
+<script src="js/admin-orders.js?v=2.53.23"></script>
+<script src="js/admin-catalog.js?v=2.53.41"></script>
+<script src="js/admin-clients.js?v=2.53.21"></script>
+<script src="js/admin-reports.js?v=2.53.44"></script>
+<script src="js/admin-help.js?v=2.53.21"></script>
+<script src="js/admin-push.js?v=2.53.21"></script>
+  <script src="js/admin-settings.js?v=2.53.42"></script>
 </body>
 </html>

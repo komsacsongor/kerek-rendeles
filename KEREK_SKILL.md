@@ -1,6 +1,6 @@
 ---
 name: kerek-workflow
-description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.48.2. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
+description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.53.11 (push prodon élesben; v2.51/v2.52 staging-only). Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
 ---
 
 # KEREK – Fejlesztési Skill (lean)
@@ -65,7 +65,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Aktuális verzió** | **v2.48.2 (2026-06-12)** |
+| **Aktuális verzió** | **v2.53.11 (2026-06-23)** — prod push élesben; v2.51/v2.52 staging-only |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ Token NE legyen a SKILL.md-ben (push-blokk a secret-detektor miatt). Claude memóriából vedd.
@@ -253,6 +253,27 @@ getKey(month, year)  → "2026-4"     // vevo — FORDÍTOTT sorrend!
 // dateStr: MINDIG local date, soha toISOString() → timezone bug
 ```
 
+### Biztonsági lockdown — admin-data EF + kData (SEC, v2.50+)
+- Az anon kulcs **PUBLIKUS** (repo + kliens-JS) → minden RLS-nyitott tábla bárkinek elérhető. Valódi védelem: anon-hozzáférés szűkítése + műveletek **EF (service_role)** mögé. Anon-kulcs rotálás NEM segít.
+- `admin-data` EF: authentikált PostgREST-proxy — modul-jelszó (SHA-256 vs `admin_secrets`, admin-fallback) + tábla/metódus **whitelist** + service_role továbbít. `kData` kliens-helper tükrözi a `sb`-t, az EF-en át (jelszó: `window._kerekPw`, login után memóriában).
+- Fázis 1 = admin/receptúra-only táblák EF mögé (**suppliers kész**). Hátra: recipes/IP, ingredients, gyártás → Fázis 2 vevő-PII → Fázis 3 katalógus. Terv: `SECURITY_AUDIT.md`.
+- ⚠️ Új EF-nél a CORS `Allow-Headers` fedje a tényleges kliens-fejléceket (`apikey` is!), különben a preflight bukik → "Failed to fetch".
+
+### Push notification rendszer (v2.53.x — prodon élesben)
+
+**Architektúra**: feliratkozás (`vevo-data.js` / `admin-settings.js`, azonos VAPID public key, `client_id='ADMIN'` az adminra) → `push_subscriptions` → küldő a **`dynamic-service` EF** (RFC 8291 `aes128gcm` titkosítás + RFC 8292 VAPID JWT; a 410/404 endpointokat self-clean törli) → `sw.js` push handler → `showNotification`. Minden trigger a `sendPushToClient(clientId, type, title, body)` / `sendPushBroadcast(...)` helpereken megy (`kerek-constants.js`). Triggerek: `new_order`/`new_client` → `ADMIN` (new_order 60s throttle); `confirmed`/`modified`/`cancelled`/`fulfilled`/`message` + `baking_day`/`product_*`/`admin_broadcast` → vevő.
+
+**VAPID kulcs — env-érzékeny, KRITIKUS**:
+- prod = **eredeti** pár (`BKnbS6hp…` + privát a prod Supabase secretben, ÉP) → meglévő prod feliratkozók NEM kényszerülnek újrafeliratkozásra.
+- staging = **új** pár (`BAuR41Vy…` + `dyU87…`), mert az eredeti PRIVÁT visszanyerhetetlen (csak prod secretként létezett, maszkolt).
+- A kliens `VAPID_PUBLIC_KEY`/`ADMIN_PUSH_VAPID` `location.pathname.includes('/staging/')` alapján választ. A `dynamic-service` mindig `Deno.env.get('VAPID_PRIVATE_KEY'/'VAPID_PUBLIC_KEY')`-ből olvas → MINDKÉT Supabase projektben kell MINDKÉT secret (különben "VAPID env hiányzik" / 403).
+
+**Push env-routing** (`kerek-constants.js`): `PUSH_FN_URL`, `PUSH_ANON` és a broadcast kliens-lekérések `/staging/` detektálással env-érzékenyek — különben a staging push a PRODRA megy (és fordítva).
+
+**SW auto-update** (`kerek-constants.js` reg, v2.53.11): `reg.update()` minden load-on + `controllerchange` → egyszeri `location.reload()`. Enélkül a **telepített PWA SW-je csak teljes app-bezárás/újranyitásra** frissül (hard-refresh NEM elég) → régi badge/ikon ragad.
+
+**Badge vs ikon**: a desktop banner a nagy **`icon`**-t (`icon-192`) mutatja, a telefon a kis **`badge`**-et (`badge-96`) — KÉT KÜLÖN kép, külön kell javítani. A notification `icon`/`badge` URL-en `?v=` cache-bust (HTTP-cache megkerülés).
+
 ### Mobile vs Desktop
 ```javascript
 function isMobile() { return window.innerWidth <= 640; }
@@ -270,6 +291,31 @@ function isMobile() { return window.innerWidth <= 640; }
 .mob-locked input { pointer-events: none; opacity: 0.5; }
 /* ⚠️ NE tedd pointer-events:none az egész .mob-locked divre! */
 ```
+
+### UI koherencia — paletta, táblázatok, kiemelések (KÖTELEZŐ minden modulra)
+**Elv:** finom kiemelés. A szín információt hordoz, nem dekoráció — világos tint + vékony keret + színes ikon/szöveg, NEM nagy telített felület.
+
+**Csak `:root` tokent használj, soha ne hardcode hexet.** A tokenek MINDEN HTML saját inline `:root`-jában külön szerepelnek (admin/vevo/receptura), és ez felülírja a `kerek-styles.css`-t → új token felvételekor MIND a 4 helyre (css + 3 HTML) tedd be. (Tanulság: `--bg-soft` sokáig sehol sem volt definiálva → mindenhol átlátszó volt; v2.53.37-ben pótolva `#EFF5F3`.)
+
+**Szemantikus színek (de-facto, a kódban egységes):**
+- Aktív / „sül" / elsődleges → kiemelés `--teal`, tint háttér `--teal-pale`, szöveg/ikon `--teal-dark`.
+- Extra / figyelem / kiegészítő gomb → `--gold`, `--gold-dark`.
+- Veszély / törölve / elmarad / visszavonva → háttér `#fee2e2`, szöveg `#b91c1c`, keret `#fca5a5` (projekt de-facto piros — amíg nincs `--danger*` token).
+- Semleges → `--text`, halvány `--text-soft`, keret `--border`, lágy háttér `--bg-soft`, off-white `--cream`.
+
+**Táblázat-konvenció — KÉT család (koherencia!):**
+- **(1) Adat / kimutatás** → `class="tbl"`: fejléc `--slate` háttér + `--cream` szöveg (pénzügy, riportok, listák).
+- **(2) Beállító / tervező** (pl. Havi terv, sütés) → fejléc **solid `--teal-dark` háttér + `--cream` szöveg** (párhuzam az adat-tábla `--slate`+`--cream`-jével, csak teal hue-val). ⚠️ A `--teal-pale` a **kiválasztott/bepipált cella** tintje — ezért a fejléc NEM lehet teal-pale, különben összeolvad a cellákkal. Mai nap kiemelés a sötét fejlécen: `--gold` pill.
+- Közös: konténer `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér; sorok közt `1px var(--border)`.
+- Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky = freeze-pane); a sticky fejléc a család színét kapja, az első (termék)oszlop fehér.
+- Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ✓.
+- Kiemelés: „ma" = `--teal` pill fehér szöveggel; hétvége `--gold-dark`; lezárt/múlt `--bg-soft` + 🔒.
+- Üres állapot: középre igazított `--text-soft` üzenet.
+
+**Chip/szűrő/gomb:** aktív `btn-primary`, inaktív `btn-ghost`, kis méret `btn-sm`.
+**Státusz-jelölés:** kis színes pötty/ikon + rövid felirat, NEM nagy háttérsáv.
+
+**Minta-komponens (freeze-pane mátrix):** `renderMonthPlan()` (admin-catalog.js) — ez a referencia a jövőbeli rácsos táblákhoz.
 
 ### PWA architektúra (v2.43.x végleges)
 
@@ -423,6 +469,14 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
 | Új feature közvetlen main-be push | STAGING-FIRST: `git checkout staging` legyen első parancs |
 | Edge Function deploy hardkódolt listával | `deploy-edge-functions.yml` auto-felismeri `supabase/functions/*/`-t — új EF ne maradjon ki (404 → néma fetch-hiba) |
 | Jelszó `settings`-be írása / kliens-oldali compare | Jelszavak az `admin_secrets`-ben; írás csak `admin-set-password` EF-en át, validálás `admin-auth`-on (`module` param); alfanumerikus jelszó |
+| Bulk `upsert` tömb eltérő kulcsokkal | `PGRST102 object keys must match` — `undefined` érték kiejti a kulcsot (`JSON.stringify`); normalizálj + érvénytelen tételt szűrj (uniform kulcsok) |
+| Orders betöltés `o.qty` | NEM LÉTEZIK — az oszlop `quantity` → `o.quantity` |
+| EF CORS `Allow-Headers` hiányos | `authorization` (+`apikey`) is kell, különben preflight → "Failed to fetch" (minden push csendben bukik) |
+| Telepített PWA SW frissítése hard-refreshre | NEM frissül — `reg.update()` + `controllerchange` reload kell; vagy teljes app-bezárás |
+| Notification `icon` és `badge` keverése | Desktop a nagy `icon`-t, telefon a kis `badge`-et mutatja — két külön kép |
+| VAPID privát kulcs "valahol megvan" | Supabase ÉS GitHub secret MASZKOLT — visszanyerhetetlen; ha elveszett, új pár kell |
+| Push küldés env-keveredés (staging→prod) | `PUSH_FN_URL`/`PUSH_ANON`/broadcast-lekérés legyen `/staging/`-detektált; teszt előtt fixáld: melyik env + melyik eszköz |
+| Visszautasítás (`cancelled`) utáni újrarendelés nem látszik | A status-reset feltétele tartalmazza a `cancelled`-et is → `pending` (de NEM `fulfilled`-et) |
 
 ---
 
@@ -585,6 +639,11 @@ display:block; margin:0 auto; padding-bottom:4px
 ```
 Plus a height-et kicsivel emeld: 80→84px (admin/receptura), 72→76px (vevő), 100→104px (index).
 
+**Brand asset források** (`/mnt/project/`, ikon/badge generáláshoz):
+- `Asset_93x.png` (952×1288) = **logó** (pontozott virág-mandala + „KERƏK" felirat). ⚠️ A jobb szélén egy **tömör fehér sáv-artefakt** (931–951. px) — bbox-nál ki kell szűrni (>88% fehér oszlop), különben függőleges vonal a badge-en.
+- `Asset_123x.png` (1120×1092) = **sűrű mandala** (kenyér/zöldség motívumok, szöveg nélkül) — túl részletes badge-méretben.
+- `app ikon`/`notif icon` = `icon-192/512` (a **logó** teal `#064C48` háttéren, ~16% padding), `badge` = `badge-96` (átlátszó, fehér logó-sziluett). A felhasználó a **logót** (Asset_93x) kéri, nem a sűrű mandalát.
+
 ---
 
 ## 17. Nyitott bugok
@@ -603,7 +662,6 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 
 | # | Feladat | Prioritás |
 |---|---|---|
-| **SEC** | **Per-vevő adatvédelem (B irány)** — lásd a szekció utáni ⚠️ blokkot | 🔴 FONTOS, később |
 | **M0** | Mértékegység támogatás (`unit`, `unit_to_g_ratio`) | 🔴 Sürgős |
 | **M1** | Bevásárló lista folytatás (overrides, wizard, history) | 🟡 Folytatás |
 | **S2** | EOQ + MOQ pénzügyi optimalizáció | 🟢 Új session |
@@ -616,25 +674,14 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 
 **✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7 refactor) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
 
-### ⚠️ SEC — Per-vevő adatvédelem (B irány) — FONTOS, később
-
-**Probléma:** a vevő a publikus anon-kulccsal dolgozik (benne a kiszolgált JS-ben, DevTools Network-ből triviálisan kiolvasható — a Supabase-modellben ez szándékosan publikus). A jelenlegi RLS művelet-szinten szigorított (receptúra/gyártás/alapanyag/beszállító **service_role-only lezárva**; vevő-oldalon nincs kliens-DELETE, settings-write, messages-UPDATE stb.), **DE nincs per-vevő sor-szintű szűrés**: aki kinyeri a kulcsot, elvileg **olvashatja ÉS írhatja BÁRMELY vevő adatát**:
-- olvasás: `clients` (nevek + **email + telefonszám**), `orders` (teljes rendeléstörténet), `messages` (privát üzenetek)
-- írás: hamis/módosított/törölt rendelés, katalógus-módosítás, státusz-állítás
-Zárt, meghívásos vevőkörnél a valós fenyegetettség **alacsony-közepes** (szándékos, hozzáértő támadó kell), de a hozzáférés akkor **teljes**. Kulcs-elrejtés/obfuszkálás nem véd (a hálózati kérés így is látszik).
-
-**Megoldás — B irány (eldöntve, halasztva):** vevő EF write-proxy a receptúra `kData`/`admin-data` mintájára — egy `vevo-data` EF (service_role) validálja a vevő tokenjét és `client_id`-re szűkítve végez műveletet; az olvasásokat is ezen kell átterelni a sor-szintű szűréshez; utána a vevő-táblák service_role-only-ra zárhatók. Marad a jelenlegi meghívásos belépés.
-
-**Skálázáskor / webshopnál:** áttérés **A irányra (Supabase Auth)** — `auth.uid()`-alapú RLS, standard megoldás. Költség 1000 kliensnél is **0** (Auth: 50k MAU free / 100k Pro; EF: 500k hívás free / 2M Pro). Tudatos döntés: **B most halasztva** (webshop előtt kötelező), **A a webshop-fázisban**.
-
 ---
 
-## 19. Aktuális állapot (2026-07-01)
+## 19. Aktuális állapot (2026-06-23)
 
-- **Production**: v2.53.23 — állandó rendelés (per-termék havi szabály), admin sárga-badge fix (jövőbeli hónapok is), RLS biztonsági hardening (receptúra/gyártás/alapanyag/beszállító **service_role-only lezárva** + vevő-oldali művelet-szigorítás), audit_log INSERT policy.
-- **Staging**: v2.53.31-sec — a fentiek + receptúra-modul munka (M0 mértékegység `unit`/`unit_to_g_ratio` + recept-javítások). **Validálásra + prod-portra vár** — a felhasználó szándékosan tartja vissza prodból.
-- **Legutóbbi session**: RLS audit + hardening mindkét környezetben (staging+prod), állandó rendelés feature élesben, audit_log regresszió javítva, SEC/B irány feljegyezve (18. szekció).
-- **Vár**: (1) receptúra staging→prod port a felhasználó szavára; (2) per-sütinap termékkatalógus (következő feature); (3) SEC/B irány per-vevő biztonság (halasztva, webshop előtt kötelező); (4) DB reset go-live előtt.
+- **Production (main)**: **v2.53.11** — **push rendszer teljesen javítva és élesben** (RFC 8291 titkosítás + CORS + env-aware kulcs/routing + logó badge/ikon + SW auto-update). Mellékesen: PGRST102 vevő rendelés-bug + visszautasítás-utáni újrarendelés (`cancelled`→`pending`) javítva. `checkout@v5` (Node 24).
+- **Staging**: v2.53.11 + **v2.51.0** (recept-szinkron) + **v2.52.0** (másodlagos mértékegység) — utóbbi kettő **STAGING-ONLY, validálatlan**, prodra NEM ment (szelektív merge: csak a push ment ki, mert a v2.51/v2.52 a `kerek-constants.js`-ben átfedt a push-sal, de a receptúra-fájlokat kihagytam).
+- **main↔staging DIVERGENS**: push a main-en, v2.51/v2.52 csak stagingen. A jövőbeli v2.51/v2.52 merge tiszta lesz (a push-fájlok azonosak mindkét branchen).
+- **Vár**: iOS push teszt (Apple-eszköz híján); v2.51/v2.52 staging-validálás + prod SQL-ek (`recipes.product_id` backfill; `ingredients alt_unit/alt_factor` ALTER) → kombinált merge; deaktivált vevők végleges törlése (SQL kész, futtatás prod+staging); SEC remediáció / RLS (suppliers ERROR + ~64 warning); mértékegység 2b (hidratáció-% + üzemi nézet db); `toggleAdminPush` kulcs-eltérés bugfix (csak kulcsváltáskor, prodot nem érinti).
 
 ---
 

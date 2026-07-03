@@ -1,7 +1,6 @@
 // ===== SETTINGS =====
 function renderSettings(){
   document.getElementById('s-lang').value=D.settings?.lang||'hu';
-  initBakingCalendar();
   document.getElementById('s-currency').value=D.settings?.currency||'lej';
   document.getElementById('s-conditions').value=D.helpConditions||'';
   document.getElementById('s-delivery').value=D.helpDelivery||'';

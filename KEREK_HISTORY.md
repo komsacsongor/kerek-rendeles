@@ -34,6 +34,11 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.46.0** ⭐ | 2026-06-12 | **Auto-zárás 18:00**: `auto-confirm-orders` EF + vevő-push, `auto-confirm-cron.yml` (`0 16 * * *` UTC) |
 | **v2.47.x** | 2026-06-12 | **P1 sütési log**: per-recept rendelt vs sütött (`production_logs` order/extra/experimental), 📒 napló + per-rendelő checklist; recept-leírás dropdown az Üzemi nézetben |
 | **v2.48.x** ⭐ | 2026-06-12 | **Modul-jelszó kezelő**: admin UI + `admin-set-password` EF + `admin-auth` modul-param, receptúra biztonságos login; admin jelszó-bugfix (settings→admin_secrets); edge-deploy auto-felismerés; P1 önellenőrzés fixek (PostgREST AND, helyi dátum) |
+| **v2.49.x** | 2026-06-18 | **M0 natív mértékegység**: alapanyagonként `unit` (g/kg/ml/l/db), bázis-tárolás g/db, pontos ×1000 váltás; egység-választó modal, megjelenítés/bevételezés/ár-szerkesztő/CSV egységben; `\${}` backslash-bug fix a stock-ban |
+| **v2.50.0** ⭐ | 2026-06-18 | **SEC Fázis 1 (suppliers pilot)**: `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist) + `kData` kliens-helper; receptúra suppliers EF mögé; `suppliers` anon-lezárva; EF CORS `apikey` fix; CI: push-trigger eltávolítva + deploy-loop fail-fast |
+| **v2.51.0** | 2026-06-18 | **Recept↔termék ár/törlés szinkron**: `products.price` az egyetlen igazság-forrás (saveRecipe beolvassa az ár-mezőt, modal a linkelt termék árát tölti, meglévő ár megőrződik, dup-check linkelést ajánl, törlés feloldja a product_id-t névből) — *staging-only, validálatlan* |
+| **v2.52.0** | 2026-06-18 | **Másodlagos mértékegység**: alapanyagonként opcionális `alt_unit`/`alt_factor`; `recipeAmountToGrams` egység-tudatos aggregáció (db→g) — *staging-only, validálatlan* |
+| **v2.53.x** ⭐ | 2026-06-22..23 | **PUSH RENDSZER TELJES JAVÍTÁS (prodon élesben)**: a push SOHA nem ment — két gyökérok: (1) `dynamic-service` nem-szabványos HKDF → újraírva RFC 8291 `aes128gcm` + RFC 8292 VAPID; (2) EF CORS `Allow-Headers` hiányos (`authorization`) → "Failed to fetch". + env-aware VAPID kulcs (prod=eredeti `BKnbS6hp` ép pár, staging=új `BAuR41Vy`, mert az eredeti privát visszanyerhetetlen) + env-routing (`PUSH_FN_URL`/`PUSH_ANON`/broadcast-lekérés `/staging/` detektálással) + admin „Teszt értesítés" gomb + logó badge/ikon (Asset_93x, a forrásbeli jobb-széli sáv-artefakt levágva) + SW auto-update (`reg.update()`+`controllerchange` reload). **Szelektív merge**: csak a push ment prodra (v2.51/v2.52 stagingen maradt). Mellékes bugfixek: PGRST102 (orders `o.qty`→`o.quantity` + uniform-key payload), visszautasítás-utáni újrarendelés (`cancelled`→`pending`), `checkout@v5` (Node 24) |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 
@@ -164,6 +169,21 @@ A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végr
 - Ok: a `admin` jelszó Have I Been Pwned-ban szerepel, Chrome ezért megtagadja a mentést
 - Fix: `navigator.credentials.store()` hívás eltávolítása, KEREK saját localStorage marad
 
+### EF CORS Allow-Headers ≠ kliens-fejlécek → "Failed to fetch" (v2.50.0)
+- Tünet: a `kData`→`admin-data` hívás "Failed to fetch", a lista csendben üres (try/catch elnyeli)
+- Ok: a `kData` `apikey` fejlécet is küld (a `sb`-t tükrözve), de az EF CORS `Allow-Headers`-e csak `content-type, authorization` volt → a böngésző **preflight (OPTIONS)** elbukott
+- Fix: minden kliens-fejléc legyen az `Allow-Headers`-ben (`+ apikey`). Tanulság: új EF-nél a CORS-fejlécek fedjék a tényleges kliens-fejléceket
+
+### Deploy-loop maszkolja a hibát (v2.50.0)
+- Tünet: EF-deploy job "success", pedig egy függvény deploy elbukott (e-mail "exit code 1")
+- Ok: `for ... do supabase functions deploy ...; done` — a step exit-kódja az UTOLSÓ parancsé, így a loop közepi hiba elveszett
+- Fix: fail-fast — hibás függvényeket gyűjteni és a végén `exit 1`. (Node 20→24 forcing csak warning, NEM hibaok — a sikeres futásokon is ott van.)
+
+### Mező betöltve, de mentéskor nem visszaolvasva (v2.51.0, recept ár)
+- Tünet: a recept ár-mező módosítása nem hatott, mentés `suggestedPrice`-szal írta felül a `products.price`-t
+- Ok: `saveRecipe` a `data`-ba NEM olvasta be az `r-product-price`-t → `data.productPrice` undefined → `|| suggestedPrice` mindig a javasoltat vette
+- Fix: mező visszaolvasása; ár csak megadáskor íródik, üresnél meglévő ár megőrződik. Tanulság: ha egy mezőt betöltünk, ellenőrizni kell, hogy mentéskor vissza is olvasódik-e
+
 ---
 
 ## 4. DB takarítási történet
@@ -286,15 +306,18 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 
 **✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
 
-### 🐞 Ismert hibák — megoldandó (recept↔termék szinkron, pre-existing)
-A receptúra a `recipes.product_price` mezőt kezeli, az admin viszont a `products.price`-t — emiatt:
-- **Ár 0 / nem módosul:** meglévő (admin-definiált) recept ára 0-ként jön a receptúrában (a `recipes.product_price` üres), és a módosítás a recept-sorba megy, nem az admin termékbe.
-- **Törlés nem szinkronizál:** receptúrában recept-törlés a recept-sort törli, de az admin **terméket nem** (új, receptúrában létrehozott receptnél igen — onnan az aszimmetria).
-- **Teendő:** fel kell térképezni az admin↔receptúra ár-írás/olvasás útvonalát és a kívánt szinkron-irányt, majd egységesíteni (egy authoritatív ár-forrás + kétirányú törlés-szinkron).
+### ✅ Recept↔termék szinkron — JAVÍTVA v2.51.0 (ellenőrzés alatt)
+Gyökérok volt: a modal a `recipes.product_price`-t kezelte, az admin a `products.price`-t; ráadásul `saveRecipe` nem is olvasta be az ár-mezőt → minden mentés `suggestedPrice`-szal írta felül. Megoldás: **`products.price` az egyetlen igazság-forrás** — (1) saveRecipe beolvassa az ár-mezőt; (2) modal a linkelt termék árát tölti (névfeloldás fallback); (3) ár csak megadáskor íródik, meglévő termék ára megőrződik; (4) dup-check linkelést ajánl blokkolás helyett; (5) törlés feloldja a `product_id`-t névből, ha hiányzik. + egyszeri migrációs SQL: legacy receptek `product_id` linkelése névegyezésből.
 
 ### 🔒 Biztonsági lockdown (SEC) — folyamatban
-- **Fázis 1 (suppliers pilot) — kész:** `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist), a receptúra suppliers-hívásai EF-re terelve, `suppliers` anon-lezárva (RLS). Minta a többi admin/receptúra-only táblához.
+- **Fázis 1 (suppliers pilot) — kész (prod ellenőrzés alatt):** `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist), a receptúra suppliers-hívásai EF-re terelve, `suppliers` anon-lezárva (RLS). Minta a többi admin/receptúra-only táblához.
 - **Hátra:** Fázis 1 kiterjesztése (recipes/IP, ingredients, gyártás stb. EF mögé) → Fázis 2 vevő-PII (`clients`/`orders`/`messages`) `client-data` EF-fel → Fázis 3 katalógus. Részletek: `SECURITY_AUDIT.md`.
+
+### ⏳ Ellenőrzésre vár (felhasználói teszt + SQL)
+- **SEC Fázis 1 PROD:** beszállító felvétele (EF-úton), majd lezáró SQL a prod Supabase-en (`ALTER TABLE suppliers ENABLE RLS` + `REVOKE anon`), Advisor ERROR eltűnés.
+- **v2.51.0 recept-szinkron STAGING:** migrációs SQL futtatása + a 6 pontos teszt-lista; utána prodra (merge + Pages + migráció prodon).
+- **v2.52.0 egység 2a STAGING:** `ALTER TABLE ingredients ADD alt_unit/alt_factor` + teszt (Tojás L db+ml/70, recept tömeg/nedvesség/költség). v2.51-gyel együtt mehet prodra.
+- **Node 20→24 deprecation:** `actions/checkout@v4`, `supabase/setup-cli@v1` action-verziók bumpja (warning, nem sürgős; csak deploy-teszttel együtt).
 
 ---
 

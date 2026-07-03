@@ -66,6 +66,7 @@ async function loadAllData() {
             marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
             allergens: p.allergens || '', nutrition: p.nutrition || null,
             familyId: p.product_family_id || null,
+            baking_dows: p.baking_dows || null,
             deleted_at: null
           }));
         // Archív termékek külön cache-be
@@ -93,6 +94,15 @@ async function loadAllData() {
         D.monthlyActiveProducts[k].push(r.product_id);
       });
     }),
+    sb.query('product_day_exceptions', { limit: 5000 }).then(exs => {
+      D.productDayExceptions = {};
+      (exs||[]).forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        if (!D.productDayExceptions[k]) D.productDayExceptions[k] = {};
+        if (!D.productDayExceptions[k][r.product_id]) D.productDayExceptions[k][r.product_id] = {};
+        D.productDayExceptions[k][r.product_id][r.day] = r.available;
+      });
+    }).catch(() => { D.productDayExceptions = D.productDayExceptions || {}; }),
     sb.query('orders', { limit: QUERY_LIMIT_ORDERS }).then(orders => {
       D.orders = {};
       (orders||[]).forEach(r => {
@@ -237,7 +247,7 @@ async function doLogin(){
     }
 
     if (data?.success === true) {
-      window._kerekPw = pw; // Fázis1-sec: kData (admin-data EF) jelszava
+      window._kerekPw = pw; // v2.53.17-sec: kData (admin-data EF) jelszava
       document.getElementById('login-screen').style.display='none';
       await loadAllData();
       initApp();

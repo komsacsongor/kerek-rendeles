@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.23 (2026-06-30)';
+const APP_VERSION = 'v2.53.44-sec (2026-07-01)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -230,6 +230,18 @@ async function auditLog(action, entityName='', details='') {
   try {
     await sb.insert('audit_log', { action, entity_name: entityName, details });
   } catch(e) { console.warn('Audit log hiba:', e.message); }
+}
+
+// ===== Per-sütinap termék-elérhetőség (hibrid: alap hét-nap + havi kivétel) =====
+// product.baking_dows: int[] (getDay 0..6) VAGY null/üres = minden sütőnapon elérhető
+// day: hónap napja (1..31), dow: getDay() 0..6
+// exForMonth: { product_id: { day: available_bool } } vagy null (az adott év-hó kivételei)
+function isProductAvailableOnDay(product, day, dow, exForMonth) {
+  const ex = exForMonth && exForMonth[product.id];
+  if (ex && Object.prototype.hasOwnProperty.call(ex, day)) return !!ex[day];
+  const dows = product && product.baking_dows;
+  if (!dows || !dows.length) return true; // nincs alap hét-nap = minden sütőnap
+  return dows.includes(dow);
 }
 
 // ===== PUSH NOTIFICATION SENDER =====

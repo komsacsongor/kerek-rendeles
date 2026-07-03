@@ -420,24 +420,32 @@ function toggleBakingDay(el){
 }
 
 // ===== BAKING CALENDAR =====
-function initBakingCalendar(){
-  const sel=document.getElementById('cal-month-sel');
-  if(!sel) return;
-  const now=new Date();
-  sel.innerHTML='';
-  // Show current month ±3 months
-  for(let i=-1;i<=4;i++){
-    const d=new Date(now.getFullYear(), now.getMonth()+i, 1);
-    const val=`${d.getFullYear()}-${d.getMonth()}`;
-    const opt=document.createElement('option');
-    opt.value=val;
-    opt.textContent=MONTHS[d.getMonth()]+' '+d.getFullYear();
-    if(i===0) opt.selected=true;
-    sel.appendChild(opt);
-  }
-  renderDefaultDayToggles();
-  renderBakingCalendar();
+function renderBpMonths(){
+  const el=document.getElementById('bp-month-sel'); if(!el) return;
+  el.innerHTML=MONTHS.map((mo,i)=>`<button class="month-btn ${i===catalogMonth?'active':''}" onclick="bpSelectMonth(${i})">${mo}</button>`).join('');
 }
+function bpSelectMonth(m){ catalogMonth=m; renderBpMonths(); bpTab(_bpTab); }
+
+// ===== SÜTÉSI TERVEZÉS nézet (naptár + havi terv, közös hónap) =====
+let _bpTab = 'days';
+function renderBakingPlan(){
+  if(typeof catalogMonth!=='number' || catalogMonth<0){ const n=new Date(); selYear=n.getFullYear(); catalogMonth=n.getMonth(); }
+  renderBpMonths();
+  renderDefaultDayToggles();
+  bpTab(_bpTab);
+}
+function bpTab(which){
+  _bpTab=which;
+  const dp=document.getElementById('bp-days-panel'), pp=document.getElementById('bp-plan-panel');
+  const td=document.getElementById('bp-tab-days'), tp=document.getElementById('bp-tab-plan');
+  if(dp) dp.style.display=which==='days'?'block':'none';
+  if(pp) pp.style.display=which==='plan'?'block':'none';
+  if(td) td.className='btn btn-sm '+(which==='days'?'btn-primary':'btn-ghost');
+  if(tp) tp.className='btn btn-sm '+(which==='plan'?'btn-primary':'btn-ghost');
+  if(which==='days'){ if(typeof renderBakingCalendar==='function') renderBakingCalendar(); }
+  else { if(typeof renderMonthPlan==='function') renderMonthPlan(); }
+}
+function bpMonthChange(){ /* elavult: month-row váltotta fel (bpSelectMonth) */ }
 
 function renderDefaultDayToggles(){
   const days=['V','H','K','Sze','Cs','P','Szo'];
@@ -458,9 +466,7 @@ async function toggleDefaultDay(dow){
 }
 
 function renderBakingCalendar(){
-  const sel=document.getElementById('cal-month-sel');
-  if(!sel) return;
-  const [y,m]=sel.value.split('-').map(Number);
+  const y=selYear, m=catalogMonth;
   const key=`${y}-${m}`;
   if(!D.bakingCalendar) D.bakingCalendar={};
   if(!D.bakingCalendar[key]) D.bakingCalendar[key]={extra:[],removed:[]};

@@ -18,9 +18,9 @@ async function refreshAll() {
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
   dashboard:'Dashboard', messages:'Üzenetek', baking:'Sütési lista',
-  orders:'Rendelések összesítő', catalog:'Termékkatalógus', clients:'Kliensek',
+  orders:'Rendelések összesítő', catalog:'Termékek', clients:'Kliensek',
   'client-detail':'Kliens adatlap', reports:'Kimutatások', categories:'Kategória bontás', settings:'Beállítások', 'audit-log':'Napló',
-  export:'Adatok exportálása', 'data-audit':'🔍 Adat-állapot audit', push:'📢 Push üzenet', 'admin-help':'Súgó'
+  export:'Adatok exportálása', 'data-audit':'🔍 Adat-állapot audit', push:'📢 Push üzenet', 'admin-help':'Súgó', 'baking-plan':'🗓️ Sütési tervezés'
 };
 // Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
 const RENDERS = {
@@ -29,7 +29,8 @@ const RENDERS = {
   reports:()=>renderReports(), categories:()=>renderCategories(), settings:()=>renderSettings(), 'audit-log':()=>renderAuditLog(),
   export:()=>initExportView(), 'client-detail':()=>{ if(clientDetailId) renderClientDetail(); },
   push:()=>renderPushBroadcast(),
-  'data-audit':()=>{ if(typeof renderDataAudit==='function') renderDataAudit(); }
+  'data-audit':()=>{ if(typeof renderDataAudit==='function') renderDataAudit(); },
+  'baking-plan':()=>{ if(typeof renderBakingPlan==='function') renderBakingPlan(); }
 };
 function updatePendingBadge() {
   var pendingClients = 0;
@@ -100,15 +101,17 @@ function nav(id){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
   // v2.36.0 fix: use data-action (M7 refactor) — works with both old onclick and new data-action
+  const hid = ['categories','export','data-audit'].includes(id) ? 'reports' : id;
   document.querySelectorAll('.nav-item').forEach(n=>{
     var act = n.getAttribute('onclick') || '';
     var dataAct = n.getAttribute('data-action') || '';
     var dataArg = n.getAttribute('data-arg1') || '';
-    if (act.includes(`'${id}'`) || (dataAct === 'nav' && dataArg === id)) n.classList.add('active');
+    if (act.includes(`'${hid}'`) || (dataAct === 'nav' && dataArg === hid)) n.classList.add('active');
   });
+  const _av = document.getElementById('app-version'); if(_av && typeof APP_VERSION!=='undefined') _av.textContent = APP_VERSION;
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   // Hide month bar for views with own selector or no months needed
-  const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export'];
+  const HAS_OWN_MONTHS = ['catalog','baking','orders','reports','cat-breakdown','export','baking-plan'];
   const HIDE_MONTHS = ['clients','client-detail','settings','admin-help','push','data-audit'];
   const monthBar = document.getElementById('month-bar');
   if(monthBar) monthBar.style.display = (HAS_OWN_MONTHS.includes(id)||HIDE_MONTHS.includes(id)) ? 'none' : 'flex';

@@ -122,6 +122,9 @@ function renderProductPivot() {
     return;
   }
 
+  // Per-sütinap termékkatalógus: az adott hónap kivételei
+  const exForMonth = (appData.productDayExceptions || {})[`${selectedYear}-${selectedMonth}`] || null;
+
   // Categories
   const cats = getCategories(prods);
   const hasMultiCats = cats.length > 1;
@@ -162,9 +165,13 @@ function renderProductPivot() {
   let html = chipBar + modBanner;
   html += '<div class="pivot-grid">';
   filteredProds.forEach(p => {
+    // Per-sütinap: ehhez a termékhez CSAK az elérhető sütőnapok
+    const prodDays = bakingDays.filter(d => isProductAvailableOnDay(p, d.getDate(), d.getDay(), exForMonth));
+    if (prodDays.length === 0) return; // ezen a hónapon egy sütőnapon sem rendelhető → nem jelenik meg
+
     // Total qty for this product across all baking days (excluding cancelled)
     let prodTotalQty = 0;
-    bakingDays.forEach(d => {
+    prodDays.forEach(d => {
       const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate());
       const st = (appData.orderStatus && appData.orderStatus[k]) || {};
       if (st.status === 'cancelled') return;
@@ -183,7 +190,7 @@ function renderProductPivot() {
       <div class="pivot-day-grid">`;
 
     const _srule = (typeof getStandingRule === 'function') ? getStandingRule(selectedYear, selectedMonth, p.id) : null;
-    bakingDays.forEach(d => {
+    prodDays.forEach(d => {
       const day = d.getDate();
       const dow = d.getDay();
       const dayShort = DAYS_SHORT[dow] || DAYS_HU[dow].slice(0,2);
@@ -287,6 +294,7 @@ function renderMobileOrderCards() {
   const prods = getActiveProds(selectedYear, selectedMonth);
   const days = getDays(selectedYear, selectedMonth);
   const now = new Date();
+  const exForMonth = (appData.productDayExceptions || {})[`${selectedYear}-${selectedMonth}`] || null;
   const container = document.getElementById('mobile-order-cards');
   if(!container) return;
 
@@ -369,6 +377,8 @@ function renderMobileOrderCards() {
     const day = d.getDate();
     const dow = d.getDay();
     const dayName = DAYS_HU[dow];
+    const dayAvailProds = prods.filter(p => isProductAvailableOnDay(p, day, dow, exForMonth));
+    if (dayAvailProds.length === 0) return; // nincs elérhető termék ezen a napon → nap kimarad
     const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
     const hoursLeft = hoursUntil(d);
     const mobOrderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
@@ -402,7 +412,7 @@ function renderMobileOrderCards() {
 
       // Per-day category filter chips
       const dayCat = selectedCategoryByDay[day] || 'all';
-      const dayFilteredProds = dayCat === 'all' ? prods : prods.filter(p => p.category === dayCat);
+      const dayFilteredProds = dayCat === 'all' ? dayAvailProds : dayAvailProds.filter(p => p.category === dayCat);
 
       let catChips = '';
       if (hasMultiCats) {
