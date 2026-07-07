@@ -7,7 +7,7 @@ async function renderPushBroadcast() {
   // Fetch last 10 broadcasts from audit log
   let history = [];
   try {
-    const logs = await sb.query('audit_log', {
+    const logs = await kData.query('audit_log', {
       filter: `action=eq.push_broadcast`,
       order: 'created_at.desc',
       limit: 10

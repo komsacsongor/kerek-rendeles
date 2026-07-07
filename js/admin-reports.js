@@ -251,7 +251,7 @@ async function renderAuditLog() {
   if(!el) return;
   el.innerHTML = '<div style="padding:20px;color:var(--teal)">⏳ Napló betöltése...</div>';
   try {
-    _auditLogs = await sb.query('audit_log', {order:'created_at.desc', limit:500});
+    _auditLogs = await kData.query('audit_log', {order:'created_at.desc', limit:500});
     renderAuditLogTable();
   } catch(e) {
     el.innerHTML = `<div class="card"><p class="text-soft">Napló betöltési hiba: ${esc(e.message)}</p></div>`;

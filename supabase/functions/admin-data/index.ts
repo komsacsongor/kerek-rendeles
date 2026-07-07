@@ -40,6 +40,7 @@ const ALLOWED: Record<string, Record<string, string[]>> = {
     recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
     ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
     ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
+    audit_log: ['GET'],
   },
   gyartas: {},
 }
