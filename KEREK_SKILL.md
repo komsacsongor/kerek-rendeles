@@ -264,7 +264,8 @@ getKey(month, year)  → "2026-4"     // vevo — FORDÍTOTT sorrend!
 ### Biztonsági lockdown — admin-data EF + kData (SEC, v2.50+)
 - Az anon kulcs **PUBLIKUS** (repo + kliens-JS) → minden RLS-nyitott tábla bárkinek elérhető. Valódi védelem: anon-hozzáférés szűkítése + műveletek **EF (service_role)** mögé. Anon-kulcs rotálás NEM segít.
 - `admin-data` EF: authentikált PostgREST-proxy — modul-jelszó (SHA-256 vs `admin_secrets`, admin-fallback) + tábla/metódus **whitelist** + service_role továbbít. `kData` kliens-helper tükrözi a `sb`-t, az EF-en át (jelszó: `window._kerekPw`, login után memóriában).
-- Fázis 1 = admin/receptúra-only táblák EF mögé (**suppliers kész**). Hátra: recipes/IP, ingredients, gyártás → Fázis 2 vevő-PII → Fázis 3 katalógus. Terv: `SECURITY_AUDIT.md`.
+- **Fázis 1 „A" csoport KÉSZ (staging+prod, v2.53.46):** 13 admin/receptúra-only tábla anon-tól **grant-szinten zárva** — `suppliers, recipes, recipe_ingredients, recipe_steps, ingredients, ingredient_families, ingredient_milling_profile, ingredient_batches, processing_batches/inputs/outputs, production_logs, audit_log`. Minden: `DROP POLICY` + `ENABLE RLS` + `REVOKE ALL FROM anon, authenticated` → `rls_on=true, policies=0, anon_grants=0`. Anon REST-fetch → `[]`/401. Az app mindet `kData`/EF-en olvassa. SQL: `kerek_rls_lockdown_revoke.sql`. Hátra: Fázis 2 vevő-PII (clients/orders/messages) → Fázis 3 katalógus (webshop-fázis). Terv: `SECURITY_AUDIT.md`.
+- ⚠️ **EF-DEPLOY KÜLÖN A GIT PUSH-TÓL!** A repo `supabase/functions/**` szerkesztése önmagában NEM élesíti az EF-et (a Pages-deploy csak a statikus oldalt tolja ki). Deploy: `Deploy Edge Functions` workflow — **v2.53.47 óta paths-auto** (`supabase/functions/**` push → main=prod, staging=staging) + manuális dispatch. Korábban csak manuális volt → **napokig elavult élő EF** (repo-whitelist ≠ élő EF): a nem-whitelistezett táblák `forbidden`/`not_configured`-öt adtak, csendben. Új tábla whitelistezése UTÁN mindig EF-deploy kell.
 - ⚠️ Új EF-nél a CORS `Allow-Headers` fedje a tényleges kliens-fejléceket (`apikey` is!), különben a preflight bukik → "Failed to fetch".
 
 ### Push notification rendszer (v2.53.x — prodon élesben)
@@ -603,7 +604,7 @@ komsacsongor.github.io/kerek-rendeles/staging/ → staging Supabase (xgcwxlwjloh
 ### 15.2 GitHub Workflows
 - `deploy.yml` — dual-branch deploy
 - `sync-staging.yml` — heti prod→staging sync (pg_dump → restore → GRANT → cache reload → anonimizáció)
-- `deploy-edge-functions.yml` — **auto-felismeri** a `supabase/functions/*/`-t (v2.48; NE hardkódolj listát!). Jelenleg: admin-auth, admin-set-password, auto-confirm-orders, dynamic-service
+- `deploy-edge-functions.yml` — **auto-felismeri** a `supabase/functions/*/`-t (NE hardkódolj listát!). Funkciók: admin-auth, **admin-data** (kData-proxy), admin-set-password, auto-confirm-orders, dynamic-service. **v2.53.47: paths-auto trigger** (`push` + `paths: supabase/functions/**` → main=prod, staging=staging) + manuális dispatch.
 
 ### 15.3 GitHub Secrets
 | Secret | Mire |
@@ -684,12 +685,13 @@ Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
 
 ---
 
-## 19. Aktuális állapot (2026-06-23)
+## 19. Aktuális állapot (2026-07-07)
 
-- **Production (main)**: **v2.53.11** — **push rendszer teljesen javítva és élesben** (RFC 8291 titkosítás + CORS + env-aware kulcs/routing + logó badge/ikon + SW auto-update). Mellékesen: PGRST102 vevő rendelés-bug + visszautasítás-utáni újrarendelés (`cancelled`→`pending`) javítva. `checkout@v5` (Node 24).
-- **Staging**: v2.53.11 + **v2.51.0** (recept-szinkron) + **v2.52.0** (másodlagos mértékegység) — utóbbi kettő **STAGING-ONLY, validálatlan**, prodra NEM ment (szelektív merge: csak a push ment ki, mert a v2.51/v2.52 a `kerek-constants.js`-ben átfedt a push-sal, de a receptúra-fájlokat kihagytam).
-- **main↔staging DIVERGENS**: push a main-en, v2.51/v2.52 csak stagingen. A jövőbeli v2.51/v2.52 merge tiszta lesz (a push-fájlok azonosak mindkét branchen).
-- **Vár**: iOS push teszt (Apple-eszköz híján); v2.51/v2.52 staging-validálás + prod SQL-ek (`recipes.product_id` backfill; `ingredients alt_unit/alt_factor` ALTER) → kombinált merge; deaktivált vevők végleges törlése (SQL kész, futtatás prod+staging); SEC remediáció / RLS (suppliers ERROR + ~64 warning); mértékegység 2b (hidratáció-% + üzemi nézet db); `toggleAdminPush` kulcs-eltérés bugfix (csak kulcsváltáskor, prodot nem érinti).
+- **Production (main): v2.53.46-sec.** Fázis 2/3 admin-restrukturálás élesben: **„🗓️ Sütési tervezés"** nézet (naptár a Beállításokból + **Havi terv per-sütinap mátrix** + termék-visszavonás/override, közös hónap-gombsor); **„📊 Elemzések"** összevonva (kategória-bontás a Kimutatásokba olvasztva, fül-sorral); „Termékkatalógus"→**„Termékek"**; sidebar **verzió-tag** (cache self-check). **Security Fázis 1 „A" lezárva** (13 tábla grant-lockdown, EF-gated). `admin-catalog.js` bontva → +`admin-catalog-plan.js` (mátrix+override). Teszt-vevők törölve (prod+staging).
+- **Kétlépéses Havi terv modell:** aktiválás a Termékek fülön (`monthly_active_products`), a mátrix CSAK a napi elérhetőséget állítja (`product_day_exceptions`, `available=false` = eltérés); a termék **aktív marad üres napokkal is** (mátrixból nincs aktiválás/deaktiválás).
+- **Receptúra modul: PROD-verzión tartva** (v2.51/v2.52 recept-szinkron + alt_unit STAGING-only, validálatlan). A staging→prod promóciók **szelektíven kihagyják** a 7 receptúra-fájlt (`receptura.html` + `js/receptura-*.js`); a közös fájlok mennek, a receptúra prod-verzión marad. Az **EF-frissítés feloldotta a recept-tesztelést** stagingen.
+- **Promóció-minta (divergens ágak):** staging ⊇ main tartalmilag (a prod-fixek benne vannak) → promóció = `git checkout staging -- .` + a 7 receptúra-fájl visszaállítása régi main-re. ELŐBB ellenőrizd a tartalom-supersetet (kData/standing/PGRST102 jelenléte), NE csak a commit-eltérést.
+- **Vár:** receptúra staging-validálás → promóció (utolsó held-back rész); **DB demo/teszt-adat reset** (go-live előtt); Security Fázis 2 (vevő-PII, webshop); iOS push teszt.
 
 ---
 
