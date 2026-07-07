@@ -19,9 +19,12 @@ on:
           - staging
           - production
         default: staging
-  # v2.50.0: a `push: main` auto-trigger eltávolítva — redundáns volt (a bevett
-  # munkafolyamat a manuális dispatch: staging-first, majd prod), és main-push után
-  # stagingre próbált deployolni, ami felesleges hibás futásokat + e-maileket okozott.
+  # v2.53.47: paths-szűrt auto-trigger — CSAK supabase/functions/** változáskor fut,
+  # így nincs felesleges futás (ez volt a v2.50-es eltávolítás oka). Ág→target:
+  # main→PRODUCTION, staging→STAGING.
+  push:
+    branches: [main, staging]
+    paths: ['supabase/functions/**']
 
 jobs:
   deploy:
@@ -37,7 +40,7 @@ jobs:
       - name: Determine project ref
         id: target
         run: |
-          TARGET="${{ github.event.inputs.target || 'staging' }}"
+          TARGET="${{ github.event.inputs.target || (github.ref_name == 'main' && 'production' || 'staging') }}"
           if [ "$TARGET" = "production" ]; then
             echo "ref=lfaxeihrmiylggahougl" >> $GITHUB_OUTPUT
             echo "label=PRODUCTION" >> $GITHUB_OUTPUT
