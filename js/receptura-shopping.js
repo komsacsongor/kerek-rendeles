@@ -97,14 +97,6 @@ function getShoppingItems(filter) {
 }
 
 // Mértékegység formátum (g vagy kg)
-function fmtQty(grams) {
-  if (grams >= 1000) {
-    const kg = grams / 1000;
-    return `${kg.toLocaleString('hu', { maximumFractionDigits: 2 })} kg`;
-  }
-  return `${Math.round(grams)} g`;
-}
-
 // =============================================================
 // CLIPBOARD MÁSOLÁS
 // =============================================================
@@ -117,7 +109,7 @@ async function copySupplierList(supplierName) {
   const lines = [`Bevásárlás — ${supplierName}`, ''];
   items.forEach(ing => {
     const qty = getRecommendedQty(ing);
-    if (qty > 0) lines.push(`• ${ing.name}: ${fmtQty(qty)}`);
+    if (qty > 0) lines.push(`• ${ing.name}: ${fmtQtyUnit(qty, ing.unit)}`);
   });
   lines.push('', `Összesen ${items.length} tétel — KEREK ${new Date().toLocaleDateString('hu')}`);
   try {
@@ -137,7 +129,7 @@ async function copyAllShoppingList() {
     lines.push(`▸ ${supplier}`);
     items.forEach(ing => {
       const qty = getRecommendedQty(ing);
-      if (qty > 0) lines.push(`  • ${ing.name}: ${fmtQty(qty)}`);
+      if (qty > 0) lines.push(`  • ${ing.name}: ${fmtQtyUnit(qty, ing.unit)}`);
     });
     lines.push('');
   });
@@ -224,13 +216,12 @@ function renderSupplierView(items) {
   let html = '';
   groups.forEach((groupItems, supplierName) => {
     const isOrphan = supplierName.startsWith('⚠️');
-    const totalQty = groupItems.reduce((sum, ing) => sum + getRecommendedQty(ing), 0);
     html += `
       <div style="background:white;border:1px solid ${isOrphan?'#fde68a':'var(--border)'};border-radius:12px;margin-bottom:14px;overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:${isOrphan?'#fffbeb':'var(--cream)'};border-bottom:1px solid ${isOrphan?'#fde68a':'var(--border)'}">
           <div>
             <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1rem">${esc(supplierName)}</div>
-            <div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px">${groupItems.length} tétel · összesen ${fmtQty(totalQty)}</div>
+            <div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px">${groupItems.length} tétel</div>
           </div>
           ${!isOrphan ? `<button class="btn btn-primary btn-sm" data-action="copySupplierList" data-arg1="${esc(supplierName)}" data-tip="Lista vágólapra ehhez a beszállítóhoz">📋 Másol</button>` : `<span style="font-size:0.7rem;color:#b45309">Adj meg beszállítót az alapanyag szerkesztőjében!</span>`}
         </div>
@@ -273,10 +264,10 @@ function renderShoppingItemRow(ing, showSupplier) {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;color:var(--text);font-size:0.92rem">${esc(ing.name)}${showSupplier && supplier !== '—' ? ` <span style="font-weight:400;color:var(--text-soft);font-size:0.75rem">— ${esc(supplier)}</span>` : ''}</div>
         <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">
-          Jelenleg: <b style="color:${urgencyColor}">${fmtQty(stock)}</b>
-          ${min>0?` · Min: ${fmtQty(min)}`:''}
-          ${max>0?` · <span style="color:var(--gold-dark);font-weight:600">Max: ${fmtQty(max)}</span>`:''}
-          · Csomag: ${fmtQty(pkg)}
+          Jelenleg: <b style="color:${urgencyColor}">${fmtQtyUnit(stock, ing.unit)}</b>
+          ${min>0?` · Min: ${fmtQtyUnit(min, ing.unit)}`:''}
+          ${max>0?` · <span style="color:var(--gold-dark);font-weight:600">Max: ${fmtQtyUnit(max, ing.unit)}</span>`:''}
+          · Csomag: ${fmtQtyUnit(pkg, ing.unit)}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
