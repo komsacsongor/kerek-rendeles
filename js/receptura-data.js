@@ -51,6 +51,9 @@ async function reloadReceptData() {
         temp2: r.temp2||180, time2: r.time2||70,
         desc: r.description||'', levainAmount: r.levain_amount||0,
         laborH: r.labor_h||1, electricity: r.electricity||5,
+        setupMin: r.setup_min ?? null, perUnitMin: r.per_unit_min ?? null,
+        bakeMin: r.bake_min ?? null, bakeTempC: r.bake_temp_c ?? null,
+        traysPerUnit: r.trays_per_unit ?? null,
         marketing: r.marketing_desc||'',
         ingredientLabel: r.ingredient_label||'',
         allergens: r.allergens||'',
@@ -102,6 +105,11 @@ async function reloadReceptData() {
       const dbSuppliers = await kData.query('suppliers', {order: 'name'});
       if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') {
         R.suppliers = dbSuppliers.map(mapSupplierDb);
+      }
+      try {
+        const dbEq = await kData.query('equipment', {order:'name', limit:100});
+        R.equipment = (dbEq||[]).map(e => (typeof mapEquipmentDb==='function') ? mapEquipmentDb(e) : e);
+      } catch(e) { console.warn('equipment load:', e.message); R.equipment = R.equipment || [];
       }
     } catch(_) {}
   } catch(e) { console.warn('reloadReceptData:', e.message); }
@@ -194,6 +202,9 @@ async function initApp() {
         temp2: r.temp2||180, time2: r.time2||70,
         desc: r.description||'', levainAmount: r.levain_amount||0,
         laborH: r.labor_h||1, electricity: r.electricity||5,
+        setupMin: r.setup_min ?? null, perUnitMin: r.per_unit_min ?? null,
+        bakeMin: r.bake_min ?? null, bakeTempC: r.bake_temp_c ?? null,
+        traysPerUnit: r.trays_per_unit ?? null,
         marketing: r.marketing_desc||'',
         ingredientLabel: r.ingredient_label||'',
         allergens: r.allergens||'',

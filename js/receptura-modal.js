@@ -30,6 +30,10 @@ function openRecipeModal(id=null) {
   }
     document.getElementById('r-levain-amount').value = r.levainAmount||260;
     document.getElementById('r-labor-h').value = r.laborH||1;
+    const setV=(id,v)=>{ const el=document.getElementById(id); if(el) el.value = (v ?? ''); };
+    setV('r-setup-min', r.setupMin); setV('r-per-unit-min', r.perUnitMin);
+    setV('r-bake-min', r.bakeMin); setV('r-bake-temp', r.bakeTempC);
+    setV('r-trays-per-unit', r.traysPerUnit);
     document.getElementById('r-electricity').value = r.electricity||5;
     if(document.getElementById('r-product-code')) { const el=document.getElementById('r-product-code'); el.value = r.productCode||''; el.placeholder='mentés után generálódik'; }
     // Termékcsalád dropdown feltöltése
@@ -57,7 +61,8 @@ function openRecipeModal(id=null) {
       'r-temp1':'230','r-time1':'20','r-temp2':'185','r-time2':'30',
       'r-levain-amount':'260','r-labor-h':'1','r-electricity':'5'};
     ['r-name','r-base-portion','r-bake-loss','r-unit-weight','r-temp1','r-time1',
-     'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input'].forEach(x=>{
+     'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input',
+     'r-setup-min','r-per-unit-min','r-bake-min','r-bake-temp','r-trays-per-unit'].forEach(x=>{
       document.getElementById(x).value = defaults[x]||'';
     });
     modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];

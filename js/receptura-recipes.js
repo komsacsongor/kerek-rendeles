@@ -284,8 +284,14 @@ function renderCostDetail(r, pieces) {
   let html = `<div class="cost-box">
     <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:10px">Jelenlegi: ${pieces} db</div>
     <div class="cost-row"><span>Nyersanyag</span><span>${c.rawCost.toFixed(2)} lej</span></div>
+    ${c.hasBatchModel ? `
+    <div class="cost-row"><span>Munka (${Math.round(c.bakeInfo.laborMin)} p = fix ${r.setupMin||0} + ${r.perUnitMin||0}/db × ${pieces} db)</span><span>${c.laborCost.toFixed(2)} lej</span></div>
+    <div class="cost-row"><span>Sütő (${c.bakeInfo.loads} sütés × ${c.bakeInfo.bakeMin} p = ${c.bakeInfo.kwh.toFixed(1)} kWh)</span><span>${c.electricityCost.toFixed(2)} lej</span></div>
+    <div class="cost-row"><span>Üzemi rezsi (${(c.bakeInfo.laborMin/60 + c.bakeInfo.ovenH).toFixed(1)} h × ${(typeof shopRate==='function'?shopRate():0).toFixed(2)} lej/h)</span><span>${c.overheadCost.toFixed(2)} lej</span></div>
+    ` : `
     <div class="cost-row"><span>Munkaóra (${r.laborH||1}h × ${R.settings.labor} lej)</span><span>${c.laborCost.toFixed(2)} lej</span></div>
     <div class="cost-row"><span>Áram (${r.electricity||5} kWh × ${R.settings.electricity} lej)</span><span>${c.electricityCost.toFixed(2)} lej</span></div>
+    `}
     <div class="cost-row"><span>Eszközkopás + fogyóeszköz</span><span>${(c.toolCost+c.consumablesCost).toFixed(2)} lej</span></div>
   </div>
   <div class="cost-total">

@@ -19,6 +19,11 @@ function renderSettings() {
   document.getElementById('s-margin').value = s.margin;
   document.getElementById('s-labor').value = s.labor;
   document.getElementById('s-electricity').value = s.electricity;
+  const mo=document.getElementById('s-monthly-overhead'); if(mo) mo.value = s.monthlyOverhead ?? '';
+  const mh=document.getElementById('s-monthly-hours');    if(mh) mh.value = s.monthlyProdHours ?? '';
+  const tt=document.getElementById('s-temp-tolerance');   if(tt) tt.value = s.tempToleranceC ?? 10;
+  updateShopRateInfo();
+  if (typeof renderEquipment === 'function') renderEquipment();
   document.getElementById('s-tool-wear').value = s.toolWear;
   document.getElementById('s-consumables').value = s.consumables;
   document.getElementById('s-bake-loss').value = s.bakeLoss;
@@ -37,6 +42,9 @@ async function saveFinancialSettings() {
     margin: parseFloat(document.getElementById('s-margin').value)||50,
     labor: parseFloat(document.getElementById('s-labor').value)||55,
     electricity: parseFloat(document.getElementById('s-electricity').value)||1.5,
+    monthlyOverhead: parseFloat(document.getElementById('s-monthly-overhead')?.value)||0,
+    monthlyProdHours: parseFloat(document.getElementById('s-monthly-hours')?.value)||0,
+    tempToleranceC: parseFloat(document.getElementById('s-temp-tolerance')?.value)||10,
     toolWear: parseFloat(document.getElementById('s-tool-wear').value)||5,
     consumables: parseFloat(document.getElementById('s-consumables').value)||0.5,
   });
@@ -79,6 +87,9 @@ async function syncRecipeToSupabase(data, existingId) {
       temp2: data.temp2, time2: data.time2, description: data.desc||'',
       levain_amount: data.levainAmount, labor_h: data.laborH||1,
       electricity: data.electricity||5,
+      setup_min: data.setupMin ?? null, per_unit_min: data.perUnitMin ?? null,
+      bake_min: data.bakeMin ?? null, bake_temp_c: data.bakeTempC ?? null,
+      trays_per_unit: data.traysPerUnit ?? null,
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
@@ -202,3 +213,14 @@ function loadAiSettingsUI() {
   const urlRow = document.getElementById('s-ai-custom-url-row');
   if(urlRow) urlRow.style.display = prov==='custom' ? 'block' : 'none';
 }
+
+
+// Üzemi óradíj kijelzése (havi rezsi / havi termelő óra)
+function updateShopRateInfo(){
+  const el = document.getElementById('shop-rate-info'); if (!el) return;
+  const rate = (typeof shopRate === 'function') ? shopRate() : 0;
+  el.innerHTML = rate > 0
+    ? `➜ Üzemi óradíj: <b style="color:var(--teal-dark)">${rate.toFixed(2)} lej/óra</b> (minden termelő órára ráterhelődik)`
+    : '⚠️ Add meg a havi rezsit és a havi termelő órát — enélkül a rezsi nem terhelődik az önköltségre.';
+}
+if (typeof window !== 'undefined') window.updateShopRateInfo = updateShopRateInfo;
