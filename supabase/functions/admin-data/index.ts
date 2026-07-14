@@ -30,6 +30,7 @@ const ALLOWED: Record<string, Record<string, string[]>> = {
     processing_outputs: ['GET', 'POST', 'PATCH', 'DELETE'],
     production_logs: ['GET', 'POST', 'PATCH', 'DELETE'],
     shopping_overrides: ['GET', 'POST', 'PATCH', 'DELETE'],
+    equipment: ['GET', 'POST', 'PATCH', 'DELETE'],
     processing_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
     recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
     recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
