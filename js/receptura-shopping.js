@@ -232,7 +232,7 @@ function renderSupplierView(items) {
             <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1rem">${esc(supplierName)}</div>
             <div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px">${groupItems.length} tétel</div>
           </div>
-          ${!isOrphan ? `<button class="btn btn-primary btn-sm" data-action="copySupplierList" data-arg1="${esc(supplierName)}" data-tip="Lista vágólapra ehhez a beszállítóhoz">📋 Másol</button>` : `<span style="font-size:0.7rem;color:#b45309">Adj meg beszállítót az alapanyag szerkesztőjében!</span>`}
+          ${!isOrphan ? `<button class="btn btn-primary btn-sm" data-action="copySupplierList" data-arg1="${esc(supplierName)}" data-tip="Lista vágólapra ehhez a beszállítóhoz">📋 Másol</button>` : `<button class="btn btn-gold btn-sm" data-action="openSupplierWizard" data-tip="Beszállító hozzárendelése ezekhez az alapanyagokhoz">🔧 Beszállítók kiosztása</button>`}
         </div>
         <div style="padding:4px 0">
           ${groupItems.map(ing => renderShoppingItemRow(ing)).join('')}
@@ -364,6 +364,68 @@ function adjustShoppingQty(ingId, delta) {
   renderShoppingList();
 }
 
+// ===== M1.2: Beszállító-kiosztás wizard =====
+function _orphanIngredients(){
+  return (R.ingredients||[]).filter(ing => !getPrimarySupplier(ing) && effMax(ing) > 0);
+}
+function openSupplierWizard(){
+  const orphans = _orphanIngredients();
+  const sups = (R.suppliers||[]).filter(s => s.active !== false).sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'));
+  if (!sups.length){ toast('⚠️ Előbb vegyél fel beszállítót a Beszállítók fülön.', true); return; }
+  if (!orphans.length){ toast('✅ Nincs beszállító nélküli alapanyag.'); return; }
+
+  const opts = s => `<option value="">— nincs —</option>` + sups.map(x=>`<option value="${x.id}" ${String(s)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('');
+  const rows = orphans.map(ing => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0;font-size:0.88rem;font-weight:600">${esc(ing.name)}
+        <span style="font-weight:400;color:var(--text-soft);font-size:0.72rem"> · ${esc(ing.category||'—')}</span></div>
+      <select data-wiz-ing="${ing.id}" style="width:190px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.82rem">${opts('')}</select>
+    </div>`).join('');
+
+  const ov = document.createElement('div'); ov.id='wiz-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(6,76,72,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.25)">
+    <div style="background:var(--cream);padding:14px 18px;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark)">🔧 Beszállítók kiosztása</div>
+      <div style="font-size:0.8rem;color:var(--text-soft);margin-top:2px">${orphans.length} alapanyagnak nincs beszállítója</div>
+    </div>
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:0.82rem;color:var(--text-soft)">Mind egyszerre:</span>
+      <select id="wiz-bulk" style="flex:1;min-width:150px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.82rem">${opts('')}</select>
+      <button class="btn btn-ghost btn-sm" onclick="wizBulkApply()">Alkalmaz mindre</button>
+    </div>
+    <div style="padding:4px 18px;overflow:auto;flex:1">${rows}</div>
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSupplierWizard()">Mégse</button>
+      <button class="btn btn-primary" id="wiz-save" onclick="wizSave()">Mentés</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+}
+function closeSupplierWizard(){ const o=document.getElementById('wiz-overlay'); if(o) o.remove(); }
+function wizBulkApply(){
+  const v = (document.getElementById('wiz-bulk')||{}).value || '';
+  document.querySelectorAll('[data-wiz-ing]').forEach(sel => { sel.value = v; });
+}
+async function wizSave(){
+  const btn=document.getElementById('wiz-save'); if(btn){ btn.disabled=true; btn.textContent='Mentés…'; }
+  const sels = [...document.querySelectorAll('[data-wiz-ing]')];
+  let n=0;
+  for (const sel of sels){
+    const id = Number(sel.getAttribute('data-wiz-ing'));
+    const val = sel.value ? Number(sel.value) : null;
+    const ing = (R.ingredients||[]).find(i=>i.id===id);
+    if (!ing || (ing.preferredSupplierId||null) === val) continue;   // csak a változottak
+    try{
+      await kData.update('ingredients', {preferred_supplier_id: val}, `id=eq.${id}`);
+      ing.preferredSupplierId = val;
+      n++;
+    }catch(e){ console.warn('wizSave:', e.message); }
+  }
+  closeSupplierWizard();
+  toast(n ? `✅ ${n} alapanyag beszállítója beállítva.` : 'Nem történt változás.');
+  renderShoppingList();
+}
+
 async function refreshAutoMinMax(){
   if (typeof calcAutoMinMax !== 'function'){ toast('⚠️ Auto-számítás nem elérhető.', true); return; }
   toast('🤖 Min/max újraszámítása a rendeléstörténetből…');
@@ -399,6 +461,10 @@ if (typeof window !== 'undefined') {
   window.saveShoppingOverrides = saveShoppingOverrides;
   window.loadShoppingOverrides = loadShoppingOverrides;
   window.refreshAutoMinMax = refreshAutoMinMax;
+  window.openSupplierWizard = openSupplierWizard;
+  window.closeSupplierWizard = closeSupplierWizard;
+  window.wizBulkApply = wizBulkApply;
+  window.wizSave = wizSave;
   window.copySupplierList = copySupplierList;
   window.copyAllShoppingList = copyAllShoppingList;
 }
