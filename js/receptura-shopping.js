@@ -8,6 +8,8 @@
 
 // Manuális override-ok (session-szintű, nem perzisztens)
 let shoppingOverrides = {};
+let _shopDirty = false;   // van nem mentett kézi módosítás?
+let _shopLoaded = false;  // DB-ből betöltve már ebben a sessionben?
 let shoppingFilter = 'urgent'; // 'urgent' (csak sürgős+hamarosan), 'all' (mind ami < max)
 let shoppingViewMode = 'supplier'; // 'supplier' (beszállítónként) | 'flat' (egy lista)
 
@@ -174,6 +176,7 @@ function renderShoppingList() {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-primary btn-sm" data-action="copyAllShoppingList" data-tip="Teljes lista vágólapra">📋 Mindent másol</button>
+        <button class="btn ${_shopDirty?'btn-gold':'btn-ghost'} btn-sm" data-action="saveShoppingOverrides" data-tip="Kézi mennyiségek mentése (megmaradnak újratöltés után)">💾 Mentés${_shopDirty?' •':''}</button>
         <button class="btn btn-ghost btn-sm" data-action="resetShoppingOverrides" data-tip="Manuális módosítások visszaállítása">↺ Reset</button>
       </div>
     </div>
@@ -294,13 +297,48 @@ function setShoppingView(v) {
   renderShoppingList();
 }
 
+// ===== M1.1: mentett felülírások (shopping_overrides tábla) =====
+
+// initApp / renderShoppingList előtt hívandó: DB → memória
+async function loadShoppingOverrides(){
+  try{
+    const rows = await kData.query('shopping_overrides', {limit:500});
+    shoppingOverrides = {};
+    (rows||[]).forEach(r=>{
+      // árva sor kiszűrése (törölt alapanyag)
+      if (R.ingredients.some(i=>i.id==r.ingredient_id)) shoppingOverrides[r.ingredient_id] = Number(r.qty);
+    });
+    _shopDirty = false;
+  }catch(e){ console.warn('shopping_overrides load:', e.message); }
+}
+
+async function saveShoppingOverrides(){
+  const ids = Object.keys(shoppingOverrides);
+  try{
+    if (ids.length){
+      const rows = ids.map(id=>({ingredient_id:Number(id), qty:Number(shoppingOverrides[id]), updated_at:new Date().toISOString()}));
+      await kData.upsert('shopping_overrides', rows, 'ingredient_id');
+    }
+    // ami már nincs a memóriában, azt töröljük a DB-ből is
+    const dbRows = await kData.query('shopping_overrides', {limit:500});
+    const stale = (dbRows||[]).filter(r=>shoppingOverrides[r.ingredient_id]===undefined);
+    for (const r of stale){ await kData.delete('shopping_overrides', `ingredient_id=eq.${r.ingredient_id}`); }
+    _shopDirty = false;
+    toast(`💾 ${ids.length} kézi mennyiség mentve.`);
+    renderShoppingList();
+  }catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
+}
+
 function setShoppingQty(ingId, qty) {
   const n = Number(qty);
   if (isNaN(n) || n < 0) return;
   shoppingOverrides[ingId] = n;
+  _shopDirty = true;
   // Csak az input szín frissül, nem teljes re-render (UX)
   const input = document.querySelector(`input[data-shopping-ing="${ingId}"]`);
   if (input) input.style.borderColor = 'var(--gold)';
+  const btn = document.querySelector('[data-action="saveShoppingOverrides"]');
+  if (btn){ btn.className='btn btn-gold btn-sm'; btn.textContent='💾 Mentés •'; }
 }
 
 function adjustShoppingQty(ingId, delta) {
@@ -309,6 +347,7 @@ function adjustShoppingQty(ingId, delta) {
   const current = getRecommendedQty(ing);
   const newVal = Math.max(0, current + Number(delta));
   shoppingOverrides[ingId] = newVal;
+  _shopDirty = true;
   const input = document.querySelector(`input[data-shopping-ing="${ingId}"]`);
   if (input) {
     input.value = newVal;
@@ -318,8 +357,15 @@ function adjustShoppingQty(ingId, delta) {
   renderShoppingList();
 }
 
-function resetShoppingOverrides() {
+async function resetShoppingOverrides() {
+  const n = Object.keys(shoppingOverrides).length;
+  if (n && !confirm(`Biztosan visszaállítod a(z) ${n} kézi mennyiséget az automatikus javaslatra? A mentett értékek is törlődnek.`)) return;
+  try{
+    const dbRows = await kData.query('shopping_overrides', {limit:500});
+    for (const r of (dbRows||[])){ await kData.delete('shopping_overrides', `ingredient_id=eq.${r.ingredient_id}`); }
+  }catch(e){ console.warn('override reset:', e.message); }
   shoppingOverrides = {};
+  _shopDirty = false;
   renderShoppingList();
   toast('↺ Manuális módosítások visszaállítva.');
 }
@@ -332,6 +378,8 @@ if (typeof window !== 'undefined') {
   window.setShoppingQty = setShoppingQty;
   window.adjustShoppingQty = adjustShoppingQty;
   window.resetShoppingOverrides = resetShoppingOverrides;
+  window.saveShoppingOverrides = saveShoppingOverrides;
+  window.loadShoppingOverrides = loadShoppingOverrides;
   window.copySupplierList = copySupplierList;
   window.copyAllShoppingList = copyAllShoppingList;
 }

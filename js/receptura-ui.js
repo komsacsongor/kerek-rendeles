@@ -28,7 +28,10 @@ function nav(id) {
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     'baking-log': () => { initBakingLog(); },
     archiv: renderArchivView,
-    'shopping': () => { if(typeof renderShoppingList === 'function') renderShoppingList(); },
+    'shopping': async () => {
+      if (typeof loadShoppingOverrides === 'function' && !_shopLoaded){ _shopLoaded = true; await loadShoppingOverrides(); }
+      if(typeof renderShoppingList === 'function') renderShoppingList();
+    },
     'suppliers': () => { if(typeof renderSuppliers === 'function') renderSuppliers(); },
   };
   renders[id]?.();
