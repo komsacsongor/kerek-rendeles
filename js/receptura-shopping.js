@@ -10,6 +10,11 @@
 let shoppingOverrides = {};
 let _shopDirty = false;   // van nem mentett kézi módosítás?
 let _shopLoaded = false;  // DB-ből betöltve már ebben a sessionben?
+
+// M1.3: kézi érték elsőbbség, fallback a 90-napos rendeléstörténetből számított auto-értékre
+function effMin(ing){ return Number(ing.minStock) > 0 ? Number(ing.minStock) : Number(ing.minStockAutoG || 0); }
+function effMax(ing){ return Number(ing.maxStock) > 0 ? Number(ing.maxStock) : Number(ing.maxStockAutoG || 0); }
+function isAutoMinMax(ing){ return !(Number(ing.maxStock) > 0) && Number(ing.maxStockAutoG || 0) > 0; }
 let shoppingFilter = 'urgent'; // 'urgent' (csak sürgős+hamarosan), 'all' (mind ami < max)
 let shoppingViewMode = 'supplier'; // 'supplier' (beszállítónként) | 'flat' (egy lista)
 
@@ -53,8 +58,8 @@ function getPackageSize(ing) {
 function getUrgencyLevel(ing) {
   const stock = getTotalStock(ing);
   const critical = ing.criticalStock || 0;
-  const min = ing.minStock || 0;
-  const max = ing.maxStock || 0;
+  const min = effMin(ing);
+  const max = effMax(ing);
   if (critical > 0 && stock < critical) return 'critical';
   if (min > 0 && stock < min) return 'soon';
   if (max > 0 && stock < max) return 'buffer';
@@ -67,7 +72,7 @@ function getRecommendedQty(ing) {
     return shoppingOverrides[ing.id];
   }
   const stock = getTotalStock(ing);
-  const max = ing.maxStock || 0;
+  const max = effMax(ing);
   if (max <= 0) return 0;
   const deficit = max - stock;
   if (deficit <= 0) return 0;
@@ -80,7 +85,7 @@ function getRecommendedQty(ing) {
 function getShoppingItems(filter) {
   filter = filter || shoppingFilter;
   const items = (R.ingredients || []).filter(ing => {
-    const max = ing.maxStock || 0;
+    const max = effMax(ing);
     if (max <= 0) return false; // ha nincs max megadva, nem szerepel
     const stock = getTotalStock(ing);
     const urgency = getUrgencyLevel(ing);
@@ -176,6 +181,7 @@ function renderShoppingList() {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-primary btn-sm" data-action="copyAllShoppingList" data-tip="Teljes lista vágólapra">📋 Mindent másol</button>
+        <button class="btn btn-ghost btn-sm" data-action="refreshAutoMinMax" data-tip="Min/max újraszámítása a 90 napos rendeléstörténetből">🤖 Auto min/max</button>
         <button class="btn ${_shopDirty?'btn-gold':'btn-ghost'} btn-sm" data-action="saveShoppingOverrides" data-tip="Kézi mennyiségek mentése (megmaradnak újratöltés után)">💾 Mentés${_shopDirty?' •':''}</button>
         <button class="btn btn-ghost btn-sm" data-action="resetShoppingOverrides" data-tip="Manuális módosítások visszaállítása">↺ Reset</button>
       </div>
@@ -249,8 +255,8 @@ function renderFlatView(items) {
 
 function renderShoppingItemRow(ing, showSupplier) {
   const stock = getTotalStock(ing);
-  const min = ing.minStock || 0;
-  const max = ing.maxStock || 0;
+  const min = effMin(ing);
+  const max = effMax(ing);
   const recommended = getRecommendedQty(ing);
   const urgency = getUrgencyLevel(ing);
   const supplier = getPrimarySupplier(ing) || '—';
@@ -270,6 +276,7 @@ function renderShoppingItemRow(ing, showSupplier) {
           Jelenleg: <b style="color:${urgencyColor}">${fmtQtyUnit(stock, ing.unit)}</b>
           ${min>0?` · Min: ${fmtQtyUnit(min, ing.unit)}`:''}
           ${max>0?` · <span style="color:var(--gold-dark);font-weight:600">Max: ${fmtQtyUnit(max, ing.unit)}</span>`:''}
+          ${isAutoMinMax(ing)?` <span title="A min/max a 90 napos rendeléstörténetből számítva (nincs kézi érték megadva)" style="font-size:0.68rem;color:var(--teal);font-weight:600">🤖 auto</span>`:''}
           · Csomag: ${fmtQtyUnit(pkg, ing.unit)}
         </div>
       </div>
@@ -357,6 +364,17 @@ function adjustShoppingQty(ingId, delta) {
   renderShoppingList();
 }
 
+async function refreshAutoMinMax(){
+  if (typeof calcAutoMinMax !== 'function'){ toast('⚠️ Auto-számítás nem elérhető.', true); return; }
+  toast('🤖 Min/max újraszámítása a rendeléstörténetből…');
+  try{
+    await calcAutoMinMax();
+    renderShoppingList();
+    const n = (R.ingredients||[]).filter(i=>isAutoMinMax(i)).length;
+    toast(`✅ Kész — ${n} alapanyag auto min/max alapján szerepel.`);
+  }catch(e){ toast('⚠️ Számítás sikertelen: '+e.message, true); }
+}
+
 async function resetShoppingOverrides() {
   const n = Object.keys(shoppingOverrides).length;
   if (n && !confirm(`Biztosan visszaállítod a(z) ${n} kézi mennyiséget az automatikus javaslatra? A mentett értékek is törlődnek.`)) return;
@@ -380,6 +398,7 @@ if (typeof window !== 'undefined') {
   window.resetShoppingOverrides = resetShoppingOverrides;
   window.saveShoppingOverrides = saveShoppingOverrides;
   window.loadShoppingOverrides = loadShoppingOverrides;
+  window.refreshAutoMinMax = refreshAutoMinMax;
   window.copySupplierList = copySupplierList;
   window.copyAllShoppingList = copyAllShoppingList;
 }
