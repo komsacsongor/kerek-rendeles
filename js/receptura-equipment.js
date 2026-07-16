@@ -57,37 +57,46 @@ function renderEquipment(){
     return;
   }
 
-  const rows = list.map(e => `
-    <tr>
-      <td style="padding:8px 10px;font-weight:600">${esc(e.name)}
-        ${e.active===false?'<span style="font-size:0.7rem;color:var(--text-soft)"> (inaktív)</span>':''}</td>
-      <td style="padding:8px 10px">${e.type==='oven'?'🔥 Sütő':e.type==='mixer'?'🌀 Dagasztó':'⚙️ Egyéb'}</td>
-      <td style="padding:8px 10px;text-align:right">${Number(e.powerKw)||0} kW</td>
-      <td style="padding:8px 10px;text-align:right">${e.type==='oven'?(Number(e.capacityTrays)||0)+' tálca':'—'}</td>
-      <td style="padding:8px 10px;text-align:right">${e.type==='oven'?(Number(e.preheatMin)||0)+' p / '+(Number(e.preheatKwh)||0)+' kWh':'—'}</td>
-      <td style="padding:8px 10px;text-align:right">
-        <button class="btn btn-ghost btn-sm" onclick="openEquipmentModal(${e.id})">✏️</button>
-        <button class="btn btn-ghost btn-sm" onclick="deleteEquipment(${e.id})">🗑</button>
-      </td>
-    </tr>`).join('');
+  const rows = list.map(e => {
+    const isOven = e.type === 'oven';
+    const icon = isOven ? '🔥' : e.type === 'mixer' ? '🌀' : '⚙️';
+    const bg = e.color || 'var(--teal-pale)';
+    const visual = e.photo
+      ? `<img src="${e.photo}" alt="${esc(e.name)}" style="width:100%;height:100%;object-fit:cover">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.4rem;background:${bg}">${icon}</div>`;
+    const meta = isOven
+      ? `${Number(e.powerKw)||0} kW · ${Number(e.capacityTrays)||0} tálca · előmel. ${Number(e.preheatMin)||0}p`
+      : `${Number(e.powerKw)||0} kW`;
+    return `
+      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;${e.active===false?'opacity:0.55':''}">
+        <div style="height:110px;background:var(--cream)">${visual}</div>
+        <div style="padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:6px">
+            <div style="font-weight:700;color:var(--teal-dark);font-size:0.92rem">${esc(e.name)}
+              ${e.active===false?'<span style="font-size:0.68rem;color:var(--text-soft);font-weight:400"> (inaktív)</span>':''}</div>
+            <div style="white-space:nowrap">
+              <button class="btn btn-ghost btn-sm" onclick="openEquipmentModal(${e.id})" style="padding:2px 6px">✏️</button>
+              <button class="btn btn-ghost btn-sm" onclick="deleteEquipment(${e.id})" style="padding:2px 6px">🗑</button>
+            </div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-soft);margin-top:3px">${icon} ${meta}</div>
+        </div>
+      </div>`;
+  }).join('');
 
   box.innerHTML = info + `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:0.82rem;color:var(--text-soft)">Összes sütő-kapacitás: <b>${totalOvenCapacity()} tálca</b> / sütés</div>
       <button class="btn btn-primary btn-sm" onclick="openEquipmentModal()">➕ Eszköz</button>
     </div>
-    <div class="tbl-wrap"><table class="tbl" style="width:100%">
-      <thead><tr>
-        <th style="text-align:left">Név</th><th style="text-align:left">Típus</th>
-        <th style="text-align:right">Telj.</th><th style="text-align:right">Kapacitás</th>
-        <th style="text-align:right">Előmelegítés</th><th></th>
-      </tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${rows}</div>`;
 }
 
 // --- Modal ---
 function openEquipmentModal(id=null){
   editingEquipmentId = id;
   const e = id ? (R.equipment||[]).find(x=>x.id===id) : null;
+  _eqPhoto = e ? (e.photo || null) : null;
   const ov = document.createElement('div'); ov.id='eq-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(6,76,72,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto">
@@ -129,6 +138,17 @@ function openEquipmentModal(id=null){
         <div class="form-group" style="flex:2"><label>Megjegyzés</label>
           <input type="text" id="eq-notes" value="${e?esc(e.notes||''):''}"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Fotó (opcionális, automatikusan kicsinyítve)</label>
+          <input type="file" id="eq-photo-file" accept="image/*" onchange="eqPhotoPick(event)">
+        </div>
+        <div class="form-group">
+          <label>Kártyaszín (ha nincs fotó)</label>
+          <input type="color" id="eq-color" value="${e&&e.color?e.color:'#e8f0ef'}" style="height:38px;padding:2px">
+        </div>
+      </div>
+      <div id="eq-photo-preview" style="margin-bottom:10px">${e&&e.photo?`<img src="${e.photo}" style="height:80px;border-radius:8px;object-fit:cover"> <button type="button" class="btn btn-ghost btn-sm" onclick="eqPhotoClear()">🗑 Fotó törlése</button>`:''}</div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
         <button class="btn btn-ghost" onclick="closeEquipmentModal()">Mégse</button>
         <button class="btn btn-primary" id="eq-save" onclick="saveEquipment()">${e?'💾 Mentés':'➕ Hozzáadás'}</button>
@@ -143,6 +163,33 @@ function eqTypeChange(){
   const box = document.getElementById('eq-oven-fields');
   if (box) box.style.display = (t === 'oven') ? 'block' : 'none';
 }
+let _eqPhoto = null;   // az aktuálisan kiválasztott/meglévő fotó (base64)
+
+function eqPhotoPick(ev){
+  const file = ev.target.files?.[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // arányos kicsinyítés max 220px + tömörítés
+      const max = 220, scale = Math.min(1, max/Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      _eqPhoto = c.toDataURL('image/jpeg', 0.75);
+      const box = document.getElementById('eq-photo-preview');
+      if (box) box.innerHTML = `<img src="${_eqPhoto}" style="height:80px;border-radius:8px;object-fit:cover"> <button type="button" class="btn btn-ghost btn-sm" onclick="eqPhotoClear()">🗑 Fotó törlése</button>`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function eqPhotoClear(){
+  _eqPhoto = null;
+  const box = document.getElementById('eq-photo-preview'); if (box) box.innerHTML = '';
+  const inp = document.getElementById('eq-photo-file'); if (inp) inp.value = '';
+}
+
 async function saveEquipment(){
   const name = document.getElementById('eq-name')?.value?.trim();
   if (!name){ toast('A név kötelező', true); return; }
@@ -157,6 +204,8 @@ async function saveEquipment(){
     duty_factor: Number(document.getElementById('eq-duty')?.value) || 0.7,
     active: document.getElementById('eq-active')?.value === 'true',
     notes: document.getElementById('eq-notes')?.value?.trim() || null,
+    photo: _eqPhoto || null,
+    color: document.getElementById('eq-color')?.value || null,
   };
   try{
     if (editingEquipmentId){
@@ -200,6 +249,8 @@ function mapEquipmentDb(row){
     dutyFactor: row.duty_factor != null ? Number(row.duty_factor) : 0.7,
     active: row.active !== false,
     notes: row.notes || '',
+    photo: row.photo || null,
+    color: row.color || null,
   };
 }
 
@@ -210,6 +261,8 @@ if (typeof window !== 'undefined'){
   window.saveEquipment = saveEquipment;
   window.deleteEquipment = deleteEquipment;
   window.eqTypeChange = eqTypeChange;
+  window.eqPhotoPick = eqPhotoPick;
+  window.eqPhotoClear = eqPhotoClear;
   window.mapEquipmentDb = mapEquipmentDb;
   window.shopRate = shopRate;
   window.totalOvenCapacity = totalOvenCapacity;
