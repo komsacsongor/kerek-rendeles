@@ -545,4 +545,5 @@ document.addEventListener('click', function(e){
 if (typeof window !== 'undefined') {
   window.toggleSidebar = toggleSidebar;
   window.closeSidebar = closeSidebar;
+  if (typeof calcCost === "function") window.calcCost = calcCost;
 }
