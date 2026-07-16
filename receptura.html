@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.52"></script>
+<script src="kerek-constants.js?v=2.53.53"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -871,17 +871,21 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Munkaóra (h/adag) <span style="font-size:0.65rem;color:var(--text-soft)">régi</span></label><input type="number" id="r-labor-h" placeholder="1" step="0.5"></div>
           <div class="form-group"><label>Áramfogyasztás (kWh/sütés) <span style="font-size:0.65rem;color:var(--text-soft)">régi</span></label><input type="number" id="r-electricity" placeholder="5"></div>
         </div>
-        <div style="background:var(--teal-pale);border-radius:8px;padding:9px 12px;margin:10px 0;font-size:0.75rem;color:var(--teal-dark)">
-          🎯 <b>Batch-alapú számítás</b> — ha kitöltöd, ezek FELÜLÍRJÁK a fenti régi mezőket. A munkaidő fix + darabarányos részre bomlik, a sütő pedig ciklus-alapon (tálca/kapacitás) számol.
+        <div style="background:var(--teal-pale);border-radius:8px;padding:9px 12px;margin:10px 0;font-size:0.75rem;color:var(--teal-dark);display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span>🎯 <b>Batch-alapú számítás</b> — ha kitöltöd, FELÜLÍRJA a fenti régi mezőket.</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openCostHelp()" style="white-space:nowrap">ℹ️ Hogyan számol?</button>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Fix idő (perc/batch)</label><input type="number" id="r-setup-min" placeholder="45" step="5" min="0"></div>
-          <div class="form-group"><label>Változó idő (perc/db)</label><input type="number" id="r-per-unit-min" placeholder="3" step="0.5" min="0"></div>
+          <div class="form-group"><label>Fix idő (perc/batch)</label><input type="number" id="r-setup-min" placeholder="20" step="5" min="0"></div>
+          <div class="form-group"><label>Változó idő (perc/db)</label><input type="number" id="r-per-unit-min" placeholder="2" step="0.5" min="0"></div>
+          <div class="form-group"><label>Mixer idő (perc/batch)</label><input type="number" id="r-mixer-min" placeholder="10" step="1" min="0"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Sütési idő (perc)</label><input type="number" id="r-bake-min" placeholder="40" step="5" min="0"></div>
+          <div class="form-group"><label>Sütési idő (perc)</label><input type="number" id="r-bake-min" placeholder="80" step="5" min="0"></div>
           <div class="form-group"><label>Sütési hőfok (°C)</label><input type="number" id="r-bake-temp" placeholder="230" step="5" min="0"></div>
-          <div class="form-group"><label>Tálca/db</label><input type="number" id="r-trays-per-unit" placeholder="1" step="0.05" min="0"></div>
+          <div class="form-group"><label>Db / tálca</label><input type="number" id="r-units-per-tray" placeholder="4" step="1" min="0"></div>
+          <div class="form-group"><label>Tálca / sütés</label><input type="number" id="r-trays-per-cycle" placeholder="2" step="1" min="0"></div>
+        </div>
         </div>
         <div id="cost-preview" style="margin-top:14px"></div>
       </div>
@@ -1041,13 +1045,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.53.52"></script>
-<script src="js/receptura-ui.js?v=2.53.52"></script>
-<script src="js/receptura-recipes.js?v=2.53.52"></script>
+<script src="js/receptura-data.js?v=2.53.53"></script>
+<script src="js/receptura-ui.js?v=2.53.53"></script>
+<script src="js/receptura-recipes.js?v=2.53.53"></script>
 <script src="js/receptura-operational.js?v=2.53.17"></script>
 <script src="js/receptura-ingredients.js?v=2.53.17"></script>
-<script src="js/receptura-equipment.js?v=2.53.52"></script>
-<script src="js/receptura-settings.js?v=2.53.52"></script>
+<script src="js/receptura-equipment.js?v=2.53.53"></script>
+<script src="js/receptura-costhelp.js?v=2.53.53"></script>
+<script src="js/receptura-settings.js?v=2.53.53"></script>
 <script src="js/receptura-ing-cats.js?v=2.53.17"></script>
 <script src="js/receptura-recipe-cats.js?v=2.53.17"></script>
 <script src="js/receptura-processing.js?v=2.53.17"></script>
@@ -1055,8 +1060,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <script src="js/receptura-levain.js?v=2.53.17"></script>
 <script src="js/receptura-production.js?v=2.53.17"></script>
 <script src="js/receptura-stock.js?v=2.53.17"></script>
-<script src="js/receptura-modal.js?v=2.53.52"></script>
-<script src="js/receptura-ai.js?v=2.53.52"></script>
+<script src="js/receptura-modal.js?v=2.53.53"></script>
+<script src="js/receptura-ai.js?v=2.53.53"></script>
 <script src="js/receptura-shopping.js?v=2.53.50"></script>
 <script src="js/receptura-suppliers.js?v=2.53.51"></script>
 <div id="view-receptura-help" class="view"></div>

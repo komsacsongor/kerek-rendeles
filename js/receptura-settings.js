@@ -89,7 +89,7 @@ async function syncRecipeToSupabase(data, existingId) {
       electricity: data.electricity||5,
       setup_min: data.setupMin ?? null, per_unit_min: data.perUnitMin ?? null,
       bake_min: data.bakeMin ?? null, bake_temp_c: data.bakeTempC ?? null,
-      trays_per_unit: data.traysPerUnit ?? null,
+      units_per_tray: data.unitsPerTray ?? null, trays_per_cycle: data.traysPerCycle ?? null, mixer_min: data.mixerMin ?? null,
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',

@@ -366,7 +366,9 @@ async function saveRecipe() {
     perUnitMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-per-unit-min')?.value),
     bakeMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-min')?.value),
     bakeTempC: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-temp')?.value),
-    traysPerUnit: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-trays-per-unit')?.value),
+    unitsPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-units-per-tray')?.value),
+    traysPerCycle: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-trays-per-cycle')?.value),
+    mixerMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-mixer-min')?.value),
     productPrice: (() => { const v = parseFloat(document.getElementById('r-product-price')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
   };
   if (editingRecipeId) {

@@ -142,21 +142,34 @@ function calcRecipeCost(recipe, pieces) {
     const laborH = laborMin / 60;
     laborCost = laborH * s.labor;
 
-    // 2) SÜTŐ: ciklus-alapú (a tálcák felkerekítve a sütő-kapacitásra)
-    const capacity = (typeof totalOvenCapacity==='function') ? totalOvenCapacity() : 0;
-    const trays = (Number(recipe.traysPerUnit)||0) * pieces;
+    // 2) SÜTŐ: tálca-ciklus. A batch annyi sütést igényel, amennyi a tálcáiból kijön.
+    //    trays = felkerekít(db / db-per-tálca); sütések = felkerekít(trays / tálca-per-sütés)
+    const unitsPerTray = Number(recipe.unitsPerTray) || 0;
+    const traysPerCycle = Number(recipe.traysPerCycle) || 0;
+    const trays = unitsPerTray > 0 ? Math.ceil(pieces / unitsPerTray) : 0;
     const bakeMin = Number(recipe.bakeMin)||0;
-    const loads = (capacity > 0 && trays > 0) ? Math.ceil(trays / capacity) : (trays > 0 ? 1 : 0);
-    const kw = (typeof avgOvenPowerKw==='function') ? avgOvenPowerKw() : 0;
+    const cycles = (trays > 0 && traysPerCycle > 0) ? Math.ceil(trays / traysPerCycle)
+                 : (bakeMin > 0 ? 1 : 0);
+    const ovenKw = (typeof avgOvenPowerKw==='function') ? avgOvenPowerKw() : 0;
     const duty = (typeof avgDutyFactor==='function') ? avgDutyFactor() : 0.7;
-    const ovenH = loads * (bakeMin / 60);
-    const kwh = ovenH * kw * duty;
-    electricityCost = kwh * s.electricity;
-    bakeInfo = { laborMin, trays, loads, bakeMin, ovenH, kwh, capacity };
+    const ovenH = cycles * (bakeMin / 60);
+    const ovenKwh = ovenH * ovenKw * duty;
 
-    // 3) REZSI: üzemi óradíj × (munkaóra + sütőóra) — mixer/világítás/elszívás/víz/amortizáció
+    // Mixer: perc/batch × mixer kW
+    const mixerMin = Number(recipe.mixerMin)||0;
+    const mixerKw = (typeof avgMixerPowerKw==='function') ? avgMixerPowerKw() : 0;
+    const mixerKwh = (mixerMin/60) * mixerKw;
+
+    electricityCost = (ovenKwh + mixerKwh) * s.electricity;
+    bakeInfo = { laborMin, trays, cycles, bakeMin, ovenH, ovenKwh, mixerKwh, mixerMin };
+
+    // 3) REZSI: a batch által lefoglalt FALÓRA-idő × üzemi óradíj.
+    //    A munka és a sütés PÁRHUZAMOS (sütés közben a következő adagot készíted),
+    //    ezért a hosszabbikat vesszük — NEM adjuk össze (az duplázás lenne).
     const rate = (typeof shopRate==='function') ? shopRate() : 0;
-    overheadCost = (laborH + ovenH) * rate;
+    const wallH = Math.max(laborH, ovenH);
+    overheadCost = wallH * rate;
+    bakeInfo.wallH = wallH;
   } else {
     laborCost = (recipe.laborH||1) * s.labor;
     electricityCost = (recipe.electricity||5) * s.electricity;
@@ -186,7 +199,8 @@ function renderCostPreview() {
   const laborH = parseFloat(document.getElementById('r-labor-h').value)||1;
   const num = id => { const v = document.getElementById(id)?.value; return (v===''||v==null) ? null : parseFloat(v); };
   const setupMin = num('r-setup-min'), perUnitMin = num('r-per-unit-min');
-  const bakeMin = num('r-bake-min'), bakeTempC = num('r-bake-temp'), traysPerUnit = num('r-trays-per-unit');
+  const bakeMin = num('r-bake-min'), bakeTempC = num('r-bake-temp');
+  const unitsPerTray = num('r-units-per-tray'), traysPerCycle = num('r-trays-per-cycle'), mixerMin = num('r-mixer-min');
   const elec = parseFloat(document.getElementById('r-electricity').value)||5;
   const s = R.settings;
   const box = document.getElementById('cost-preview');
@@ -202,16 +216,17 @@ function renderCostPreview() {
     const calc = N => {
       const lMin = (setupMin||0) + (perUnitMin||0)*N;
       const lH = lMin/60, lCost = lH*s.labor;
-      const trays = (traysPerUnit||0)*N;
-      const loads = (cap>0 && trays>0) ? Math.ceil(trays/cap) : (trays>0?1:0);
-      const oH = loads*((bakeMin||0)/60);
-      const eCost = oH*kw*duty*s.electricity;
-      const oCost = (lH+oH)*rate;
+      const trays = (unitsPerTray>0) ? Math.ceil(N/unitsPerTray) : 0;
+      const cycles = (trays>0 && traysPerCycle>0) ? Math.ceil(trays/traysPerCycle) : (bakeMin>0?1:0);
+      const oH = cycles*((bakeMin||0)/60);
+      const mixKwh = ((mixerMin||0)/60) * ((typeof avgMixerPowerKw==='function')?avgMixerPowerKw():0);
+      const eCost = (oH*kw*duty + mixKwh)*s.electricity;
+      const oCost = Math.max(lH, oH)*rate;
       const fix = lCost+eCost+oCost+s.toolWear+s.consumables;
-      return {N, lMin, loads, fix, perUnit: fix/N};
+      return {N, lMin, cycles, fix, perUnit: fix/N};
     };
     const rows = [1,5,10,20].map(calc).map(r=>`
-      <div class="cost-row"><span>${r.N} db — ${Math.round(r.lMin)} p munka · ${r.loads} sütés</span>
+      <div class="cost-row"><span>${r.N} db — ${Math.round(r.lMin)} p munka · ${r.cycles} sütés</span>
         <span><b>${r.perUnit.toFixed(2)}</b> lej/db <span style="color:var(--text-soft);font-size:0.75rem">(${r.fix.toFixed(2)} össz)</span></span></div>`).join('');
     box.innerHTML = `
       <div class="cost-box">

@@ -24,6 +24,12 @@ function avgDutyFactor(){
   if (!ov.length) return 0.7;
   return ov.reduce((s,e)=> s + (Number(e.dutyFactor) || 0.7), 0) / ov.length;
 }
+// Mixer/dagasztó átlagos teljesítménye (kW)
+function avgMixerPowerKw(){
+  const mx = (R.equipment||[]).filter(e => e.active !== false && e.type === 'mixer');
+  if (!mx.length) return 0;
+  return mx.reduce((s,e)=> s + (Number(e.powerKw)||0), 0) / mx.length;
+}
 // Üzemi óradíj: havi rezsi / havi termelő óra (mixer, világítás, elszívás, víz, amortizáció együtt)
 function shopRate(){
   const oh = Number(R.settings?.monthlyOverhead) || 0;
@@ -209,5 +215,6 @@ if (typeof window !== 'undefined'){
   window.totalOvenCapacity = totalOvenCapacity;
   window.avgOvenPowerKw = avgOvenPowerKw;
   window.avgDutyFactor = avgDutyFactor;
+  window.avgMixerPowerKw = avgMixerPowerKw;
   window.activeOvens = activeOvens;
 }
