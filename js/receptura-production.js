@@ -351,6 +351,7 @@ async function calcProductionPrep() {
   }
 
   document.getElementById('prod-prep-result').innerHTML = html;
+  if (typeof renderBakePlans === 'function') renderBakePlans(dayBreakdown);
   window._lastProductionNeeds = needs;
   window._lastProductionDays = selected;
   // P1 sütési log: per-recept bontás (recept_id + rendelt db) a planned/actual rögzítéshez
