@@ -1,5 +1,6 @@
 // ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING (Supabase alapú) =====
 // D.seenMsgs = { "2026-4": 2, "2026-5": 1, ... } - Supabase settings-ből töltve
+const _openMsgCards = new Set();  // v2.53.63: nyitott üzenet-szálak (újrarender is megőrzi)
 async function markClientSeen(clientId, year, month) {
   // Per-vevő olvasott tracking: key = "year-month-clientId"
   const key = `${clientId}-${year}-${month}`;
@@ -39,7 +40,7 @@ function updateMonthBadges() {
     let clientCount = 0;
     Object.entries(D.messages).forEach(([key, arr]) => {
       if(key.endsWith(`-${selYear}-${m}`))
-        clientCount += (arr||[]).filter(msg=>!(msg.text||'').startsWith('📨 Admin:')).length;
+        clientCount += (arr||[]).filter(msg=>{const t=msg.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
     });
     // Per-vevő seen összeszámolás
     let seenInMonth = 0;
@@ -124,7 +125,7 @@ function renderMessages(){
     const seenCount = seen[selYear + '-' + selMonth + '-' + c.id] || 0;
     const unread = Math.max(0, clientMsgs.length - seenCount);
     // Olvasatlan kártyák nyitva, olvasottak csukva
-    const isOpen = false; // mindig csukva - kézzel kell kinyitni
+    const isOpen = _openMsgCards.has(key); // v2.53.63: megőrzi a nyitott állapotot
     const arrow = '▶';
     const unreadBadge = unread > 0
       ? '<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">' + unread + ' új</span>'
@@ -183,6 +184,7 @@ async function toggleMsgCard(key, clientId) {
   if(!body) return;
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) _openMsgCards.delete(key); else _openMsgCards.add(key);
   if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
   // Ha kinyitjuk → olvasottnak jelöljük + badge eltávolítása
   if(!isOpen) {
