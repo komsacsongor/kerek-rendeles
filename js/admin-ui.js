@@ -31,6 +31,13 @@ function shouldSkipAutoRender(activeView){
   const view = document.querySelector('.view.active');
   const ae = document.activeElement;
   if (view && ae && view.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
+  // v2.53.62: az Üzenetek nézetben ha nyitva van egy szál (olvasás/válasz közben),
+  // ne rajzoljuk újra — különben becsukódik ("visszaáll az eredeti állapotba").
+  if (activeView === 'messages'){
+    const anyOpen = [...document.querySelectorAll('[id^="msg-body-"]')]
+      .some(el => el.style.display !== 'none' && getComputedStyle(el).display !== 'none');
+    if (anyOpen) return true;
+  }
   return false;
 }
 if (typeof window !== 'undefined') window.shouldSkipAutoRender = shouldSkipAutoRender;

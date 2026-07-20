@@ -4,7 +4,7 @@ async function markClientSeen(clientId, year, month) {
   // Per-vevő olvasott tracking: key = "year-month-clientId"
   const key = `${clientId}-${year}-${month}`;
   const arr = D.messages[key] || [];
-  const clientMsgCount = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+  const clientMsgCount = arr.filter(m=>{const t=m.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
   const seenKey = `${year}-${month}-${clientId}`;
   if(!D.seenMsgs) D.seenMsgs = {};
   if(D.seenMsgs[seenKey] === clientMsgCount) return; // nincs változás
@@ -22,7 +22,7 @@ function getUnreadCount() {
     const year = parts[parts.length-2];
     const clientId = parts.slice(0, parts.length-2).join('-');
     const seenKey = `${year}-${month}-${clientId}`;
-    const clientMsgs = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+    const clientMsgs = arr.filter(m=>{const t=m.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
     unread += Math.max(0, clientMsgs - (seen[seenKey]||0));
   });
   return unread;
@@ -101,6 +101,7 @@ async function sendAdminReply(clientId, month, inputId) {
         else msgArea.appendChild(div);
       }
     }
+    if (typeof markClientSeen === 'function') await markClientSeen(clientId, selYear, month);
     updateMsgBadge();
     toast('✅ Üzenet elküldve!');
   } catch(e) {
