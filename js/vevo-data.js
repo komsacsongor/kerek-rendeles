@@ -335,6 +335,12 @@ async function doLogin() {
     if (sticky) sticky.style.display = 'flex';
     document.body.classList.add('has-sticky-total');
     loadMessage();
+    // v2.53.61: push deep-link — a belépés + üzenet-betöltés UTÁN ugrunk az üzenetekhez
+    // (a szándék sessionStorage-ban él, túléli a login-képernyőt/kattintást)
+    if (sessionStorage.getItem('pendingOpenMsg') === '1'){
+      sessionStorage.removeItem('pendingOpenMsg');
+      setTimeout(() => { if (typeof showMessages === 'function') showMessages(); }, 500);
+    }
     renderHelpConditions();
     initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
 
@@ -741,6 +747,7 @@ function showMessages(){
     setTimeout(()=>{ el.style.boxShadow='none'; }, 1600);
   }
   markMessagesSeen();
+  sessionStorage.removeItem("pendingOpenMsg");
 }
 if (typeof window !== 'undefined'){
   window.showMessages = showMessages;
@@ -750,7 +757,7 @@ if (typeof window !== 'undefined'){
 // SW → app: push megnyitáskor az üzenetekhez ugrunk
 if ('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', ev => {
-    if (ev.data?.action === 'open-messages') tryOpenMessages();
+    if (ev.data?.action === 'open-messages'){ sessionStorage.setItem('pendingOpenMsg','1'); tryOpenMessages(); }
   });
 }
 // Robusztus deep-link: megvárja, míg a user + az üzenetek betöltenek (mobilon lassabb)
@@ -760,7 +767,11 @@ function tryOpenMessages(attempt = 0){
   if (attempt < 40) setTimeout(() => tryOpenMessages(attempt + 1), 300); // max ~12 mp
 }
 window.tryOpenMessages = tryOpenMessages;
-// Deep-link URL-paraméter (ha új ablak nyílt push-ból)
+// Deep-link URL-paraméter (ha új ablak nyílt push-ból): a szándékot eltároljuk,
+// mert a login-képernyő megjelenhet, és a doLogin végén sülünk el.
 window.addEventListener('load', () => {
-  if (new URLSearchParams(location.search).get('openmsg') === '1') tryOpenMessages();
+  if (new URLSearchParams(location.search).get('openmsg') === '1'){
+    sessionStorage.setItem('pendingOpenMsg', '1');
+    tryOpenMessages();  // ha már be van lépve (mentett session), azonnal
+  }
 });
