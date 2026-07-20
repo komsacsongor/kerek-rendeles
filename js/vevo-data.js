@@ -264,6 +264,7 @@ async function doLogin() {
     if (typeof kerekVevoSaveLogin === 'function') kerekVevoSaveLogin(val);
     if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
+    setTimeout(() => { if (typeof updateMsgIndicator === 'function') updateMsgIndicator(); }, 800);
     const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';
     // Vevő rendelései + üzenetei Supabase-ből
@@ -353,6 +354,7 @@ async function doLogin() {
             // #9: In-app toast if new admin message arrived
             if (table === 'messages' && event === 'INSERT' && afterMsgCount > beforeMsgCount) {
               showAdminMsgBanner();
+              if (typeof updateMsgIndicator === 'function') updateMsgIndicator();
             }
             // Re-render active view
             if (typeof renderOrderTable === 'function') renderOrderTable();
@@ -445,8 +447,7 @@ function showAdminMsgBanner() {
     b.onclick = () => {
       b.style.transform = 'translateY(-100%)';
       // Megnyitjuk az üzenetek view-t ha van
-      if (typeof showMessages === 'function') showMessages();
-      else document.querySelector('[data-action="showMessages"]')?.click();
+      showMessages();
     };
     document.body.appendChild(b);
   }
@@ -705,3 +706,56 @@ if (typeof window !== 'undefined') {
     kerekVevoLoadLogin();
   }
 }
+
+// ===== v2.53.59: üzenet-jelző a fejlécben + deep-link az üzenetekhez =====
+function _msgSeenKey(){ return 'vevo_lastSeenMsg_' + (currentUser?.id || 'x'); }
+function _allMsgTs(){
+  if (!appData?.messages) return [];
+  return Object.values(appData.messages).flat().map(m => new Date(m.ts).getTime()).filter(n=>!isNaN(n));
+}
+function getUnreadMsgCount(){
+  const seen = Number(localStorage.getItem(_msgSeenKey()) || 0);
+  return _allMsgTs().filter(t => t > seen).length;
+}
+function updateMsgIndicator(){
+  const btn = document.getElementById('msg-btn');
+  const badge = document.getElementById('msg-unread-badge');
+  if (!btn || !badge) return;
+  const total = _allMsgTs().length;
+  btn.style.display = total > 0 ? 'inline-block' : 'none';   // csak ha van üzenet
+  const unread = getUnreadMsgCount();
+  if (unread > 0){ badge.style.display='block'; badge.textContent = unread > 9 ? '9+' : String(unread); }
+  else badge.style.display='none';
+}
+function markMessagesSeen(){
+  const ts = _allMsgTs();
+  const max = ts.length ? Math.max(...ts) : Date.now();
+  localStorage.setItem(_msgSeenKey(), String(max));
+  updateMsgIndicator();
+}
+function showMessages(){
+  const el = document.getElementById('order-messages-display');
+  if (el){
+    el.scrollIntoView({ behavior:'smooth', block:'center' });
+    el.style.transition='box-shadow 0.3s'; el.style.boxShadow='0 0 0 3px var(--gold)';
+    setTimeout(()=>{ el.style.boxShadow='none'; }, 1600);
+  }
+  markMessagesSeen();
+}
+if (typeof window !== 'undefined'){
+  window.showMessages = showMessages;
+  window.updateMsgIndicator = updateMsgIndicator;
+  window.markMessagesSeen = markMessagesSeen;
+}
+// SW → app: push megnyitáskor az üzenetekhez ugrunk
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', ev => {
+    if (ev.data?.action === 'open-messages') showMessages();
+  });
+}
+// Deep-link URL-paraméter (ha új ablak nyílt push-ból)
+window.addEventListener('load', () => {
+  if (new URLSearchParams(location.search).get('openmsg') === '1'){
+    setTimeout(() => { if (currentUser) showMessages(); }, 1500);
+  }
+});

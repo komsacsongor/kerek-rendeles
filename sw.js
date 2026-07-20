@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.53.58';
+const CACHE_NAME = 'kerek-v2.53.59';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -92,5 +92,15 @@ self.addEventListener('notificationclick', event => {
   let url = event.notification.data?.url || '/kerek-rendeles/vevo.html';
   // Admin értesítések (új rendelés / új regisztráció) az admin appot nyitják
   if (type === 'new_order' || type === 'new_client') url = '/kerek-rendeles/admin.html';
-  event.waitUntil(clients.openWindow(url));
+  // Üzenet / broadcast → a vevő appban az üzenetekhez ugrunk (deep-link)
+  const isMsg = (type === 'message' || type === 'admin_broadcast');
+  event.waitUntil((async () => {
+    if (isMsg){
+      const all = await clients.matchAll({ type:'window', includeUncontrolled:true });
+      const existing = all.find(c => c.url.includes('vevo.html'));
+      if (existing){ await existing.focus(); existing.postMessage({ action:'open-messages' }); return; }
+      return clients.openWindow('/kerek-rendeles/vevo.html?openmsg=1');
+    }
+    return clients.openWindow(url);
+  })());
 });
