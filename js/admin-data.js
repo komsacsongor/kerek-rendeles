@@ -293,7 +293,7 @@ function initApp(){
         updateMsgBadge();
         if (typeof updatePendingBadge === 'function') updatePendingBadge();
         const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-        RENDERS[activeView]?.();
+        if (!shouldSkipAutoRender(activeView)) RENDERS[activeView]?.();
         if (_wsLastEvent?.table === 'messages' && _wsLastEvent?.event === 'INSERT' && activeView !== 'messages') {
           const badge = document.getElementById('msg-badge');
           if (badge) { badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = 'pulse 0.6s 3'; }
@@ -309,7 +309,7 @@ function initApp(){
     updateMsgBadge();
     if (typeof updatePendingBadge === 'function') updatePendingBadge();
     const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-    RENDERS[activeView]?.();
+    if (!shouldSkipAutoRender(activeView)) RENDERS[activeView]?.();
   }, 30000);
 
   renderDashboard();

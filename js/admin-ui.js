@@ -23,6 +23,18 @@ const VIEW_TITLES = {
   export:'Adatok exportálása', 'data-audit':'🔍 Adat-állapot audit', push:'📢 Push üzenet', 'admin-help':'Súgó', 'baking-plan':'🗓️ Sütési tervezés'
 };
 // Egyetlen globális render térkép – új nézetnél csak itt kell bővíteni
+// v2.53.57: az auto-render (30s polling + realtime) NE törölje a kitöltés alatti űrlapot.
+// A push egy compose-nézet → sosem renderelünk rá automatikusan; más nézetnél ha
+// épp egy beviteli mezőben vagy (focus), kihagyjuk ezt a ciklust.
+function shouldSkipAutoRender(activeView){
+  if (activeView === 'push') return true;
+  const view = document.querySelector('.view.active');
+  const ae = document.activeElement;
+  if (view && ae && view.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
+  return false;
+}
+if (typeof window !== 'undefined') window.shouldSkipAutoRender = shouldSkipAutoRender;
+
 const RENDERS = {
   dashboard:()=>renderDashboard(),'admin-help':()=>renderAdminHelp(), messages:()=>renderMessages(), baking:()=>renderBaking(),
   orders:()=>renderOrders(), catalog:()=>renderCatalog(), clients:()=>renderClients(),
