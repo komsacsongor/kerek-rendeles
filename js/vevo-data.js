@@ -296,14 +296,25 @@ async function doLogin() {
       });
     } catch(e) { console.warn('User data load:', e.message); }
 
-    // H8 fix: Auto-confirm PENDING/MODIFIED orders past deadline (no cron available)
+    // H8 fix: a határidőn túli rendeléseket jóváhagyjuk (nincs mindig cron).
+    // FONTOS: a RENDELÉSEKEN (appData.orders) iterálunk, mert új rendelésnél NINCS
+    // order_status sor — a status-sorokon iterálva ezek kimaradnának.
     try {
       const now = new Date();
       const expiredKeys = [];
-      Object.entries(appData.orderStatus || {}).forEach(([k, st]) => {
-        if ((st.status === 'pending' || st.status === 'modified') && st.deadline) {
-          if (new Date(st.deadline) <= now) expiredKeys.push(k);
-        }
+      Object.keys(appData.orders || {}).forEach(k => {
+        const order = appData.orders[k];
+        if (!order || Object.keys(order).length === 0) return;           // üres nap
+        const st = (appData.orderStatus || {})[k] || {};
+        if (['confirmed','cancelled','fulfilled'].includes(st.status)) return; // már lezárt
+        const parts = k.split('-');                                      // clientId-year-month-day
+        const y = parseInt(parts[parts.length-3]);
+        const mo = parseInt(parts[parts.length-2]);                      // 0-alapú
+        const dy = parseInt(parts[parts.length-1]);
+        const expired = st.deadline
+          ? (new Date(st.deadline) <= now)
+          : (typeof defaultDeadlinePassed === 'function' && defaultDeadlinePassed(new Date(y, mo, dy)));
+        if (expired) expiredKeys.push(k);
       });
       if (expiredKeys.length > 0) {
         const expiredRows = expiredKeys.map(k => {
