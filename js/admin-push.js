@@ -77,6 +77,20 @@ async function sendBroadcastFromForm() {
   toast('📤 Küldés folyamatban...');
   try {
     const result = await sendPushBroadcast('admin_broadcast', title, body, target);
+    // v2.53.58: a broadcast TÁROLÁSA rendes üzenetként is → a vevő üzenet-paneljában
+    // megjelenik a teljes szöveg (a push csak a rövid figyelemfelkeltő). Így hosszú
+    // üzenet is olvasható, nem vész el a levágott értesítésben.
+    try {
+      const now = new Date();
+      const msgText = '📢 ' + title + (body ? '\n' + body : '');
+      const recipients = (D.clients || []);
+      if (recipients.length) {
+        const rows = recipients.map(c => ({
+          client_id: c.id, year: now.getFullYear(), month: now.getMonth() + 1, text: msgText
+        }));
+        await sb.insert('messages', rows);
+      }
+    } catch(msgErr) { console.warn('broadcast→messages:', msgErr.message); }
     toast(`✅ Elküldve ${result.sent}/${result.total} vevőnek${result.failed > 0 ? ` (${result.failed} sikertelen)` : ''}.`);
     // Clear form
     document.getElementById('push-title').value = '';
