@@ -714,27 +714,32 @@ if (typeof window !== 'undefined') {
 }
 
 // ===== v2.53.59: üzenet-jelző a fejlécben + deep-link az üzenetekhez =====
-function _msgSeenKey(){ return 'vevo_lastSeenMsg_' + (currentUser?.id || 'x'); }
-function _allMsgTs(){
-  if (!appData?.messages) return [];
-  return Object.values(appData.messages).flat().map(m => new Date(m.ts).getTime()).filter(n=>!isNaN(n));
+function _msgSeenKey(){ return `vevo_lastSeenMsg_${currentUser?.id||'x'}_${selectedYear}_${selectedMonth}`; }
+// v2.53.64: csak az AKTUÁLIS hónap ADMIN-üzeneteit (📨/📢) számoljuk — a saját üzenetek
+// és a többi hónap NEM számít (különben a badge a display-jel eltért, pl. "21").
+function _curMonthAdminMsgs(){
+  if (!appData?.messages || !currentUser) return [];
+  const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
+  return (appData.messages[key] || []).filter(m => {
+    const t = m.text || '';
+    return t.startsWith('📨 Admin:') || t.startsWith('📢');
+  });
 }
 function getUnreadMsgCount(){
   const seen = Number(localStorage.getItem(_msgSeenKey()) || 0);
-  return _allMsgTs().filter(t => t > seen).length;
+  return _curMonthAdminMsgs().filter(m => new Date(m.ts).getTime() > seen).length;
 }
 function updateMsgIndicator(){
   const btn = document.getElementById('msg-btn');
   const badge = document.getElementById('msg-unread-badge');
   if (!btn || !badge) return;
-  const total = _allMsgTs().length;
-  btn.style.display = total > 0 ? 'inline-block' : 'none';   // csak ha van üzenet
+  btn.style.display = _curMonthAdminMsgs().length > 0 ? 'inline-block' : 'none';
   const unread = getUnreadMsgCount();
   if (unread > 0){ badge.style.display='block'; badge.textContent = unread > 9 ? '9+' : String(unread); }
   else badge.style.display='none';
 }
 function markMessagesSeen(){
-  const ts = _allMsgTs();
+  const ts = _curMonthAdminMsgs().map(m => new Date(m.ts).getTime()).filter(n=>!isNaN(n));
   const max = ts.length ? Math.max(...ts) : Date.now();
   localStorage.setItem(_msgSeenKey(), String(max));
   updateMsgIndicator();
