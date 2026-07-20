@@ -750,12 +750,17 @@ if (typeof window !== 'undefined'){
 // SW → app: push megnyitáskor az üzenetekhez ugrunk
 if ('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', ev => {
-    if (ev.data?.action === 'open-messages') showMessages();
+    if (ev.data?.action === 'open-messages') tryOpenMessages();
   });
 }
+// Robusztus deep-link: megvárja, míg a user + az üzenetek betöltenek (mobilon lassabb)
+function tryOpenMessages(attempt = 0){
+  const ready = currentUser && document.getElementById('order-messages-display');
+  if (ready){ showMessages(); return; }
+  if (attempt < 40) setTimeout(() => tryOpenMessages(attempt + 1), 300); // max ~12 mp
+}
+window.tryOpenMessages = tryOpenMessages;
 // Deep-link URL-paraméter (ha új ablak nyílt push-ból)
 window.addEventListener('load', () => {
-  if (new URLSearchParams(location.search).get('openmsg') === '1'){
-    setTimeout(() => { if (currentUser) showMessages(); }, 1500);
-  }
+  if (new URLSearchParams(location.search).get('openmsg') === '1') tryOpenMessages();
 });
