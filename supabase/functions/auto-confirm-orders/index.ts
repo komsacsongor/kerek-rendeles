@@ -23,35 +23,39 @@ async function pushToClient(clientId: string, title: string, body: string) {
 
 Deno.serve(async (_req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  const now = new Date().toISOString()
+  const nowDate = new Date()
+  const now = nowDate.toISOString()
 
-  // B FÁZIS (későbbi): ha az 'auto_confirm_respect_shortage' beállítás BE,
-  // a hiányzó alapanyagú termékek napjait ki kell hagyni a jóváhagyásból.
-  // Jelenleg (A fázis): minden lejárt pending/modified rendelést jóváhagyunk,
-  // mert az alapanyaglista még nincs karbantartva.
+  // Default határidő, ha a soron nincs tárolt deadline (régi rendelések):
+  // előző nap 18:00 Bukarest ~ 16:00 UTC (sosem korábbi a valós 18:00 helyinél).
+  const defaultDeadline = (year: number, month0: number, day: number) =>
+    new Date(Date.UTC(year, month0, day - 1, 16, 0, 0))
 
-  // Lejárt PENDING és MODIFIED rendelések
+  // Minden PENDING/MODIFIED sor (deadline-nal együtt), majd JS-ben szűrünk lejártra.
   const { data, error } = await supabase
     .from('order_status')
-    .select('client_id,year,month,day')
+    .select('client_id,year,month,day,deadline')
     .in('status', ['pending', 'modified'])
-    .lte('deadline', now)
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   if (!data || data.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
 
-  // Tömeges jóváhagyás
-  const { error: updErr } = await supabase
-    .from('order_status')
-    .update({ status: 'confirmed', confirmed_at: now })
-    .in('status', ['pending', 'modified'])
-    .lte('deadline', now)
+  const expired = data.filter(r => {
+    const dl = r.deadline ? new Date(r.deadline) : defaultDeadline(r.year, r.month, r.day)
+    return dl <= nowDate
+  })
+  if (expired.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
 
-  if (updErr) return new Response(JSON.stringify({ error: updErr.message }), { status: 500 })
+  // Tömeges jóváhagyás — soronként a (client_id,year,month,day) kulcsra
+  for (const r of expired) {
+    await supabase.from('order_status')
+      .update({ status: 'confirmed', confirmed_at: now })
+      .eq('client_id', r.client_id).eq('year', r.year).eq('month', r.month).eq('day', r.day)
+  }
 
   // Vevő-push, vevőnként csoportosítva (egy üzenet / vevő)
   const byClient: Record<string, Array<{year:number,month:number,day:number}>> = {}
-  for (const r of data) {
+  for (const r of expired) {
     (byClient[r.client_id] = byClient[r.client_id] || []).push(r)
   }
   for (const [clientId, rows] of Object.entries(byClient)) {
@@ -65,5 +69,5 @@ Deno.serve(async (_req) => {
     await pushToClient(clientId, 'Rendelés visszaigazolva ✅', body)
   }
 
-  return new Response(JSON.stringify({ confirmed: data.length, clients: Object.keys(byClient).length, at: now }), { status: 200 })
+  return new Response(JSON.stringify({ confirmed: expired.length, clients: Object.keys(byClient).length, at: now }), { status: 200 })
 })

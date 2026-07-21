@@ -14,9 +14,16 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - name: Call auto-confirm-orders Edge Function
+      - name: Call auto-confirm-orders Edge Function (staging + prod)
         run: |
-          echo "⏰ Auto-confirm futtatása..."
+          echo "⏰ Auto-confirm — STAGING..."
+          curl -fsS -X POST \
+            -H "Authorization: Bearer sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1" \
+            -H "apikey: sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1" \
+            -H "Content-Type: application/json" \
+            "https://xgcwxlwjlohzbzpcapnw.supabase.co/functions/v1/auto-confirm-orders" || echo "(staging kihagyva/hibás — nem blokkol)"
+          echo ""
+          echo "⏰ Auto-confirm — PROD..."
           curl -fsS -X POST \
             -H "Authorization: Bearer sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN" \
             -H "apikey: sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN" \
