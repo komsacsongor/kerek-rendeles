@@ -10,6 +10,7 @@ async function markClientSeen(clientId, year, month) {
   if(!D.seenMsgs) D.seenMsgs = {};
   if(D.seenMsgs[seenKey] === clientMsgCount) return; // nincs változás
   D.seenMsgs[seenKey] = clientMsgCount;
+  try { localStorage.setItem('admin_seen_msgs', JSON.stringify(D.seenMsgs)); } catch(e) {}
   try { await sb.setSetting('admin_seen_msgs', D.seenMsgs); } catch(e) { console.warn('seen save err', e); }
   updateMsgBadge();
 }
