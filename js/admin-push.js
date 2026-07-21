@@ -86,7 +86,7 @@ async function sendBroadcastFromForm() {
       const recipients = (D.clients || []);
       if (recipients.length) {
         const rows = recipients.map(c => ({
-          client_id: c.id, year: now.getFullYear(), month: now.getMonth() + 1, text: msgText
+          client_id: c.id, year: now.getFullYear(), month: now.getMonth(), text: msgText
         }));
         await sb.insert('messages', rows);
       }
