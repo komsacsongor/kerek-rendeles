@@ -23,47 +23,59 @@ async function pushToClient(clientId: string, title: string, body: string) {
 
 Deno.serve(async (_req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  const now = new Date().toISOString()
+  const nowDate = new Date()
+  const now = nowDate.toISOString()
 
-  // B FÁZIS (későbbi): ha az 'auto_confirm_respect_shortage' beállítás BE,
-  // a hiányzó alapanyagú termékek napjait ki kell hagyni a jóváhagyásból.
-  // Jelenleg (A fázis): minden lejárt pending/modified rendelést jóváhagyunk,
-  // mert az alapanyaglista még nincs karbantartva.
+  // Default határidő, ha a soron nincs tárolt deadline (régi rendelések):
+  // előző nap 18:00 Bukarest ~ 16:00 UTC (sosem korábbi a valós 18:00 helyinél).
+  const defaultDeadline = (year: number, month0: number, day: number) =>
+    new Date(Date.UTC(year, month0, day - 1, 16, 0, 0))
+  const mkKey = (c: string, y: number, m: number, d: number) => `${c}-${y}-${m}-${d}`
 
-  // Lejárt PENDING és MODIFIED rendelések
-  const { data, error } = await supabase
-    .from('order_status')
-    .select('client_id,year,month,day')
-    .in('status', ['pending', 'modified'])
-    .lte('deadline', now)
+  // 1) Minden RENDELT nap (a rendelésekből — így a status-sor NÉLKÜLI rendelések is beleesnek)
+  const { data: orders, error: oErr } = await supabase
+    .from('orders').select('client_id,year,month,day')
+  if (oErr) return new Response(JSON.stringify({ error: oErr.message }), { status: 500 })
+  if (!orders || orders.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
 
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  if (!data || data.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
+  const orderedDays = new Map<string, {client_id:string,year:number,month:number,day:number}>()
+  for (const o of orders) orderedDays.set(mkKey(o.client_id, o.year, o.month, o.day), o)
 
-  // Tömeges jóváhagyás
-  const { error: updErr } = await supabase
-    .from('order_status')
-    .update({ status: 'confirmed', confirmed_at: now })
-    .in('status', ['pending', 'modified'])
-    .lte('deadline', now)
+  // 2) Meglévő státuszok (kulcs → {status, deadline})
+  const { data: statuses, error: sErr } = await supabase
+    .from('order_status').select('client_id,year,month,day,status,deadline')
+  if (sErr) return new Response(JSON.stringify({ error: sErr.message }), { status: 500 })
+  const stMap = new Map<string, {status:string, deadline:string|null}>()
+  for (const s of (statuses || [])) stMap.set(mkKey(s.client_id, s.year, s.month, s.day), { status: s.status, deadline: s.deadline })
 
-  if (updErr) return new Response(JSON.stringify({ error: updErr.message }), { status: 500 })
-
-  // Vevő-push, vevőnként csoportosítva (egy üzenet / vevő)
-  const byClient: Record<string, Array<{year:number,month:number,day:number}>> = {}
-  for (const r of data) {
-    (byClient[r.client_id] = byClient[r.client_id] || []).push(r)
+  // 3) Lejárt, még le nem zárt rendelt napok → jóváhagyandók
+  const toConfirm: Array<{client_id:string,year:number,month:number,day:number}> = []
+  for (const [key, od] of orderedDays) {
+    const st = stMap.get(key)
+    if (st && (st.status === 'confirmed' || st.status === 'cancelled')) continue // már lezárt
+    const dl = st?.deadline ? new Date(st.deadline) : defaultDeadline(od.year, od.month, od.day)
+    if (dl <= nowDate) toConfirm.push(od)
   }
-  for (const [clientId, rows] of Object.entries(byClient)) {
-    let body: string
-    if (rows.length === 1) {
-      const r = rows[0]
-      body = `${HU_MONTHS[r.month] || (r.month + 1) + '.'} ${r.day}. – rendelésedet jóváhagytuk.`
-    } else {
-      body = `${rows.length} rendelésedet jóváhagytuk.`
-    }
+  if (toConfirm.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
+
+  // 4) Jóváhagyás (upsert — a status-sor nélkülieknek is létrehozza)
+  const rows = toConfirm.map(r => ({
+    client_id: r.client_id, year: r.year, month: r.month, day: r.day,
+    status: 'confirmed', confirmed_at: now
+  }))
+  const { error: upErr } = await supabase
+    .from('order_status').upsert(rows, { onConflict: 'client_id,year,month,day' })
+  if (upErr) return new Response(JSON.stringify({ error: upErr.message }), { status: 500 })
+
+  // 5) Vevő-push, vevőnként csoportosítva
+  const byClient: Record<string, Array<{year:number,month:number,day:number}>> = {}
+  for (const r of toConfirm) (byClient[r.client_id] = byClient[r.client_id] || []).push(r)
+  for (const [clientId, list] of Object.entries(byClient)) {
+    const body = list.length === 1
+      ? `${HU_MONTHS[list[0].month] || (list[0].month + 1) + '.'} ${list[0].day}. – rendelésedet jóváhagytuk.`
+      : `${list.length} rendelésedet jóváhagytuk.`
     await pushToClient(clientId, 'Rendelés visszaigazolva ✅', body)
   }
 
-  return new Response(JSON.stringify({ confirmed: data.length, clients: Object.keys(byClient).length, at: now }), { status: 200 })
+  return new Response(JSON.stringify({ confirmed: toConfirm.length, clients: Object.keys(byClient).length, at: now }), { status: 200 })
 })

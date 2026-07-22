@@ -137,6 +137,28 @@ async function saveOrder() {
           appData.orderStatus[key] = { ...st, status: 'pending' };
         }
       }
+      // v2.53.68: minden rendelt napra tároljuk a HATÁRIDŐT (előző nap 18:00 helyi idő
+      // ISO-ként — időzóna-helyes), hogy az auto-confirm (kliens H8 + szerver cron)
+      // megbízhatóan tudjon jóváhagyni. A már lezárt (confirmed/cancelled) napokat kihagyjuk.
+      const statusRows = [];
+      [...new Set(upserts.map(u => u.day))].forEach(day => {
+        const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+        const st = (appData.orderStatus && appData.orderStatus[key]) || {};
+        if (st.status === 'confirmed' || st.status === 'cancelled') return;
+        const dl = new Date(selectedYear, selectedMonth, day - 1, 18, 0, 0);
+        statusRows.push({
+          client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
+          status: st.status || 'pending', deadline: dl.toISOString(), admin_note: st.admin_note || null
+        });
+      });
+      if (statusRows.length) {
+        await sb.upsert('order_status', statusRows, 'client_id,year,month,day');
+        if (!appData.orderStatus) appData.orderStatus = {};
+        statusRows.forEach(r => {
+          const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, r.day);
+          appData.orderStatus[key] = { ...(appData.orderStatus[key] || {}), status: r.status, deadline: r.deadline };
+        });
+      }
       // elmentett napok dirty-jelének törlése (már szinkronban a DB-vel)
       [...new Set(upserts.map(u => u.day))].forEach(day =>
         _dirtyOrderDays.delete(getOrderKey(currentUser.id, selectedYear, selectedMonth, day)));

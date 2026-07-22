@@ -1,14 +1,16 @@
 // ===== ÜZENET OLVASOTT/OLVASATLAN TRACKING (Supabase alapú) =====
 // D.seenMsgs = { "2026-4": 2, "2026-5": 1, ... } - Supabase settings-ből töltve
+const _openMsgCards = new Set();  // v2.53.63: nyitott üzenet-szálak (újrarender is megőrzi)
 async function markClientSeen(clientId, year, month) {
   // Per-vevő olvasott tracking: key = "year-month-clientId"
   const key = `${clientId}-${year}-${month}`;
   const arr = D.messages[key] || [];
-  const clientMsgCount = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+  const clientMsgCount = arr.filter(m=>{const t=m.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
   const seenKey = `${year}-${month}-${clientId}`;
   if(!D.seenMsgs) D.seenMsgs = {};
   if(D.seenMsgs[seenKey] === clientMsgCount) return; // nincs változás
   D.seenMsgs[seenKey] = clientMsgCount;
+  try { localStorage.setItem('admin_seen_msgs', JSON.stringify(D.seenMsgs)); } catch(e) {}
   try { await sb.setSetting('admin_seen_msgs', D.seenMsgs); } catch(e) { console.warn('seen save err', e); }
   updateMsgBadge();
 }
@@ -22,7 +24,7 @@ function getUnreadCount() {
     const year = parts[parts.length-2];
     const clientId = parts.slice(0, parts.length-2).join('-');
     const seenKey = `${year}-${month}-${clientId}`;
-    const clientMsgs = arr.filter(m=>!(m.text||'').startsWith('📨 Admin:')).length;
+    const clientMsgs = arr.filter(m=>{const t=m.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
     unread += Math.max(0, clientMsgs - (seen[seenKey]||0));
   });
   return unread;
@@ -39,7 +41,7 @@ function updateMonthBadges() {
     let clientCount = 0;
     Object.entries(D.messages).forEach(([key, arr]) => {
       if(key.endsWith(`-${selYear}-${m}`))
-        clientCount += (arr||[]).filter(msg=>!(msg.text||'').startsWith('📨 Admin:')).length;
+        clientCount += (arr||[]).filter(msg=>{const t=msg.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');}).length;
     });
     // Per-vevő seen összeszámolás
     let seenInMonth = 0;
@@ -101,6 +103,7 @@ async function sendAdminReply(clientId, month, inputId) {
         else msgArea.appendChild(div);
       }
     }
+    if (typeof markClientSeen === 'function') await markClientSeen(clientId, selYear, month);
     updateMsgBadge();
     toast('✅ Üzenet elküldve!');
   } catch(e) {
@@ -123,7 +126,7 @@ function renderMessages(){
     const seenCount = seen[selYear + '-' + selMonth + '-' + c.id] || 0;
     const unread = Math.max(0, clientMsgs.length - seenCount);
     // Olvasatlan kártyák nyitva, olvasottak csukva
-    const isOpen = false; // mindig csukva - kézzel kell kinyitni
+    const isOpen = _openMsgCards.has(key); // v2.53.63: megőrzi a nyitott állapotot
     const arrow = '▶';
     const unreadBadge = unread > 0
       ? '<span style="background:var(--gold);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;margin-left:8px">' + unread + ' új</span>'
@@ -182,6 +185,7 @@ async function toggleMsgCard(key, clientId) {
   if(!body) return;
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) _openMsgCards.delete(key); else _openMsgCards.add(key);
   if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
   // Ha kinyitjuk → olvasottnak jelöljük + badge eltávolítása
   if(!isOpen) {

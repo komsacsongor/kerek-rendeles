@@ -264,6 +264,7 @@ async function doLogin() {
     if (typeof kerekVevoSaveLogin === 'function') kerekVevoSaveLogin(val);
     if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
     document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
+    setTimeout(() => { if (typeof updateMsgIndicator === 'function') updateMsgIndicator(); }, 800);
     const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
     document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';
     // Vevő rendelései + üzenetei Supabase-ből
@@ -295,14 +296,25 @@ async function doLogin() {
       });
     } catch(e) { console.warn('User data load:', e.message); }
 
-    // H8 fix: Auto-confirm PENDING/MODIFIED orders past deadline (no cron available)
+    // H8 fix: a határidőn túli rendeléseket jóváhagyjuk (nincs mindig cron).
+    // FONTOS: a RENDELÉSEKEN (appData.orders) iterálunk, mert új rendelésnél NINCS
+    // order_status sor — a status-sorokon iterálva ezek kimaradnának.
     try {
       const now = new Date();
       const expiredKeys = [];
-      Object.entries(appData.orderStatus || {}).forEach(([k, st]) => {
-        if ((st.status === 'pending' || st.status === 'modified') && st.deadline) {
-          if (new Date(st.deadline) <= now) expiredKeys.push(k);
-        }
+      Object.keys(appData.orders || {}).forEach(k => {
+        const order = appData.orders[k];
+        if (!order || Object.keys(order).length === 0) return;           // üres nap
+        const st = (appData.orderStatus || {})[k] || {};
+        if (['confirmed','cancelled','fulfilled'].includes(st.status)) return; // már lezárt
+        const parts = k.split('-');                                      // clientId-year-month-day
+        const y = parseInt(parts[parts.length-3]);
+        const mo = parseInt(parts[parts.length-2]);                      // 0-alapú
+        const dy = parseInt(parts[parts.length-1]);
+        const expired = st.deadline
+          ? (new Date(st.deadline) <= now)
+          : (typeof defaultDeadlinePassed === 'function' && defaultDeadlinePassed(new Date(y, mo, dy)));
+        if (expired) expiredKeys.push(k);
       });
       if (expiredKeys.length > 0) {
         const expiredRows = expiredKeys.map(k => {
@@ -334,6 +346,12 @@ async function doLogin() {
     if (sticky) sticky.style.display = 'flex';
     document.body.classList.add('has-sticky-total');
     loadMessage();
+    // v2.53.61: push deep-link — a belépés + üzenet-betöltés UTÁN ugrunk az üzenetekhez
+    // (a szándék sessionStorage-ban él, túléli a login-képernyőt/kattintást)
+    if (sessionStorage.getItem('pendingOpenMsg') === '1'){
+      sessionStorage.removeItem('pendingOpenMsg');
+      setTimeout(() => { if (typeof showMessages === 'function') showMessages(); }, 500);
+    }
     renderHelpConditions();
     initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
 
@@ -353,6 +371,7 @@ async function doLogin() {
             // #9: In-app toast if new admin message arrived
             if (table === 'messages' && event === 'INSERT' && afterMsgCount > beforeMsgCount) {
               showAdminMsgBanner();
+              if (typeof updateMsgIndicator === 'function') updateMsgIndicator();
             }
             // Re-render active view
             if (typeof renderOrderTable === 'function') renderOrderTable();
@@ -445,8 +464,7 @@ function showAdminMsgBanner() {
     b.onclick = () => {
       b.style.transform = 'translateY(-100%)';
       // Megnyitjuk az üzenetek view-t ha van
-      if (typeof showMessages === 'function') showMessages();
-      else document.querySelector('[data-action="showMessages"]')?.click();
+      showMessages();
     };
     document.body.appendChild(b);
   }
@@ -705,3 +723,71 @@ if (typeof window !== 'undefined') {
     kerekVevoLoadLogin();
   }
 }
+
+// ===== v2.53.59: üzenet-jelző a fejlécben + deep-link az üzenetekhez =====
+function _msgSeenKey(){ return `vevo_lastSeenMsg_${currentUser?.id||'x'}_${selectedYear}_${selectedMonth}`; }
+// v2.53.64: csak az AKTUÁLIS hónap ADMIN-üzeneteit (📨/📢) számoljuk — a saját üzenetek
+// és a többi hónap NEM számít (különben a badge a display-jel eltért, pl. "21").
+function _curMonthAdminMsgs(){
+  if (!appData?.messages || !currentUser) return [];
+  const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
+  return (appData.messages[key] || []).filter(m => {
+    const t = m.text || '';
+    return t.startsWith('📨 Admin:') || t.startsWith('📢');
+  });
+}
+function getUnreadMsgCount(){
+  const seen = Number(localStorage.getItem(_msgSeenKey()) || 0);
+  return _curMonthAdminMsgs().filter(m => new Date(m.ts).getTime() > seen).length;
+}
+function updateMsgIndicator(){
+  const btn = document.getElementById('msg-btn');
+  const badge = document.getElementById('msg-unread-badge');
+  if (!btn || !badge) return;
+  btn.style.display = _curMonthAdminMsgs().length > 0 ? 'inline-block' : 'none';
+  const unread = getUnreadMsgCount();
+  if (unread > 0){ badge.style.display='block'; badge.textContent = unread > 9 ? '9+' : String(unread); }
+  else badge.style.display='none';
+}
+function markMessagesSeen(){
+  const ts = _curMonthAdminMsgs().map(m => new Date(m.ts).getTime()).filter(n=>!isNaN(n));
+  const max = ts.length ? Math.max(...ts) : Date.now();
+  localStorage.setItem(_msgSeenKey(), String(max));
+  updateMsgIndicator();
+}
+function showMessages(){
+  const el = document.getElementById('order-messages-display');
+  if (el){
+    el.scrollIntoView({ behavior:'smooth', block:'center' });
+    el.style.transition='box-shadow 0.3s'; el.style.boxShadow='0 0 0 3px var(--gold)';
+    setTimeout(()=>{ el.style.boxShadow='none'; }, 1600);
+  }
+  markMessagesSeen();
+  sessionStorage.removeItem("pendingOpenMsg");
+}
+if (typeof window !== 'undefined'){
+  window.showMessages = showMessages;
+  window.updateMsgIndicator = updateMsgIndicator;
+  window.markMessagesSeen = markMessagesSeen;
+}
+// SW → app: push megnyitáskor az üzenetekhez ugrunk
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', ev => {
+    if (ev.data?.action === 'open-messages'){ sessionStorage.setItem('pendingOpenMsg','1'); tryOpenMessages(); }
+  });
+}
+// Robusztus deep-link: megvárja, míg a user + az üzenetek betöltenek (mobilon lassabb)
+function tryOpenMessages(attempt = 0){
+  const ready = currentUser && document.getElementById('order-messages-display');
+  if (ready){ showMessages(); return; }
+  if (attempt < 40) setTimeout(() => tryOpenMessages(attempt + 1), 300); // max ~12 mp
+}
+window.tryOpenMessages = tryOpenMessages;
+// Deep-link URL-paraméter (ha új ablak nyílt push-ból): a szándékot eltároljuk,
+// mert a login-képernyő megjelenhet, és a doLogin végén sülünk el.
+window.addEventListener('load', () => {
+  if (new URLSearchParams(location.search).get('openmsg') === '1'){
+    sessionStorage.setItem('pendingOpenMsg', '1');
+    tryOpenMessages();  // ha már be van lépve (mentett session), azonnal
+  }
+});

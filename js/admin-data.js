@@ -176,7 +176,17 @@ async function loadAllData() {
       else if (key === 'currency') D.settings.currency = val;
       else if (key === 'help_conditions') D.helpConditions = val;
       else if (key === 'help_delivery') D.helpDelivery = val;
-      else if (key === 'admin_seen_msgs') D.seenMsgs = (typeof val === 'object' && val !== null) ? val : {};
+      else if (key === 'admin_seen_msgs') {
+        const dbSeen = (typeof val === 'object' && val !== null) ? val : {};
+        // v2.53.67: a helyi (localStorage) olvasott-jelölés SOSEM vész el a 30s újratöltéskor
+        let localSeen = {};
+        try { localSeen = JSON.parse(localStorage.getItem('admin_seen_msgs') || '{}'); } catch(e) {}
+        const merged = { ...dbSeen };
+        Object.keys(localSeen).forEach(k => {
+          merged[k] = Math.max(Number(dbSeen[k]) || 0, Number(localSeen[k]) || 0);
+        });
+        D.seenMsgs = merged;
+      }
       else if (key === 'auto_confirm_respect_shortage') D.settings.auto_confirm_respect_shortage = (val === true);
     });
   } catch(e) { console.error('loadAllData [settings]:', e.message); }
@@ -293,7 +303,7 @@ function initApp(){
         updateMsgBadge();
         if (typeof updatePendingBadge === 'function') updatePendingBadge();
         const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-        RENDERS[activeView]?.();
+        if (!shouldSkipAutoRender(activeView)) RENDERS[activeView]?.();
         if (_wsLastEvent?.table === 'messages' && _wsLastEvent?.event === 'INSERT' && activeView !== 'messages') {
           const badge = document.getElementById('msg-badge');
           if (badge) { badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = 'pulse 0.6s 3'; }
@@ -309,7 +319,7 @@ function initApp(){
     updateMsgBadge();
     if (typeof updatePendingBadge === 'function') updatePendingBadge();
     const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
-    RENDERS[activeView]?.();
+    if (!shouldSkipAutoRender(activeView)) RENDERS[activeView]?.();
   }, 30000);
 
   renderDashboard();
