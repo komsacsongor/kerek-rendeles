@@ -122,7 +122,7 @@ function renderMessages(){
     const msgs = D.messages[key] || [];
     if(msgs.length === 0) return; // nincs üzenet - kihagyjuk
     count++;
-    const clientMsgs = msgs.filter(m => !(m.text||'').startsWith('📨 Admin:'));
+    const clientMsgs = msgs.filter(m => {const t=m.text||'';return !t.startsWith('📨 Admin:') && !t.startsWith('📢');});
     const seenCount = seen[selYear + '-' + selMonth + '-' + c.id] || 0;
     const unread = Math.max(0, clientMsgs.length - seenCount);
     // Olvasatlan kártyák nyitva, olvasottak csukva
@@ -142,9 +142,11 @@ function renderMessages(){
     html += '<div class="card-body">';
     msgs.forEach(msg => {
       const dt = new Date(msg.ts||Date.now()).toLocaleString('hu-HU',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      const isAdmin = (msg.text||'').startsWith('📨 Admin:');
+      const _t = msg.text||'';
+      const isBroadcast = _t.startsWith('📢');
+      const isAdmin = _t.startsWith('📨 Admin:') || isBroadcast;
       const bg = isAdmin ? 'background:#f0fff4;border-left:3px solid #059669;border-radius:8px;' : '';
-      const who = isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + esc(c.name) + ' · ' + esc(c.email||'');
+      const who = isBroadcast ? '📢 Körüzenet (mindenkinek)' : (isAdmin ? '👩‍💼 Admin válasz' : '👤 ' + esc(c.name) + ' · ' + esc(c.email||''));
       const msgIdx = msgs.indexOf(msg);
       html += '<div class="message-item" style="' + bg + 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
       html += '<div style="flex:1"><div class="message-meta"><span>' + esc(who) + '</span><span>📅 ' + dt + '</span></div>';
