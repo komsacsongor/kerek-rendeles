@@ -315,6 +315,17 @@ async function initApp() {
   } catch(e) { console.warn('Ingredients DB load:', e.message); }
 
   auditLog('login', 'Receptúra', 'Sikeres belépés');
+  // v2.53.72 FIX: belépéskor is töltsük a suppliers + equipment adatokat.
+  // (Eddig ezek CSAK a realtime 'products' eseményre töltődtek → belépés után eltűntek.)
+  try {
+    const dbSuppliers = await kData.query('suppliers', { order: 'name' });
+    if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') R.suppliers = dbSuppliers.map(mapSupplierDb);
+  } catch(e) { console.warn('suppliers load (initApp):', e.message); }
+  try {
+    const dbEq = await kData.query('equipment', { order: 'name', limit: 100 });
+    if (Array.isArray(dbEq)) R.equipment = dbEq.map(e => (typeof mapEquipmentDb === 'function') ? mapEquipmentDb(e) : e);
+  } catch(e) { console.warn('equipment load (initApp):', e.message); }
+
   nav('recipes');
 
   // v2.36.0 fix #11: Realtime subscription instead of partial polling

@@ -126,6 +126,7 @@ function renderStock() {
           <div style="display:flex;gap:6px">
             ${batches.length > 0 ? `<span style="background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:10px;font-size:0.7rem">${batches.length} batch</span>` : ''}
             <button onclick="openStockIntakeModal(${ing.id})" style="background:var(--teal-dark);color:var(--gold);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem;font-weight:600">📦 Bevételezés</button>
+            <button onclick="openIngredientModal(${ing.id})" style="background:var(--bg-soft);color:var(--teal-dark);border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem" title="Alapanyag adatlap (név, mértékegység, kategória)">✏️ Adatlap</button>
             <button onclick="openMinMaxEditor(${ing.id})" style="background:${ing.isOverride?'#7c3aed':'var(--bg-soft)'};color:${ing.isOverride?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">✏️ Min/Max</button>
             <button onclick="openPriceEditor(${ing.id})" style="background:${ing.basePriceG>0?'#b45309':'var(--bg-soft)'};color:${ing.basePriceG>0?'white':'var(--text-soft)'};border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.75rem">💰 Ár</button>
             <button onclick="deleteIngredient(${ing.id})" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:0.75rem;padding:3px 6px" title="Törlés" data-tip="Törlés">🗑️</button>
