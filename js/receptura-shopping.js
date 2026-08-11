@@ -374,7 +374,7 @@ function openSupplierWizard(){
   if (!sups.length){ toast('⚠️ Előbb vegyél fel beszállítót a Beszállítók fülön.', true); return; }
   if (!orphans.length){ toast('✅ Nincs beszállító nélküli alapanyag.'); return; }
 
-  const opts = s => `<option value="">— nincs —</option>` + sups.map(x=>`<option value="${x.id}" ${String(s)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('');
+  const opts = s => `<option value="">— nincs —</option>` + sups.map(x=>`<option value="${x.id}" ${String(s)===String(x.id)?'selected':''}>${esc(x.brand ? x.brand + ' — ' + x.name : x.name)}</option>`).join('');
   const rows = orphans.map(ing => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0;font-size:0.88rem;font-weight:600">${esc(ing.name)}

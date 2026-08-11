@@ -179,11 +179,12 @@ function openStockIntakeModal(ingId) {
   if (!ing) return;
   const currentStock = getTotalStock(ing);
 
-  // Build supplier options
-  const suppliers = ing.suppliers || [];
-  const supplierOpts = suppliers.map((s,i) =>
-    `<option value="${i}">${esc(s.source||s.name||'?')} – ${s.pricePerKg||0} lej/kg</option>`
-  ).join('');
+  // Build supplier options — a TELJES beszállító-listából (kevesebb tévedés)
+  const globalSuppliers = (R.suppliers || []).filter(s => s.active !== false);
+  const supplierOpts = globalSuppliers
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'))
+    .map(s => `<option value="${esc(s.name)}">${esc(s.brand ? s.brand + ' — ' + s.name : s.name)}</option>`)
+    .join('');
 
   const modal = document.getElementById('stock-intake-modal') || (() => {
     const m = document.createElement('div');
@@ -227,12 +228,13 @@ function openStockIntakeModal(ingId) {
     </div>
     <div style="margin-bottom:16px">
       <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);display:block;margin-bottom:6px">Beszállító</label>
-      ${suppliers.length > 0 ? `<select id="si-supplier-select" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;margin-bottom:8px">
+      <select id="si-supplier-select" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;margin-bottom:8px">
+        <option value="">— Válassz beszállítót —</option>
         ${supplierOpts}
-        <option value="new">+ Új beszállító</option>
-      </select>` : ''}
-      <input type="text" id="si-supplier-name" placeholder="Beszállító neve (pl. BioMart Sf)"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box;${suppliers.length > 0 ? 'display:none' : ''}">
+        <option value="__manual__">✏️ Kézi beírás…</option>
+      </select>
+      <input type="text" id="si-supplier-name" placeholder="Beszállító neve (kézi)"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:'Kodchasan',sans-serif;box-sizing:border-box;display:none">
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="confirmStockIntake(${ingId})" class="btn btn-primary" style="flex:1">✅ Bevételezés rögzítése</button>
@@ -247,7 +249,7 @@ function openStockIntakeModal(ingId) {
   if (sel) {
     sel.onchange = () => {
       const nameInput = modal.querySelector('#si-supplier-name');
-      if (nameInput) nameInput.style.display = sel.value === 'new' ? 'block' : 'none';
+      if (nameInput) nameInput.style.display = sel.value === '__manual__' ? 'block' : 'none';
     };
   }
 
@@ -322,9 +324,10 @@ async function confirmStockIntake(ingId) {
     }
   }
 
-  const supplierName = supplierSel?.value === 'new' || !supplierSel
+  const _selVal = supplierSel?.value || '';
+  const supplierName = _selVal === '__manual__'
     ? (supplierNameEl?.value?.trim() || '')
-    : (supplierSel.options[supplierSel.selectedIndex]?.text?.split(' – ')[0] || '');
+    : _selVal;
 
   const ing = getIng(ingId);
   if (!ing) return;

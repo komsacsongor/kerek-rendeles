@@ -111,7 +111,7 @@ function renderSuppliers() {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 18px;background:var(--cream);border-bottom:1px solid var(--border)">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem">${esc(s.name)}</div>
+              <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem">${esc(s.brand || s.name)}${s.brand ? ` <span style="font-weight:400;font-size:0.78rem;color:var(--text-soft)">(${esc(s.name)})</span>` : ''}</div>
               ${!s.active ? '<span style="font-size:0.7rem;background:#e5e7eb;color:#6b7280;padding:2px 8px;border-radius:10px">Inaktív</span>' : ''}
               ${s.isVatPayer ? '<span style="font-size:0.7rem;background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:10px">TVA-fizető</span>' : ''}
             </div>
@@ -199,7 +199,11 @@ function openSupplierModal(id) {
           <div class="form-row">
             <div class="form-group" style="flex:1.5">
               <label>Név <span style="color:#dc2626">*</span></label>
-              <input type="text" id="sup-name" placeholder="pl. Biolife Kft" value="${s ? esc(s.name) : ''}">
+              <input type="text" id="sup-name" placeholder="Jogi név, pl. Biolife Kft" value="${s ? esc(s.name) : ''}">
+            </div>
+            <div class="form-group" style="flex:1.5">
+              <label>Márka / ismert név</label>
+              <input type="text" id="sup-brand" placeholder="pl. BioMart" value="${s ? esc(s.brand || '') : ''}">
             </div>
             <div class="form-group">
               <label>Aktív</label>
@@ -467,6 +471,7 @@ async function saveSupplier() {
 
   const data = {
     name,
+    brand: document.getElementById('sup-brand')?.value?.trim() || null,
     contact_person: document.getElementById('sup-contact')?.value?.trim() || null,
     email: document.getElementById('sup-email')?.value?.trim() || null,
     phone: document.getElementById('sup-phone')?.value?.trim() || null,
@@ -552,6 +557,7 @@ function mapSupplierDb(row) {
   return {
     id: row.id,
     name: row.name,
+    brand: row.brand || '',
     contactPerson: row.contact_person || '',
     email: row.email || '',
     phone: row.phone || '',

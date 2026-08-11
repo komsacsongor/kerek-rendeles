@@ -93,7 +93,7 @@ function openIngredientModal(id=null) {
   if (prefSelect) {
     const activeSups = (R.suppliers || []).filter(s => s.active !== false).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'hu'));
     prefSelect.innerHTML = '<option value="">— Nincs (legutóbbi bevétel beszállítója használandó) —</option>' +
-      activeSups.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      activeSups.map(s => `<option value="${s.id}">${esc(s.brand ? s.brand + ' — ' + s.name : s.name)}</option>`).join('');
     if (id) {
       const i = R.ingredients.find(ing=>ing.id===id);
       prefSelect.value = i?.preferredSupplierId || '';
