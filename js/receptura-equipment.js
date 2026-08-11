@@ -62,7 +62,7 @@ function renderEquipment(){
     const icon = isOven ? '🔥' : e.type === 'mixer' ? '🌀' : '⚙️';
     const bg = e.color || 'var(--teal-pale)';
     const visual = e.photo
-      ? `<img src="${e.photo}" alt="${esc(e.name)}" style="width:100%;height:100%;object-fit:cover">`
+      ? `<img src="${e.photo}" alt="${esc(e.name)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
       : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.4rem;background:${bg}">${icon}</div>`;
     const meta = isOven
       ? `${Number(e.powerKw)||0} kW · ${Number(e.capacityTrays)||0} tálca · előmel. ${Number(e.preheatMin)||0}p`

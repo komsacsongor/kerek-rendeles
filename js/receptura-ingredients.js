@@ -155,6 +155,9 @@ async function saveIngredient() {
   const altFactor = parseFloat(document.getElementById('i-alt-factor')?.value) || null;
   const familyIdRaw = document.getElementById('i-family')?.value || '';
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
+  // firstSupplier lehet sztring (batch-ből származtatott) vagy objektum — csak objektumból van ár
+  const pricePerG = (firstSupplier && typeof firstSupplier === 'object' && firstSupplier.package)
+    ? (firstSupplier.priceNet / firstSupplier.package) : undefined;
   const data = {
     name,
     cat: document.getElementById('i-category').value,
@@ -165,23 +168,27 @@ async function saveIngredient() {
     materialType,
     familyId,
     suppliers: sortedSuppliers,
-    pricePerG: firstSupplier.priceNet / firstSupplier.package,
-    minStock: parseFloat(document.getElementById('i-min-stock').value)||0,
-    criticalStock: parseFloat(document.getElementById('i-critical-stock').value)||0,
   };
-  if (editingIngId) {
-    Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
-    // v2.35.0: persist material_type + family_id + unit to DB
-    try {
+  if (pricePerG !== undefined && !isNaN(pricePerG)) data.pricePerG = pricePerG;
+  try {
+    if (editingIngId) {
+      const ing = R.ingredients.find(i=>i.id===editingIngId);
+      // v2.53.74 FIX: a minStock/maxStock GETTER-property az alapanyagon → Object.assign
+      // rájuk hibát dobna ("has only a getter"). Ezért csak a nem-getter mezőket írjuk.
+      Object.assign(ing, data);
+      // v2.35.0: persist material_type + family_id + unit to DB
       await kData.update('ingredients', { material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
-    } catch(e) { console.warn('DB ingredient update failed:', e.message); }
-    toast('Alapanyag frissítve!');
-  } else {
-    data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
-    R.ingredients.push(data);
-    toast('Alapanyag hozzáadva!');
+      toast('✅ Alapanyag frissítve!');
+    } else {
+      data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
+      R.ingredients.push(data);
+      toast('✅ Alapanyag hozzáadva!');
+    }
+    save(); closeModal('ingredient-modal'); renderIngredients();
+  } catch(e) {
+    console.error('saveIngredient:', e);
+    toast('⚠️ ' + (typeof friendlyError==='function'?friendlyError(e):e.message), true);
   }
-  save(); closeModal('ingredient-modal'); renderIngredients();
 }
 
 // ===== v2.35.0: INGREDIENT FAMILY DIALOG =====
