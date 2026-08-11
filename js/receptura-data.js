@@ -24,165 +24,12 @@ function save() { R._v = DATA_VERSION; localStorage.setItem('kerek_recipe_data',
 
 // v2.37.0 fix #11/#15: full reload Realtime callback-hez, nem hív loadAllData-t mert az nem létezik fv-ként
 // Csak a kritikus táblákat tölti újra (recipes + ingredients + products + batches)
-async function reloadReceptData() {
-  try {
-    // Products cache frissítése (admin termékek)
-    try {
-      const prods = await sb.query('products', {filter:'deleted_at=is.null', limit:500});
-      window._adminProductsCache = prods || [];
-    } catch(e) { console.warn('Products reload:', e.message); }
-
-    // Recipes újraolvasása DB-ből (felülírja R.recipes-t a friss adatokkal)
-    const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
-      kData.query('recipes', {order:'id', limit:500}),
-      kData.query('recipe_ingredients', {order:'recipe_id,sort_order', limit:5000}),
-      kData.query('recipe_steps', {order:'recipe_id,sort_order', limit:2000}),
-    ]);
-    if (dbRecipes && dbRecipes.length > 0) {
-      R.recipes = dbRecipes.map(r => ({
-        id: r.id, name: r.name, category: r.category||'Egyéb',
-        archived: r.archived || false,
-        version: r.version || 1,
-        activatedAt: r.activated_at || null,
-        product_id: r.product_id||null,
-        basePortion: r.base_portion||1000, bakeLoss: r.bake_loss||16,
-        unitWeight: r.unit_weight||1000,
-        temp1: r.temp1||230, time1: r.time1||20,
-        temp2: r.temp2||180, time2: r.time2||70,
-        desc: r.description||'', levainAmount: r.levain_amount||0,
-        laborH: r.labor_h||1, electricity: r.electricity||5,
-        setupMin: r.setup_min ?? null, perUnitMin: r.per_unit_min ?? null,
-        bakeMin: r.bake_min ?? null, bakeTempC: r.bake_temp_c ?? null,
-        unitsPerTray: r.units_per_tray ?? null, traysPerCycle: r.trays_per_cycle ?? null, mixerMin: r.mixer_min ?? null,
-        marketing: r.marketing_desc||'',
-        ingredientLabel: r.ingredient_label||'',
-        allergens: r.allergens||'',
-        nutrition: r.nutrition||null,
-        productCode: r.code || '',
-        productPrice: r.product_price||0,
-        dryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='flour').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
-        otherDryIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&(i.sub_type==='other_dry'||i.sub_type==='spice'||i.sub_type==='additive')).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
-        wetIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='wet').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
-        starterIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id&&i.sub_type==='starter').map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type})),
-        allIngredients: (dbIngredients||[]).filter(i=>i.recipe_id===r.id).map(i=>({name:i.name,amount:i.amount,ingredientId:i.ingredient_id,subType:i.sub_type||'other_dry'})),
-        steps: (dbSteps||[]).filter(s=>s.recipe_id===r.id).map(s=>({title:s.title,desc:s.description,timer:s.timer_minutes})),
-      }));
-      // Code enrichment from products cache
-      if (window._adminProductsCache && window._adminProductsCache.length) {
-        R.recipes.forEach(rec => {
-          if (rec.product_id && !rec.productCode) {
-            const prod = _adminProductsCache.find(p => p.id === rec.product_id);
-            if (prod?.code) rec.productCode = prod.code;
-          }
-        });
-      }
-      // v2.37.0: ne save()-eljünk a localStorage-ba! Az felülírná a friss adatot egy snapshot-tal.
-    }
-
-    // Ingredient batches reload (stock értékek frissülnek)
-    try {
-      const [dbIngList, dbBatches] = await Promise.all([
-        kData.query('ingredients', {order:'category,name', limit:500}),
-        kData.query('ingredient_batches', {order:'ingredient_id,received_date', limit:5000}),
-      ]);
-      if (dbIngList && dbIngList.length > 0) {
-        // Csak a stock-frissítés (a többi mező marad)
-        R.batches = (dbBatches||[]).map(b => ({
-          id: b.id, ingredientId: b.ingredient_id,
-          receivedDate: b.received_date, qtyReceivedG: b.qty_received_g,
-          qtyRemainingG: b.qty_remaining_g, pricePerG: b.price_per_g || 0,
-          supplierName: b.supplier_name || '', sourceType: b.source_type || 'purchase',
-        }));
-        // Re-compute stock per ingredient
-        R.ingredients.forEach(ing => {
-          const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
-          ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
-        });
-      }
-    } catch(e) { console.warn('Ingredients reload:', e.message); }
-    // v2.40.0: suppliers reload
-    try {
-      const dbSuppliers = await kData.query('suppliers', {order: 'name'});
-      if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') {
-        R.suppliers = dbSuppliers.map(mapSupplierDb);
-      }
-      try {
-        const dbEq = await kData.query('equipment', {order:'name', limit:100});
-        R.equipment = (dbEq||[]).map(e => (typeof mapEquipmentDb==='function') ? mapEquipmentDb(e) : e);
-      } catch(e) { console.warn('equipment load:', e.message); R.equipment = R.equipment || [];
-      }
-    } catch(_) {}
-  } catch(e) { console.warn('reloadReceptData:', e.message); }
-}
-
-// v2.37.0: export window-ra hogy a Realtime callback elérje
-if (typeof window !== 'undefined') { window.reloadReceptData = reloadReceptData; }
-
-
-// ===== AUTH =====
-let loggedIn = false;
-function loginError(msg) {
-  const el = document.getElementById('login-error');
-  if(el) { el.textContent = msg; }
-  const pw = document.getElementById('login-pw');
-  if(pw) { pw.style.border='1.5px solid #f87171'; pw.focus(); pw.addEventListener('input', ()=>{ if(el) el.textContent=''; pw.style.border=''; }, {once:true}); }
-}
-async function doLogin() {
-  const pw = document.getElementById('login-pw').value;
-  if(!pw) { loginError('⚠️ Add meg a jelszót!'); return; }
-  try {
-    // v2.48.0: biztonságos szerver-oldali validálás (admin-auth, module=receptura).
-    // Ha nincs külön receptúra jelszó, visszaesik az admin jelszóra.
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
-      body: JSON.stringify({ password: pw, module: 'receptura' })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 429) { loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} mp-et.`); return; }
-    if (res.ok && data.success) {
-      loggedIn = true;
-      if (typeof window !== 'undefined') window._kerekPw = pw;
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
-      initApp();
-      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
-    } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
-  } catch(e) {
-    loginError('⚠️ Hálózati hiba a belépéskor. Próbáld újra.');
-  }
-}
-function logout() {
-  localStorage.removeItem('kerek_admin_data');
-  localStorage.removeItem('kerek_data');
-  localStorage.removeItem('kerek_recipe_data');
-  window.location.href = 'index.html';
-}
-
-async function initApp() {
-  showVersionBadge();
-  document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
-
-  // Supabase-ből tölt minden beállítást
-  const settingLoads = [
-    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
-    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
-    ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
-    ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
-    ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
-  ];
-  await Promise.all(settingLoads.map(async ([key, apply]) => {
-    try { const val = await sb.getSetting(key); if(val!==null) apply(val); }
-    catch(e) { console.warn('initApp getSetting ['+key+']:', e.message); }
-  }));
-
-  // Admin termékek betöltése cache-be
-  try {
-    const prods = await sb.query('products', {order:'name', limit:500});
-    window._adminProductsCache = prods || [];
-  } catch(e) { window._adminProductsCache = []; }
-
-  // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
+// v2.53.73: EGYETLEN kanonikus adat-betöltő. NINCS nav / render / save() — csak R feltöltése.
+// Belépéskor (initApp) ÉS realtime eseménykor (reloadReceptData) is EZ fut → a két útvonal sosem térhet el.
+async function loadReceptCoreData() {
+  // Products cache (admin termékek)
+  try { const prods = await sb.query('products', {filter:'deleted_at=is.null', limit:500}); window._adminProductsCache = prods || []; }
+  catch(e) { console.warn('Products reload:', e.message); }
   try {
     const [dbRecipes, dbIngredients, dbSteps] = await Promise.all([
       kData.query('recipes', {order:'id', limit:500}),
@@ -228,7 +75,6 @@ async function initApp() {
           }
         });
       }
-      save(); // localStorage-ba is menti
     }
   } catch(e) { console.warn('Receptek Supabase betöltés sikertelen:', e.message); }
 
@@ -313,19 +159,92 @@ async function initApp() {
     // Calc auto min/max from orders (async, non-blocking)
     calcAutoMinMax().catch(e => console.warn('autoMinMax:', e.message));
   } catch(e) { console.warn('Ingredients DB load:', e.message); }
-
-  auditLog('login', 'Receptúra', 'Sikeres belépés');
-  // v2.53.72 FIX: belépéskor is töltsük a suppliers + equipment adatokat.
-  // (Eddig ezek CSAK a realtime 'products' eseményre töltődtek → belépés után eltűntek.)
+  // Beszállítók + eszközök
   try {
     const dbSuppliers = await kData.query('suppliers', { order: 'name' });
     if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') R.suppliers = dbSuppliers.map(mapSupplierDb);
-  } catch(e) { console.warn('suppliers load (initApp):', e.message); }
+  } catch(e) { console.warn('suppliers load:', e.message); }
   try {
     const dbEq = await kData.query('equipment', { order: 'name', limit: 100 });
     if (Array.isArray(dbEq)) R.equipment = dbEq.map(e => (typeof mapEquipmentDb === 'function') ? mapEquipmentDb(e) : e);
-  } catch(e) { console.warn('equipment load (initApp):', e.message); }
+  } catch(e) { console.warn('equipment load:', e.message); R.equipment = R.equipment || []; }
+}
 
+async function reloadReceptData() {
+  try { await loadReceptCoreData(); } catch(e) { console.warn('reloadReceptData:', e.message); }
+}
+// v2.37.0: export window-ra hogy a Realtime callback elérje
+if (typeof window !== 'undefined') { window.reloadReceptData = reloadReceptData; }
+
+
+// ===== AUTH =====
+let loggedIn = false;
+function loginError(msg) {
+  const el = document.getElementById('login-error');
+  if(el) { el.textContent = msg; }
+  const pw = document.getElementById('login-pw');
+  if(pw) { pw.style.border='1.5px solid #f87171'; pw.focus(); pw.addEventListener('input', ()=>{ if(el) el.textContent=''; pw.style.border=''; }, {once:true}); }
+}
+async function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  if(!pw) { loginError('⚠️ Add meg a jelszót!'); return; }
+  try {
+    // v2.48.0: biztonságos szerver-oldali validálás (admin-auth, module=receptura).
+    // Ha nincs külön receptúra jelszó, visszaesik az admin jelszóra.
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify({ password: pw, module: 'receptura' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) { loginError(`⚠️ Túl sok próbálkozás. Várj ${data.wait_seconds || 60} mp-et.`); return; }
+    if (res.ok && data.success) {
+      loggedIn = true;
+      if (typeof window !== 'undefined') window._kerekPw = pw;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('user-badge').textContent = '👩‍💼 Technológus';
+      initApp();
+      if (typeof kerekSaveRememberedPassword === 'function') kerekSaveRememberedPassword(pw);
+    } else { loginError('❌ Hibás jelszó! Próbáld újra.'); }
+  } catch(e) {
+    loginError('⚠️ Hálózati hiba a belépéskor. Próbáld újra.');
+  }
+}
+function logout() {
+  localStorage.removeItem('kerek_admin_data');
+  localStorage.removeItem('kerek_data');
+  localStorage.removeItem('kerek_recipe_data');
+  window.location.href = 'index.html';
+}
+
+async function initApp() {
+  showVersionBadge();
+  document.getElementById('topbar-sub').textContent = new Date().toLocaleDateString('hu-HU',{year:'numeric',month:'long',day:'numeric'});
+
+  // Supabase-ből tölt minden beállítást
+  const settingLoads = [
+    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
+    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
+    ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
+  ];
+  await Promise.all(settingLoads.map(async ([key, apply]) => {
+    try { const val = await sb.getSetting(key); if(val!==null) apply(val); }
+    catch(e) { console.warn('initApp getSetting ['+key+']:', e.message); }
+  }));
+
+  // Admin termékek betöltése cache-be
+  try {
+    const prods = await sb.query('products', {order:'name', limit:500});
+    window._adminProductsCache = prods || [];
+  } catch(e) { window._adminProductsCache = []; }
+
+  // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
+  await loadReceptCoreData();
+  save(); // login-kor localStorage snapshot
+
+  auditLog('login', 'Receptúra', 'Sikeres belépés');
   nav('recipes');
 
   // v2.36.0 fix #11: Realtime subscription instead of partial polling
