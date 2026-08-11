@@ -521,7 +521,7 @@ async function saveSupplier() {
     // Refresh ingredient modal-jában dropdown ha nyitva van
     if (typeof renderSupplierDropdownInIngModal === 'function') renderSupplierDropdownInIngModal();
   } catch(e) {
-    toast('⚠️ Mentés hiba: ' + e.message, true);
+    toast('⚠️ ' + (typeof friendlyError==='function'?friendlyError(e):e.message), true);
     console.error('saveSupplier:', e);
   }
 }

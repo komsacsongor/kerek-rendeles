@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.70-sec (2026-07-01)';
+const APP_VERSION = 'v2.53.71-sec (2026-07-01)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -42,6 +42,24 @@ function unitIntakeOptions(u){
   if(d==='vol') return [['ml','ml'],['L','l']];
   return [['g','g'],['kg','kg']];
 }
+
+
+// v2.53.71: érthető hibaüzenetek a nyers DB/EF hibák helyett
+function friendlyError(e){
+  const raw = (e && e.message ? e.message : String(e || '')).toLowerCase();
+  if (raw.includes('duplicate') || raw.includes('already exists') || raw.includes('unique constraint'))
+    return 'Már létezik ilyen tétel (név vagy azonosító ütközik). Frissítsd az oldalt (Ctrl+F5) — ha az elem nem látszik a listában, a betöltés hibázhatott.';
+  if (raw.includes('pgrst204') || raw.includes('schema cache'))
+    return 'Az adatbázis épp frissül — próbáld újra pár másodperc múlva.';
+  if (raw.includes('missing_password') || raw.includes('unauthorized') || raw.includes('401'))
+    return 'A munkamenet lejárt — jelentkezz be újra.';
+  if (raw.includes('forbidden') || raw.includes('not_configured') || raw.includes('bad_module'))
+    return 'Hozzáférési hiba — jelentkezz be újra, vagy szólj a fejlesztőnek.';
+  if (raw.includes('failed to fetch') || raw.includes('networkerror'))
+    return 'Hálózati hiba — ellenőrizd a kapcsolatot és próbáld újra.';
+  return (e && e.message) ? e.message : 'Ismeretlen hiba.';
+}
+if (typeof window !== 'undefined') window.friendlyError = friendlyError;
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
