@@ -1,5 +1,6 @@
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
+  'masterdata': '📚 Törzsadatok',
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
   'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
@@ -24,6 +25,7 @@ function nav(id) {
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
     'processing': () => { initProcessingView(); },
+    'masterdata': () => { if(typeof renderMasterData==='function') renderMasterData(); },
     'receptura-help': () => { renderRecepturaHelp(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     'baking-log': () => { initBakingLog(); },

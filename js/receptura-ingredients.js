@@ -177,7 +177,7 @@ async function saveIngredient() {
       // rájuk hibát dobna ("has only a getter"). Ezért csak a nem-getter mezőket írjuk.
       Object.assign(ing, data);
       // v2.35.0: persist material_type + family_id + unit to DB
-      await kData.update('ingredients', { material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
+      await kData.update('ingredients', { category: document.getElementById('i-category').value, material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
       toast('✅ Alapanyag frissítve!');
     } else {
       data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
