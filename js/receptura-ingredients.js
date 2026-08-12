@@ -1,6 +1,7 @@
 // ===== INGREDIENTS VIEW =====
 let ingCatFilter = 'Mind';
 function renderIngredients() {
+  if(!document.getElementById('ingredients-tbody')) return; // Törzsadatok tab: nincs ez a nézet
   document.getElementById('vat-display').textContent = R.settings.vat;
   document.getElementById('margin-display').textContent = R.settings.margin;
 
@@ -184,7 +185,7 @@ async function saveIngredient() {
       R.ingredients.push(data);
       toast('✅ Alapanyag hozzáadva!');
     }
-    save(); closeModal('ingredient-modal'); renderIngredients();
+    save(); closeModal('ingredient-modal'); renderIngredients(); if(typeof renderMasterData==='function' && document.getElementById('md-tab-content')) renderMasterData();
   } catch(e) {
     console.error('saveIngredient:', e);
     toast('⚠️ ' + (typeof friendlyError==='function'?friendlyError(e):e.message), true);

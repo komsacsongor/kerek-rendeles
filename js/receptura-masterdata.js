@@ -9,20 +9,40 @@ function renderMasterData(tab) {
   const box = document.getElementById('masterdata-content');
   if (!box) return;
   const tabs = [
-    ['kategoriak','🗂️ Kategóriák'], ['csaladok','🧬 Családok'], ['egysegek','📏 Mértékegységek'],
-    ['eszkozok','🔥 Eszközök'], ['termekkat','🏷 Termék-kat.'], ['beszallitok','👥 Beszállítók'],
+    ['alapanyagok','🌿 Alapanyagok'], ['kategoriak','🗂️ Alapanyag-kat.'], ['csaladok','🧬 Családok'],
+    ['egysegek','📏 Mértékegységek'], ['eszkozok','🔥 Eszközök'], ['termekkat','🏷 Termék-kat.'],
+    ['beszallitok','👥 Beszállítók'],
   ];
   const tabBar = tabs.map(([id,label]) =>
     `<button onclick="renderMasterData('${id}')" style="padding:8px 14px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.82rem;font-weight:${_mdTab===id?'700':'400'};background:${_mdTab===id?'#fff':'transparent'};color:${_mdTab===id?'var(--teal-dark)':'var(--text-soft)'};border-bottom:${_mdTab===id?'2px solid var(--teal-dark)':'2px solid transparent'}">${label}</button>`
   ).join('');
   box.innerHTML = `<div style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:14px">${tabBar}</div><div id="md-tab-content"></div>`;
   const c = document.getElementById('md-tab-content');
-  if (_mdTab==='kategoriak') c.innerHTML = _mdCategoriesHtml();
+  if (_mdTab==='alapanyagok') c.innerHTML = _mdIngredientsHtml();
+  else if (_mdTab==='kategoriak') c.innerHTML = _mdCategoriesHtml();
   else if (_mdTab==='csaladok') c.innerHTML = _mdFamiliesHtml();
   else if (_mdTab==='egysegek') c.innerHTML = _mdUnitsHtml();
   else if (_mdTab==='eszkozok') { c.innerHTML = '<div style="font-size:0.82rem;color:var(--text-soft);margin-bottom:10px">Sütők és dagasztó — az önköltség-modell ezekből számol.</div><div id="equipment-list"></div>'; if(typeof renderEquipment==='function') renderEquipment(); }
   else if (_mdTab==='termekkat') { c.innerHTML = '<div id="recipe-cats-list" style="margin-bottom:14px"></div><div style="display:flex;gap:8px;max-width:400px"><input type="text" id="new-recipe-cat" placeholder="Új termék-kategória…" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:\'Kodchasan\',sans-serif;font-size:0.85rem"><button class="btn btn-primary btn-sm" onclick="addRecipeCat()">＋ Hozzáad</button></div>'; if(typeof renderRecipeCatsList==='function') renderRecipeCatsList(); }
   else if (_mdTab==='beszallitok') { c.innerHTML = '<div id="view-suppliers-content"></div>'; if(typeof renderSuppliers==='function') renderSuppliers(); }
+}
+
+function _mdIngredientsHtml() {
+  const ings = (R.ingredients||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'));
+  const fam = id => { const f=(R.ingredientFamilies||[]).find(x=>x.id===id); return f?f.name:''; };
+  const row = i => '<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:0.5px solid var(--border)">'
+    + '<span style="flex:2;font-size:0.88rem;font-weight:500">' + esc(i.name) + '</span>'
+    + '<span style="flex:1;font-size:0.78rem;color:var(--text-soft)">' + esc(i.cat||'—') + '</span>'
+    + '<span style="width:44px;font-size:0.78rem;color:var(--text-soft);text-align:center">' + esc(i.unit||'') + '</span>'
+    + '<span style="flex:1;font-size:0.78rem;color:var(--text-soft)">' + (fam(i.familyId)?('🧬 '+esc(fam(i.familyId))):'') + '</span>'
+    + '<button class="btn btn-ghost btn-sm" onclick="openIngredientModal(' + i.id + ')" title="Adatlap" style="padding:2px 8px">✏️</button></div>';
+  const rows = ings.length ? ings.map(row).join('') : '<div style="font-size:0.85rem;color:var(--text-soft);padding:8px 0">Nincs alapanyag.</div>';
+  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<div style="font-size:0.82rem;color:var(--text-soft)">Az alapanyagok törzsadata (név, mértékegység, kategória, család, beszállító). A készletszint és bevételezés a <b>Készlet</b> menüben.</div>'
+    + '<button class="btn btn-primary btn-sm" onclick="openIngredientModal(null)">➕ Új alapanyag</button></div>'
+    + '<div style="border:1px solid var(--border);border-radius:10px;background:#fff;padding:4px 12px">'
+    + '<div style="display:flex;gap:8px;padding:6px 2px;border-bottom:1.5px solid var(--border);font-size:0.72rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px"><span style="flex:2">Név</span><span style="flex:1">Kategória</span><span style="width:44px;text-align:center">Egys.</span><span style="flex:1">Család</span><span style="width:30px"></span></div>'
+    + rows + '</div>';
 }
 
 function _mdCategoriesHtml() {
