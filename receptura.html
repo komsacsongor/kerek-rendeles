@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.75"></script>
+<script src="kerek-constants.js?v=2.53.76"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -324,12 +324,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <button class="nav-item" data-action="nav" data-arg1="op-select"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
   </div>
   <div class="nav-section">
-    <div class="nav-label">Alapadatok</div>
+    <div class="nav-label">Törzsadatok</div>
+    <button class="nav-item" data-action="nav" data-arg1="masterdata"><span class="icon">📚</span>Törzsadatok</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Készlet & Beszerzés</div>
     <button class="nav-item" data-action="nav" data-arg1="stock"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
     <button class="nav-item" data-action="nav" data-arg1="shopping"><span class="icon">🛒</span>Bevásárló lista</button>
-    <button class="nav-item" data-action="nav" data-arg1="suppliers"><span class="icon">👥</span>Beszállítók</button>
-    <button class="nav-item" data-action="nav" data-arg1="masterdata"><span class="icon">📚</span>Törzsadatok</button>
-    <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Gyártás</div>
@@ -339,6 +340,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <button class="nav-item" onclick="openExperimentalBake(null,'extra')" style="color:#92400e"><span class="icon">➕</span>Extra sütés</button>
     <button class="nav-item" data-action="nav" data-arg1="production-prep"><span class="icon">🏭</span>Gyártás előkészítés</button>
     <button class="nav-item" data-action="nav" data-arg1="baking-log"><span class="icon">📒</span>Sütési napló</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Rendszer</div>
+    <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
@@ -514,27 +519,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-settings-r" class="view">
 
     <div class="card mb-16">
-      <div class="card-head"><div class="card-title">🌿 Alapanyag csoportok</div></div>
-      <div class="card-body">
-        <p class="text-sm text-soft mb-12">Szabad csoportok az alapanyagok rendezéséhez (pl. Lisztek, Adalékok, Zöldség). Ezek szerkeszthetők.</p>
-        <div id="ing-categories-list" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="ing-new-cat-input" placeholder="Új csoport neve..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem">
-          <button class="btn btn-primary btn-sm" data-action="addIngCategory">+ Hozzáad</button>
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <p class="text-sm text-soft mb-8"><b>Fix technológiai osztályok</b> (nem szerkeszthetők, a kalkulációhoz szükségesek):</p>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <span style="padding:3px 12px;background:var(--teal-pale);border-radius:20px;font-size:0.78rem;color:var(--teal-dark)">🌾 flour – Lisztek/Korpa</span>
-            <span style="padding:3px 12px;background:#f5f0fb;border-radius:20px;font-size:0.78rem;color:#5b21b6">🧂 other_dry – Egyéb száraz</span>
-            <span style="padding:3px 12px;background:#eff8ff;border-radius:20px;font-size:0.78rem;color:#1d4ed8">💧 wet – Nedves</span>
-            <span style="padding:3px 12px;background:#fef9c3;border-radius:20px;font-size:0.78rem;color:#92400e">🧫 starter – Kovász</span>
-            <span style="padding:3px 12px;background:#f3f4f6;border-radius:20px;font-size:0.78rem;color:#374151">🌾 raw_grain – Nyers mag</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="card mb-16">
       <div class="card-head"><div class="card-title">💰 Pénzügyi beállítások</div></div>
       <div class="card-body">
         <div class="form-row">
@@ -558,10 +542,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div id="shop-rate-info" style="font-size:0.8rem;color:var(--text-soft);margin-bottom:10px"></div>
         <button class="btn btn-primary" data-action="saveFinancialSettings">Mentés</button>
       </div>
-    </div>
-    <div class="card mb-16">
-      <div class="card-head"><div class="card-title">🔥 Eszközök (sütők, dagasztó)</div></div>
-      <div class="card-body"><div id="equipment-list"></div></div>
     </div>
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">🍞 Sütési alapbeállítások</div></div>
@@ -617,16 +597,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <span id="ai-test-result" style="font-size:0.78rem;margin-left:10px"></span>
       </div>
     </div>
-    <div class="card">
-      <div class="card-head"><div class="card-title">🏷 Termék kategóriák</div></div>
-      <div class="card-body">
-        <div id="recipe-cats-list" class="mb-16"></div>
-        <div class="flex gap-10">
-          <input type="text" id="new-recipe-cat" placeholder="Új kategória..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none">
-          <button class="btn btn-primary btn-sm" data-action="addRecipeCat">＋</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ===== LEVAIN DAILY ===== -->
@@ -680,13 +650,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div id="masterdata-content" style="padding:4px"></div>
   </div>
 
-  <div id="view-suppliers" class="view">
-    <div class="flex gap-10 items-center mb-20">
-      <h2 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0">👥 Beszállítók</h2>
-      <span style="font-size:0.78rem;color:var(--text-soft)">CUI, IBAN, fizetési feltételek + benchmark</span>
-    </div>
-    <div id="view-suppliers-content"></div>
-  </div>
 
   <!-- ===== BEVÁSÁRLÓ LISTA (v2.39.0) ===== -->
   <div id="view-shopping" class="view">
@@ -1071,7 +1034,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-ai.js?v=2.53.53"></script>
 <script src="js/receptura-shopping.js?v=2.53.70"></script>
 <script src="js/receptura-suppliers.js?v=2.53.71"></script>
-<script src="js/receptura-masterdata.js?v=2.53.75"></script>
+<script src="js/receptura-masterdata.js?v=2.53.76"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>
