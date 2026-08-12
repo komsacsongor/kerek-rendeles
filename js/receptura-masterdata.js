@@ -45,8 +45,14 @@ function _mdIngredientsHtml() {
     + rows + '</div>';
 }
 
+function _mdCatList() {
+  const settingsCats = (R.settings && R.settings.ingredientCategories) || [];
+  const usedCats = (R.ingredients||[]).map(i=>i.cat).filter(Boolean);
+  return [...new Set([...settingsCats, ...usedCats])].sort((a,b)=>a.localeCompare(b,'hu'));
+}
+
 function _mdCategoriesHtml() {
-  const cats = ((R.settings&&R.settings.ingredientCategories)||[]).slice().sort((a,b)=>a.localeCompare(b,'hu'));
+  const cats = _mdCatList();
   const ings = R.ingredients||[];
   const cards = cats.map((cat,idx)=>{
     const inCat = ings.filter(i=>i.cat===cat);
@@ -81,9 +87,9 @@ async function mdAddCategory(){const name=(typeof prompt==='function')?prompt('�
 
 async function moveIngredientToCategory(ingId,newCat){const ing=(R.ingredients||[]).find(i=>i.id===ingId);if(!ing||!newCat||ing.cat===newCat)return;const old=ing.cat;try{await kData.updateFields('ingredients',{category:newCat},'id=eq.'+ingId);ing.cat=newCat;if(typeof auditLog==='function')auditLog('ingredient_recat',ing.name,old+' → '+newCat);toast(`✅ „${ing.name}" áthelyezve: ${newCat}`);renderMasterData();if(typeof renderStock==='function')renderStock();}catch(e){console.error('moveIngredientToCategory:',e);toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
 
-async function renameIngCategoryPrompt(idx){const cats=((R.settings&&R.settings.ingredientCategories)||[]).slice().sort((a,b)=>a.localeCompare(b,'hu'));const oldName=cats[idx];if(!oldName)return;const newName=(typeof prompt==='function')?prompt('Kategória új neve:',oldName):null;if(!newName||!newName.trim()||newName.trim()===oldName)return;const nn=newName.trim();try{const affected=(R.ingredients||[]).filter(i=>i.cat===oldName);for(const ing of affected){await kData.updateFields('ingredients',{category:nn},'id=eq.'+ing.id);ing.cat=nn;}R.settings.ingredientCategories=[...new Set((R.settings.ingredientCategories||[]).map(c=>c===oldName?nn:c))];await sb.setSetting('ingredient_categories',R.settings.ingredientCategories);if(typeof auditLog==='function')auditLog('category_rename',oldName+' → '+nn,affected.length+' alapanyag');toast(`✅ Átnevezve: „${oldName}" → „${nn}" (${affected.length} alapanyag)`);renderMasterData();if(typeof renderStock==='function')renderStock();}catch(e){console.error('renameIngCategory:',e);toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
+async function renameIngCategoryPrompt(idx){const cats=_mdCatList();const oldName=cats[idx];if(!oldName)return;const newName=(typeof prompt==='function')?prompt('Kategória új neve:',oldName):null;if(!newName||!newName.trim()||newName.trim()===oldName)return;const nn=newName.trim();try{const affected=(R.ingredients||[]).filter(i=>i.cat===oldName);for(const ing of affected){await kData.updateFields('ingredients',{category:nn},'id=eq.'+ing.id);ing.cat=nn;}R.settings.ingredientCategories=[...new Set([...((R.settings.ingredientCategories||[]).map(c=>c===oldName?nn:c)), nn])];await sb.setSetting('ingredient_categories',R.settings.ingredientCategories);if(typeof auditLog==='function')auditLog('category_rename',oldName+' → '+nn,affected.length+' alapanyag');toast(`✅ Átnevezve: „${oldName}" → „${nn}" (${affected.length} alapanyag)`);renderMasterData();if(typeof renderStock==='function')renderStock();}catch(e){console.error('renameIngCategory:',e);toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
 
-async function deleteMasterCategory(idx){const cats=((R.settings&&R.settings.ingredientCategories)||[]).slice().sort((a,b)=>a.localeCompare(b,'hu'));const cat=cats[idx];if(!cat)return;const inCat=(R.ingredients||[]).filter(i=>i.cat===cat);if(inCat.length>0){toast(`⚠️ „${cat}" nem törölhető — ${inCat.length} alapanyag van benne. Előbb sorold át (📂), vagy Összevonás.`,true);return;}if(typeof confirmDialog==='function'&&!(await confirmDialog(`Törlöd a „${cat}" (üres) kategóriát?`)))return;try{R.settings.ingredientCategories=(R.settings.ingredientCategories||[]).filter(c=>c!==cat);await sb.setSetting('ingredient_categories',R.settings.ingredientCategories);toast(`✅ „${cat}" törölve.`);renderMasterData();}catch(e){toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
+async function deleteMasterCategory(idx){const cats=_mdCatList();const cat=cats[idx];if(!cat)return;const inCat=(R.ingredients||[]).filter(i=>i.cat===cat);if(inCat.length>0){toast(`⚠️ „${cat}" nem törölhető — ${inCat.length} alapanyag van benne. Előbb sorold át (📂), vagy Összevonás.`,true);return;}if(typeof confirmDialog==='function'&&!(await confirmDialog(`Törlöd a „${cat}" (üres) kategóriát?`)))return;try{R.settings.ingredientCategories=(R.settings.ingredientCategories||[]).filter(c=>c!==cat);await sb.setSetting('ingredient_categories',R.settings.ingredientCategories);toast(`✅ „${cat}" törölve.`);renderMasterData();}catch(e){toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
 
 async function renameFamilyPrompt(famId){const fam=(R.ingredientFamilies||[]).find(f=>f.id===famId);if(!fam)return;const newName=(typeof prompt==='function')?prompt('Család új neve:',fam.name):null;if(!newName||!newName.trim()||newName.trim()===fam.name)return;try{await kData.updateFields('ingredient_families',{name:newName.trim()},'id=eq.'+famId);fam.name=newName.trim();toast('✅ Család átnevezve.');renderMasterData();}catch(e){toast('⚠️ '+(typeof friendlyError==='function'?friendlyError(e):e.message),true);}}
 
