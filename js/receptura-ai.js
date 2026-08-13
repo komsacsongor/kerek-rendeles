@@ -1,21 +1,27 @@
 // ===== AI RECEPT IMPORT =====
 // mammoth.js betöltése Word feldolgozáshoz
 function loadMammoth() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if(window.mammoth) { resolve(); return; }
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
-    s.onload = resolve; document.head.appendChild(s);
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('A Word-feldolgozó (mammoth) betöltése sikertelen — ellenőrizd a netkapcsolatot, vagy másold be a szöveget kézzel.'));
+    document.head.appendChild(s);
+    setTimeout(() => { if(!window.mammoth) reject(new Error('A Word-feldolgozó betöltése időtúllépés (CDN). Másold be a szöveget kézzel, vagy tölts fel .txt-t.')); }, 15000);
   });
 }
 
 // SheetJS betöltése Excel feldolgozáshoz
 function loadXLSX() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if(window.XLSX) { resolve(); return; }
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = resolve; document.head.appendChild(s);
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Az Excel-feldolgozó (XLSX) betöltése sikertelen — ellenőrizd a netkapcsolatot.'));
+    document.head.appendChild(s);
+    setTimeout(() => { if(!window.XLSX) reject(new Error('Az Excel-feldolgozó betöltése időtúllépés (CDN).')); }, 15000);
   });
 }
 
@@ -26,7 +32,12 @@ async function handleFileImport(input, type) {
   status.style.display='block'; status.textContent='⏳ Fájl olvasása...';
   try {
     let text = '';
-    if(type === 'docx') {
+    if(type === 'txt') {
+      text = await file.text();
+      if(!document.getElementById('r-name').value && file.name) {
+        document.getElementById('r-name').value = file.name.replace(/\.[^.]+$/, '');
+      }
+    } else if(type === 'docx') {
       await loadMammoth();
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({arrayBuffer});
