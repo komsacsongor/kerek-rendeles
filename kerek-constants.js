@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.53.81-sec (2026-07-01)';
+const APP_VERSION = 'v2.53.82-sec (2026-07-01)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -60,6 +60,18 @@ function friendlyError(e){
   return (e && e.message) ? e.message : 'Ismeretlen hiba.';
 }
 if (typeof window !== 'undefined') window.friendlyError = friendlyError;
+
+// v2.52.0 M0 2a: recept-mennyiség → gramm (db-alapanyagnál altFactorral, pl. 1 tojás = 50g).
+// (Ez kiesett a kerek-constants-ból egy korábbi szerkesztéskor → recept-megnyitás eltört; visszaállítva.)
+function recipeAmountToGrams(amount, baseIng){
+  amount = amount || 0;
+  if (baseIng && typeof unitDim==='function' && unitDim(baseIng.unit)==='count') {
+    const f = (baseIng.altFactor > 0) ? baseIng.altFactor : 0;
+    return f > 0 ? amount * f : 0;
+  }
+  return amount;
+}
+if (typeof window !== 'undefined') window.recipeAmountToGrams = recipeAmountToGrams;
 
 const MONTHS = ['Január','Február','Március','Április','Május','Június',
                 'Július','Augusztus','Szeptember','Október','November','December'];
