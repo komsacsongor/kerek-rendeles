@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.83"></script>
+<script src="kerek-constants.js?v=2.53.84"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -575,7 +575,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
             <input type="password" id="s-api-key" placeholder="sk-ant-... vagy sk-...">
           </div>
           <div class="form-group"><label>Szolgáltató</label>
-            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
+            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'openai/gpt-oss-120b',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google Gemini (ingyenes)</option>
               <option value="groq">Groq (ingyenes)</option>
@@ -590,7 +590,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         </div>
         <div class="form-group mb-16">
           <label>Modell neve</label>
-          <input type="text" id="s-ai-model" placeholder="claude-sonnet-4-20250514">
+          <input type="text" id="s-ai-model" placeholder="pl. openai/gpt-oss-120b (groq), claude-sonnet-4-20250514">
         </div>
         <button class="btn btn-primary btn-sm" data-action="saveAiSettings">💾 Mentés</button>
         <button class="btn btn-sm" style="margin-left:8px;background:var(--gold);color:#fff" data-action="migrateRecipeProductIds">🔧 product_id javítás (egyszeri)</button>
@@ -1023,7 +1023,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
 <script src="js/receptura-equipment.js?v=2.53.74"></script>
 <script src="js/receptura-costhelp.js?v=2.53.53"></script>
-<script src="js/receptura-settings.js?v=2.53.53"></script>
+<script src="js/receptura-settings.js?v=2.53.84"></script>
 <script src="js/receptura-ing-cats.js?v=2.53.70"></script>
 <script src="js/receptura-recipe-cats.js?v=2.53.77"></script>
 <script src="js/receptura-processing.js?v=2.53.17"></script>
@@ -1033,7 +1033,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
 <script src="js/receptura-modal.js?v=2.53.53"></script>
-<script src="js/receptura-ai.js?v=2.53.83"></script>
+<script src="js/receptura-ai.js?v=2.53.84"></script>
 <script src="js/receptura-shopping.js?v=2.53.70"></script>
 <script src="js/receptura-suppliers.js?v=2.53.71"></script>
 <script src="js/receptura-masterdata.js?v=2.53.80"></script>
