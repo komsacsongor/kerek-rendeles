@@ -173,7 +173,7 @@ ${text.substring(0, 6000)}`;
     } else if(provider === 'groq') {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 4000, reasoning_effort: 'low', response_format: { type: 'json_object' }, messages: [{role:'user', content: prompt}] });
     } else {
       // OpenAI kompatibilis
       apiUrl = 'https://api.openai.com/v1/chat/completions';
@@ -182,7 +182,13 @@ ${text.substring(0, 6000)}`;
     }
 
     const res = await fetch(apiUrl, {method:'POST', headers, body});
-    if(!res.ok) { throw new Error('API hiba: ' + res.status + ' ' + await res.text()); }
+    if(!res.ok) {
+      const errText = await res.text();
+      if(res.status === 413 || res.status === 429) {
+        throw new Error('A recept-szöveg túl hosszú a Groq INGYENES tarifa perc-limitjéhez (8000 token/perc). Megoldás: (1) rövidebb/tömörebb recept-szöveg, (2) várj 1 percet és próbáld újra, vagy (3) a Groq Dev Tier (magasabb limit). Részlet: ' + errText);
+      }
+      throw new Error('API hiba: ' + res.status + ' ' + errText);
+    }
     const data = await res.json();
 
     let jsonText;
