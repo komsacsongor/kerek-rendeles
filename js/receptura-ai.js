@@ -104,7 +104,14 @@ async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
   const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
-  const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
+  let model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
+  // Elavult Groq-modellek automatikus migrálása (a Groq megszüntette a Llama chat modelleket 2026-06-17)
+  const _deprecatedGroq = ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-8b-8192','llama3-70b-8192','mixtral-8x7b-32768','gemma-7b-it','qwen/qwen3-32b'];
+  if (provider === 'groq' && _deprecatedGroq.includes(model)) {
+    model = 'openai/gpt-oss-20b';
+    // a beragadt DB-érték javítása is (best-effort, nem blokkol)
+    try { R.settings.aiModel = model; sb.setSetting('recipe_ai_settings', { apiKey:R.settings.apiKey, aiProvider:R.settings.aiProvider, aiModel:model, aiUrl:R.settings.aiUrl||'' }); } catch(e){}
+  }
   const status = document.getElementById('import-status');
 
   if(!apiKey) { toast('⚠️ Adj meg AI API kulcsot a Beállításokban!'); return; }
