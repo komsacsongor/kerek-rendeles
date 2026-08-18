@@ -103,7 +103,7 @@ async function selectSheet(sheets, wb) {
 async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
-  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'openai/gpt-oss-120b',openai:'gpt-4o-mini'};
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
   const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
   const status = document.getElementById('import-status');
 
@@ -166,7 +166,7 @@ ${text.substring(0, 6000)}`;
     } else if(provider === 'groq') {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model: model||'openai/gpt-oss-120b', max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 2000, messages: [{role:'user', content: prompt}] });
     } else {
       // OpenAI kompatibilis
       apiUrl = 'https://api.openai.com/v1/chat/completions';
