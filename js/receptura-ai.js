@@ -156,22 +156,22 @@ ${text.substring(0, 6000)}`;
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       };
-      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model, max_tokens: 8000, messages: [{role:'user', content: prompt}] });
     } else if(provider === 'gemini') {
       const mdl = (model && model.toLowerCase().includes('gemini') && !['Gemini','gemini'].includes(model)) ? model : 'gemini-2.0-flash';
       const cleanMdl = mdl.replace('models/','');
       apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanMdl}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
-      body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 2000} });
+      body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 8000} });
     } else if(provider === 'groq') {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 8000, response_format: { type: 'json_object' }, messages: [{role:'user', content: prompt}] });
     } else {
       // OpenAI kompatibilis
       apiUrl = 'https://api.openai.com/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model, max_tokens: 8000, messages: [{role:'user', content: prompt}] });
     }
 
     const res = await fetch(apiUrl, {method:'POST', headers, body});
@@ -187,9 +187,23 @@ ${text.substring(0, 6000)}`;
       jsonText = data.content[0].text;
     }
 
-    // JSON tisztítása
-    jsonText = jsonText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const recipe = JSON.parse(jsonText);
+    // JSON tisztítása + robusztus kinyerés
+    jsonText = (jsonText || '').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    if(!jsonText) {
+      throw new Error('Az AI üres választ adott. Próbáld újra, vagy válts modellt (Beállítások → AI). Rövidebb recept-szöveggel is próbálkozhatsz.');
+    }
+    let recipe;
+    try {
+      recipe = JSON.parse(jsonText);
+    } catch(parseErr) {
+      // ha extra szöveg van körülötte, hámozzuk ki az első { és utolsó } közti részt
+      const a = jsonText.indexOf('{'), b = jsonText.lastIndexOf('}');
+      if(a !== -1 && b !== -1 && b > a) {
+        recipe = JSON.parse(jsonText.slice(a, b+1)); // ha ez is dob, a catch elkapja
+      } else {
+        throw new Error('Az AI válasza csonka vagy nem érvényes JSON (valószínűleg túl hosszú recept). Próbáld rövidebb szöveggel, vagy a openai/gpt-oss-120b modellel.');
+      }
+    }
 
     // Form kitöltése
     fillRecipeForm(recipe);
