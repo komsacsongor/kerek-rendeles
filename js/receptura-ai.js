@@ -4,7 +4,7 @@ function loadMammoth() {
   return new Promise((resolve, reject) => {
     if(window.mammoth) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+    s.src = 'js/lib/mammoth.browser.min.js';  // helyi hosting — nincs CDN-blokk
     s.onload = resolve;
     s.onerror = () => reject(new Error('A Word-feldolgozó (mammoth) betöltése sikertelen — ellenőrizd a netkapcsolatot, vagy másold be a szöveget kézzel.'));
     document.head.appendChild(s);
@@ -17,7 +17,7 @@ function loadXLSX() {
   return new Promise((resolve, reject) => {
     if(window.XLSX) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.src = 'js/lib/xlsx.full.min.js';  // helyi hosting — nincs CDN-blokk
     s.onload = resolve;
     s.onerror = () => reject(new Error('Az Excel-feldolgozó (XLSX) betöltése sikertelen — ellenőrizd a netkapcsolatot.'));
     document.head.appendChild(s);
