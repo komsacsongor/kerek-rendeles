@@ -23,8 +23,13 @@ function renderRecipeGrid(cat) {
   const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
   document.getElementById('recipes-grid').innerHTML = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
-    // v2.41.3: üres recept (nincs alapanyag) vizuális jelzés
-    const isEmpty = !r.ingredients || r.ingredients.length === 0;
+    // v2.41.3 / v2.53.89 fix: üres recept = EGYIK összetevő-tömbben sincs semmi.
+    // (Eddig csak a lapos r.ingredients-et nézte, ami a betöltött recepten nem létezik →
+    //  a dry/wet összetevőkkel rendelkező receptek is tévesen ÜRES-t mutattak.)
+    const _ingCount = (r.ingredients ? r.ingredients.length : 0)
+      + (r.dryIngredients||[]).length + (r.otherDryIngredients||[]).length
+      + (r.wetIngredients||[]).length + (r.starterIngredients||[]).length;
+    const isEmpty = _ingCount === 0;
     const emptyStyle = isEmpty ? 'border:2px solid #dc2626;background:#fef2f2' : '';
     const emptyBadge = isEmpty ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:6px" title="Nincs alapanyag rögzítve!">⚠️ ÜRES</span>' : '';
     return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})" style="${emptyStyle}">
