@@ -16,17 +16,17 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.69"></script>
+<script src="kerek-constants.js?v=2.53.90"></script>
 <script>window.KEREK_MODULE='receptura';</script>
-<script src="supabase.js?v=2.53.16"></script>
+<script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kerek-styles.css?v=2.53.16">
+<link rel="stylesheet" href="kerek-styles.css?v=2.53.37">
 <style>
 :root {
   --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6;
   --teal-pale:#E0F2EF; --gold-dark:#B78029; --gold:#EFB036; --gold-light:#EBCF9E;
   --slate:#395A63; --cream:#FAF7F0; --white:#FFFFFF; --text:#1A2E31;
-  --text-soft:#5A7A80; --border:#C8DDD9; --shadow:rgba(6,76,72,0.12);
+  --text-soft:#5A7A80; --border:#C8DDD9; --bg-soft:#EFF5F3; --shadow:rgba(6,76,72,0.12);
   --red:#dc2626; --red-pale:#fee2e2; --green:#059669; --green-pale:#d1fae5;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -324,11 +324,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <button class="nav-item" data-action="nav" data-arg1="op-select"><span class="icon">👨‍🍳</span>Üzemi nézet</button>
   </div>
   <div class="nav-section">
-    <div class="nav-label">Alapadatok</div>
+    <div class="nav-label">Törzsadatok</div>
+    <button class="nav-item" data-action="nav" data-arg1="masterdata"><span class="icon">📚</span>Törzsadatok</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Készlet & Beszerzés</div>
     <button class="nav-item" data-action="nav" data-arg1="stock"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
     <button class="nav-item" data-action="nav" data-arg1="shopping"><span class="icon">🛒</span>Bevásárló lista</button>
-    <button class="nav-item" data-action="nav" data-arg1="suppliers"><span class="icon">👥</span>Beszállítók</button>
-    <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Gyártás</div>
@@ -338,6 +340,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <button class="nav-item" onclick="openExperimentalBake(null,'extra')" style="color:#92400e"><span class="icon">➕</span>Extra sütés</button>
     <button class="nav-item" data-action="nav" data-arg1="production-prep"><span class="icon">🏭</span>Gyártás előkészítés</button>
     <button class="nav-item" data-action="nav" data-arg1="baking-log"><span class="icon">📒</span>Sütési napló</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Rendszer</div>
+    <button class="nav-item" data-action="nav" data-arg1="settings-r"><span class="icon">⚙️</span>Beállítások</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
@@ -513,27 +519,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div id="view-settings-r" class="view">
 
     <div class="card mb-16">
-      <div class="card-head"><div class="card-title">🌿 Alapanyag csoportok</div></div>
-      <div class="card-body">
-        <p class="text-sm text-soft mb-12">Szabad csoportok az alapanyagok rendezéséhez (pl. Lisztek, Adalékok, Zöldség). Ezek szerkeszthetők.</p>
-        <div id="ing-categories-list" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="ing-new-cat-input" placeholder="Új csoport neve..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;font-size:0.85rem">
-          <button class="btn btn-primary btn-sm" data-action="addIngCategory">+ Hozzáad</button>
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <p class="text-sm text-soft mb-8"><b>Fix technológiai osztályok</b> (nem szerkeszthetők, a kalkulációhoz szükségesek):</p>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <span style="padding:3px 12px;background:var(--teal-pale);border-radius:20px;font-size:0.78rem;color:var(--teal-dark)">🌾 flour – Lisztek/Korpa</span>
-            <span style="padding:3px 12px;background:#f5f0fb;border-radius:20px;font-size:0.78rem;color:#5b21b6">🧂 other_dry – Egyéb száraz</span>
-            <span style="padding:3px 12px;background:#eff8ff;border-radius:20px;font-size:0.78rem;color:#1d4ed8">💧 wet – Nedves</span>
-            <span style="padding:3px 12px;background:#fef9c3;border-radius:20px;font-size:0.78rem;color:#92400e">🧫 starter – Kovász</span>
-            <span style="padding:3px 12px;background:#f3f4f6;border-radius:20px;font-size:0.78rem;color:#374151">🌾 raw_grain – Nyers mag</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="card mb-16">
       <div class="card-head"><div class="card-title">💰 Pénzügyi beállítások</div></div>
       <div class="card-body">
         <div class="form-row">
@@ -546,6 +531,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Eszközkopás (lej/sütés)</label><input type="number" id="s-tool-wear" placeholder="5"></div>
           <div class="form-group"><label>Fogyóeszköz (lej/sütés)</label><input type="number" id="s-consumables" placeholder="0.5"></div>
         </div>
+        <div style="background:var(--teal-pale);border-radius:8px;padding:9px 12px;margin:10px 0;font-size:0.75rem;color:var(--teal-dark)">
+          🏭 <b>Üzemi rezsi</b> — a mixer, világítás, elszívás, hűtés, víz és amortizáció NEM eszközönként, hanem egy <b>üzemi óradíjba</b> összevonva terhelődik (ez a szakmai szabvány). A sütő külön, eszközként szerepel.
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Havi rezsi (lej)</label><input type="number" id="s-monthly-overhead" placeholder="3000" step="50" min="0"></div>
+          <div class="form-group"><label>Havi termelő óra</label><input type="number" id="s-monthly-hours" placeholder="120" step="5" min="0"></div>
+          <div class="form-group"><label>Hőfok-tűrés (°C)</label><input type="number" id="s-temp-tolerance" placeholder="10" step="5" min="0"></div>
+        </div>
+        <div id="shop-rate-info" style="font-size:0.8rem;color:var(--text-soft);margin-bottom:10px"></div>
         <button class="btn btn-primary" data-action="saveFinancialSettings">Mentés</button>
       </div>
     </div>
@@ -581,7 +575,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
             <input type="password" id="s-api-key" placeholder="sk-ant-... vagy sk-...">
           </div>
           <div class="form-group"><label>Szolgáltató</label>
-            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'llama3-8b-8192',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
+            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google Gemini (ingyenes)</option>
               <option value="groq">Groq (ingyenes)</option>
@@ -596,21 +590,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         </div>
         <div class="form-group mb-16">
           <label>Modell neve</label>
-          <input type="text" id="s-ai-model" placeholder="claude-sonnet-4-20250514">
+          <input type="text" id="s-ai-model" placeholder="pl. openai/gpt-oss-20b (groq), claude-sonnet-4-20250514">
         </div>
         <button class="btn btn-primary btn-sm" data-action="saveAiSettings">💾 Mentés</button>
         <button class="btn btn-sm" style="margin-left:8px;background:var(--gold);color:#fff" data-action="migrateRecipeProductIds">🔧 product_id javítás (egyszeri)</button>
         <span id="ai-test-result" style="font-size:0.78rem;margin-left:10px"></span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-title">🏷 Termék kategóriák</div></div>
-      <div class="card-body">
-        <div id="recipe-cats-list" class="mb-16"></div>
-        <div class="flex gap-10">
-          <input type="text" id="new-recipe-cat" placeholder="Új kategória..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Kodchasan',sans-serif;font-size:0.85rem;outline:none">
-          <button class="btn btn-primary btn-sm" data-action="addRecipeCat">＋</button>
-        </div>
       </div>
     </div>
   </div>
@@ -642,6 +626,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       </div>
     </div>
     <div id="prod-prep-result"></div>
+    <div id="bake-plan-result"></div>
     <div id="prod-done-btn" style="display:none"></div>
     <div id="shopping-list-panel" class="mb-16"></div>
     <div id="stock-alerts" class="mb-16"></div>
@@ -661,13 +646,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
   <!-- ===== COST ANALYSIS ===== -->
   <!-- ===== BESZÁLLÍTÓK (v2.40.0) ===== -->
-  <div id="view-suppliers" class="view">
-    <div class="flex gap-10 items-center mb-20">
-      <h2 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0">👥 Beszállítók</h2>
-      <span style="font-size:0.78rem;color:var(--text-soft)">CUI, IBAN, fizetési feltételek + benchmark</span>
-    </div>
-    <div id="view-suppliers-content"></div>
+  <div id="view-masterdata" class="view">
+    <div id="masterdata-content" style="padding:4px"></div>
   </div>
+
 
   <!-- ===== BEVÁSÁRLÓ LISTA (v2.39.0) ===== -->
   <div id="view-shopping" class="view">
@@ -795,7 +777,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <!-- AI IMPORT SZEKCIÓ -->
         <div style="background:var(--teal-pale);border:1px solid var(--teal-light);border-radius:10px;padding:14px 16px;margin-bottom:8px">
           <div style="font-size:0.82rem;font-weight:700;color:var(--teal-dark);margin-bottom:10px">🤖 AI recept import</div>
-          <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:10px">Tölts fel egy Word (.docx) vagy Excel (.xlsx) fájlt és az AI automatikusan kitölti a receptet.</div>
+          <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:10px">Tölts fel Word (.docx), Excel (.xlsx) vagy szöveg (.txt) fájlt — vagy másold be a szöveget lentre —, és az AI kitölti a receptet.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <label class="btn btn-ghost btn-sm" style="cursor:pointer">
               📄 Word feltöltés
@@ -804,6 +786,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
             <label class="btn btn-ghost btn-sm" style="cursor:pointer">
               📊 Excel feltöltés
               <input type="file" id="import-xlsx" accept=".xlsx" style="display:none" onchange="handleFileImport(this,'xlsx')">
+              <input type="file" id="import-txt" accept=".txt,text/plain" style="display:none" onchange="handleFileImport(this,'txt')">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('import-txt').click()">📄 Szöveg (.txt)</button>
             </label>
             <button class="btn btn-gold btn-sm" data-action="parseTextRecipe">✨ Szöveges feldolgozás</button>
           </div>
@@ -855,8 +839,24 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <!-- TAB: Cost -->
       <div id="rtab-cost" class="modal-tab-content" style="display:none">
         <div class="form-row">
-          <div class="form-group"><label>Munkaóra (h/adag)</label><input type="number" id="r-labor-h" placeholder="1" step="0.5"></div>
-          <div class="form-group"><label>Áramfogyasztás (kWh/sütés)</label><input type="number" id="r-electricity" placeholder="5"></div>
+          <div class="form-group"><label>Munkaóra (h/adag) <span style="font-size:0.65rem;color:var(--text-soft)">régi</span></label><input type="number" id="r-labor-h" placeholder="1" step="0.5"></div>
+          <div class="form-group"><label>Áramfogyasztás (kWh/sütés) <span style="font-size:0.65rem;color:var(--text-soft)">régi</span></label><input type="number" id="r-electricity" placeholder="5"></div>
+        </div>
+        <div style="background:var(--teal-pale);border-radius:8px;padding:9px 12px;margin:10px 0;font-size:0.75rem;color:var(--teal-dark);display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span>🎯 <b>Batch-alapú számítás</b> — ha kitöltöd, FELÜLÍRJA a fenti régi mezőket.</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openCostHelp()" style="white-space:nowrap">ℹ️ Hogyan számol?</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Fix idő (perc/batch)</label><input type="number" id="r-setup-min" placeholder="20" step="5" min="0"></div>
+          <div class="form-group"><label>Változó idő (perc/db)</label><input type="number" id="r-per-unit-min" placeholder="2" step="0.5" min="0"></div>
+          <div class="form-group"><label>Mixer idő (perc/batch)</label><input type="number" id="r-mixer-min" placeholder="10" step="1" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Sütési idő (perc)</label><input type="number" id="r-bake-min" placeholder="80" step="5" min="0"></div>
+          <div class="form-group"><label>Sütési hőfok (°C)</label><input type="number" id="r-bake-temp" placeholder="230" step="5" min="0"></div>
+          <div class="form-group"><label>Db / tálca</label><input type="number" id="r-units-per-tray" placeholder="4" step="1" min="0"></div>
+          <div class="form-group"><label>Tálca / sütés</label><input type="number" id="r-trays-per-cycle" placeholder="2" step="1" min="0"></div>
+        </div>
         </div>
         <div id="cost-preview" style="margin-top:14px"></div>
       </div>
@@ -974,6 +974,21 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div class="form-group"><label>Min. készlet</label><input type="number" id="i-min-stock" placeholder="500"></div>
         <div class="form-group"><label>Kritikus szint</label><input type="number" id="i-critical-stock" placeholder="700"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Másodlagos egység (opcionális)</label>
+          <select id="i-alt-unit">
+            <option value="">— Nincs —</option>
+            <option value="ml">💧 milliliter (ml)</option>
+            <option value="g">⚖️ gramm (g)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>1 elsődleges = ? másodlagos</label>
+          <input type="number" id="i-alt-factor" placeholder="pl. 70" step="0.01">
+        </div>
+        <div class="form-group" style="align-self:end"><label style="opacity:.55;font-weight:400">pl. tojás: 1 db = 70 ml → a recept tömeg/nedvesség ezt használja</label></div>
+      </div>
       <div class="sep"></div>
       <!-- v2.40.0: Preferált beszállító (admin által beállított) -->
       <div class="form-row">
@@ -1001,23 +1016,27 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.53.16"></script>
-<script src="js/receptura-ui.js?v=2.53.16"></script>
-<script src="js/receptura-recipes.js?v=2.53.16"></script>
-<script src="js/receptura-operational.js?v=2.53.16"></script>
-<script src="js/receptura-ingredients.js?v=2.53.16"></script>
-<script src="js/receptura-settings.js?v=2.53.16"></script>
-<script src="js/receptura-ing-cats.js?v=2.53.16"></script>
-<script src="js/receptura-recipe-cats.js?v=2.53.16"></script>
-<script src="js/receptura-processing.js?v=2.53.16"></script>
-  <script src="js/receptura-help.js?v=2.53.16"></script>
-  <script src="js/receptura-levain.js?v=2.53.16"></script>
-<script src="js/receptura-production.js?v=2.53.16"></script>
-<script src="js/receptura-stock.js?v=2.53.16"></script>
-<script src="js/receptura-modal.js?v=2.53.16"></script>
-<script src="js/receptura-ai.js?v=2.53.16"></script>
-<script src="js/receptura-shopping.js?v=2.53.16"></script>
-<script src="js/receptura-suppliers.js?v=2.53.16"></script>
+<script src="js/receptura-data.js?v=2.53.73"></script>
+<script src="js/receptura-ui.js?v=2.53.75"></script>
+<script src="js/receptura-recipes.js?v=2.53.89"></script>
+<script src="js/receptura-operational.js?v=2.53.17"></script>
+<script src="js/receptura-ingredients.js?v=2.53.78"></script>
+<script src="js/receptura-equipment.js?v=2.53.74"></script>
+<script src="js/receptura-costhelp.js?v=2.53.53"></script>
+<script src="js/receptura-settings.js?v=2.53.85"></script>
+<script src="js/receptura-ing-cats.js?v=2.53.70"></script>
+<script src="js/receptura-recipe-cats.js?v=2.53.77"></script>
+<script src="js/receptura-processing.js?v=2.53.17"></script>
+  <script src="js/receptura-help.js?v=2.53.17"></script>
+  <script src="js/receptura-levain.js?v=2.53.17"></script>
+<script src="js/receptura-production.js?v=2.53.56"></script>
+<script src="js/receptura-bakeplan.js?v=2.53.56"></script>
+<script src="js/receptura-stock.js?v=2.53.72"></script>
+<script src="js/receptura-modal.js?v=2.53.53"></script>
+<script src="js/receptura-ai.js?v=2.53.88"></script>
+<script src="js/receptura-shopping.js?v=2.53.70"></script>
+<script src="js/receptura-suppliers.js?v=2.53.71"></script>
+<script src="js/receptura-masterdata.js?v=2.53.80"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>

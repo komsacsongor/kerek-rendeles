@@ -111,7 +111,7 @@ function renderSuppliers() {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 18px;background:var(--cream);border-bottom:1px solid var(--border)">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem">${esc(s.name)}</div>
+              <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem">${esc(s.brand || s.name)}${s.brand ? ` <span style="font-weight:400;font-size:0.78rem;color:var(--text-soft)">(${esc(s.name)})</span>` : ''}</div>
               ${!s.active ? '<span style="font-size:0.7rem;background:#e5e7eb;color:#6b7280;padding:2px 8px;border-radius:10px">Inaktív</span>' : ''}
               ${s.isVatPayer ? '<span style="font-size:0.7rem;background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:10px">TVA-fizető</span>' : ''}
             </div>
@@ -199,7 +199,11 @@ function openSupplierModal(id) {
           <div class="form-row">
             <div class="form-group" style="flex:1.5">
               <label>Név <span style="color:#dc2626">*</span></label>
-              <input type="text" id="sup-name" placeholder="pl. Biolife Kft" value="${s ? esc(s.name) : ''}">
+              <input type="text" id="sup-name" placeholder="Jogi név, pl. Biolife Kft" value="${s ? esc(s.name) : ''}">
+            </div>
+            <div class="form-group" style="flex:1.5">
+              <label>Márka / ismert név</label>
+              <input type="text" id="sup-brand" placeholder="pl. BioMart" value="${s ? esc(s.brand || '') : ''}">
             </div>
             <div class="form-group">
               <label>Aktív</label>
@@ -239,7 +243,10 @@ function openSupplierModal(id) {
           <div class="form-row">
             <div class="form-group">
               <label>CUI (Cod fiscal)</label>
-              <input type="text" id="sup-cui" placeholder="RO12345678" value="${s ? esc(s.cui || '') : ''}">
+              <div style="display:flex;gap:6px">
+                <input type="text" id="sup-cui" placeholder="RO12345678" value="${s ? esc(s.cui || '') : ''}" style="flex:1">
+                <button type="button" class="btn btn-gold btn-sm" id="sup-anaf-btn" onclick="anafLookup()" title="Cégadatok lekérdezése az ANAF-tól">🔍</button>
+              </div>
             </div>
             <div class="form-group">
               <label>Reg. Com.</label>
@@ -251,6 +258,16 @@ function openSupplierModal(id) {
                 <option value="false" ${!s || !s.isVatPayer ? 'selected' : ''}>Nem</option>
                 <option value="true" ${s && s.isVatPayer ? 'selected' : ''}>Igen</option>
               </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Megye</label>
+              <select id="sup-judet" onchange="onJudetChange()"><option value="">— válassz —</option></select>
+            </div>
+            <div class="form-group">
+              <label>Település</label>
+              <select id="sup-localitate"><option value="">— előbb megye —</option></select>
             </div>
           </div>
           <div class="form-row">
@@ -324,6 +341,7 @@ function openSupplierModal(id) {
     </div>
   `;
   modal.style.display = 'flex';
+  initSupplierGeo(s ? s.judet : '', s ? s.localitate : '');
 }
 
 function closeSupplierModal() {
@@ -346,12 +364,114 @@ function switchSupplierTab(btn, tabKey) {
 // SAVE / DELETE
 // =============================================================
 
+// ===== Megye/település legördülő (SIRUTA-alapú, 42 megye / ~13.7e3 település) =====
+let _roLoc = null;   // {AB:{n:'Alba',l:[...]}, ...}
+async function loadRoLoc(){
+  if (_roLoc) return _roLoc;
+  try{
+    const res = await fetch('data/ro-localitati.min.json');
+    _roLoc = await res.json();
+  }catch(e){ console.warn('localitati load:', e.message); _roLoc = {}; }
+  return _roLoc;
+}
+async function initSupplierGeo(judet, localitate){
+  const data = await loadRoLoc();
+  const jSel = document.getElementById('sup-judet');
+  const lSel = document.getElementById('sup-localitate');
+  if (!jSel || !lSel) return;
+  const codes = Object.keys(data).sort((a,b)=>data[a].n.localeCompare(data[b].n,'ro'));
+  jSel.innerHTML = '<option value="">— válassz —</option>' +
+    codes.map(c=>`<option value="${data[c].n}" ${data[c].n===judet?'selected':''}>${data[c].n}</option>`).join('');
+  await fillLocalitati(judet, localitate);
+}
+async function fillLocalitati(judetName, selected){
+  const data = await loadRoLoc();
+  const lSel = document.getElementById('sup-localitate');
+  if (!lSel) return;
+  const j = Object.values(data).find(x=>x.n===judetName);
+  if (!j){ lSel.innerHTML = '<option value="">— előbb megye —</option>'; return; }
+  lSel.innerHTML = '<option value="">— válassz —</option>' +
+    j.l.map(n=>`<option value="${esc(n)}" ${n===selected?'selected':''}>${esc(n)}</option>`).join('');
+}
+function onJudetChange(){
+  const j = document.getElementById('sup-judet')?.value || '';
+  fillLocalitati(j, '');
+}
+
+// ===== ANAF CUI-autofill =====
+// Az ANAF-cím szabad szöveg, pl.: "JUD. HARGHITA, MUN. GHEORGHENI, STR. ... NR. 12"
+function parseAnafAddress(addr, data){
+  if (!addr) return {};
+  const up = addr.toUpperCase();
+  let judet = '', loc = '';
+  for (const c of Object.keys(data)){
+    const jn = data[c].n;
+    if (up.includes('JUD. '+jn.toUpperCase()) || up.includes('JUDETUL '+jn.toUpperCase()) || up.includes('JUD '+jn.toUpperCase())){
+      judet = jn;
+      // település: a megye településlistájából a leghosszabb egyezés (pontosabb: "Miercurea Ciuc" > "Ciuc")
+      const hits = data[c].l.filter(n => up.includes(n.toUpperCase()));
+      if (hits.length) loc = hits.sort((a,b)=>b.length-a.length)[0];
+      break;
+    }
+  }
+  return {judet, loc};
+}
+async function anafLookup(){
+  const btn = document.getElementById('sup-anaf-btn');
+  const cui = (document.getElementById('sup-cui')?.value || '').trim();
+  if (!cui){ toast('Add meg a CUI-t.', true); return; }
+  if (btn){ btn.disabled = true; btn.textContent = '⏳'; }
+  try{
+    const url = (typeof SUPABASE_URL!=='undefined' ? SUPABASE_URL : '') + '/functions/v1/anaf-lookup';
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+SUPABASE_KEY, 'apikey':SUPABASE_KEY},
+      body: JSON.stringify({cui})
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok){
+      const msg = d.error==='not_found' ? 'Nincs ilyen CUI az ANAF-nál.'
+        : d.error==='invalid_cui' ? 'Érvénytelen CUI formátum.'
+        : d.error==='anaf_unavailable' ? 'Az ANAF jelenleg nem elérhető — töltsd ki kézzel.'
+        : 'Lekérdezés sikertelen.';
+      toast('⚠️ '+msg, true); return;
+    }
+    // meglévő értéket csak megerősítéssel írunk felül
+    const nameEl = document.getElementById('sup-name');
+    if (nameEl?.value?.trim() && nameEl.value.trim() !== (d.name||'')){
+      if (!confirm(`Az ANAF szerint: "${d.name}".\nFelülírjam a meglévő adatokat?`)) return;
+    }
+    const set = (id, v) => { const el=document.getElementById(id); if (el && v) el.value = v; };
+    set('sup-name', d.name);
+    set('sup-regcom', d.reg_com);
+    set('sup-address', d.address);
+    set('sup-phone', d.phone);
+    set('sup-iban', d.iban);
+    set('sup-cui', d.cui);
+    const vat = document.getElementById('sup-vat-payer'); if (vat) vat.value = d.is_vat_payer ? 'true' : 'false';
+    // megye/település kitöltése a címből
+    const data = await loadRoLoc();
+    const {judet, loc} = parseAnafAddress(d.address, data);
+    if (judet){
+      const jSel=document.getElementById('sup-judet'); if (jSel) jSel.value = judet;
+      await fillLocalitati(judet, loc);
+    }
+    const warn = (d.state && !/ACTIV/i.test(d.state)) ? ` ⚠️ Cég státusza: ${d.state}` : '';
+    toast(`✅ ${d.name} betöltve.${warn}`);
+  }catch(e){
+    toast('⚠️ Lekérdezés sikertelen: '+e.message, true);
+  }finally{
+    if (btn){ btn.disabled=false; btn.textContent='🔍'; }
+  }
+}
+
 async function saveSupplier() {
   const name = document.getElementById('sup-name')?.value?.trim();
   if (!name) { toast('A név kötelező', true); return; }
 
   const data = {
     name,
+    brand: document.getElementById('sup-brand')?.value?.trim() || null,
     contact_person: document.getElementById('sup-contact')?.value?.trim() || null,
     email: document.getElementById('sup-email')?.value?.trim() || null,
     phone: document.getElementById('sup-phone')?.value?.trim() || null,
@@ -360,6 +480,8 @@ async function saveSupplier() {
     reg_com: document.getElementById('sup-regcom')?.value?.trim() || null,
     is_vat_payer: document.getElementById('sup-vat-payer')?.value === 'true',
     address: document.getElementById('sup-address')?.value?.trim() || null,
+    judet: document.getElementById('sup-judet')?.value || null,
+    localitate: document.getElementById('sup-localitate')?.value || null,
     bank_name: document.getElementById('sup-bank')?.value?.trim() || null,
     bank_iban: document.getElementById('sup-iban')?.value?.trim() || null,
     currency: document.getElementById('sup-currency')?.value || 'lej',
@@ -399,7 +521,7 @@ async function saveSupplier() {
     // Refresh ingredient modal-jában dropdown ha nyitva van
     if (typeof renderSupplierDropdownInIngModal === 'function') renderSupplierDropdownInIngModal();
   } catch(e) {
-    toast('⚠️ Mentés hiba: ' + e.message, true);
+    toast('⚠️ ' + (typeof friendlyError==='function'?friendlyError(e):e.message), true);
     console.error('saveSupplier:', e);
   }
 }
@@ -435,6 +557,7 @@ function mapSupplierDb(row) {
   return {
     id: row.id,
     name: row.name,
+    brand: row.brand || '',
     contactPerson: row.contact_person || '',
     email: row.email || '',
     phone: row.phone || '',
@@ -443,6 +566,8 @@ function mapSupplierDb(row) {
     regCom: row.reg_com || '',
     isVatPayer: !!row.is_vat_payer,
     address: row.address || '',
+    judet: row.judet || '',
+    localitate: row.localitate || '',
     bankName: row.bank_name || '',
     bankIban: row.bank_iban || '',
     paymentTermsDays: Number(row.payment_terms_days) || 0,
@@ -467,6 +592,9 @@ if (typeof window !== 'undefined') {
   window.closeSupplierModal = closeSupplierModal;
   window.switchSupplierTab = switchSupplierTab;
   window.saveSupplier = saveSupplier;
+  window.anafLookup = anafLookup;
+  window.onJudetChange = onJudetChange;
+  window.initSupplierGeo = initSupplierGeo;
   window.deleteSupplier = deleteSupplier;
   window.mapSupplierDb = mapSupplierDb;
   window.getSupplierById = getSupplierById;

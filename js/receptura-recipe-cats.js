@@ -61,6 +61,7 @@ async function deleteRCategory(i) {
 // ===== STOCK INTAKE (Bevételezés) =====
 
 function renderRecipeCatsList() {
+  if(!document.getElementById('recipe-cats-list')) return;
   document.getElementById('recipe-cats-list').innerHTML = R.recipeCategories.map((cat,i) => {
     const active = R.recipes.filter(r => r.category===cat && !r.archived);
     const archived = R.recipes.filter(r => r.category===cat && r.archived);

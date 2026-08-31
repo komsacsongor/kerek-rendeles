@@ -1,5 +1,6 @@
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
+  'masterdata': '📚 Törzsadatok',
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
   'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
@@ -24,11 +25,15 @@ function nav(id) {
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
     'processing': () => { initProcessingView(); },
+    'masterdata': () => { if(typeof renderMasterData==='function') renderMasterData(); },
     'receptura-help': () => { renderRecepturaHelp(); },
     'production-prep': () => { initLevainDaily(); initProductionPrep(); },
     'baking-log': () => { initBakingLog(); },
     archiv: renderArchivView,
-    'shopping': () => { if(typeof renderShoppingList === 'function') renderShoppingList(); },
+    'shopping': async () => {
+      if (typeof loadShoppingOverrides === 'function' && !_shopLoaded){ _shopLoaded = true; await loadShoppingOverrides(); }
+      if(typeof renderShoppingList === 'function') renderShoppingList();
+    },
     'suppliers': () => { if(typeof renderSuppliers === 'function') renderSuppliers(); },
   };
   renders[id]?.();
@@ -126,18 +131,61 @@ function calcRecipeCost(recipe, pieces) {
     rawCost += calcIngCost(ing.ingredientId, ing.amount * scale);
   });
 
-  // Other costs
-  const laborCost = (recipe.laborH||1) * s.labor;
-  const electricityCost = (recipe.electricity||5) * s.electricity;
+  // ===== Egyéb költségek =====
+  // ÚJ modell (batch-alapú), ha a receptnek van setup_min/per_unit_min paramétere.
+  // Különben a RÉGI (lapos) képlet fut → meglévő receptek nem törnek.
+  const hasBatchModel = (recipe.setupMin != null && recipe.setupMin !== '') ||
+                        (recipe.perUnitMin != null && recipe.perUnitMin !== '');
+  let laborCost, electricityCost, overheadCost = 0, bakeInfo = null;
+
+  if (hasBatchModel){
+    // 1) MUNKA: fix setup + darabbal skálázódó rész
+    const laborMin = (Number(recipe.setupMin)||0) + (Number(recipe.perUnitMin)||0) * pieces;
+    const laborH = laborMin / 60;
+    laborCost = laborH * s.labor;
+
+    // 2) SÜTŐ: tálca-ciklus. A batch annyi sütést igényel, amennyi a tálcáiból kijön.
+    //    trays = felkerekít(db / db-per-tálca); sütések = felkerekít(trays / tálca-per-sütés)
+    const unitsPerTray = Number(recipe.unitsPerTray) || 0;
+    const traysPerCycle = Number(recipe.traysPerCycle) || 0;
+    const trays = unitsPerTray > 0 ? Math.ceil(pieces / unitsPerTray) : 0;
+    const bakeMin = Number(recipe.bakeMin)||0;
+    const cycles = (trays > 0 && traysPerCycle > 0) ? Math.ceil(trays / traysPerCycle)
+                 : (bakeMin > 0 ? 1 : 0);
+    const ovenKw = (typeof avgOvenPowerKw==='function') ? avgOvenPowerKw() : 0;
+    const duty = (typeof avgDutyFactor==='function') ? avgDutyFactor() : 0.7;
+    const ovenH = cycles * (bakeMin / 60);
+    const ovenKwh = ovenH * ovenKw * duty;
+
+    // Mixer: perc/batch × mixer kW
+    const mixerMin = Number(recipe.mixerMin)||0;
+    const mixerKw = (typeof avgMixerPowerKw==='function') ? avgMixerPowerKw() : 0;
+    const mixerKwh = (mixerMin/60) * mixerKw;
+
+    electricityCost = (ovenKwh + mixerKwh) * s.electricity;
+    bakeInfo = { laborMin, trays, cycles, bakeMin, ovenH, ovenKwh, mixerKwh, mixerMin };
+
+    // 3) REZSI: a batch által lefoglalt FALÓRA-idő × üzemi óradíj.
+    //    A munka és a sütés PÁRHUZAMOS (sütés közben a következő adagot készíted),
+    //    ezért a hosszabbikat vesszük — NEM adjuk össze (az duplázás lenne).
+    const rate = (typeof shopRate==='function') ? shopRate() : 0;
+    const wallH = Math.max(laborH, ovenH);
+    overheadCost = wallH * rate;
+    bakeInfo.wallH = wallH;
+  } else {
+    laborCost = (recipe.laborH||1) * s.labor;
+    electricityCost = (recipe.electricity||5) * s.electricity;
+  }
+
   const toolCost = s.toolWear;
   const consumablesCost = s.consumables;
-  const totalCost = rawCost + laborCost + electricityCost + toolCost + consumablesCost;
+  const totalCost = rawCost + laborCost + electricityCost + overheadCost + toolCost + consumablesCost;
   const costPerUnit = totalCost / pieces;
   const priceNet = costPerUnit / (1 - s.margin/100);
   const priceGross = priceNet * (1 + s.vat/100);
 
-  return { rawCost, laborCost, electricityCost, toolCost, consumablesCost,
-    totalCost, costPerUnit, priceNet, priceGross };
+  return { rawCost, laborCost, electricityCost, overheadCost, toolCost, consumablesCost,
+    totalCost, costPerUnit, priceNet, priceGross, hasBatchModel, bakeInfo };
 }
 
 // ===== MODAL TABS =====
@@ -151,12 +199,52 @@ function switchModalTab(btn, tabId) {
 
 function renderCostPreview() {
   const laborH = parseFloat(document.getElementById('r-labor-h').value)||1;
+  const num = id => { const v = document.getElementById(id)?.value; return (v===''||v==null) ? null : parseFloat(v); };
+  const setupMin = num('r-setup-min'), perUnitMin = num('r-per-unit-min');
+  const bakeMin = num('r-bake-min'), bakeTempC = num('r-bake-temp');
+  const unitsPerTray = num('r-units-per-tray'), traysPerCycle = num('r-trays-per-cycle'), mixerMin = num('r-mixer-min');
   const elec = parseFloat(document.getElementById('r-electricity').value)||5;
   const s = R.settings;
+  const box = document.getElementById('cost-preview');
+  if (!box) return;
+
+  const batch = (setupMin != null || perUnitMin != null);
+  if (batch){
+    // Batch-alapú előnézet — 3 referencia darabszámra mutatjuk az egységköltséget
+    const rate = (typeof shopRate==='function') ? shopRate() : 0;
+    const cap  = (typeof totalOvenCapacity==='function') ? totalOvenCapacity() : 0;
+    const kw   = (typeof avgOvenPowerKw==='function') ? avgOvenPowerKw() : 0;
+    const duty = (typeof avgDutyFactor==='function') ? avgDutyFactor() : 0.7;
+    const calc = N => {
+      const lMin = (setupMin||0) + (perUnitMin||0)*N;
+      const lH = lMin/60, lCost = lH*s.labor;
+      const trays = (unitsPerTray>0) ? Math.ceil(N/unitsPerTray) : 0;
+      const cycles = (trays>0 && traysPerCycle>0) ? Math.ceil(trays/traysPerCycle) : (bakeMin>0?1:0);
+      const oH = cycles*((bakeMin||0)/60);
+      const mixKwh = ((mixerMin||0)/60) * ((typeof avgMixerPowerKw==='function')?avgMixerPowerKw():0);
+      const eCost = (oH*kw*duty + mixKwh)*s.electricity;
+      const oCost = Math.max(lH, oH)*rate;
+      const fix = lCost+eCost+oCost+s.toolWear+s.consumables;
+      return {N, lMin, cycles, fix, perUnit: fix/N};
+    };
+    const rows = [1,5,10,20].map(calc).map(r=>`
+      <div class="cost-row"><span>${r.N} db — ${Math.round(r.lMin)} p munka · ${r.cycles} sütés</span>
+        <span><b>${r.perUnit.toFixed(2)}</b> lej/db <span style="color:var(--text-soft);font-size:0.75rem">(${r.fix.toFixed(2)} össz)</span></span></div>`).join('');
+    box.innerHTML = `
+      <div class="cost-box">
+        <div style="font-size:0.75rem;color:var(--teal-dark);margin-bottom:6px">🎯 Batch-alapú fix költség (alapanyag nélkül):</div>
+        ${rows}
+        ${cap>0 ? `<div class="text-xs text-soft mt-8">Sütő-kapacitás: ${cap} tálca/sütés · üzemi óradíj: ${rate.toFixed(2)} lej/h</div>`
+                : `<div class="text-xs mt-8" style="color:var(--gold-dark)">⚠️ Nincs sütő felvéve a Beállításokban — a sütő-energia 0.</div>`}
+      </div>
+      <p class="text-xs text-soft mt-16">Látszik a lényeg: nagyobb tételnél a fix idő eloszlik → olcsóbb az egységár.</p>`;
+    return;
+  }
+
   const laborCost = laborH * s.labor;
   const elecCost = elec * s.electricity;
   const fixedCost = laborCost + elecCost + s.toolWear + s.consumables;
-  document.getElementById('cost-preview').innerHTML = `
+  box.innerHTML = `
     <div class="cost-box">
       <div class="cost-row"><span>Munkaóra (${laborH}h × ${s.labor} lej)</span><span>${laborCost.toFixed(2)} lej</span></div>
       <div class="cost-row"><span>Áram (${elec}kWh × ${s.electricity} lej)</span><span>${elecCost.toFixed(2)} lej</span></div>
@@ -459,4 +547,5 @@ document.addEventListener('click', function(e){
 if (typeof window !== 'undefined') {
   window.toggleSidebar = toggleSidebar;
   window.closeSidebar = closeSidebar;
+  if (typeof calcCost === "function") window.calcCost = calcCost;
 }

@@ -1,21 +1,27 @@
 // ===== AI RECEPT IMPORT =====
 // mammoth.js betöltése Word feldolgozáshoz
 function loadMammoth() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if(window.mammoth) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
-    s.onload = resolve; document.head.appendChild(s);
+    s.src = 'js/lib/mammoth.browser.min.js';  // helyi hosting — nincs CDN-blokk
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('A Word-feldolgozó (mammoth) betöltése sikertelen — ellenőrizd a netkapcsolatot, vagy másold be a szöveget kézzel.'));
+    document.head.appendChild(s);
+    setTimeout(() => { if(!window.mammoth) reject(new Error('A Word-feldolgozó betöltése időtúllépés (CDN). Másold be a szöveget kézzel, vagy tölts fel .txt-t.')); }, 15000);
   });
 }
 
 // SheetJS betöltése Excel feldolgozáshoz
 function loadXLSX() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if(window.XLSX) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = resolve; document.head.appendChild(s);
+    s.src = 'js/lib/xlsx.full.min.js';  // helyi hosting — nincs CDN-blokk
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Az Excel-feldolgozó (XLSX) betöltése sikertelen — ellenőrizd a netkapcsolatot.'));
+    document.head.appendChild(s);
+    setTimeout(() => { if(!window.XLSX) reject(new Error('Az Excel-feldolgozó betöltése időtúllépés (CDN).')); }, 15000);
   });
 }
 
@@ -26,7 +32,12 @@ async function handleFileImport(input, type) {
   status.style.display='block'; status.textContent='⏳ Fájl olvasása...';
   try {
     let text = '';
-    if(type === 'docx') {
+    if(type === 'txt') {
+      text = await file.text();
+      if(!document.getElementById('r-name').value && file.name) {
+        document.getElementById('r-name').value = file.name.replace(/\.[^.]+$/, '');
+      }
+    } else if(type === 'docx') {
       await loadMammoth();
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({arrayBuffer});
@@ -92,8 +103,15 @@ async function selectSheet(sheets, wb) {
 async function aiParseRecipe(text) {
   const apiKey = R.settings?.apiKey;
   const provider = R.settings?.aiProvider || 'anthropic';
-  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'llama-3.3-70b-versatile',openai:'gpt-4o-mini'};
-  const model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
+  let model = R.settings?.aiModel || _pd[R.settings?.aiProvider||'anthropic'] || 'gemini-1.5-flash';
+  // Elavult Groq-modellek automatikus migrálása (a Groq megszüntette a Llama chat modelleket 2026-06-17)
+  const _deprecatedGroq = ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-8b-8192','llama3-70b-8192','mixtral-8x7b-32768','gemma-7b-it','qwen/qwen3-32b'];
+  if (provider === 'groq' && _deprecatedGroq.includes(model)) {
+    model = 'openai/gpt-oss-20b';
+    // a beragadt DB-érték javítása is (best-effort, nem blokkol)
+    try { R.settings.aiModel = model; sb.setSetting('recipe_ai_settings', { apiKey:R.settings.apiKey, aiProvider:R.settings.aiProvider, aiModel:model, aiUrl:R.settings.aiUrl||'' }); } catch(e){}
+  }
   const status = document.getElementById('import-status');
 
   if(!apiKey) { toast('⚠️ Adj meg AI API kulcsot a Beállításokban!'); return; }
@@ -145,26 +163,32 @@ ${text.substring(0, 6000)}`;
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       };
-      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model, max_tokens: 8000, messages: [{role:'user', content: prompt}] });
     } else if(provider === 'gemini') {
       const mdl = (model && model.toLowerCase().includes('gemini') && !['Gemini','gemini'].includes(model)) ? model : 'gemini-2.0-flash';
       const cleanMdl = mdl.replace('models/','');
       apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanMdl}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
-      body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 2000} });
+      body = JSON.stringify({ contents: [{parts: [{text: prompt}]}], generationConfig: {maxOutputTokens: 8000} });
     } else if(provider === 'groq') {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model: model||'llama3-8b-8192', max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model: model||'openai/gpt-oss-20b', max_tokens: 4000, reasoning_effort: 'low', response_format: { type: 'json_object' }, messages: [{role:'user', content: prompt}] });
     } else {
       // OpenAI kompatibilis
       apiUrl = 'https://api.openai.com/v1/chat/completions';
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey };
-      body = JSON.stringify({ model, max_tokens: 2000, messages: [{role:'user', content: prompt}] });
+      body = JSON.stringify({ model, max_tokens: 8000, messages: [{role:'user', content: prompt}] });
     }
 
     const res = await fetch(apiUrl, {method:'POST', headers, body});
-    if(!res.ok) { throw new Error('API hiba: ' + res.status + ' ' + await res.text()); }
+    if(!res.ok) {
+      const errText = await res.text();
+      if(res.status === 413 || res.status === 429) {
+        throw new Error('A recept-szöveg túl hosszú a Groq INGYENES tarifa perc-limitjéhez (8000 token/perc). Megoldás: (1) rövidebb/tömörebb recept-szöveg, (2) várj 1 percet és próbáld újra, vagy (3) a Groq Dev Tier (magasabb limit). Részlet: ' + errText);
+      }
+      throw new Error('API hiba: ' + res.status + ' ' + errText);
+    }
     const data = await res.json();
 
     let jsonText;
@@ -176,9 +200,23 @@ ${text.substring(0, 6000)}`;
       jsonText = data.content[0].text;
     }
 
-    // JSON tisztítása
-    jsonText = jsonText.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const recipe = JSON.parse(jsonText);
+    // JSON tisztítása + robusztus kinyerés
+    jsonText = (jsonText || '').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    if(!jsonText) {
+      throw new Error('Az AI üres választ adott. Próbáld újra, vagy válts modellt (Beállítások → AI). Rövidebb recept-szöveggel is próbálkozhatsz.');
+    }
+    let recipe;
+    try {
+      recipe = JSON.parse(jsonText);
+    } catch(parseErr) {
+      // ha extra szöveg van körülötte, hámozzuk ki az első { és utolsó } közti részt
+      const a = jsonText.indexOf('{'), b = jsonText.lastIndexOf('}');
+      if(a !== -1 && b !== -1 && b > a) {
+        recipe = JSON.parse(jsonText.slice(a, b+1)); // ha ez is dob, a catch elkapja
+      } else {
+        throw new Error('Az AI válasza csonka vagy nem érvényes JSON (valószínűleg túl hosszú recept). Próbáld rövidebb szöveggel, vagy a openai/gpt-oss-120b modellel.');
+      }
+    }
 
     // Form kitöltése
     fillRecipeForm(recipe);
@@ -362,6 +400,14 @@ async function saveRecipe() {
     steps: modalSteps,
     laborH: parseFloat(document.getElementById('r-labor-h').value)||1,
     electricity: parseFloat(document.getElementById('r-electricity').value)||5,
+    setupMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-setup-min')?.value),
+    perUnitMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-per-unit-min')?.value),
+    bakeMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-min')?.value),
+    bakeTempC: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-temp')?.value),
+    unitsPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-units-per-tray')?.value),
+    traysPerCycle: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-trays-per-cycle')?.value),
+    mixerMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-mixer-min')?.value),
+    productPrice: (() => { const v = parseFloat(document.getElementById('r-product-price')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
   };
   if (editingRecipeId) {
     Object.assign(R.recipes.find(r=>r.id===editingRecipeId), data);
@@ -379,8 +425,12 @@ async function saveRecipe() {
           (p.name||'').trim().toLowerCase() === nameToCheck && !p.deleted_at
         );
         if (existing) {
-          toast(`⚠️ Már létezik "${existing.name}" nevű termék. Válassz más nevet!`, true);
-          return; // Modal nyitva marad
+          if (await confirmDialog(`Van már "${existing.name}" nevű termék (kód: ${existing.code||existing.id}). Hozzákapcsolod ehhez a recepthez? (Az ár és a termékadatok ehhez a meglévő termékhez fognak tartozni.)`)) {
+            data.product_id = existing.id; // linkelés a meglévő (admin) termékhez
+            data.productPrice = null;      // a meglévő termék árát NE írjuk felül linkeléskor
+          } else {
+            return; // Modal nyitva marad — válasszon más nevet
+          }
         }
       } catch(e) { console.warn('Dup check:', e.message); }
     }
@@ -403,7 +453,8 @@ function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
 async function deleteCurrentRecipe() {
   if (!(await confirmDialog('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===currentRecipeId);
-  const prodId = rec?.product_id;
+  let prodId = rec?.product_id;
+  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
     await kData.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
@@ -460,7 +511,8 @@ async function restoreRecipe(recipeId) {
 async function deleteArchivedRecipe(recipeId) {
   if (!(await confirmDialog('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===recipeId);
-  const prodId = rec?.product_id;
+  let prodId = rec?.product_id;
+  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
   try {
     await kData.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);

@@ -30,6 +30,10 @@ function openRecipeModal(id=null) {
   }
     document.getElementById('r-levain-amount').value = r.levainAmount||260;
     document.getElementById('r-labor-h').value = r.laborH||1;
+    const setV=(id,v)=>{ const el=document.getElementById(id); if(el) el.value = (v ?? ''); };
+    setV('r-setup-min', r.setupMin); setV('r-per-unit-min', r.perUnitMin);
+    setV('r-bake-min', r.bakeMin); setV('r-bake-temp', r.bakeTempC);
+    setV('r-units-per-tray', r.unitsPerTray); setV('r-trays-per-cycle', r.traysPerCycle); setV('r-mixer-min', r.mixerMin);
     document.getElementById('r-electricity').value = r.electricity||5;
     if(document.getElementById('r-product-code')) { const el=document.getElementById('r-product-code'); el.value = r.productCode||''; el.placeholder='mentés után generálódik'; }
     // Termékcsalád dropdown feltöltése
@@ -46,7 +50,7 @@ function openRecipeModal(id=null) {
       if (linkedProd?.product_family_id) famSel.value = linkedProd.product_family_id;
       updateRecipeFamilyPreview();
     }
-    if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;   if(document.getElementById('r-product-price')) document.getElementById('r-product-price').value = r.productPrice||0;
+    if(document.getElementById('r-product-price')) { const _lp = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).find(p => p.id === r.product_id); document.getElementById('r-product-price').value = (_lp && _lp.price != null) ? _lp.price : (r.productPrice||0); }
     modalDryIngs = JSON.parse(JSON.stringify(r.dryIngredients||[]));
     modalWetIngs = JSON.parse(JSON.stringify(r.wetIngredients||[]));
     modalSteps = JSON.parse(JSON.stringify(r.steps||[]));
@@ -57,7 +61,8 @@ function openRecipeModal(id=null) {
       'r-temp1':'230','r-time1':'20','r-temp2':'185','r-time2':'30',
       'r-levain-amount':'260','r-labor-h':'1','r-electricity':'5'};
     ['r-name','r-base-portion','r-bake-loss','r-unit-weight','r-temp1','r-time1',
-     'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input'].forEach(x=>{
+     'r-temp2','r-time2','r-desc','r-levain-amount','r-labor-h','r-electricity','r-text-input',
+     'r-setup-min','r-per-unit-min','r-bake-min','r-bake-temp','r-units-per-tray','r-trays-per-cycle','r-mixer-min'].forEach(x=>{
       document.getElementById(x).value = defaults[x]||'';
     });
     modalDryIngs=[]; modalWetIngs=[]; modalSteps=[];
@@ -79,24 +84,30 @@ function renderModalIngredients() {
   const ingOptions = R.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
   ['dry','wet'].forEach(type=>{
     const list = type==='dry' ? modalDryIngs : modalWetIngs;
-    document.getElementById(type+'-ingredients-list').innerHTML = list.map((ing,i)=>`
+    document.getElementById(type+'-ingredients-list').innerHTML = list.map((ing,i)=>{
+      const bi = ing.ingredientId ? R.ingredients.find(x=>x.id===ing.ingredientId) : null;
+      const isCount = bi && unitDim(bi.unit)==='count';
+      const uLabel = isCount ? 'db' : 'g';
+      const gHint = (isCount && bi.altFactor>0) ? '≈'+Math.round((ing.amount||0)*bi.altFactor)+'g' : '';
+      return `
       <div class="ing-row" style="background:white;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;padding:8px 10px">
         <div style="flex:2;display:flex;flex-direction:column;gap:4px">
           <input type="text" value="${ing.name}" placeholder="Összetevő neve" style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.82rem;outline:none"
             onchange="updateModalIng('${type}',${i},'name',this.value)">
           <select style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;outline:none;color:var(--text-soft)"
-            onchange="updateModalIng('${type}',${i},'ingredientId',parseInt(this.value))">
+            onchange="updateModalIng('${type}',${i},'ingredientId',parseInt(this.value));renderModalIngredients()">
             <option value="">— Árjegyzékből —</option>
             ${ingOptions}
           </select>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <input type="number" value="${ing.amount}" placeholder="g" style="width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:700;outline:none"
+          <input type="number" value="${ing.amount}" placeholder="${uLabel}" style="width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:700;outline:none"
             onchange="updateModalIng('${type}',${i},'amount',parseFloat(this.value))">
-          <span style="font-size:0.75rem;color:var(--text-soft)">g</span>
+          <span style="font-size:0.75rem;color:var(--text-soft)">${uLabel}${gHint?` <span style="opacity:.55">${gHint}</span>`:''}</span>
           <button class="btn btn-danger btn-xs" onclick="removeModalIng('${type}',${i})">✕</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     // Set ingredient select values
     const rows = document.getElementById(type+'-ingredients-list').querySelectorAll('select');

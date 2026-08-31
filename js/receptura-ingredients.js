@@ -1,6 +1,7 @@
 // ===== INGREDIENTS VIEW =====
 let ingCatFilter = 'Mind';
 function renderIngredients() {
+  if(!document.getElementById('ingredients-tbody')) return; // Törzsadatok tab: nincs ez a nézet
   document.getElementById('vat-display').textContent = R.settings.vat;
   document.getElementById('margin-display').textContent = R.settings.margin;
 
@@ -69,6 +70,8 @@ function openIngredientModal(id=null) {
     document.getElementById('i-category').value = i.cat;
     document.getElementById('i-subtype').value = i.subType || 'flour';
     document.getElementById('i-unit').value = i.unit || 'g';
+    document.getElementById('i-alt-unit').value = i.altUnit || '';
+    document.getElementById('i-alt-factor').value = i.altFactor || '';
     document.getElementById('i-material-type').value = i.materialType || 'consumable';
     document.getElementById('i-family').value = i.familyId || '';
     document.getElementById('i-min-stock').value = i.minStock||0;
@@ -79,6 +82,8 @@ function openIngredientModal(id=null) {
     ['i-name','i-min-stock','i-critical-stock'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('i-subtype').value = 'flour';
     document.getElementById('i-unit').value = 'g';
+    document.getElementById('i-alt-unit').value = '';
+    document.getElementById('i-alt-factor').value = '';
     document.getElementById('i-material-type').value = 'consumable';
     document.getElementById('i-family').value = '';
     modalSuppliers = [{source:'',priceGross:0,priceNet:0,package:1000,stock:0,date:localToday()}];
@@ -89,7 +94,7 @@ function openIngredientModal(id=null) {
   if (prefSelect) {
     const activeSups = (R.suppliers || []).filter(s => s.active !== false).sort((a,b) => (a.name||'').localeCompare(b.name||'', 'hu'));
     prefSelect.innerHTML = '<option value="">— Nincs (legutóbbi bevétel beszállítója használandó) —</option>' +
-      activeSups.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      activeSups.map(s => `<option value="${s.id}">${esc(s.brand ? s.brand + ' — ' + s.name : s.name)}</option>`).join('');
     if (id) {
       const i = R.ingredients.find(ing=>ing.id===id);
       prefSelect.value = i?.preferredSupplierId || '';
@@ -147,33 +152,44 @@ async function saveIngredient() {
   const firstSupplier = sortedSuppliers[0];
   const materialType = document.getElementById('i-material-type')?.value || 'consumable';
   const unit = document.getElementById('i-unit')?.value || 'g';
+  const altUnit = document.getElementById('i-alt-unit')?.value || null;
+  const altFactor = parseFloat(document.getElementById('i-alt-factor')?.value) || null;
   const familyIdRaw = document.getElementById('i-family')?.value || '';
   const familyId = familyIdRaw ? parseInt(familyIdRaw) : null;
+  // firstSupplier lehet sztring (batch-ből származtatott) vagy objektum — csak objektumból van ár
+  const pricePerG = (firstSupplier && typeof firstSupplier === 'object' && firstSupplier.package)
+    ? (firstSupplier.priceNet / firstSupplier.package) : undefined;
   const data = {
     name,
     cat: document.getElementById('i-category').value,
     subType: document.getElementById('i-subtype').value,
     unit,
+    altUnit,
+    altFactor,
     materialType,
     familyId,
     suppliers: sortedSuppliers,
-    pricePerG: firstSupplier.priceNet / firstSupplier.package,
-    minStock: parseFloat(document.getElementById('i-min-stock').value)||0,
-    criticalStock: parseFloat(document.getElementById('i-critical-stock').value)||0,
   };
-  if (editingIngId) {
-    Object.assign(R.ingredients.find(i=>i.id===editingIngId), data);
-    // v2.35.0: persist material_type + family_id + unit to DB
-    try {
-      await kData.update('ingredients', { material_type: materialType, family_id: familyId, unit }, 'id=eq.' + editingIngId);
-    } catch(e) { console.warn('DB ingredient update failed:', e.message); }
-    toast('Alapanyag frissítve!');
-  } else {
-    data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
-    R.ingredients.push(data);
-    toast('Alapanyag hozzáadva!');
+  if (pricePerG !== undefined && !isNaN(pricePerG)) data.pricePerG = pricePerG;
+  try {
+    if (editingIngId) {
+      const ing = R.ingredients.find(i=>i.id===editingIngId);
+      // v2.53.74 FIX: a minStock/maxStock GETTER-property az alapanyagon → Object.assign
+      // rájuk hibát dobna ("has only a getter"). Ezért csak a nem-getter mezőket írjuk.
+      Object.assign(ing, data);
+      // v2.35.0: persist material_type + family_id + unit to DB
+      await kData.update('ingredients', { category: document.getElementById('i-category').value, material_type: materialType, family_id: familyId, unit, alt_unit: altUnit, alt_factor: altFactor }, 'id=eq.' + editingIngId);
+      toast('✅ Alapanyag frissítve!');
+    } else {
+      data.id = Math.max(...R.ingredients.map(i=>i.id),0)+1;
+      R.ingredients.push(data);
+      toast('✅ Alapanyag hozzáadva!');
+    }
+    save(); closeModal('ingredient-modal'); renderIngredients(); if(typeof renderMasterData==='function' && document.getElementById('md-tab-content')) renderMasterData();
+  } catch(e) {
+    console.error('saveIngredient:', e);
+    toast('⚠️ ' + (typeof friendlyError==='function'?friendlyError(e):e.message), true);
   }
-  save(); closeModal('ingredient-modal'); renderIngredients();
 }
 
 // ===== v2.35.0: INGREDIENT FAMILY DIALOG =====

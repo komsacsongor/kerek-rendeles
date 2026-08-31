@@ -8,6 +8,13 @@
 
 // Manuális override-ok (session-szintű, nem perzisztens)
 let shoppingOverrides = {};
+let _shopDirty = false;   // van nem mentett kézi módosítás?
+let _shopLoaded = false;  // DB-ből betöltve már ebben a sessionben?
+
+// M1.3: kézi érték elsőbbség, fallback a 90-napos rendeléstörténetből számított auto-értékre
+function effMin(ing){ return Number(ing.minStock) > 0 ? Number(ing.minStock) : Number(ing.minStockAutoG || 0); }
+function effMax(ing){ return Number(ing.maxStock) > 0 ? Number(ing.maxStock) : Number(ing.maxStockAutoG || 0); }
+function isAutoMinMax(ing){ return !(Number(ing.maxStock) > 0) && Number(ing.maxStockAutoG || 0) > 0; }
 let shoppingFilter = 'urgent'; // 'urgent' (csak sürgős+hamarosan), 'all' (mind ami < max)
 let shoppingViewMode = 'supplier'; // 'supplier' (beszállítónként) | 'flat' (egy lista)
 
@@ -51,8 +58,8 @@ function getPackageSize(ing) {
 function getUrgencyLevel(ing) {
   const stock = getTotalStock(ing);
   const critical = ing.criticalStock || 0;
-  const min = ing.minStock || 0;
-  const max = ing.maxStock || 0;
+  const min = effMin(ing);
+  const max = effMax(ing);
   if (critical > 0 && stock < critical) return 'critical';
   if (min > 0 && stock < min) return 'soon';
   if (max > 0 && stock < max) return 'buffer';
@@ -65,7 +72,7 @@ function getRecommendedQty(ing) {
     return shoppingOverrides[ing.id];
   }
   const stock = getTotalStock(ing);
-  const max = ing.maxStock || 0;
+  const max = effMax(ing);
   if (max <= 0) return 0;
   const deficit = max - stock;
   if (deficit <= 0) return 0;
@@ -78,7 +85,7 @@ function getRecommendedQty(ing) {
 function getShoppingItems(filter) {
   filter = filter || shoppingFilter;
   const items = (R.ingredients || []).filter(ing => {
-    const max = ing.maxStock || 0;
+    const max = effMax(ing);
     if (max <= 0) return false; // ha nincs max megadva, nem szerepel
     const stock = getTotalStock(ing);
     const urgency = getUrgencyLevel(ing);
@@ -97,14 +104,6 @@ function getShoppingItems(filter) {
 }
 
 // Mértékegység formátum (g vagy kg)
-function fmtQty(grams) {
-  if (grams >= 1000) {
-    const kg = grams / 1000;
-    return `${kg.toLocaleString('hu', { maximumFractionDigits: 2 })} kg`;
-  }
-  return `${Math.round(grams)} g`;
-}
-
 // =============================================================
 // CLIPBOARD MÁSOLÁS
 // =============================================================
@@ -117,7 +116,7 @@ async function copySupplierList(supplierName) {
   const lines = [`Bevásárlás — ${supplierName}`, ''];
   items.forEach(ing => {
     const qty = getRecommendedQty(ing);
-    if (qty > 0) lines.push(`• ${ing.name}: ${fmtQty(qty)}`);
+    if (qty > 0) lines.push(`• ${ing.name}: ${fmtQtyUnit(qty, ing.unit)}`);
   });
   lines.push('', `Összesen ${items.length} tétel — KEREK ${new Date().toLocaleDateString('hu')}`);
   try {
@@ -137,7 +136,7 @@ async function copyAllShoppingList() {
     lines.push(`▸ ${supplier}`);
     items.forEach(ing => {
       const qty = getRecommendedQty(ing);
-      if (qty > 0) lines.push(`  • ${ing.name}: ${fmtQty(qty)}`);
+      if (qty > 0) lines.push(`  • ${ing.name}: ${fmtQtyUnit(qty, ing.unit)}`);
     });
     lines.push('');
   });
@@ -182,6 +181,8 @@ function renderShoppingList() {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-primary btn-sm" data-action="copyAllShoppingList" data-tip="Teljes lista vágólapra">📋 Mindent másol</button>
+        <button class="btn btn-ghost btn-sm" data-action="refreshAutoMinMax" data-tip="Min/max újraszámítása a 90 napos rendeléstörténetből">🤖 Auto min/max</button>
+        <button class="btn ${_shopDirty?'btn-gold':'btn-ghost'} btn-sm" data-action="saveShoppingOverrides" data-tip="Kézi mennyiségek mentése (megmaradnak újratöltés után)">💾 Mentés${_shopDirty?' •':''}</button>
         <button class="btn btn-ghost btn-sm" data-action="resetShoppingOverrides" data-tip="Manuális módosítások visszaállítása">↺ Reset</button>
       </div>
     </div>
@@ -224,15 +225,14 @@ function renderSupplierView(items) {
   let html = '';
   groups.forEach((groupItems, supplierName) => {
     const isOrphan = supplierName.startsWith('⚠️');
-    const totalQty = groupItems.reduce((sum, ing) => sum + getRecommendedQty(ing), 0);
     html += `
       <div style="background:white;border:1px solid ${isOrphan?'#fde68a':'var(--border)'};border-radius:12px;margin-bottom:14px;overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:${isOrphan?'#fffbeb':'var(--cream)'};border-bottom:1px solid ${isOrphan?'#fde68a':'var(--border)'}">
           <div>
             <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1rem">${esc(supplierName)}</div>
-            <div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px">${groupItems.length} tétel · összesen ${fmtQty(totalQty)}</div>
+            <div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px">${groupItems.length} tétel</div>
           </div>
-          ${!isOrphan ? `<button class="btn btn-primary btn-sm" data-action="copySupplierList" data-arg1="${esc(supplierName)}" data-tip="Lista vágólapra ehhez a beszállítóhoz">📋 Másol</button>` : `<span style="font-size:0.7rem;color:#b45309">Adj meg beszállítót az alapanyag szerkesztőjében!</span>`}
+          ${!isOrphan ? `<button class="btn btn-primary btn-sm" data-action="copySupplierList" data-arg1="${esc(supplierName)}" data-tip="Lista vágólapra ehhez a beszállítóhoz">📋 Másol</button>` : `<button class="btn btn-gold btn-sm" data-action="openSupplierWizard" data-tip="Beszállító hozzárendelése ezekhez az alapanyagokhoz">🔧 Beszállítók kiosztása</button>`}
         </div>
         <div style="padding:4px 0">
           ${groupItems.map(ing => renderShoppingItemRow(ing)).join('')}
@@ -255,8 +255,8 @@ function renderFlatView(items) {
 
 function renderShoppingItemRow(ing, showSupplier) {
   const stock = getTotalStock(ing);
-  const min = ing.minStock || 0;
-  const max = ing.maxStock || 0;
+  const min = effMin(ing);
+  const max = effMax(ing);
   const recommended = getRecommendedQty(ing);
   const urgency = getUrgencyLevel(ing);
   const supplier = getPrimarySupplier(ing) || '—';
@@ -273,10 +273,11 @@ function renderShoppingItemRow(ing, showSupplier) {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;color:var(--text);font-size:0.92rem">${esc(ing.name)}${showSupplier && supplier !== '—' ? ` <span style="font-weight:400;color:var(--text-soft);font-size:0.75rem">— ${esc(supplier)}</span>` : ''}</div>
         <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">
-          Jelenleg: <b style="color:${urgencyColor}">${fmtQty(stock)}</b>
-          ${min>0?` · Min: ${fmtQty(min)}`:''}
-          ${max>0?` · <span style="color:var(--gold-dark);font-weight:600">Max: ${fmtQty(max)}</span>`:''}
-          · Csomag: ${fmtQty(pkg)}
+          Jelenleg: <b style="color:${urgencyColor}">${fmtQtyUnit(stock, ing.unit)}</b>
+          ${min>0?` · Min: ${fmtQtyUnit(min, ing.unit)}`:''}
+          ${max>0?` · <span style="color:var(--gold-dark);font-weight:600">Max: ${fmtQtyUnit(max, ing.unit)}</span>`:''}
+          ${isAutoMinMax(ing)?` <span title="A min/max a 90 napos rendeléstörténetből számítva (nincs kézi érték megadva)" style="font-size:0.68rem;color:var(--teal);font-weight:600">🤖 auto</span>`:''}
+          · Csomag: ${fmtQtyUnit(pkg, ing.unit)}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -303,13 +304,48 @@ function setShoppingView(v) {
   renderShoppingList();
 }
 
+// ===== M1.1: mentett felülírások (shopping_overrides tábla) =====
+
+// initApp / renderShoppingList előtt hívandó: DB → memória
+async function loadShoppingOverrides(){
+  try{
+    const rows = await kData.query('shopping_overrides', {limit:500});
+    shoppingOverrides = {};
+    (rows||[]).forEach(r=>{
+      // árva sor kiszűrése (törölt alapanyag)
+      if (R.ingredients.some(i=>i.id==r.ingredient_id)) shoppingOverrides[r.ingredient_id] = Number(r.qty);
+    });
+    _shopDirty = false;
+  }catch(e){ console.warn('shopping_overrides load:', e.message); }
+}
+
+async function saveShoppingOverrides(){
+  const ids = Object.keys(shoppingOverrides);
+  try{
+    if (ids.length){
+      const rows = ids.map(id=>({ingredient_id:Number(id), qty:Number(shoppingOverrides[id]), updated_at:new Date().toISOString()}));
+      await kData.upsert('shopping_overrides', rows, 'ingredient_id');
+    }
+    // ami már nincs a memóriában, azt töröljük a DB-ből is
+    const dbRows = await kData.query('shopping_overrides', {limit:500});
+    const stale = (dbRows||[]).filter(r=>shoppingOverrides[r.ingredient_id]===undefined);
+    for (const r of stale){ await kData.delete('shopping_overrides', `ingredient_id=eq.${r.ingredient_id}`); }
+    _shopDirty = false;
+    toast(`💾 ${ids.length} kézi mennyiség mentve.`);
+    renderShoppingList();
+  }catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
+}
+
 function setShoppingQty(ingId, qty) {
   const n = Number(qty);
   if (isNaN(n) || n < 0) return;
   shoppingOverrides[ingId] = n;
+  _shopDirty = true;
   // Csak az input szín frissül, nem teljes re-render (UX)
   const input = document.querySelector(`input[data-shopping-ing="${ingId}"]`);
   if (input) input.style.borderColor = 'var(--gold)';
+  const btn = document.querySelector('[data-action="saveShoppingOverrides"]');
+  if (btn){ btn.className='btn btn-gold btn-sm'; btn.textContent='💾 Mentés •'; }
 }
 
 function adjustShoppingQty(ingId, delta) {
@@ -318,6 +354,7 @@ function adjustShoppingQty(ingId, delta) {
   const current = getRecommendedQty(ing);
   const newVal = Math.max(0, current + Number(delta));
   shoppingOverrides[ingId] = newVal;
+  _shopDirty = true;
   const input = document.querySelector(`input[data-shopping-ing="${ingId}"]`);
   if (input) {
     input.value = newVal;
@@ -327,8 +364,88 @@ function adjustShoppingQty(ingId, delta) {
   renderShoppingList();
 }
 
-function resetShoppingOverrides() {
+// ===== M1.2: Beszállító-kiosztás wizard =====
+function _orphanIngredients(){
+  return (R.ingredients||[]).filter(ing => !getPrimarySupplier(ing) && effMax(ing) > 0);
+}
+function openSupplierWizard(){
+  const orphans = _orphanIngredients();
+  const sups = (R.suppliers||[]).filter(s => s.active !== false).sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'));
+  if (!sups.length){ toast('⚠️ Előbb vegyél fel beszállítót a Beszállítók fülön.', true); return; }
+  if (!orphans.length){ toast('✅ Nincs beszállító nélküli alapanyag.'); return; }
+
+  const opts = s => `<option value="">— nincs —</option>` + sups.map(x=>`<option value="${x.id}" ${String(s)===String(x.id)?'selected':''}>${esc(x.brand ? x.brand + ' — ' + x.name : x.name)}</option>`).join('');
+  const rows = orphans.map(ing => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0;font-size:0.88rem;font-weight:600">${esc(ing.name)}
+        <span style="font-weight:400;color:var(--text-soft);font-size:0.72rem"> · ${esc(ing.category||'—')}</span></div>
+      <select data-wiz-ing="${ing.id}" style="width:190px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.82rem">${opts('')}</select>
+    </div>`).join('');
+
+  const ov = document.createElement('div'); ov.id='wiz-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(6,76,72,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.25)">
+    <div style="background:var(--cream);padding:14px 18px;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark)">🔧 Beszállítók kiosztása</div>
+      <div style="font-size:0.8rem;color:var(--text-soft);margin-top:2px">${orphans.length} alapanyagnak nincs beszállítója</div>
+    </div>
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:0.82rem;color:var(--text-soft)">Mind egyszerre:</span>
+      <select id="wiz-bulk" style="flex:1;min-width:150px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.82rem">${opts('')}</select>
+      <button class="btn btn-ghost btn-sm" onclick="wizBulkApply()">Alkalmaz mindre</button>
+    </div>
+    <div style="padding:4px 18px;overflow:auto;flex:1">${rows}</div>
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSupplierWizard()">Mégse</button>
+      <button class="btn btn-primary" id="wiz-save" onclick="wizSave()">Mentés</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+}
+function closeSupplierWizard(){ const o=document.getElementById('wiz-overlay'); if(o) o.remove(); }
+function wizBulkApply(){
+  const v = (document.getElementById('wiz-bulk')||{}).value || '';
+  document.querySelectorAll('[data-wiz-ing]').forEach(sel => { sel.value = v; });
+}
+async function wizSave(){
+  const btn=document.getElementById('wiz-save'); if(btn){ btn.disabled=true; btn.textContent='Mentés…'; }
+  const sels = [...document.querySelectorAll('[data-wiz-ing]')];
+  let n=0;
+  for (const sel of sels){
+    const id = Number(sel.getAttribute('data-wiz-ing'));
+    const val = sel.value ? Number(sel.value) : null;
+    const ing = (R.ingredients||[]).find(i=>i.id===id);
+    if (!ing || (ing.preferredSupplierId||null) === val) continue;   // csak a változottak
+    try{
+      await kData.update('ingredients', {preferred_supplier_id: val}, `id=eq.${id}`);
+      ing.preferredSupplierId = val;
+      n++;
+    }catch(e){ console.warn('wizSave:', e.message); }
+  }
+  closeSupplierWizard();
+  toast(n ? `✅ ${n} alapanyag beszállítója beállítva.` : 'Nem történt változás.');
+  renderShoppingList();
+}
+
+async function refreshAutoMinMax(){
+  if (typeof calcAutoMinMax !== 'function'){ toast('⚠️ Auto-számítás nem elérhető.', true); return; }
+  toast('🤖 Min/max újraszámítása a rendeléstörténetből…');
+  try{
+    await calcAutoMinMax();
+    renderShoppingList();
+    const n = (R.ingredients||[]).filter(i=>isAutoMinMax(i)).length;
+    toast(`✅ Kész — ${n} alapanyag auto min/max alapján szerepel.`);
+  }catch(e){ toast('⚠️ Számítás sikertelen: '+e.message, true); }
+}
+
+async function resetShoppingOverrides() {
+  const n = Object.keys(shoppingOverrides).length;
+  if (n && !confirm(`Biztosan visszaállítod a(z) ${n} kézi mennyiséget az automatikus javaslatra? A mentett értékek is törlődnek.`)) return;
+  try{
+    const dbRows = await kData.query('shopping_overrides', {limit:500});
+    for (const r of (dbRows||[])){ await kData.delete('shopping_overrides', `ingredient_id=eq.${r.ingredient_id}`); }
+  }catch(e){ console.warn('override reset:', e.message); }
   shoppingOverrides = {};
+  _shopDirty = false;
   renderShoppingList();
   toast('↺ Manuális módosítások visszaállítva.');
 }
@@ -341,6 +458,13 @@ if (typeof window !== 'undefined') {
   window.setShoppingQty = setShoppingQty;
   window.adjustShoppingQty = adjustShoppingQty;
   window.resetShoppingOverrides = resetShoppingOverrides;
+  window.saveShoppingOverrides = saveShoppingOverrides;
+  window.loadShoppingOverrides = loadShoppingOverrides;
+  window.refreshAutoMinMax = refreshAutoMinMax;
+  window.openSupplierWizard = openSupplierWizard;
+  window.closeSupplierWizard = closeSupplierWizard;
+  window.wizBulkApply = wizBulkApply;
+  window.wizSave = wizSave;
   window.copySupplierList = copySupplierList;
   window.copyAllShoppingList = copyAllShoppingList;
 }
