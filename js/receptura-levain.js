@@ -108,12 +108,14 @@ async function calcLevainDaily() {
     // Sum all orders for this day + per-product breakdown
     let totalLevainNeeded = 0;
     const productBreakdown = []; // [{name, qty, levainG}]
+    const _dbg = { orderRows:0, matched:0, withLevain:0 }; // diagnosztika: miért 0?
     (mainData.clients||[]).forEach(c => {
       const key = `${c.id}-${y}-${m}-${day}`;
       const order = mainData.orders?.[key];
       if(!order) return;
       Object.entries(order).forEach(([prodId, qty]) => {
         if(!qty) return;
+        _dbg.orderRows++;
         const pid = parseInt(prodId);
         const prod = (mainData.products||[]).find(p => p.id === pid);
         const recipe = R.recipes.find(r => r.product_id === pid) ||
@@ -121,7 +123,10 @@ async function calcLevainDaily() {
             r.name.toLowerCase().includes((prod.name||'').toLowerCase().slice(0,6)) ||
             (prod.name||'').toLowerCase().includes(r.name.toLowerCase().slice(0,6))
           ) : null);
-        if(!recipe || !recipe.levainAmount) return;
+        if(!recipe) return;
+        _dbg.matched++;
+        if(!recipe.levainAmount) return;
+        _dbg.withLevain++;
         const scale = calcScaleFactor(recipe, qty);
         const levainG = Math.round(recipe.levainAmount * scale);
         totalLevainNeeded += levainG;
@@ -134,7 +139,13 @@ async function calcLevainDaily() {
 
     if(totalLevainNeeded === 0) {
       const dateDisplayEmpty = `${DAYS_HU[d.getDay()]}, ${dy}. ${MONTHS_HU[dm-1]} ${dd}.`;
-    html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📅 ${dateDisplayEmpty}</div><span class="badge" style="background:var(--bg-soft);color:var(--text-soft)">Nincs levain rendelés</span></div><div class="card-body"><p class="text-soft text-sm">Erre a napra nincs rendelés, vagy a recepteknél nincs levain mennyiség beállítva.</p></div></div>`;
+      // Beszédes ok: pontosan hol akad el?
+      let ok;
+      if (_dbg.orderRows === 0) ok = 'Erre a napra <b>nincs rendelés</b> (vagy a rendelések nem töltődtek be).';
+      else if (_dbg.matched === 0) ok = `Van ${_dbg.orderRows} rendelés-sor, de <b>egyik sem párosult recepthez</b> (a termékhez nincs recept linkelve — a recept „Kapcsolt termék" mezője).`;
+      else if (_dbg.withLevain === 0) ok = `${_dbg.matched} recept párosult, de <b>egyiknek sincs levain-mennyisége</b> beállítva (a recept „Levain mennyiség" mezője 0). Állítsd be a kovászos recepteknél.`;
+      else ok = 'Nincs levain igény erre a napra.';
+    html += `<div class="card mb-16"><div class="card-head"><div class="card-title">📅 ${dateDisplayEmpty}</div><span class="badge" style="background:var(--bg-soft);color:var(--text-soft)">Nincs levain</span></div><div class="card-body"><p class="text-soft text-sm">${ok}</p><p class="text-soft" style="font-size:0.72rem;margin-top:6px">Diagnosztika: rendelés-sor ${_dbg.orderRows} · recepthez párosult ${_dbg.matched} · van levain-mennyiség ${_dbg.withLevain}</p></div></div>`;
       return;
     }
 
