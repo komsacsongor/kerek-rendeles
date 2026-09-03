@@ -451,22 +451,17 @@ async function saveRecipe() {
 
 function editCurrentRecipe() { openRecipeModal(currentRecipeId); }
 async function deleteCurrentRecipe() {
-  if (!(await confirmDialog('⚠️ Végleges törlés! A recept, a kapcsolódó termék és minden adata törlődik. Biztosan folytatod?'))) return;
+  if (!(await confirmDialog('⚠️ A RECEPT véglegesen törlődik (összetevők + lépések). A kapcsolt TERMÉK az adminban MEGMARAD (a receptúrában „nincs receptúra" jelzéssel). Folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===currentRecipeId);
-  let prodId = rec?.product_id;
-  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==currentRecipeId);
   try {
     await kData.delete('recipe_ingredients', `recipe_id=eq.${currentRecipeId}`);
     await kData.delete('recipe_steps', `recipe_id=eq.${currentRecipeId}`);
     await kData.delete('recipes', `id=eq.${currentRecipeId}`);
-    if(prodId) {
-      await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
-      await sb.delete('products', `id=eq.${prodId}`);
-    }
+    // v2.53.92: a terméket NEM töröljük (szétcsatolás) — az admin katalógus a termékek gazdája.
   } catch(e) { console.warn('Recipe delete error:', e.message); }
-  auditLog('recipe_delete', rec?.name||'?', `ID: ${currentRecipeId}`);
-  save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('Recept és termék véglegesen törölve.');
+  auditLog('recipe_delete', rec?.name||'?', `ID: ${currentRecipeId} (termék megőrizve)`);
+  save(); closeModal('recipe-modal'); nav('recipes'); renderRecipes(); toast('✅ Recept törölve. A termék az adminban megmaradt.');
 }
 
 async function archiveCurrentRecipe() {
@@ -509,21 +504,17 @@ async function restoreRecipe(recipeId) {
 }
 
 async function deleteArchivedRecipe(recipeId) {
-  if (!(await confirmDialog('Végleges törlés az archívból! Visszahozhatatlan. Biztosan folytatod?'))) return;
+  if (!(await confirmDialog('Végleges törlés az archívból! Csak a RECEPT törlődik; a kapcsolt TERMÉK az adminban megmarad. Folytatod?'))) return;
   const rec = R.recipes.find(r=>r.id===recipeId);
-  let prodId = rec?.product_id;
-  if (!prodId && rec?.name) { const _m = (typeof _adminProductsCache !== 'undefined' ? _adminProductsCache : []).filter(p => (p.name||'').trim().toLowerCase() === (rec.name||'').trim().toLowerCase() && !p.deleted_at); if (_m.length === 1) prodId = _m[0].id; }
   R.recipes = R.recipes.filter(r=>r.id!==recipeId);
   try {
     await kData.delete('recipe_ingredients', `recipe_id=eq.${recipeId}`);
     await kData.delete('recipe_steps', `recipe_id=eq.${recipeId}`);
     await kData.delete('recipes', `id=eq.${recipeId}`);
-    if(prodId) {
-      await sb.delete('monthly_active_products', `product_id=eq.${prodId}`);
-      await sb.delete('products', `id=eq.${prodId}`);
-    }
+    // v2.53.92: terméket NEM töröljük (szétcsatolás)
   } catch(e) { console.warn('Delete archived error:', e.message); }
-  save(); nav('archiv'); toast('Recept véglegesen törölve az archívból.');
+  auditLog('recipe_delete', rec?.name||'?', `archív, ID: ${recipeId} (termék megőrizve)`);
+  save(); nav('archiv'); toast('✅ Recept törölve az archívból. A termék megmaradt.');
 }
 
 // ===== ÚJ VERZIÓ =====

@@ -21,11 +21,8 @@ function renderRecipeGrid(cat) {
   // Only active (non-archived) recipes
   const active = R.recipes.filter(r => !r.archived);
   const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
-  document.getElementById('recipes-grid').innerHTML = filtered.map(r => {
+  let gridHtml = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
-    // v2.41.3 / v2.53.89 fix: üres recept = EGYIK összetevő-tömbben sincs semmi.
-    // (Eddig csak a lapos r.ingredients-et nézte, ami a betöltött recepten nem létezik →
-    //  a dry/wet összetevőkkel rendelkező receptek is tévesen ÜRES-t mutattak.)
     const _ingCount = (r.ingredients ? r.ingredients.length : 0)
       + (r.dryIngredients||[]).length + (r.otherDryIngredients||[]).length
       + (r.wetIngredients||[]).length + (r.starterIngredients||[]).length;
@@ -47,9 +44,44 @@ function renderRecipeGrid(cat) {
     </div>`;
   }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
 
+  // v2.53.94 TRANSZPARENCIA: recept nélküli termékek (léteznek az adminban, de nincs aktív receptjük)
+  const recipedPids = new Set(active.filter(r=>r.product_id).map(r=>r.product_id));
+  let orphanProds = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[])
+    .filter(p => !p.deleted_at && !recipedPids.has(p.id));
+  if (cat !== 'Mind') orphanProds = orphanProds.filter(p => (p.category||'') === cat);
+  if (orphanProds.length) {
+    gridHtml += `<div style="grid-column:1/-1;margin-top:22px;border-top:2px dashed var(--border);padding-top:14px">
+      <h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0 0 4px;font-size:1.05rem">🏷 Recept nélküli termékek <span style="font-size:0.75rem;font-weight:400">(${orphanProds.length})</span></h3>
+      <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Léteznek az adminban, de még nincs receptjük. Kattints egy kártyára recept készítéséhez.</p></div>`;
+    gridHtml += orphanProds.map(p => `<div class="recipe-card" onclick="createRecipeForProduct(${p.id})" style="border:2px dashed #f59e0b;background:#fffbeb">
+      <div class="recipe-card-img">🏷</div>
+      <div class="recipe-card-body">
+        <div class="recipe-card-name">${esc(p.name)}<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-left:6px">➕ nincs receptúra</span></div>
+        <div class="recipe-card-meta"><span class="badge badge-teal">${esc(p.category||'—')}</span>${p.code?`<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${esc(p.code)}</span>`:''}</div>
+        <div class="recipe-card-price" style="color:#d97706;font-size:0.85rem">Recept készítése →</div>
+      </div>
+    </div>`).join('');
+  }
+  document.getElementById('recipes-grid').innerHTML = gridHtml;
+
   // Archív receptek szekció
   renderArchivedRecipes();
 }
+
+// v2.53.94: recept létrehozása egy meglévő (admin) termékhez, elő-linkelve
+function createRecipeForProduct(prodId) {
+  const p = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]).find(x=>x.id===prodId);
+  if(!p) return;
+  openRecipeModal(null);
+  setTimeout(()=>{
+    const nameEl=document.getElementById('r-name'); if(nameEl) nameEl.value = p.name;
+    const linkEl=document.getElementById('r-product-link'); if(linkEl) linkEl.value = String(prodId);
+    const catEl=document.getElementById('r-category');
+    if(catEl && p.category){ const opt=[...catEl.options].find(o=>o.value===p.category||o.text===p.category); if(opt) catEl.value=opt.value; }
+    toast('Recept készítése ehhez: '+p.name+'. Töltsd ki és mentsd.');
+  }, 120);
+}
+if (typeof window !== 'undefined') window.createRecipeForProduct = createRecipeForProduct;
 
 function renderArchivedRecipes() {
   const archived = R.recipes.filter(r => r.archived);

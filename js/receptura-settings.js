@@ -126,7 +126,6 @@ async function syncRecipeToSupabase(data, existingId) {
     const toolCost = (R.settings.toolWear||5) + (R.settings.consumables||0.5);
     const suggestedPrice = Math.ceil((laborCost + elecCost + toolCost) * (1 + (R.settings.margin||50)/100));
     const productPayload = {
-      name: data.name,
       weight: `${data.unitWeight||data.basePortion} g`,
       category: data.category||'Kenyér',
       description: data.desc||'',
@@ -134,7 +133,8 @@ async function syncRecipeToSupabase(data, existingId) {
       ingredient_label: data.ingredientLabel||'',
       allergens: data.allergens||'',
       nutrition: data.nutrition ? JSON.stringify(data.nutrition) : null,
-      ...(data.familyId !== undefined ? {product_family_id: data.familyId||null} : {}),
+      // v2.53.93: product_family_id NEM innen íródik (a család KIZÁRÓLAG admin-jog).
+      // A NÉV csak ÚJ terméknél (create) — meglévőnél az admin a gazda, nem írjuk felül.
     };
     let prodId = data.product_id || null;
     let newlyCreatedProdId = null; // rollback-hez
@@ -146,11 +146,11 @@ async function syncRecipeToSupabase(data, existingId) {
       productPayload.price = suggestedPrice;
     }
     if (prodId) {
-      // Meglévő termék frissítése (kód nem változik)
+      // Meglévő termék frissítése — NÉV és CSALÁD marad (admin a gazda), csak a recept-származtatott mezők
       await sb.update('products', productPayload, `id=eq.${prodId}`);
     } else {
-      // Új termék – Supabase generálja az ID-t, kód az ID alapján
-      const savedProd = await sb.insert('products', productPayload);
+      // Új termék: a recept NEVÉVEL jön létre (a te kérésed: azonos névvel az adminban)
+      const savedProd = await sb.insert('products', {...productPayload, name: data.name});
       prodId = savedProd[0].id;
       newlyCreatedProdId = prodId; // rollback-hez megjegyezzük
       const autoCode = generateProductCode(data.name, data.category||'Kenyér', prodId);
@@ -171,11 +171,7 @@ async function syncRecipeToSupabase(data, existingId) {
     const localRec = R.recipes.find(r => r.id === recId);
     if (localRec) {
       localRec.product_id = prodId;
-      // Ha a familyId is változott, frissítsük a cache-t is
-      if (data.familyId !== undefined && typeof _adminProductsCache !== 'undefined') {
-        const cachedProd = _adminProductsCache.find(p => p.id === prodId);
-        if (cachedProd) cachedProd.product_family_id = data.familyId || null;
-      }
+      // v2.53.93: a család cache-frissítés eltávolítva — a családot csak az admin állítja.
     }
 
     debugLog(`✅ Recept Supabase-be mentve: ${data.name}`);

@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.90"></script>
+<script src="kerek-constants.js?v=2.53.94"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -755,8 +755,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
-            <label>Termékcsalád <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(opcionális – azonos termék más csatornához)</span></label>
-            <select id="r-family-id" onchange="updateRecipeFamilyPreview()" style="padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.88rem;background:white;color:var(--text);width:100%">
+            <label>Termékcsalád <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">(csak megtekintés – a családot az Adminban állíthatod)</span></label>
+            <select id="r-family-id" disabled title="A termékcsaládot az Admin katalógusban lehet beállítani" style="padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:0.88rem;background:var(--cream);color:var(--text-soft);width:100%;cursor:not-allowed">
               <option value="">– Önálló termék (nincs termékcsalád) –</option>
             </select>
             <div id="r-family-preview" style="font-size:.75rem;color:var(--teal-dark);margin-top:4px"></div>
@@ -1016,24 +1016,24 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.53.73"></script>
+<script src="js/receptura-data.js?v=2.53.92"></script>
 <script src="js/receptura-ui.js?v=2.53.75"></script>
-<script src="js/receptura-recipes.js?v=2.53.89"></script>
+<script src="js/receptura-recipes.js?v=2.53.94"></script>
 <script src="js/receptura-operational.js?v=2.53.17"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
 <script src="js/receptura-equipment.js?v=2.53.74"></script>
 <script src="js/receptura-costhelp.js?v=2.53.53"></script>
-<script src="js/receptura-settings.js?v=2.53.85"></script>
+<script src="js/receptura-settings.js?v=2.53.93"></script>
 <script src="js/receptura-ing-cats.js?v=2.53.70"></script>
 <script src="js/receptura-recipe-cats.js?v=2.53.77"></script>
 <script src="js/receptura-processing.js?v=2.53.17"></script>
   <script src="js/receptura-help.js?v=2.53.17"></script>
-  <script src="js/receptura-levain.js?v=2.53.17"></script>
+  <script src="js/receptura-levain.js?v=2.53.91"></script>
 <script src="js/receptura-production.js?v=2.53.56"></script>
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
 <script src="js/receptura-modal.js?v=2.53.53"></script>
-<script src="js/receptura-ai.js?v=2.53.88"></script>
+<script src="js/receptura-ai.js?v=2.53.92"></script>
 <script src="js/receptura-shopping.js?v=2.53.70"></script>
 <script src="js/receptura-suppliers.js?v=2.53.71"></script>
 <script src="js/receptura-masterdata.js?v=2.53.80"></script>
