@@ -129,6 +129,13 @@ async function restoreProduct(id) {
   try {
     // v2.36.0 helper, NO spread (would push 'desc' field that doesn't exist in DB)
     await sb.updateFields('products', { deleted_at: null }, 'id=eq.' + id);
+    // v2.53.92: SZIMMETRIA — az archiváláskor lekaszkádolt recepteket is visszaállítjuk.
+    try {
+      const relRecipes = await kData.query('recipes', {filter: 'product_id=eq.'+id, limit: 20});
+      for (const r of (relRecipes||[])) {
+        if (r.archived) await kData.updateFields('recipes', { archived: false }, 'id=eq.' + r.id);
+      }
+    } catch(recErr) { console.warn('recept-visszaállítás:', recErr.message); }
     // Áthelyezés D.productsArchived → D.products
     const archIdx = (D.productsArchived || []).findIndex(x=>x.id===id);
     if (archIdx >= 0) {

@@ -234,13 +234,8 @@ async function initApp() {
     catch(e) { console.warn('initApp getSetting ['+key+']:', e.message); }
   }));
 
-  // Admin termékek betöltése cache-be
-  try {
-    const prods = await sb.query('products', {order:'name', limit:500});
-    window._adminProductsCache = prods || [];
-  } catch(e) { window._adminProductsCache = []; }
-
   // Receptek betöltése Supabase-ből (felülírja a localStorage adatait)
+  // (a termék-cache-t a loadReceptCoreData tölti, szűrten — nincs külön betöltés)
   await loadReceptCoreData();
   save(); // login-kor localStorage snapshot
 
