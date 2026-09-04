@@ -148,6 +148,7 @@ function renderRecipeDetail() {
 
   // Cost
   renderCostDetail(r, pieces);
+  renderStockCoverage(r, pieces);
 
   // Process
   renderProcessDetail(r);
@@ -312,6 +313,47 @@ async function showIngDetail(ingId) {
 `;
   });
   await alertDialog(msg);
+}
+
+function renderStockCoverage(r, pieces) {
+  const box = document.getElementById('stock-coverage-detail');
+  if (!box) return;
+  const rawWeight = calcRawWeight(r, pieces);
+  const scale = rawWeight / (r.basePortion || 1000);
+  // igények gyűjtése ingId -> gramm (bázisegységben)
+  const needs = {};
+  const addNeed = (ingId, g) => { if(!ingId || !g) return; needs[ingId] = (needs[ingId]||0) + g; };
+  if (r.levainAmount) {
+    const lev = calcLevain(r.levainAmount * scale);
+    addNeed(4, lev.starter); addNeed(9, lev.flour); addNeed(1, lev.water);
+  }
+  [...(r.dryIngredients||[]), ...(r.wetIngredients||[]), ...(r.otherDryIngredients||[])].forEach(ing => {
+    addNeed(ing.ingredientId, (ing.amount||0) * scale);
+  });
+  const rows = [];
+  Object.entries(needs).forEach(([ingId, needG]) => {
+    const ing = getIng(parseInt(ingId));
+    if (!ing) return;
+    const stock = ing.totalStockG || 0;
+    const ok = stock >= needG - 0.001;
+    rows.push({ name: ing.name, unit: ing.unit || 'g', needG, stock, ok, short: Math.max(0, needG - stock) });
+  });
+  if (!rows.length) { box.innerHTML = '<p class="text-soft text-sm">Nincs összetevő a fedezet-számításhoz.</p>'; return; }
+  rows.sort((a,b) => (a.ok===b.ok) ? a.name.localeCompare(b.name,'hu') : (a.ok?1:-1));
+  const shortRows = rows.filter(x=>!x.ok);
+  const fmt = (g,u) => (typeof fmtQtyUnit==='function') ? fmtQtyUnit(g, u) : (Math.round(g)+' g');
+  const banner = shortRows.length === 0
+    ? `<div style="background:var(--green-pale,#ecfdf5);color:#065f46;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:10px">✅ Van elég készlet ${pieces} db-hoz</div>`
+    : `<div style="background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:10px">⚠️ ${shortRows.length} alapanyag hiányzik ${pieces} db-hoz</div>`;
+  const list = rows.map(x => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:0.5px solid var(--border);font-size:0.82rem">
+      <span style="width:18px">${x.ok?'✅':'❌'}</span>
+      <span style="flex:1">${esc(x.name)}</span>
+      <span style="color:var(--text-soft)">kell: ${fmt(x.needG,x.unit)}</span>
+      <span style="width:14px;text-align:center;color:var(--text-soft)">/</span>
+      <span style="color:${x.ok?'var(--text-soft)':'#dc2626'};min-width:70px;text-align:right">van: ${fmt(x.stock,x.unit)}${x.ok?'':' <b>(−'+fmt(x.short,x.unit)+')</b>'}</span>
+    </div>`).join('');
+  box.innerHTML = banner + list;
 }
 
 function renderCostDetail(r, pieces) {
