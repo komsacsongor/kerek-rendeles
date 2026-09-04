@@ -23,16 +23,10 @@ function renderRecipeGrid(cat) {
   const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
   let gridHtml = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
-    const _ingCount = (r.ingredients ? r.ingredients.length : 0)
-      + (r.dryIngredients||[]).length + (r.otherDryIngredients||[]).length
-      + (r.wetIngredients||[]).length + (r.starterIngredients||[]).length;
-    const isEmpty = _ingCount === 0;
-    const emptyStyle = isEmpty ? 'border:2px solid #dc2626;background:#fef2f2' : '';
-    const emptyBadge = isEmpty ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:6px" title="Nincs alapanyag rögzítve!">⚠️ ÜRES</span>' : '';
-    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})" style="${emptyStyle}">
+    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
       <div class="recipe-card-img">🍞</div>
       <div class="recipe-card-body">
-        <div class="recipe-card-name">${r.name}${emptyBadge}</div>
+        <div class="recipe-card-name">${r.name}</div>
         <div class="recipe-card-meta">
           <span class="badge badge-teal">${r.category}</span>
           ${(r.version||1) > 1 ? `<span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:10px;font-size:.7rem;font-weight:700">v${r.version}</span>` : ''}
@@ -73,12 +67,12 @@ function createRecipeForProduct(prodId) {
   const p = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]).find(x=>x.id===prodId);
   if(!p) return;
   openRecipeModal(null);
+  window._preLinkedProductId = prodId; // v2.53.96: KÖZVETLEN link (nem név-match) → nincs duplikátum
   setTimeout(()=>{
     const nameEl=document.getElementById('r-name'); if(nameEl) nameEl.value = p.name;
-    const linkEl=document.getElementById('r-product-link'); if(linkEl) linkEl.value = String(prodId);
     const catEl=document.getElementById('r-category');
     if(catEl && p.category){ const opt=[...catEl.options].find(o=>o.value===p.category||o.text===p.category); if(opt) catEl.value=opt.value; }
-    toast('Recept készítése ehhez: '+p.name+'. Töltsd ki és mentsd.');
+    toast('Recept készítése ehhez: '+p.name+'. Töltsd ki és mentsd (a meglévő termékhez linkel).');
   }, 120);
 }
 if (typeof window !== 'undefined') window.createRecipeForProduct = createRecipeForProduct;

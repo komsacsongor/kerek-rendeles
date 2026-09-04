@@ -3,6 +3,7 @@ let editingRecipeId = null;
 let modalDryIngs = [], modalWetIngs = [], modalSteps = [];
 
 function openRecipeModal(id=null) {
+  if(typeof window!=='undefined') window._preLinkedProductId = null; // v2.53.96 reset
   editingRecipeId = id;
   document.getElementById('r-category').innerHTML = R.recipeCategories.map(c=>`<option>${c}</option>`).join('');
 

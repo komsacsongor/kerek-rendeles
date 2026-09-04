@@ -416,6 +416,12 @@ async function saveRecipe() {
     toast('✅ Recept frissítve!');
     save(); closeModal('recipe-modal'); renderRecipes();
   } else {
+    // v2.53.96: közvetlen elő-link (Recept készítése termékhez) — a név-match ELŐTT
+    if (!data.product_id && typeof window!=='undefined' && window._preLinkedProductId) {
+      data.product_id = window._preLinkedProductId;
+      data.productPrice = null; // a meglévő termék árát ne írjuk felül
+      window._preLinkedProductId = null;
+    }
     // Duplikátum check – modal nyitva marad ha hiba van
     if (!data.product_id) {
       try {
