@@ -39,9 +39,16 @@ function renderRecipeGrid(cat) {
   }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
 
   // v2.53.94 TRANSZPARENCIA: recept nélküli termékek (léteznek az adminban, de nincs aktív receptjük)
+  // v2.53.97: CSALÁD-TUDATOS — egy család-variáns (pl. "sós perec csomag") NEM recept nélküli,
+  // ha a családja bármely tagjának van receptje (örökli a család receptjét, csak a kiszerelés más).
   const recipedPids = new Set(active.filter(r=>r.product_id).map(r=>r.product_id));
-  let orphanProds = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[])
-    .filter(p => !p.deleted_at && !recipedPids.has(p.id));
+  const _pcache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
+  const familyHasRecipe = (p) => {
+    const headId = p.product_family_id || p.id; // a család feje
+    return _pcache.some(m => ((m.product_family_id||m.id) === headId) && recipedPids.has(m.id));
+  };
+  let orphanProds = _pcache
+    .filter(p => !p.deleted_at && !recipedPids.has(p.id) && !familyHasRecipe(p));
   if (cat !== 'Mind') orphanProds = orphanProds.filter(p => (p.category||'') === cat);
   if (orphanProds.length) {
     gridHtml += `<div style="grid-column:1/-1;margin-top:22px;border-top:2px dashed var(--border);padding-top:14px">
