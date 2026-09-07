@@ -183,6 +183,28 @@ async function calcProductionPrep() {
 
   let html = '';
 
+  // === v2.53.99 Phase 2a: KÉSZLET-FEDEZET a kiválasztott napok teljes rendelésére ===
+  html += (function(){
+    const rows = [];
+    Object.values(needs).forEach(n => {
+      if (n.unlinked || !n.ingId || n.ingId === 105) return; // levain/unlinked kihagyva
+      const ing = getIng(n.ingId);
+      if (!ing) return;
+      const stock = ing.totalStockG || 0;
+      const ok = stock >= n.total - 0.001;
+      rows.push({ name:n.name, need:n.total, stock, ok, short:Math.max(0,n.total-stock), unit:ing.unit||'g' });
+    });
+    if (!rows.length) return '';
+    rows.sort((a,b)=>(a.ok===b.ok)?a.name.localeCompare(b.name,'hu'):(a.ok?1:-1));
+    const shortRows = rows.filter(x=>!x.ok);
+    const fmt=(g,u)=>(typeof fmtQtyUnit==='function')?fmtQtyUnit(g,u):(Math.round(g)+' g');
+    const banner = shortRows.length===0
+      ? `<div style="background:#ecfdf5;color:#065f46;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:8px">✅ Van elég készlet a kiválasztott napok teljes rendeléséhez</div>`
+      : `<div style="background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:8px">⚠️ ${shortRows.length} alapanyagból nincs elég a rendeléshez — beszerzés kell (lásd Bevásárló lista)</div>`;
+    const list = rows.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:0.5px solid var(--border);font-size:0.8rem"><span style="width:16px">${x.ok?'✅':'❌'}</span><span style="flex:1">${esc(x.name)}</span><span style="color:var(--text-soft)">kell: ${fmt(x.need,x.unit)}</span><span style="width:12px;text-align:center;color:var(--text-soft)">/</span><span style="color:${x.ok?'var(--text-soft)':'#dc2626'};min-width:80px;text-align:right">van: ${fmt(x.stock,x.unit)}${x.ok?'':' <b>(−'+fmt(x.short,x.unit)+')</b>'}</span></div>`).join('');
+    return `<div class="card mb-16"><div class="card-head"><div class="card-title">📦 Készlet-fedezet a rendeléshez</div></div><div class="card-body">${banner}${list}</div></div>`;
+  })();
+
   // === PER-RECIPE SCALED BREAKDOWN (collapsible, sub-type grouped) ===
   const DAYS_HU_S = ['V','H','K','Sz','Cs','P','Szo'];
   const SUB_LABELS = {flour:'🌾 Száraz (liszt/korpa)', other_dry:'🧂 Egyéb száraz', wet:'💧 Nedves', starter:'🧫 Kovász', raw_grain:'🌱 Nyers mag'};
