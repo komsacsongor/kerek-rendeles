@@ -150,6 +150,7 @@ function renderRecipeDetail() {
   // Cost
   renderCostDetail(r, pieces);
   renderStockCoverage(r, pieces);
+  renderRecipeVariants(r);
 
   // Process
   renderProcessDetail(r);
@@ -314,6 +315,35 @@ async function showIngDetail(ingId) {
 `;
   });
   await alertDialog(msg);
+}
+
+function renderRecipeVariants(r) {
+  const card = document.getElementById('recipe-variants-card');
+  const box = document.getElementById('recipe-variants-detail');
+  if (!box || !card) return;
+  const cache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
+  const prod = cache.find(p => p.id === r.product_id);
+  if (!prod) { card.style.display='none'; return; }
+  const headId = prod.product_family_id || prod.id;
+  const members = cache.filter(p => !p.deleted_at && ((p.product_family_id||p.id) === headId));
+  if (members.length <= 1) { card.style.display='none'; return; } // nincs variáns
+  const recipedPids = new Set((R.recipes||[]).filter(x=>!x.archived && x.product_id).map(x=>x.product_id));
+  members.sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'));
+  const rows = members.map(m => {
+    const ownRecipe = recipedPids.has(m.id);
+    const isCurrent = m.id === prod.id;
+    const typeLabel = ownRecipe
+      ? '<span style="background:#e0e7ff;color:#3730a3;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700">🍞 saját recept</span>'
+      : '<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700">📦 kiszerelés · közös recept</span>';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:0.5px solid var(--border);font-size:0.83rem;${isCurrent?'font-weight:700':''}">
+      <span style="flex:1">${esc(m.name)}${isCurrent?' <span style=\'color:var(--teal-dark);font-size:0.7rem\'>(ez)</span>':''}</span>
+      <span style="color:var(--text-soft);min-width:60px;text-align:right">${m.weight?esc(m.weight):'—'}</span>
+      <span style="color:var(--teal-dark);min-width:60px;text-align:right;font-weight:600">${m.price!=null?m.price+' lej':'—'}</span>
+      ${typeLabel}
+    </div>`;
+  }).join('');
+  box.innerHTML = `<p style="font-size:0.76rem;color:var(--text-soft);margin:0 0 8px">A „📦 kiszerelés" változatok ezt a receptet öröklik (egy sütés, más csomagolás/ár). A „🍞 saját recept" változatok külön sütést igényelnek.</p>` + rows;
+  card.style.display='block';
 }
 
 function renderStockCoverage(r, pieces) {
