@@ -257,6 +257,16 @@ async function calcProductionPrep() {
           <span style="font-size:0.8rem;color:var(--teal-dark);margin-left:6px">Ténylegesen sütött:</span>
           <input type="number" id="prod-actual-${recipe.id}" min="0" value="${totalPieces}" style="width:72px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;box-sizing:border-box" onclick="event.stopPropagation()">
           <span style="font-size:0.72rem;color:var(--text-soft)">db</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:#fffbeb;border-radius:8px;flex-wrap:wrap" onclick="event.stopPropagation()">
+          <span style="font-size:0.8rem;color:#92400e;font-weight:600">➕ Extra:</span>
+          <input type="number" id="prod-extra-${recipe.id}" min="0" value="0" style="width:60px;padding:5px 8px;border:1.5px solid #f59e0b;border-radius:6px;font-family:'Kodchasan',sans-serif;box-sizing:border-box" onclick="event.stopPropagation()">
+          <span style="font-size:0.72rem;color:var(--text-soft)">db →</span>
+          <select id="prod-alloc-${recipe.id}" style="padding:5px 8px;border:1.5px solid #f59e0b;border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;background:white" onclick="event.stopPropagation()">
+            <option value="sale">🛒 Eladás</option>
+            <option value="internal">🏠 Belső fogyasztás</option>
+            <option value="marketing">🎁 Marketing (minta)</option>
+          </select>
         </div>`;
 
     // Group ingredients by sub_type
@@ -378,7 +388,7 @@ async function calcProductionPrep() {
   window._lastProductionDays = selected;
   // P1 sütési log: per-recept bontás (recept_id + rendelt db) a planned/actual rögzítéshez
   window._lastProductionRecipes = Object.values(recipeBreakdown).map(({ recipe, totalPieces }) => ({
-    recipe_id: recipe.id, name: recipe.name, planned: totalPieces
+    recipe_id: recipe.id, name: recipe.name, planned: totalPieces, recipe
   }));
 
   // Show 'Sütés elvégezve' button in top bar
@@ -393,6 +403,29 @@ async function confirmBakingDone() {
   if (!needs || Object.keys(needs).length === 0) {
     toast('⚠️ Előbb számítsd ki az előkészítést!', true); return;
   }
+
+  // v2.53.100 Phase 2b: EXTRA sütés — az igényeket a needs-hez adjuk (egy FIFO-pass, nincs dupla-levonás)
+  const _extraBakes = [];
+  const _addExtraNeed = (ingId, amount, nameHint) => {
+    if (!ingId || !amount) return;
+    if (!needs[ingId]) { const ing=getIng(ingId); needs[ingId]={name:ing?.name||nameHint||'?', ingId, total:0, cost:0, subType:ing?.subType||'other_dry'}; }
+    needs[ingId].total += amount;
+  };
+  (window._lastProductionRecipes||[]).forEach(pr => {
+    const exEl = document.getElementById('prod-extra-' + pr.recipe_id);
+    const extra = exEl ? (parseInt(exEl.value)||0) : 0;
+    if (extra <= 0) return;
+    const allocEl = document.getElementById('prod-alloc-' + pr.recipe_id);
+    const allocation = allocEl ? allocEl.value : 'sale';
+    const recipe = pr.recipe || R.recipes.find(r=>r.id===pr.recipe_id);
+    if (!recipe) return;
+    _extraBakes.push({ recipe_id: recipe.id, extra, allocation });
+    const scale = calcScaleFactor(recipe, extra);
+    if (recipe.levainAmount>0) _addExtraNeed(105, recipe.levainAmount*scale, 'Kész levain');
+    const allIng = (recipe.allIngredients && recipe.allIngredients.length) ? recipe.allIngredients
+      : [...(recipe.dryIngredients||[]),...(recipe.otherDryIngredients||[]),...(recipe.wetIngredients||[]),...(recipe.starterIngredients||[])];
+    allIng.forEach(ing => _addExtraNeed(ing.ingredientId, (ing.amount||0)*scale, ing.name));
+  });
 
   // Check for missing/insufficient ingredients
   const missing = Object.values(needs).filter(n => {
@@ -495,6 +528,17 @@ async function confirmBakingDone() {
           total_cost: 0, notes: `Sütési napok: ${days?.join(', ') || '—'}`
         });
       } catch(e) { console.warn('per-recipe log:', e.message); }
+    }
+    // v2.53.100 Phase 2b: EXTRA sütés logok (allokálással)
+    for (const ex of _extraBakes) {
+      try {
+        await kData.insert('production_logs', {
+          date: now, log_type: 'extra', recipe_id: ex.recipe_id,
+          pieces_planned: ex.extra, pieces_actual: ex.extra,
+          allocation: ex.allocation, total_cost: 0,
+          notes: `Extra sütés · ${ex.allocation}`
+        });
+      } catch(e) { console.warn('extra log:', e.message); }
     }
     // Set FULFILLED on all orders for baked days (per client)
     // H3+H5 fix: single OR-query for all days, then 1 bulk upsert (was N+1 nested loops)
