@@ -368,6 +368,15 @@ function parseTextRecipe() {
 async function saveRecipe() {
   const name = document.getElementById('r-name').value.trim();
   if (!name) { toast('Recept neve kötelező!'); return; }
+  // v2.53.101 INTEGRITÁS (1. elv): minden összetevő KÖTELEZŐEN alapanyaghoz kötött legyen.
+  // Nem-linkelt (ingredientId nélküli) összetevővel nem mentünk → a recept sosem lehet "vak" a készletre.
+  const _unlinked = [...(modalDryIngs||[]), ...(modalWetIngs||[])]
+    .filter(ing => (ing.name && ing.name.trim()) && !ing.ingredientId);
+  if (_unlinked.length > 0) {
+    const names = _unlinked.map(i => '„' + (i.name||'?') + '"').join(', ');
+    toast('⚠️ Nem menthető: ' + _unlinked.length + ' összetevő nincs alapanyaghoz kötve (' + names + '). Válaszd ki mindegyiknél a listából a megfelelő alapanyagot (vagy előbb hozd létre a Törzsadatokban).', true);
+    return;
+  }
   const data = {
     product_id: parseInt(document.getElementById('r-product-link')?.value)||null,
     familyId: document.getElementById('r-family-id')?.value ? parseInt(document.getElementById('r-family-id').value) : null,
