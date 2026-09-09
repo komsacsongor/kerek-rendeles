@@ -393,7 +393,9 @@ async function calcProductionPrep() {
       ⚠️ Az összetevők nincsenek az alapanyag listához kötve. A receptúrában állítsd be az összetevők <b>Alapanyag</b> hivatkozásait.</div>`;
   }
 
+  html += `<div class="card mb-16"><div class="card-head"><div class="card-title">🔥 Batch-tervezés (sütőnként)</div><span style="font-size:0.72rem;color:var(--text-soft)">valós önköltség batch-alapon</span></div><div class="card-body"><div id="batch-planner"></div></div></div>`;
   document.getElementById('prod-prep-result').innerHTML = html;
+  if(typeof renderBatchPlanner==='function'){ _batchPlan = {batches:[], activeBatchId:null, seq:1}; renderBatchPlanner(); }
   if (typeof renderBakePlans === 'function') renderBakePlans(dayBreakdown);
   window._lastProductionNeeds = needs;
   window._lastProductionDays = selected;
