@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.104"></script>
+<script src="kerek-constants.js?v=2.53.105"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -645,7 +645,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">📒 Sütési napló</div></div>
       <div class="card-body">
-        <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);margin-right:8px">Nap:</label>
+        <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);margin-right:8px">Sütési nap:</label>
+        <select id="blog-day-select" onchange="if(document.getElementById('blog-date'))document.getElementById('blog-date').value=this.value; renderBakingLog(this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;background:white;color:var(--teal-dark)"></select>
+        <span style="font-size:0.72rem;color:var(--text-soft);margin:0 6px">vagy dátum:</span>
         <input type="date" id="blog-date" onchange="renderBakingLog(this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif">
       </div>
     </div>
@@ -1037,7 +1039,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-processing.js?v=2.53.17"></script>
   <script src="js/receptura-help.js?v=2.53.17"></script>
   <script src="js/receptura-levain.js?v=2.53.91"></script>
-<script src="js/receptura-production.js?v=2.53.104"></script>
+<script src="js/receptura-production.js?v=2.53.105"></script>
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
 <script src="js/receptura-modal.js?v=2.53.96"></script>

@@ -739,9 +739,22 @@ async function confirmExperimentalBake(recipeId, mode='experimental') {
 // Egy napra: per-recept rendelt vs sütött (rendelés/extra/teszt) + per-rendelő checklist (legyártva).
 function initBakingLog() {
   const inp = document.getElementById('blog-date');
-  if (inp && !inp.value) {
-    inp.value = _prodLocalDate();
+  const sel = document.getElementById('blog-day-select');
+  // v2.53.104: definiált sütési napok legördülője (naptár helyett) — a legutóbbi napra állítva
+  if (sel) {
+    const bakingDef = (R.settings && R.settings.bakingDaysDefault) || (typeof DEFAULT_BAKING_DAYS!=='undefined'?DEFAULT_BAKING_DAYS:[2,5,6]);
+    const DHU=['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'], MHU=['jan','feb','már','ápr','máj','jún','júl','aug','szep','okt','nov','dec'];
+    const days=[]; const base=new Date();
+    for(let i=0;i<70 && days.length<12;i++){ const dt=new Date(base); dt.setDate(base.getDate()-i);
+      if(bakingDef.includes(dt.getDay())) days.push(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`); }
+    sel.innerHTML = days.map(ds=>{const [y,m,d]=ds.split('-').map(Number); const dt=new Date(y,m-1,d); return `<option value="${ds}">${DHU[dt.getDay()]}, ${MHU[m-1]} ${d}.</option>`;}).join('');
+    const def = days[0] || _prodLocalDate();
+    sel.value = def;
+    if (inp && !inp.value) inp.value = def;
+    renderBakingLog(def);
+    return;
   }
+  if (inp && !inp.value) inp.value = _prodLocalDate();
   if (inp) renderBakingLog(inp.value);
 }
 
