@@ -1,5 +1,24 @@
 // ===== AI RECEPT IMPORT =====
 // mammoth.js betöltése Word feldolgozáshoz
+// v2.53.102: robusztus alapanyag-név párosító — ékezet/szóköz/zárójel-érzéketlen + token-alapú.
+function _aiNorm(str){ return (str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').replace(/[^a-z0-9]/g,''); }
+function _matchIngredientByName(name){
+  const n = _aiNorm(name);
+  if(!n || n.length < 2) return null;
+  const list = (typeof R!=='undefined' && R.ingredients) ? R.ingredients : [];
+  // 1) pontos normalizált egyezés
+  let m = list.find(i => _aiNorm(i.name) === n);
+  if(m) return m;
+  // 2) egyik tartalmazza a másikat (normalizálva, min 4 karakter)
+  m = list.find(i => { const a=_aiNorm(i.name); return a.length>=4 && n.length>=4 && (a.includes(n) || n.includes(a)); });
+  if(m) return m;
+  // 3) token-átfedés: a keresett név szavai közül a leghosszabb szerepel-e az alapanyag nevében
+  const tokens = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').split(/[^a-z0-9]+/).filter(t=>t.length>=4).sort((a,b)=>b.length-a.length);
+  for(const t of tokens){ m = list.find(i => _aiNorm(i.name).includes(t)); if(m) return m; }
+  return null;
+}
+if(typeof window!=='undefined'){ window._matchIngredientByName=_matchIngredientByName; }
+
 function loadMammoth() {
   return new Promise((resolve, reject) => {
     if(window.mammoth) { resolve(); return; }
@@ -257,8 +276,13 @@ function fillRecipeForm(r) {
     if(n.protein !== undefined) document.getElementById('r-nut-protein').value = n.protein;
     if(n.salt !== undefined) document.getElementById('r-nut-salt').value = n.salt;
   }
-  if(r.dryIngredients) { modalDryIngs = r.dryIngredients; }
-  if(r.wetIngredients) { modalWetIngs = r.wetIngredients; }
+  // v2.53.102: az LLM/JSON által adott összetevőket is párosítjuk a törzsadat-alapanyagokhoz
+  const _linkParsed = (arr) => (arr||[]).map(ing => ({
+    name: ing.name, amount: ing.amount,
+    ingredientId: ing.ingredientId || (_matchIngredientByName(ing.name)?.id || null)
+  }));
+  if(r.dryIngredients) { modalDryIngs = _linkParsed(r.dryIngredients); }
+  if(r.wetIngredients) { modalWetIngs = _linkParsed(r.wetIngredients); }
   if(r.steps) { modalSteps = r.steps; }
   renderModalIngredients();
   renderModalSteps();
@@ -308,11 +332,8 @@ function parseTextRecipe() {
       if(unit==='dl') amount *= 100;
       if(unit==='ml') amount *= 1;
 
-      // Match to existing ingredient
-      const matchedIng = R.ingredients.find(i =>
-        i.name.toLowerCase().includes(name.toLowerCase().slice(0,6)) ||
-        name.toLowerCase().includes(i.name.toLowerCase().slice(0,6))
-      );
+      // v2.53.102: ROBUSZTUS párosítás a meglévő alapanyagokhoz (ékezet/szóköz/zárójel-érzéketlen)
+      const matchedIng = _matchIngredientByName(name);
 
       const ingObj = {name: name.trim(), amount: Math.round(amount), ingredientId: matchedIng?.id || null};
 
