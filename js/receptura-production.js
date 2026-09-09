@@ -504,7 +504,9 @@ async function confirmBakingDone() {
     }
 
     // Save production log
-    const now = _prodLocalDate();
+    // v2.53.104: a log a SÜTÉSI NAPOT rögzíti (a kiválasztott nap), nem a kattintás idejét →
+    // a napló/prep a jó napnál mutatja a sütést. Egy nap kiválasztásakor pontos; több napnál az elsőt veszi.
+    const now = (Array.isArray(days) && days.length >= 1) ? days[0] : _prodLocalDate();
     await kData.insert('production_logs', {
       date: now,
       log_type: 'customer',
