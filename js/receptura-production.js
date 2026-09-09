@@ -140,7 +140,8 @@ async function calcProductionPrep() {
       const _headId = _myProd ? (_myProd.product_family_id||_myProd.id) : null;
       const _variantProds = (_headId!=null) ? _cache.filter(v => v.id!==recipe.product_id && (v.product_family_id||v.id)===_headId && !_recipedPidsSet.has(v.id)) : [];
       const _pw = s => { const mm=(''+s).match(/([\d.,]+)\s*(kg|g)?/i); if(!mm)return 0; let vv=parseFloat(mm[1].replace(',','.'))||0; if((mm[2]||'').toLowerCase()==='kg')vv*=1000; return vv; };
-      const _rw = Number(recipe.unitWeight)||Number(recipe.basePortion)||0;
+      // a szülő-termék súlya az alap (pl. 100g perec); ehhez viszonyítunk (nem a recept unitWeight-hez)
+      const _rw = _pw(_myProd&&_myProd.weight) || Number(recipe.unitWeight) || Number(recipe.basePortion) || 0;
       (allClients||[]).forEach(c => {
         const k = `${c.id}-${y}-${m}-${day}`;
         if (statusMap[k] === 'cancelled') return;
