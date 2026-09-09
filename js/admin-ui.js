@@ -270,10 +270,53 @@ function renderDashboard(){
       <div style="font-size:0.72rem;color:var(--teal-mid);font-weight:600">${m.client}</div>
       <div style="font-size:0.82rem;color:var(--text);margin-top:2px">${esc(m.text).slice(0,80)}${m.text.length>80?'…':''}</div>
     </div>`).join('')||'<p class="text-sm text-soft">Nincsenek üzenetek.</p>';
+  if(typeof renderAdminProdSummary==='function') renderAdminProdSummary();
 }
 
-// ===== MODAL =====
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+// v2.53.112: ADMIN gyártás-vezérlőpult (keresztmodul: sütés × rendelés × árrés) — az aktuális hónapra.
+async function renderAdminProdSummary(){
+  const box=document.getElementById('admin-prod-summary'); if(!box) return;
+  const now=new Date(); const y=now.getFullYear(), m=now.getMonth();
+  const from=`${y}-${String(m+1).padStart(2,'0')}-01`;
+  const to=`${y}-${String(m+1).padStart(2,'0')}-31`;
+  let logs=[];
+  try { logs=await kData.query('production_logs',{filter:`date=gte.${from}&date=lte.${to}`,limit:5000})||[]; }
+  catch(e){ box.innerHTML='<p class="text-soft text-sm">Gyártási adat nem elérhető.</p>'; return; }
+  const recipeOf=id=>(D.recipes||[]).find(r=>r.id===id);
+  const priceForRecipe=rid=>{ const r=recipeOf(rid); const p=r&&r.product_id?(D.products||[]).find(x=>x.id===r.product_id):null; return Number(p?.price)||0; };
+  let baked=0, planned=0, exSale=0, exInt=0, exMkt=0, test=0, waste=0, rev=0, cost=0, bakeMinSum=0, batchN=0, fillSum=0, fillN=0;
+  logs.forEach(l=>{ const act=Number(l.pieces_actual)||0, pl=Number(l.pieces_planned)||0;
+    if(l.log_type==='order'){ planned+=pl; baked+=act; waste+=Math.max(0,pl-act); rev+=act*priceForRecipe(l.recipe_id); }
+    else if(l.log_type==='extra'){ const a=l.allocation||'sale'; if(a==='sale'){exSale+=act; rev+=act*priceForRecipe(l.recipe_id);} else if(a==='internal')exInt+=act; else if(a==='marketing')exMkt+=act; }
+    else if(l.log_type==='experimental'){ test+=act; }
+    if(l.bake_minutes!=null){ bakeMinSum+=Number(l.bake_minutes)||0; batchN++; }
+    if(l.oven_id!=null && l.trays_used!=null){ const ov=(D.equipment||[]).find(e=>e.id===l.oven_id); if(ov&&ov.capacity_trays>0){ fillSum+=Number(l.trays_used)/ov.capacity_trays; fillN++; } }
+    if(l.total_cost!=null) cost+=Number(l.total_cost)||0;
+  });
+  const fulfill=planned>0?Math.round(baked/planned*100):0;
+  const totalExtra=exSale+exInt+exMkt;
+  const extraUtil=totalExtra>0?Math.round(exSale/totalExtra*100):0;
+  const margin=rev-cost;
+  const kpi=(l,v,s)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff;flex:1;min-width:110px"><div style="font-size:0.68rem;color:var(--text-soft)">${l}</div><div style="font-size:1.3rem;font-weight:800;color:var(--teal-mid)">${v}</div>${s?`<div style="font-size:0.66rem;color:var(--text-soft)">${s}</div>`:''}</div>`;
+  const alerts=[];
+  if(planned>0 && fulfill<100) alerts.push(`⚠️ Alul-teljesítés: rendelt ${planned}, sütött ${baked} (${fulfill}%)`);
+  if(totalExtra>0 && extraUtil<50) alerts.push(`⚠️ Az extra sütés nagy része nem eladás (csak ${extraUtil}% eladva)`);
+  if(fillN>0 && Math.round(fillSum/fillN*100)<60) alerts.push(`⚠️ Alacsony sütő-kihasználtság (${Math.round(fillSum/fillN*100)}%) — energia-pazarlás`);
+  box.innerHTML=`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${kpi('Sütött', baked+' db', 'rendelt: '+planned)}
+      ${kpi('Teljesítés', fulfill+'%')}
+      ${kpi('Extra', totalExtra+' db', '🛒'+exSale+' 🏠'+exInt+' 🎁'+exMkt)}
+      ${kpi('Selejt', waste+' db')}
+      ${kpi('Bevétel', rev.toFixed(0)+' lej')}
+      ${kpi('Árrés', margin.toFixed(0)+' lej')}
+      ${kpi('Átl. sütő-kihaszn.', fillN>0?Math.round(fillSum/fillN*100)+'%':'—')}
+      ${kpi('Üzemi idő', Math.round(bakeMinSum/60*10)/10+' óra', batchN+' batch')}
+    </div>
+    ${alerts.length?`<div style="background:#fef2f2;border-radius:10px;padding:10px 12px;font-size:0.82rem;color:#991b1b">${alerts.join('<br>')}</div>`:'<div style="background:#ecfdf5;border-radius:10px;padding:10px 12px;font-size:0.82rem;color:#065f46">✅ Nincs riasztás — a gyártás rendben.</div>'}
+    <p style="font-size:0.68rem;color:var(--text-soft);margin-top:8px">Ugyanazokból a gyártási adatokból, mint a receptúra Sütési statisztikája — konzisztens. A sütő-KPI-ok a batch-tervezővel véglegesített sütésekből.</p>`;
+}
+if(typeof window!=='undefined') window.renderAdminProdSummary=renderAdminProdSummary;
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 // Verziószám megjelenítése
 document.getElementById('login-version').textContent = APP_VERSION;
