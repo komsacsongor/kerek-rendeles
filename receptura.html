@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.108"></script>
+<script src="kerek-constants.js?v=2.53.109"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -347,6 +347,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
     <button class="nav-item" data-action="nav" data-arg1="cost-analysis"><span class="icon">💰</span>Önköltség elemzés</button>
+    <button class="nav-item" data-action="nav" data-arg1="prodstats"><span class="icon">📊</span>Sütési statisztika</button>
   </div>
     <button class="nav-item" data-action="nav" data-arg1="receptura-help"><span class="icon">❓</span>Súgó</button>
   <div class="sidebar-footer">
@@ -656,6 +657,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
   <!-- ===== COST ANALYSIS ===== -->
   <!-- ===== BESZÁLLÍTÓK (v2.40.0) ===== -->
+  <div id="view-prodstats" class="view">
+    <div id="prodstats-content" style="padding:4px"></div>
+  </div>
+
   <div id="view-masterdata" class="view">
     <div id="masterdata-content" style="padding:4px"></div>
   </div>
@@ -1028,7 +1033,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <div id="toast"></div>
 
 <script src="js/receptura-data.js?v=2.53.107"></script>
-<script src="js/receptura-ui.js?v=2.53.107"></script>
+<script src="js/receptura-ui.js?v=2.53.109"></script>
 <script src="js/receptura-recipes.js?v=2.53.98"></script>
 <script src="js/receptura-operational.js?v=2.53.17"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
@@ -1042,6 +1047,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <script src="js/receptura-levain.js?v=2.53.91"></script>
 <script src="js/receptura-production.js?v=2.53.108"></script>
 <script src="js/receptura-batch.js?v=2.53.108"></script>
+<script src="js/receptura-stats.js?v=2.53.109"></script>
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
 <script src="js/receptura-modal.js?v=2.53.107"></script>

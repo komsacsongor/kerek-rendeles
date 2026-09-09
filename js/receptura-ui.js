@@ -1,5 +1,6 @@
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
+  'prodstats': '📊 Sütési statisztika',
   'masterdata': '📚 Törzsadatok',
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
@@ -21,6 +22,7 @@ function nav(id) {
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
     recipes: renderRecipes, 'op-select': renderOpSelect,
+    'prodstats': () => { if(typeof renderProductionStats==='function') renderProductionStats(); },
     ingredients: renderIngredients, 'settings-r': renderSettings,
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
     'levain-daily': () => { initLevainDaily(); },
