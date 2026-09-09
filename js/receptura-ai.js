@@ -12,8 +12,11 @@ function _matchIngredientByName(name){
   // 2) egyik tartalmazza a másikat (normalizálva, min 4 karakter)
   m = list.find(i => { const a=_aiNorm(i.name); return a.length>=4 && n.length>=4 && (a.includes(n) || n.includes(a)); });
   if(m) return m;
-  // 3) token-átfedés: a keresett név szavai közül a leghosszabb szerepel-e az alapanyag nevében
-  const tokens = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').split(/[^a-z0-9]+/).filter(t=>t.length>=4).sort((a,b)=>b.length-a.length);
+  // 3) token-átfedés: CSAK megkülönböztető szóra (a generikus kategória-szavakat kihagyjuk,
+  //    hogy ne legyen hamis találat pl. "keményítő"/"liszt" alapján). Inkább nincs találat, mint rossz.
+  const GENERIC = ['liszt','lisztek','kemenyito','keskeny','olaj','olajok','mag','magok','magvak','por','pehely','pelyhek','daralt','darabolt','nyers','feher','vilagos','barna','sotet','folyadek','alapu','kovasz'];
+  const tokens = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').split(/[^a-z0-9]+/)
+    .filter(t=>t.length>=4 && !GENERIC.includes(t)).sort((a,b)=>b.length-a.length);
   for(const t of tokens){ m = list.find(i => _aiNorm(i.name).includes(t)); if(m) return m; }
   return null;
 }
