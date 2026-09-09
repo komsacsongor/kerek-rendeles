@@ -51,6 +51,7 @@ async function loadReceptCoreData() {
         laborH: r.labor_h||1, electricity: r.electricity||5,
         setupMin: r.setup_min ?? null, perUnitMin: r.per_unit_min ?? null,
         bakeMin: r.bake_min ?? null, bakeTempC: r.bake_temp_c ?? null,
+        piecesPerTray: r.pieces_per_tray ?? null,
         unitsPerTray: r.units_per_tray ?? null, traysPerCycle: r.trays_per_cycle ?? null, mixerMin: r.mixer_min ?? null,
         marketing: r.marketing_desc||'',
         ingredientLabel: r.ingredient_label||'',

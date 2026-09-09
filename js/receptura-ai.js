@@ -436,6 +436,7 @@ async function saveRecipe() {
     setupMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-setup-min')?.value),
     perUnitMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-per-unit-min')?.value),
     bakeMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-min')?.value),
+    piecesPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-pieces-per-tray')?.value),
     bakeTempC: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-temp')?.value),
     unitsPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-units-per-tray')?.value),
     traysPerCycle: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-trays-per-cycle')?.value),

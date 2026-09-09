@@ -128,6 +128,20 @@ function openEquipmentModal(id=null){
           <div class="form-group"><label>Előmelegítés (kWh)</label>
             <input type="number" id="eq-preheat-kwh" step="0.1" min="0" placeholder="2" value="${e?(e.preheatKwh??''):''}"></div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label>Tálca-típus</label>
+            <select id="eq-tray-type" onchange="eqTrayTypeChange()">
+              <option value="GN1/1"${(e?.trayType||'GN1/1')==='GN1/1'?' selected':''}>GN 1/1 (530×325)</option>
+              <option value="GN2/1"${e?.trayType==='GN2/1'?' selected':''}>GN 2/1 (650×530)</option>
+              <option value="GN1/2"${e?.trayType==='GN1/2'?' selected':''}>GN 1/2 (325×265)</option>
+              <option value="EN600x400"${e?.trayType==='EN600x400'?' selected':''}>EN pék (600×400)</option>
+              <option value="custom"${e?.trayType==='custom'?' selected':''}>Egyedi…</option>
+            </select></div>
+          <div class="form-group"><label>Tálca szél. (mm)</label>
+            <input type="number" id="eq-tray-w" step="1" min="0" placeholder="530" value="${e?(e.trayWmm??530):530}"></div>
+          <div class="form-group"><label>Tálca hossz (mm)</label>
+            <input type="number" id="eq-tray-h" step="1" min="0" placeholder="325" value="${e?(e.trayHmm??325):325}"></div>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Állapot</label>
@@ -190,6 +204,14 @@ function eqPhotoClear(){
   const inp = document.getElementById('eq-photo-file'); if (inp) inp.value = '';
 }
 
+
+function eqTrayTypeChange(){
+  const t=document.getElementById('eq-tray-type')?.value;
+  const dims={'GN1/1':[530,325],'GN2/1':[650,530],'GN1/2':[325,265],'EN600x400':[600,400]};
+  if(dims[t]){ const w=document.getElementById('eq-tray-w'), h=document.getElementById('eq-tray-h'); if(w)w.value=dims[t][0]; if(h)h.value=dims[t][1]; }
+}
+if(typeof window!=='undefined') window.eqTrayTypeChange=eqTrayTypeChange;
+
 async function saveEquipment(){
   const name = document.getElementById('eq-name')?.value?.trim();
   if (!name){ toast('A név kötelező', true); return; }
@@ -202,6 +224,9 @@ async function saveEquipment(){
     preheat_min: Number(document.getElementById('eq-preheat-min')?.value) || 0,
     preheat_kwh: Number(document.getElementById('eq-preheat-kwh')?.value) || 0,
     duty_factor: Number(document.getElementById('eq-duty')?.value) || 0.7,
+    tray_type: document.getElementById('eq-tray-type')?.value || 'GN1/1',
+    tray_w_mm: Number(document.getElementById('eq-tray-w')?.value) || 530,
+    tray_h_mm: Number(document.getElementById('eq-tray-h')?.value) || 325,
     active: document.getElementById('eq-active')?.value === 'true',
     notes: document.getElementById('eq-notes')?.value?.trim() || null,
     photo: _eqPhoto || null,
@@ -247,6 +272,9 @@ function mapEquipmentDb(row){
     preheatMin: Number(row.preheat_min) || 0,
     preheatKwh: Number(row.preheat_kwh) || 0,
     dutyFactor: row.duty_factor != null ? Number(row.duty_factor) : 0.7,
+    trayType: row.tray_type || 'GN1/1',
+    trayWmm: row.tray_w_mm != null ? Number(row.tray_w_mm) : 530,
+    trayHmm: row.tray_h_mm != null ? Number(row.tray_h_mm) : 325,
     active: row.active !== false,
     notes: row.notes || '',
     photo: row.photo || null,

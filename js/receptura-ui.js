@@ -78,6 +78,21 @@ function subTypeHeadClass(subType) {
 }
 
 // Scale factor for ingredient calculation - NO bake_loss (recipe amounts already include it)
+
+// v2.53.107: hány db fér egy recept-termékből EGY sütő-töltetbe (GN-terület arányos).
+// oven.capacityTrays × ( recept.piecesPerTray × sütő-tálca-terület / GN1/1-terület )
+function ovenCapacityPieces(oven, recipe){
+  if(!oven || !recipe) return 0;
+  const ppt = Number(recipe.piecesPerTray)||0;
+  const trays = Number(oven.capacityTrays)||0;
+  if(ppt<=0 || trays<=0) return 0;
+  const GN11 = 530*325;
+  const area = (Number(oven.trayWmm)||530) * (Number(oven.trayHmm)||325);
+  const perTray = ppt * (area / GN11);
+  return Math.floor(trays * perTray);
+}
+if(typeof window!=='undefined') window.ovenCapacityPieces=ovenCapacityPieces;
+
 function calcScaleFactor(recipe, pieces) {
   const unitWeight = recipe.unitWeight || recipe.basePortion;
   return (pieces * unitWeight) / (recipe.basePortion || 1000);
