@@ -124,6 +124,7 @@ async function calcProductionPrep() {
 
   const activeRecipes = R.recipes.filter(r => !r.archived);
 
+  const _recipedPidsSet = new Set((R.recipes||[]).filter(r=>!r.archived && r.product_id).map(r=>r.product_id));
   selected.forEach(dateStr => {
     const [dy, dm, dd] = dateStr.split('-').map(Number);
     const d = new Date(dy, dm-1, dd);
@@ -132,12 +133,22 @@ async function calcProductionPrep() {
 
     activeRecipes.forEach(recipe => {
       let totalPieces = 0;
+      // v2.53.115: a recept termékének CSALÁD-VARIÁNSAit (kiszerelés) is számoljuk — súly-arányosan.
+      // (pl. "sós perec csomag" 300g rendelése = 3× a 100g sós perec dough-ja.)
+      const _cache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
+      const _myProd = _cache.find(p=>p.id===recipe.product_id);
+      const _headId = _myProd ? (_myProd.product_family_id||_myProd.id) : null;
+      const _variantProds = (_headId!=null) ? _cache.filter(v => v.id!==recipe.product_id && (v.product_family_id||v.id)===_headId && !_recipedPidsSet.has(v.id)) : [];
+      const _pw = s => { const mm=(''+s).match(/([\d.,]+)\s*(kg|g)?/i); if(!mm)return 0; let vv=parseFloat(mm[1].replace(',','.'))||0; if((mm[2]||'').toLowerCase()==='kg')vv*=1000; return vv; };
+      const _rw = Number(recipe.unitWeight)||Number(recipe.basePortion)||0;
       (allClients||[]).forEach(c => {
         const k = `${c.id}-${y}-${m}-${day}`;
         if (statusMap[k] === 'cancelled') return;
         const order = orderMap[k];
-        if(!order || !recipe.product_id || !order[recipe.product_id]) return;
-        totalPieces += order[recipe.product_id];
+        if(!order || !recipe.product_id) return;
+        totalPieces += order[recipe.product_id] || 0;
+        // család-variánsok súly-arányosan
+        _variantProds.forEach(v => { if(order[v.id]){ const vw=_pw(v.weight); const ratio=(vw>0&&_rw>0)?(vw/_rw):1; totalPieces += order[v.id]*ratio; } });
       });
       if(totalPieces === 0) return;
 
