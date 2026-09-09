@@ -536,10 +536,22 @@ async function confirmBakingDone() {
       const actualEl = document.getElementById('prod-actual-' + pr.recipe_id);
       const actual = actualEl ? (parseInt(actualEl.value) || 0) : pr.planned;
       if (actual <= 0) continue; // nem sült belőle
+      // v2.53.110: batch-adat (sütő/idő/tálca) a KPI-okhoz — ha a batch-tervezőben be van osztva
+      let oven_id=null, bake_minutes=null, trays_used=null, batch_no=null;
+      const _b = (window._batchPlan && window._batchPlan.batches || []).find(bb => bb.items.some(i=>i.recipeId===pr.recipe_id));
+      if(_b){
+        oven_id = _b.ovenId;
+        const _r = (R.recipes||[]).find(x=>x.id===pr.recipe_id);
+        bake_minutes = Number(_r?.bakeMin)||null;
+        batch_no = _b.id;
+        const _oven=(R.equipment||[]).find(e=>e.id===_b.ovenId);
+        if(_oven && Number(_r?.piecesPerTray)>0){ const GN11=530*325; const area=(Number(_oven.trayWmm)||530)*(Number(_oven.trayHmm)||325); const perTray=_r.piecesPerTray*(area/GN11); const it=_b.items.find(i=>i.recipeId===pr.recipe_id); if(it && perTray>0) trays_used=+(it.qty/perTray).toFixed(2); }
+      }
       try {
         await kData.insert('production_logs', {
           date: now, log_type: 'order', recipe_id: pr.recipe_id,
           pieces_planned: pr.planned, pieces_actual: actual,
+          oven_id, bake_minutes, trays_used, batch_no,
           total_cost: 0, notes: `Sütési napok: ${days?.join(', ') || '—'}`
         });
       } catch(e) { console.warn('per-recipe log:', e.message); }

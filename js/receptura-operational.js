@@ -76,7 +76,7 @@ function renderOpDetail() {
       else dedupOp[k] = { displayName, scaled };
     });
     Object.values(dedupOp).forEach(item => {
-      html += `<div class="op-ing-item"><span>${item.displayName}</span><span class="op-ing-amount">${item.scaled} g</span></div>`;
+      html += `<label class="op-ing-item" style="cursor:pointer;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:20px;height:20px;accent-color:var(--teal);flex:0 0 auto" onchange="this.closest('.op-ing-item').style.opacity=this.checked?'0.45':'1';this.closest('.op-ing-item').style.textDecoration=this.checked?'line-through':'none'"><span style="flex:1">${item.displayName}</span><span class="op-ing-amount">${item.scaled} g</span></label>`;
     });
     html += '</div>';
   });
