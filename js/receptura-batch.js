@@ -59,7 +59,7 @@ function _batchCost(b){
     if(r && typeof calcRecipeCost==='function'){ const c=calcRecipeCost(r, it.qty); ingCost += (c.rawCost||0); }
     bakeMin = Math.max(bakeMin, Number(r?.bakeMin)||0); // a batch a leghosszabb sütési idővel megy
   });
-  const elec = (R.settings?.electricityPrice)||0;
+  const elec = (R.settings?.electricity)||0;
   const kw = Number(oven?.powerKw)||0, duty=Number(oven?.dutyFactor)||0.7;
   const preheatKwh=Number(oven?.preheatKwh)||0;
   const energyKwh = kw*duty*(bakeMin/60) + preheatKwh;
