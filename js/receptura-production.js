@@ -6,6 +6,18 @@ function _prodLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// v2.53.106: hiteles sütési-nap ellenőrzés a receptúrában (minta + extra − kivett), az adminnal egyezően.
+function _isBakingDayR(dateObj) {
+  const y = dateObj.getFullYear(), m = dateObj.getMonth();
+  const defaults = (typeof R!=='undefined' && R.settings && R.settings.bakingDaysDefault) || (typeof DEFAULT_BAKING_DAYS!=='undefined'?DEFAULT_BAKING_DAYS:[2,5]);
+  const cal = (typeof R!=='undefined' && R.bakingCalendar && R.bakingCalendar[`${y}-${m}`]) || {extra:[],removed:[]};
+  const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
+  const isDefault = defaults.includes(dateObj.getDay());
+  const isExtra = cal.extra && cal.extra.includes(ds);
+  const isRemoved = cal.removed && cal.removed.includes(ds);
+  return (isDefault || isExtra) && !isRemoved;
+}
+
 async function initProductionPrep() {
   const now = new Date();
   _prodSelectedMonth = { year: now.getFullYear(), month: now.getMonth() };
@@ -36,8 +48,7 @@ async function renderProdMonthSelector() {
   const bakingDef = (R.settings && R.settings.bakingDaysDefault) || DEFAULT_BAKING_DAYS || [2,5,6];
   const bakingDays = [];
   for (let d = 1; d <= endOfMonth; d++) {
-    const dow = new Date(year, month, d).getDay();
-    if (bakingDef.includes(dow)) bakingDays.push(d);
+    if (_isBakingDayR(new Date(year, month, d))) bakingDays.push(d);
   }
 
   // Admin-style month selector
@@ -746,7 +757,7 @@ function initBakingLog() {
     const DHU=['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'], MHU=['jan','feb','már','ápr','máj','jún','júl','aug','szep','okt','nov','dec'];
     const days=[]; const base=new Date();
     for(let i=0;i<70 && days.length<12;i++){ const dt=new Date(base); dt.setDate(base.getDate()-i);
-      if(bakingDef.includes(dt.getDay())) days.push(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`); }
+      if(_isBakingDayR(dt)) days.push(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`); }
     sel.innerHTML = days.map(ds=>{const [y,m,d]=ds.split('-').map(Number); const dt=new Date(y,m-1,d); return `<option value="${ds}">${DHU[dt.getDay()]}, ${MHU[m-1]} ${d}.</option>`;}).join('');
     const def = days[0] || _prodLocalDate();
     sel.value = def;

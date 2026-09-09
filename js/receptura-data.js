@@ -160,6 +160,12 @@ async function loadReceptCoreData() {
     calcAutoMinMax().catch(e => console.warn('autoMinMax:', e.message));
   } catch(e) { console.warn('Ingredients DB load:', e.message); }
   // Beszállítók + eszközök
+  // v2.53.106: sütési naptár (extra/kivett napok) — hogy a prep/napló az admin TÉNYLEGES napjait lássa
+  try {
+    const cal = await sb.query('baking_calendar', { limit: 200 });
+    R.bakingCalendar = {};
+    (cal||[]).forEach(r => { R.bakingCalendar[`${r.year}-${r.month}`] = { extra: r.extra_dates||[], removed: r.removed_dates||[] }; });
+  } catch(e) { R.bakingCalendar = R.bakingCalendar || {}; }
   try {
     const dbSuppliers = await kData.query('suppliers', { order: 'name' });
     if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') R.suppliers = dbSuppliers.map(mapSupplierDb);
