@@ -171,6 +171,7 @@ FONTOS:
 - A levainAmount a teljes tészta levain tartalma gramban
 - A dryIngredients: lisztek, keményítők, magvak, só, sütőpor – száraz összetevők
 - A wetIngredients: víz, olaj, tojás, folyadékok + levain is ide kerül
+- A "steps" tömbbe az ÖSSZES elkészítési lépést vedd fel, SORRENDBEN és RÉSZLETESEN (pl. autolízis, keverés/dagasztás, bulk kelesztés, hajtogatás, formázás, végső kelesztés, sütés, hűtés). Ne vonj össze több lépést egybe. Ahol várakozás/idő van, add meg a "timer" percet. Cél: a pék a lépésekből végig tudja csinálni a sütést.
 
 Recept szöveg:
 ${text.substring(0, 6000)}`;
