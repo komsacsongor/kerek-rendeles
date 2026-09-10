@@ -888,18 +888,30 @@ async function renderBakingLog(dateStr) {
   }
 }
 
-// v2.53.118: közös Gyártás lépés-fülsáv (Törzsadatok-stílus) — a napi sütés-flow.
+// v2.53.119: hangsúlyos Gyártás lépés-STEPPER (a flow a főszereplő) — számozott körök, aktív kiemelve.
 function renderGyartasTabbar(activeView){
-  const tabs=[
-    ['levain-daily','1️⃣ Levain'],
-    ['production-prep','2️⃣ Előkészítés + Batch'],
-    ['op-select','3️⃣ Végrehajtás'],
-    ['baking-log','4️⃣ Napló / Lezárás'],
+  const steps=[
+    ['levain-daily','Levain','ti-microscope'],
+    ['production-prep','Előkészítés','ti-layout-grid'],
+    ['op-select','Végrehajtás','ti-tools-kitchen-2'],
+    ['baking-log','Napló / Lezárás','ti-book'],
   ];
-  const html = tabs.map(([v,lbl])=>{
-    const on = v===activeView;
-    return `<button onclick="nav('${v}')" style="padding:9px 16px;border:none;border-radius:10px 10px 0 0;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:${on?'700':'400'};background:${on?'#fff':'transparent'};color:${on?'var(--teal-dark)':'var(--text-soft)'};border-bottom:${on?'3px solid var(--teal)':'3px solid transparent'}">${lbl}</button>`;
-  }).join('');
-  document.querySelectorAll('.gyartas-tabbar').forEach(el=>{ el.innerHTML = html; });
+  const activeIdx = steps.findIndex(x=>x[0]===activeView);
+  const circle=(i,st)=>{
+    const done=i<activeIdx, on=i===activeIdx;
+    const bg = done?'var(--teal)':(on?'var(--teal-dark, #0F6E56)':'#fff');
+    const col = (done||on)?'#fff':'var(--text-soft)';
+    const bd = (done||on)?'none':'1.5px solid var(--border)';
+    const ring = on?'box-shadow:0 0 0 4px var(--teal-pale, #E1F5EE);':'';
+    const inner = done?'<i class="ti ti-check" style="font-size:20px"></i>':(st[2]&&i===steps.length-1&&!on&&!done?`<i class="ti ${st[2]}" style="font-size:18px"></i>`:(i+1));
+    return `<div onclick="nav('${st[0]}')" style="display:flex;flex-direction:column;align-items:center;flex:1;text-align:center;cursor:pointer;min-width:56px">
+      <div style="width:40px;height:40px;border-radius:50%;background:${bg};color:${col};border:${bd};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;${ring}">${inner}</div>
+      <div style="font-size:12px;font-weight:${on?'700':'400'};margin-top:6px;color:${on?'var(--teal-dark)':'var(--text-soft)'}">${st[1]}</div>
+    </div>`;
+  };
+  let html='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:6px 0 4px">';
+  steps.forEach((st,i)=>{ html+=circle(i,st); if(i<steps.length-1){ const done=i<activeIdx; html+=`<div style="flex:0 0 16px;height:2px;background:${done?'var(--teal)':'var(--border)'};margin-top:19px"></div>`; } });
+  html+='</div>';
+  document.querySelectorAll('.gyartas-tabbar').forEach(el=>{ el.style.borderBottom='none'; el.innerHTML = html; });
 }
 if(typeof window!=='undefined') window.renderGyartasTabbar=renderGyartasTabbar;
