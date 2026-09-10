@@ -18,9 +18,11 @@ function filterRecipes(cat, btn) {
 }
 
 function renderRecipeGrid(cat) {
-  // Only active (non-archived) recipes
+  // v2.53.117: KOMPLETT recept = van legalább 1 összetevője. A hiányos/üres receptek NEM a fő listában.
+  const _isComplete = r => ((r.ingredients?r.ingredients.length:0)+(r.dryIngredients||[]).length+(r.otherDryIngredients||[]).length+(r.wetIngredients||[]).length+(r.starterIngredients||[]).length) > 0;
   const active = R.recipes.filter(r => !r.archived);
-  const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
+  const activeComplete = active.filter(_isComplete);
+  const filtered = cat==='Mind' ? activeComplete : activeComplete.filter(r=>r.category===cat);
   let gridHtml = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
     return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
@@ -36,32 +38,35 @@ function renderRecipeGrid(cat) {
         <div class="recipe-card-price">${cost.priceGross.toFixed(2)} lej <span style="font-size:0.75rem;color:var(--text-soft)">/db bruttó</span></div>
       </div>
     </div>`;
-  }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
+  }).join('') || '<p class="text-soft text-sm">Nincs komplett recept ebben a kategóriában.</p>';
 
-  // v2.53.94 TRANSZPARENCIA: recept nélküli termékek (léteznek az adminban, de nincs aktív receptjük)
-  // v2.53.97: CSALÁD-TUDATOS — egy család-variáns (pl. "sós perec csomag") NEM recept nélküli,
-  // ha a családja bármely tagjának van receptje (örökli a család receptjét, csak a kiszerelés más).
-  const recipedPids = new Set(active.filter(r=>r.product_id).map(r=>r.product_id));
+  // TRANSZPARENCIA (v2.53.117): recept NÉLKÜLI vagy HIÁNYOS receptű termékek → itt jelennek meg.
+  // Család-tudatos: a variáns nem hiányos, ha a családban van KOMPLETT recept.
+  const completePids = new Set(activeComplete.filter(r=>r.product_id).map(r=>r.product_id));
+  const incompleteRecipeByPid = {};
+  active.filter(r=>r.product_id && !_isComplete(r) && !completePids.has(r.product_id)).forEach(r=>{ if(!incompleteRecipeByPid[r.product_id]) incompleteRecipeByPid[r.product_id]=r.id; });
+  window._incompleteRecipeByPid = incompleteRecipeByPid;
   const _pcache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
   const familyHasRecipe = (p) => {
-    const headId = p.product_family_id || p.id; // a család feje
-    return _pcache.some(m => ((m.product_family_id||m.id) === headId) && recipedPids.has(m.id));
+    const headId = p.product_family_id || p.id;
+    return _pcache.some(m => ((m.product_family_id||m.id) === headId) && completePids.has(m.id));
   };
   let orphanProds = _pcache
-    .filter(p => !p.deleted_at && !recipedPids.has(p.id) && !familyHasRecipe(p));
+    .filter(p => !p.deleted_at && !completePids.has(p.id) && !familyHasRecipe(p));
   if (cat !== 'Mind') orphanProds = orphanProds.filter(p => (p.category||'') === cat);
   if (orphanProds.length) {
     gridHtml += `<div style="grid-column:1/-1;margin-top:22px;border-top:2px dashed var(--border);padding-top:14px">
-      <h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0 0 4px;font-size:1.05rem">🏷 Recept nélküli termékek <span style="font-size:0.75rem;font-weight:400">(${orphanProds.length})</span></h3>
-      <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Léteznek az adminban, de még nincs receptjük. Kattints egy kártyára recept készítéséhez.</p></div>`;
-    gridHtml += orphanProds.map(p => `<div class="recipe-card" onclick="createRecipeForProduct(${p.id})" style="border:2px dashed #f59e0b;background:#fffbeb">
-      <div class="recipe-card-img">🏷</div>
+      <h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0 0 4px;font-size:1.05rem">🏷 Recept nélküli / hiányos termékek <span style="font-size:0.75rem;font-weight:400">(${orphanProds.length})</span></h3>
+      <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Nincs komplett receptjük (nincs recept, vagy a recept hiányos/üres). Kattints → recept készítése/kiegészítése.</p></div>`;
+    gridHtml += orphanProds.map(p => { const inc = incompleteRecipeByPid[p.id];
+      return `<div class="recipe-card" onclick="createRecipeForProduct(${p.id})" style="border:2px dashed ${inc?'#dc2626':'#f59e0b'};background:${inc?'#fef2f2':'#fffbeb'}">
+      <div class="recipe-card-img">${inc?'⚠️':'🏷'}</div>
       <div class="recipe-card-body">
-        <div class="recipe-card-name">${esc(p.name)}<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-left:6px">➕ nincs receptúra</span></div>
+        <div class="recipe-card-name">${esc(p.name)}<span style="background:${inc?'#dc2626':'#f59e0b'};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-left:6px">${inc?'⚠️ hiányos recept':'➕ nincs receptúra'}</span></div>
         <div class="recipe-card-meta"><span class="badge badge-teal">${esc(p.category||'—')}</span>${p.code?`<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${esc(p.code)}</span>`:''}</div>
-        <div class="recipe-card-price" style="color:#d97706;font-size:0.85rem">Recept készítése →</div>
+        <div class="recipe-card-price" style="color:${inc?'#dc2626':'#d97706'};font-size:0.85rem">${inc?'Recept kiegészítése →':'Recept készítése →'}</div>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
   }
   document.getElementById('recipes-grid').innerHTML = gridHtml;
 
@@ -71,6 +76,9 @@ function renderRecipeGrid(cat) {
 
 // v2.53.94: recept létrehozása egy meglévő (admin) termékhez, elő-linkelve
 function createRecipeForProduct(prodId) {
+  // v2.53.117: ha a terméknek van MÁR (hiányos) receptje, azt nyitjuk kiegészítésre — nem csinálunk újat
+  const _inc = (typeof window!=='undefined' && window._incompleteRecipeByPid) ? window._incompleteRecipeByPid[prodId] : null;
+  if (_inc) { openRecipeModal(_inc); toast('Egészítsd ki a hiányos receptet (adj hozzá összetevőket).'); return; }
   const p = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]).find(x=>x.id===prodId);
   if(!p) return;
   openRecipeModal(null);
