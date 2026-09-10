@@ -845,6 +845,23 @@ async function renderBakingLog(dateStr) {
         </div></div></div>`;
     }
 
+    // v2.53.122: LEZÁRÁS — az extra sütések allokálása (a végén állítod be, mihez ment)
+    const extraLogs = logs.filter(l => l.log_type==='extra' && l.recipe_id);
+    if (extraLogs.length) {
+      html += `<div class="card mb-16" style="border:1.5px solid var(--teal)"><div class="card-head"><div class="card-title">🎯 Lezárás — extra sütés allokálása</div></div><div class="card-body">
+        <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 10px">Az extra sütésekből mihez ment? Állítsd be most, a nap végén.</p>`;
+      extraLogs.forEach(l => {
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:0.85rem">
+          <span style="flex:1">${esc(recipeName(l.recipe_id))} <b style="color:#92400e">×${l.pieces_actual}</b></span>
+          <select onchange="setExtraAllocation(${l.id},this.value,'${dateStr}')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif;background:#fff">
+            <option value="sale"${l.allocation==='sale'?' selected':''}>🛒 Eladás</option>
+            <option value="internal"${l.allocation==='internal'?' selected':''}>🏠 Belső fogyasztás</option>
+            <option value="marketing"${l.allocation==='marketing'?' selected':''}>🎁 Marketing (minta)</option>
+          </select></div>`;
+      });
+      html += `</div></div>`;
+    }
+
     // === PER-RENDELŐ CHECKLIST ===
     const orders = await sb.query('orders', { filter: `year=eq.${y}&month=eq.${m0}&day=eq.${dd}`, limit: 5000 }) || [];
     if (orders.length > 0) {
@@ -911,3 +928,10 @@ function renderGyartasTabbar(activeView){
   document.querySelectorAll('.gyartas-tabbar').forEach(el=>{ el.style.borderBottom='none'; el.innerHTML = html; });
 }
 if(typeof window!=='undefined') window.renderGyartasTabbar=renderGyartasTabbar;
+
+// v2.53.122: extra allokálás mentése (Lezárás)
+async function setExtraAllocation(logId, value, dateStr){
+  try { await kData.updateFields('production_logs', { allocation: value }, 'id=eq.'+logId); toast('Allokálás mentve: '+value); }
+  catch(e){ toast('Hiba az allokálás mentésekor: '+e.message, true); }
+}
+if(typeof window!=='undefined') window.setExtraAllocation=setExtraAllocation;
