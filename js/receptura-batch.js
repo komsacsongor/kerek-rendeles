@@ -85,50 +85,74 @@ function renderBatchPlanner(){
   const box=document.getElementById('batch-planner'); if(!box) return;
   const ovens=_batchOvens();
   const products=_batchDayProducts();
-  // sütő-kártyák (fotóval) — új batch indítása
+  const money = n => (n||0).toFixed(2)+' lej';
+
+  // ---- 1) TERMÉKEK a napra: mennyiség + hova osztva ----
+  const placed = rid => { let n=0; (_batchPlan.batches||[]).forEach(b=>b.items.forEach(i=>{ if(i.recipeId===rid)n+=i.qty; })); return n; };
+  const prodRows = products.length ? products.map(p=>{
+    const r=_batchRecipe(p.recipeId); const noTray=!(Number(r?.piecesPerTray)>0);
+    const pl=placed(p.recipeId);
+    const chips=(_batchPlan.batches||[]).filter(b=>b.items.some(i=>i.recipeId===p.recipeId)).map(b=>{
+      const ov=ovens.find(o=>o.id===b.ovenId); const it=b.items.find(i=>i.recipeId===p.recipeId);
+      return `<span style="background:var(--teal-pale);color:var(--teal-dark);padding:3px 9px;border-radius:14px;font-size:0.72rem;white-space:nowrap">${esc(ov?.name||'?')} · ${it.qty}</span>`;
+    }).join(' ');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:120px"><div style="font-weight:600;color:var(--teal-dark)">${esc(p.name)}${noTray?' <span style="color:#d97706" title="Nincs db/tálca a receptnél">⚠️</span>':''}</div>
+        <div style="font-size:0.72rem;color:var(--text-soft)">rendelt: ${p.ordered}${pl?` · elhelyezve: ${pl}`:''}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${chips||'<span style="font-size:0.72rem;color:var(--text-soft)">nincs sütőben</span>'}</div>
+    </div>`;
+  }).join('') : '<p style="font-size:0.85rem;color:var(--text-soft);padding:8px 0">Számítsd ki az előkészítést (rendelt termékek jelennek meg).</p>';
+
+  // ---- 2) SÜTŐK: nagy kártyák, kapacitás-sáv, koppintva a termék bekerül ----
+  const activeId=_batchPlan.activeBatchId;
   const ovenCards = ovens.length ? ovens.map(o=>{
-    const img = o.photo ? `<img src="${o.photo}" style="width:100%;height:60px;object-fit:contain;background:#fff;border-radius:8px">` : `<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:${o.color||'#f0f0f0'};border-radius:8px">🔥</div>`;
-    const cap = ovenCapacityPieces ? '' : '';
-    return `<div onclick="addOvenBatch(${o.id})" style="flex:0 0 120px;border:1.5px solid var(--border);border-radius:10px;padding:8px;cursor:pointer;background:#fff" title="Új batch ebben a sütőben">
-      ${img}<div style="font-size:0.8rem;font-weight:700;margin-top:4px;text-align:center">${esc(o.name)}</div>
-      <div style="font-size:0.68rem;color:var(--text-soft);text-align:center">${o.capacityTrays||0} tálca · ${o.trayType||'GN1/1'}</div>
-      <div style="font-size:0.7rem;color:var(--teal-dark);text-align:center;font-weight:700;margin-top:2px">➕ Batch</div></div>`;
-  }).join('') : '<p class="text-soft text-sm">Nincs sütő. Vegyél fel a Törzsadatok → Eszközök alatt.</p>';
+    const myBatches=(_batchPlan.batches||[]).filter(b=>b.ovenId===o.id);
+    const batchesHtml = myBatches.map(b=>{
+      const fill=_batchFill(b), cost=_batchCost(b); const on=b.id===activeId;
+      const items=b.items.map(it=>{const r=_batchRecipe(it.recipeId);
+        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:0.82rem">
+          <span style="flex:1">${esc(r?.name||'?')}</span>
+          <button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},-1)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer">−</button>
+          <input type="number" min="0" value="${it.qty}" onclick="event.stopPropagation()" onchange="event.stopPropagation();setBatchItemQty(${b.id},${it.recipeId},this.value)" style="width:46px;height:26px;text-align:center;border:1px solid var(--border);border-radius:6px;font-family:'Kodchasan',sans-serif">
+          <button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},1)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer">+</button></div>`;
+      }).join('') || '<div style="font-size:0.78rem;color:var(--text-soft);padding:6px 0">Válaszd ki lent a terméket → ebbe a batchbe kerül.</div>';
+      const barColor = fill.over?'#dc2626':(fill.pct>85?'#f59e0b':'var(--teal)');
+      return `<div onclick="setActiveBatch(${b.id})" style="border:2px solid ${on?'var(--teal)':'transparent'};border-radius:12px;padding:10px;margin-top:8px;background:${on?'var(--teal-pale)':'#fafafa'};cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:0.78rem;font-weight:700;color:var(--teal-dark)">Batch #${b.id}${on?' · aktív':''}</span>
+          <button onclick="event.stopPropagation();removeBatch(${b.id})" style="border:none;background:none;cursor:pointer;color:#dc2626;font-size:0.9rem">🗑</button></div>
+        ${items}
+        <div style="height:7px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin:8px 0 5px"><div style="height:100%;width:${Math.min(100,fill.pct)}%;background:${barColor}"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.72rem">
+          <span style="color:${fill.over?'#dc2626':'var(--text-soft)'};font-weight:${fill.over?'700':'400'}">${fill.over?'MEGTELT':'Kihasználtság'} ${fill.pct}%</span>
+          <span style="color:var(--teal-dark);font-weight:600">${money(cost.total)}</span></div></div>`;
+    }).join('');
+    const img = o.photo ? `<img src="${o.photo}" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff">`
+      : `<div style="width:44px;height:44px;border-radius:8px;background:var(--teal-pale);display:flex;align-items:center;justify-content:center;font-size:1.4rem">🔥</div>`;
+    return `<div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        ${img}<div style="flex:1"><div style="font-weight:700;color:var(--teal-dark)">${esc(o.name)}</div>
+        <div style="font-size:0.72rem;color:var(--text-soft)">${o.capacityTrays||0} tálca · ${o.trayType||'GN1/1'}</div></div></div>
+      ${batchesHtml}
+      <button onclick="addOvenBatch(${o.id})" style="width:100%;margin-top:8px;padding:8px;border:1.5px dashed var(--teal);border-radius:10px;background:#fff;color:var(--teal-dark);cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.8rem;font-weight:600">+ ${myBatches.length?'új batch ugyanitt':'batch indítása'}</button>
+    </div>`;
+  }).join('') : '<p style="font-size:0.85rem;color:var(--text-soft)">Nincs sütő. Vegyél fel a Törzsadatok → Eszközök alatt.</p>';
 
-  // termék-chipek (koppintva az aktív batchbe)
-  const chips = products.length ? products.map(p=>{
-    const r=_batchRecipe(p.recipeId); const noTray = !(Number(r?.piecesPerTray)>0);
-    return `<button onclick="addProductToActiveBatch(${p.recipeId})" style="padding:6px 12px;border:1.5px solid ${noTray?'#f59e0b':'var(--teal)'};border-radius:20px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.82rem" title="${noTray?'⚠️ Nincs db/tálca beállítva a receptnél':'Aktív batchbe'}">${esc(p.name)} <span style="color:var(--text-soft)">(${p.ordered})</span>${noTray?' ⚠️':''}</button>`;
-  }).join('') : '<p class="text-soft text-sm">Előbb számítsd ki az előkészítést (rendelt termékek).</p>';
+  // ---- termék-választó az aktív batchhez (nagy, koppintható) ----
+  const picker = (activeId && products.length) ? `<div style="margin-top:10px"><div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:6px">Koppints egy termékre → az aktív batchbe kerül (a maradék rendelt mennyiséggel):</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${products.map(p=>{const r=_batchRecipe(p.recipeId);const noTray=!(Number(r?.piecesPerTray)>0);
+      return `<button onclick="addProductToActiveBatch(${p.recipeId})" style="padding:8px 14px;border:1.5px solid ${noTray?'#f59e0b':'var(--teal)'};border-radius:20px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.83rem;color:var(--teal-dark)">+ ${esc(p.name)}${noTray?' ⚠️':''}</button>`;}).join('')}</div></div>` : '';
 
-  // batch-ek
-  const batchCards = _batchPlan.batches.map(b=>{
-    const oven=(R.equipment||[]).find(e=>e.id===b.ovenId);
-    const fill=_batchFill(b); const cost=_batchCost(b);
-    const active = b.id===_batchPlan.activeBatchId;
-    const items = b.items.length ? b.items.map(it=>{const r=_batchRecipe(it.recipeId); return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:0.82rem"><span style="flex:1">${esc(r?.name||'?')}</span><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},-1)" style="width:24px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">−</button><input type="number" min="0" value="${it.qty}" onclick="event.stopPropagation()" onchange="event.stopPropagation();setBatchItemQty(${b.id},${it.recipeId},this.value)" style="width:48px;text-align:center;padding:3px;border:1px solid var(--border);border-radius:5px;font-family:'Kodchasan',sans-serif"><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},1)" style="width:24px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">+</button></div>`;}).join('') : '<div style="font-size:0.78rem;color:var(--text-soft);padding:4px 0">Üres — koppints egy termékre fent.</div>';
-    return `<div onclick="setActiveBatch(${b.id})" style="border:2px solid ${active?'var(--teal)':'var(--border)'};border-radius:10px;padding:10px;margin-bottom:8px;background:${active?'var(--teal-pale,#f0fdfa)':'#fff'};cursor:pointer">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <b style="flex:1;color:var(--teal-dark)">🔥 ${esc(oven?.name||'?')} · batch #${b.id}${active?' <span style="font-size:0.7rem;color:var(--teal)">(aktív)</span>':''}</b>
-        <button onclick="event.stopPropagation();removeBatch(${b.id})" style="border:none;background:none;cursor:pointer;color:#dc2626">🗑</button>
-      </div>
-      ${items}
-      <div style="height:6px;background:#e5e7eb;border-radius:3px;margin:8px 0;overflow:hidden"><div style="height:100%;width:${Math.min(100,fill.pct)}%;background:${fill.over?'#dc2626':(fill.pct>85?'#f59e0b':'var(--teal)')}"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:var(--text-soft)">
-        <span>${fill.over?'<b style="color:#dc2626">⚠️ MEGTELT ('+fill.pct+'%)</b>':'Kihasználtság: '+fill.pct+'%'}</span>
-        <span>~${cost.energyKwh.toFixed(1)} kWh · önkölts: <b>${cost.total.toFixed(2)} lej</b></span>
-      </div></div>`;
-  }).join('');
-
-  const totalCost=_batchPlan.batches.reduce((s,b)=>s+_batchCost(b).total,0);
+  const totalCost=(_batchPlan.batches||[]).reduce((s,b)=>s+_batchCost(b).total,0);
   box.innerHTML = `
-    <div style="margin-bottom:10px"><b style="color:var(--teal-dark)">1) Válassz sütőt → új batch:</b>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding:8px 0">${ovenCards}</div></div>
-    <div style="margin-bottom:10px"><b style="color:var(--teal-dark)">2) Koppints a termékekre → az aktív batchbe:</b>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0">${chips}</div></div>
-    <div><b style="color:var(--teal-dark)">3) Batch-ek (sütő-töltetek):</b>
-      <div style="padding-top:8px">${batchCards||'<p class="text-soft text-sm">Még nincs batch. Válassz sütőt fent.</p>'}</div></div>
-    ${_batchPlan.batches.length?`<div style="text-align:right;font-weight:700;color:var(--teal-dark);margin-top:6px">Batch-ek összes önköltsége: ${totalCost.toFixed(2)} lej</div>`:''}`;
+    <div style="margin-bottom:16px">
+      <div style="font-size:0.9rem;font-weight:700;color:var(--teal-dark);margin-bottom:2px">Termékek a napra</div>
+      <div>${prodRows}</div>
+    </div>
+    <div style="font-size:0.9rem;font-weight:700;color:var(--teal-dark);margin-bottom:8px">Sütők — oszd batchekbe</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">${ovenCards}</div>
+    ${picker}
+    ${(_batchPlan.batches||[]).length?`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)"><span style="color:var(--text-soft);font-size:0.85rem">Nap önköltsége (batchek)</span><span style="font-weight:800;color:var(--teal-dark);font-size:1.05rem">${money(totalCost)}</span></div>`:''}`;
 }
 
 if(typeof window!=='undefined'){
