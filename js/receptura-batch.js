@@ -22,11 +22,25 @@ function addOvenBatch(ovenId){
 function setActiveBatch(id){ _batchPlan.activeBatchId = id; renderBatchPlanner(); }
 function removeBatch(id){ _batchPlan.batches = _batchPlan.batches.filter(b=>b.id!==id); if(_batchPlan.activeBatchId===id)_batchPlan.activeBatchId=_batchPlan.batches[0]?.id||null; renderBatchPlanner(); }
 
+function _placedQty(recipeId){ let n=0; (_batchPlan.batches||[]).forEach(b=>b.items.forEach(i=>{ if(i.recipeId===recipeId) n+=i.qty; })); return n; }
 function addProductToActiveBatch(recipeId){
   const b = _batchPlan.batches.find(x=>x.id===_batchPlan.activeBatchId);
   if(!b){ toast('Előbb hozz létre egy batch-et (válassz sütőt)!', true); return; }
   const it = b.items.find(i=>i.recipeId===recipeId);
-  if(it) it.qty += 1; else b.items.push({recipeId, qty:1});
+  if(it){ it.qty += 1; }
+  else {
+    // okos alap: a még el nem helyezett rendelt mennyiség (min 1) — így nem kell darabonként kattintani
+    const prod = _batchDayProducts().find(p=>p.recipeId===recipeId);
+    const remaining = prod ? Math.max(0, Math.round(prod.ordered) - _placedQty(recipeId)) : 0;
+    b.items.push({recipeId, qty: remaining>0?remaining:1});
+  }
+  renderBatchPlanner();
+}
+function setBatchItemQty(batchId, recipeId, val){
+  const b=_batchPlan.batches.find(x=>x.id===batchId); if(!b)return;
+  const it=b.items.find(i=>i.recipeId===recipeId); if(!it)return;
+  it.qty = Math.max(0, parseInt(val)||0);
+  if(it.qty===0) b.items=b.items.filter(i=>i.recipeId!==recipeId);
   renderBatchPlanner();
 }
 function changeBatchItemQty(batchId, recipeId, delta){
@@ -92,7 +106,7 @@ function renderBatchPlanner(){
     const oven=(R.equipment||[]).find(e=>e.id===b.ovenId);
     const fill=_batchFill(b); const cost=_batchCost(b);
     const active = b.id===_batchPlan.activeBatchId;
-    const items = b.items.length ? b.items.map(it=>{const r=_batchRecipe(it.recipeId); return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:0.82rem"><span style="flex:1">${esc(r?.name||'?')}</span><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},-1)" style="width:22px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">−</button><b style="min-width:24px;text-align:center">${it.qty}</b><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},1)" style="width:22px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">+</button></div>`;}).join('') : '<div style="font-size:0.78rem;color:var(--text-soft);padding:4px 0">Üres — koppints egy termékre fent.</div>';
+    const items = b.items.length ? b.items.map(it=>{const r=_batchRecipe(it.recipeId); return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:0.82rem"><span style="flex:1">${esc(r?.name||'?')}</span><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},-1)" style="width:24px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">−</button><input type="number" min="0" value="${it.qty}" onclick="event.stopPropagation()" onchange="event.stopPropagation();setBatchItemQty(${b.id},${it.recipeId},this.value)" style="width:48px;text-align:center;padding:3px;border:1px solid var(--border);border-radius:5px;font-family:'Kodchasan',sans-serif"><button onclick="event.stopPropagation();changeBatchItemQty(${b.id},${it.recipeId},1)" style="width:24px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer">+</button></div>`;}).join('') : '<div style="font-size:0.78rem;color:var(--text-soft);padding:4px 0">Üres — koppints egy termékre fent.</div>';
     return `<div onclick="setActiveBatch(${b.id})" style="border:2px solid ${active?'var(--teal)':'var(--border)'};border-radius:10px;padding:10px;margin-bottom:8px;background:${active?'var(--teal-pale,#f0fdfa)':'#fff'};cursor:pointer">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <b style="flex:1;color:var(--teal-dark)">🔥 ${esc(oven?.name||'?')} · batch #${b.id}${active?' <span style="font-size:0.7rem;color:var(--teal)">(aktív)</span>':''}</b>
@@ -118,5 +132,5 @@ function renderBatchPlanner(){
 }
 
 if(typeof window!=='undefined'){
-  Object.assign(window, {renderBatchPlanner, addOvenBatch, setActiveBatch, removeBatch, addProductToActiveBatch, changeBatchItemQty});
+  Object.assign(window, {renderBatchPlanner, addOvenBatch, setActiveBatch, removeBatch, addProductToActiveBatch, changeBatchItemQty, setBatchItemQty});
 }

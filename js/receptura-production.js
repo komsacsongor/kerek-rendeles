@@ -284,13 +284,9 @@ async function calcProductionPrep() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:#fffbeb;border-radius:8px;flex-wrap:wrap" onclick="event.stopPropagation()">
           <span style="font-size:0.8rem;color:#92400e;font-weight:600">➕ Extra:</span>
           <input type="number" id="prod-extra-${recipe.id}" min="0" value="0" style="width:60px;padding:5px 8px;border:1.5px solid #f59e0b;border-radius:6px;font-family:'Kodchasan',sans-serif;box-sizing:border-box" onclick="event.stopPropagation()">
-          <span style="font-size:0.72rem;color:var(--text-soft)">db →</span>
-          <select id="prod-alloc-${recipe.id}" style="padding:5px 8px;border:1.5px solid #f59e0b;border-radius:6px;font-family:'Kodchasan',sans-serif;font-size:0.78rem;background:white" onclick="event.stopPropagation()">
-            <option value="sale">🛒 Eladás</option>
-            <option value="internal">🏠 Belső fogyasztás</option>
-            <option value="marketing">🎁 Marketing (minta)</option>
-          </select>
-        </div>`;
+          <span style="font-size:0.72rem;color:var(--text-soft)">db (több ebből — az allokálás a Lezáráskor)</span>
+        </div>
+        <div style="display:none"><select id="prod-alloc-${recipe.id}"><option value="sale" selected>sale</option></select></div>`;
 
     // Group ingredients by sub_type
     const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
