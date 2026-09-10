@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.122"></script>
+<script src="kerek-constants.js?v=2.53.123"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -634,14 +634,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         <div id="prod-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
         <button class="btn btn-primary btn-sm" data-action="calcProductionPrep">🏭 Előkészítés kiszámítása</button>
         <button id="prod-done-btn-top" data-action="confirmBakingDone" style="display:none;margin-left:8px;padding:7px 16px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.82rem;font-family:'Kodchasan',sans-serif">✅ Sütés elvégezve</button>
-        <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV" style="margin-left:8px">📥 CSV export</button>
-        <button class="btn btn-primary btn-sm" data-action="generateShoppingList" style="margin-left:8px">🛒 Bevásárló lista</button>
       </div>
     </div>
     <div id="prod-prep-result"></div>
-    <div id="bake-plan-result"></div>
     <div id="prod-done-btn" style="display:none"></div>
-    <div id="shopping-list-panel" class="mb-16"></div>
     <div id="stock-alerts" class="mb-16"></div>
   </div>
 
@@ -1040,7 +1036,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-data.js?v=2.53.107"></script>
 <script src="js/receptura-ui.js?v=2.53.118"></script>
 <script src="js/receptura-recipes.js?v=2.53.117"></script>
-<script src="js/receptura-operational.js?v=2.53.121"></script>
+<script src="js/receptura-operational.js?v=2.53.123"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
 <script src="js/receptura-equipment.js?v=2.53.107"></script>
 <script src="js/receptura-costhelp.js?v=2.53.53"></script>

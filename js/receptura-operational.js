@@ -2,23 +2,27 @@
 function renderOpSelect() {
   const box = document.getElementById('op-recipe-list');
   let html = '';
-  // v2.53.121: az Előkészítésben képzett BATCHEK a tetején — innen indul a vezetett végrehajtás
   const batches = (typeof _batchPlan!=='undefined' && _batchPlan.batches) ? _batchPlan.batches.filter(b=>b.items.length) : [];
   if (batches.length) {
-    html += `<div style="grid-column:1/-1"><h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 4px">🔥 Mai batchek (az előkészítésből)</h3><p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Koppints egy receptre a batchen belül → vezetett sütés (kiadagolás + lépések + időzítő).</p></div>`;
+    html += `<div style="grid-column:1/-1"><h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 10px">🔥 Mai batchek — válaszd, mit sütsz</h3></div>`;
     batches.forEach(b=>{
       const oven=(R.equipment||[]).find(e=>e.id===b.ovenId);
       const recipesHtml = b.items.map(it=>{ const r=(R.recipes||[]).find(x=>x.id===it.recipeId);
-        return `<button onclick="openOpDetailForBatch(${it.recipeId},${it.qty})" style="display:block;width:100%;text-align:left;padding:8px 12px;margin:4px 0;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif"><b>${esc(r?.name||'?')}</b> <span style="color:var(--text-soft)">×${it.qty} db</span> <span style="float:right;color:var(--teal-dark)">▶ sütés</span></button>`;
+        return `<button onclick="openOpDetailForBatch(${it.recipeId},${it.qty})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:12px 14px;margin:6px 0;border:1.5px solid var(--teal);border-radius:12px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.95rem"><span style="font-size:1.3rem">🍞</span><span style="flex:1"><b>${esc(r?.name||'?')}</b> <span style="color:var(--text-soft)">×${it.qty} db</span></span><span style="background:var(--teal);color:#fff;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700">▶ Sütés indítása</span></button>`;
       }).join('');
-      html += `<div class="recipe-card" style="grid-column:1/-1;cursor:default;border:1.5px solid var(--teal)">
-        <div class="recipe-card-body">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="ti"></i><b style="color:var(--teal-dark)">🔥 ${esc(oven?.name||'?')} · batch #${b.id}</b></div>
-          ${recipesHtml}
-        </div></div>`;
+      html += `<div style="grid-column:1/-1;background:var(--teal-pale,#f0fdfa);border-radius:14px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:0.82rem;font-weight:700;color:var(--teal-dark);margin-bottom:2px">${esc(oven?.name||'?')} · batch #${b.id}</div>
+        ${recipesHtml}</div>`;
     });
-    html += `<div style="grid-column:1/-1;border-top:1px dashed var(--border);margin:16px 0 8px;padding-top:12px"><h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0;font-size:1rem">Vagy bármely recept (ad-hoc)</h3></div>`;
+    // ad-hoc receptek lenyíló mögé (ne floodolja kártyákkal)
+    html += `<details style="grid-column:1/-1;margin-top:8px"><summary style="cursor:pointer;color:var(--text-soft);font-size:0.85rem;padding:6px 0">➕ Vagy bármely recept (ad-hoc, batchen kívül)</summary>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${R.recipes.map(r=>`<button onclick="openOpDetail(${r.id})" style="text-align:left;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif">${esc(r.name)} <span style="color:var(--text-soft);font-size:0.75rem">· ${esc(r.category||'')}</span></button>`).join('')}</div></details>`;
+    box.innerHTML = html;
+    box.style.display='block';
+    return;
   }
+  // nincs batch → egyszerű recept-lista + tipp
+  html += `<div style="grid-column:1/-1;background:#fffbeb;border-radius:12px;padding:14px;margin-bottom:12px;font-size:0.85rem;color:#92400e">Nincs mai batch. Az <b>Előkészítés</b> lépésben oszd a termékeket sütőbe, vagy válassz alább egy receptet ad-hoc sütéshez.</div>`;
   html += R.recipes.map(r=>`
     <div class="recipe-card" onclick="openOpDetail(${r.id})">
       <div class="recipe-card-img">🍞</div>
