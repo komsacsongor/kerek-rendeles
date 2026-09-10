@@ -21,16 +21,16 @@ function nav(id) {
   });
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
-    recipes: renderRecipes, 'op-select': renderOpSelect,
+    recipes: renderRecipes, 'op-select': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('op-select'); renderOpSelect(); },
     'prodstats': () => { if(typeof renderProductionStats==='function') renderProductionStats(); },
     ingredients: renderIngredients, 'settings-r': renderSettings,
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
-    'levain-daily': () => { initLevainDaily(); },
+    'levain-daily': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('levain-daily'); initLevainDaily(); },
     'processing': () => { initProcessingView(); },
     'masterdata': () => { if(typeof renderMasterData==='function') renderMasterData(); },
     'receptura-help': () => { renderRecepturaHelp(); },
-    'production-prep': () => { initLevainDaily(); initProductionPrep(); },
-    'baking-log': () => { initBakingLog(); },
+    'production-prep': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('production-prep'); initProductionPrep(); },
+    'baking-log': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('baking-log'); initBakingLog(); },
     archiv: renderArchivView,
     'shopping': async () => {
       if (typeof loadShoppingOverrides === 'function' && !_shopLoaded){ _shopLoaded = true; await loadShoppingOverrides(); }

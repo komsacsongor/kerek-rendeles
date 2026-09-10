@@ -887,3 +887,19 @@ async function renderBakingLog(dateStr) {
     box.innerHTML = `<div class="card"><div class="card-body"><p style="color:#dc2626">⚠️ Hiba a napló betöltésekor: ${esc(e.message)}</p></div></div>`;
   }
 }
+
+// v2.53.118: közös Gyártás lépés-fülsáv (Törzsadatok-stílus) — a napi sütés-flow.
+function renderGyartasTabbar(activeView){
+  const tabs=[
+    ['levain-daily','1️⃣ Levain'],
+    ['production-prep','2️⃣ Előkészítés + Batch'],
+    ['op-select','3️⃣ Végrehajtás'],
+    ['baking-log','4️⃣ Napló / Lezárás'],
+  ];
+  const html = tabs.map(([v,lbl])=>{
+    const on = v===activeView;
+    return `<button onclick="nav('${v}')" style="padding:9px 16px;border:none;border-radius:10px 10px 0 0;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.85rem;font-weight:${on?'700':'400'};background:${on?'#fff':'transparent'};color:${on?'var(--teal-dark)':'var(--text-soft)'};border-bottom:${on?'3px solid var(--teal)':'3px solid transparent'}">${lbl}</button>`;
+  }).join('');
+  document.querySelectorAll('.gyartas-tabbar').forEach(el=>{ el.innerHTML = html; });
+}
+if(typeof window!=='undefined') window.renderGyartasTabbar=renderGyartasTabbar;
