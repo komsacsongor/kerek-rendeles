@@ -1,5 +1,6 @@
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
+  'gyartas-flow': '🔥 Gyártás',
   'prodstats': '📊 Sütési statisztika',
   'masterdata': '📚 Törzsadatok',
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
@@ -21,7 +22,8 @@ function nav(id) {
   });
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
-    recipes: renderRecipes, 'op-select': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('op-select'); renderOpSelect(); },
+    recipes: renderRecipes,
+    'gyartas-flow': () => { if(typeof renderGyartasFlow==='function') renderGyartasFlow(); }, 'op-select': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('op-select'); renderOpSelect(); },
     'prodstats': () => { if(typeof renderProductionStats==='function') renderProductionStats(); },
     ingredients: renderIngredients, 'settings-r': renderSettings,
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },

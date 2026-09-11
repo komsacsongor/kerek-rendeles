@@ -16,7 +16,7 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.124"></script>
+<script src="kerek-constants.js?v=2.53.125"></script>
 <script>window.KEREK_MODULE='receptura';</script>
 <script src="supabase.js?v=2.53.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -334,7 +334,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
   <div class="nav-section">
     <div class="nav-label">Gyártás</div>
-    <button class="nav-item" data-action="nav" data-arg1="levain-daily"><span class="icon">🔥</span>Gyártás (napi flow)</button>
+    <button class="nav-item" data-action="nav" data-arg1="gyartas-flow"><span class="icon">🔥</span>Gyártás (napi flow)</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Egyéb gyártás</div>
@@ -612,6 +612,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
 
   <!-- ===== LEVAIN DAILY ===== -->
+  <div id="view-gyartas-flow" class="view">
+    <div id="gyartas-flow"></div>
+  </div>
+
   <div id="view-levain-daily" class="view">
     <div class="gyartas-tabbar" style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:16px"></div>
     <div class="card mb-16">
@@ -1034,7 +1038,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <div id="toast"></div>
 
 <script src="js/receptura-data.js?v=2.53.107"></script>
-<script src="js/receptura-ui.js?v=2.53.118"></script>
+<script src="js/receptura-ui.js?v=2.53.125"></script>
 <script src="js/receptura-recipes.js?v=2.53.117"></script>
 <script src="js/receptura-operational.js?v=2.53.123"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
@@ -1048,6 +1052,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <script src="js/receptura-levain.js?v=2.53.91"></script>
 <script src="js/receptura-production.js?v=2.53.122"></script>
 <script src="js/receptura-batch.js?v=2.53.124"></script>
+<script src="js/receptura-gyartas.js?v=2.53.125"></script>
 <script src="js/receptura-stats.js?v=2.53.109"></script>
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
