@@ -93,10 +93,13 @@ function _gfDaySelector(){
       <span style="font-size:11px;opacity:0.8">${GF_D[dow]}</span><span style="font-size:17px;font-weight:700">${d}</span></button>`;
   }).join('') : `<span style="font-size:0.85rem;color:${GFC.textSoft}">Nincs sütési nap ebben a hónapban.</span>`;
   return `<div style="background:${GFC.cream};border:1px solid ${GFC.border};border-radius:14px;padding:12px">
-    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px">
-      <button onclick="gfMonthNav(-1)" style="border:none;background:none;cursor:pointer;color:${GFC.tealDark};font-size:20px"><i class="ti ti-chevron-left"></i></button>
-      <span style="font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:${GFC.tealDark}">${year}. ${GF_M[month]}</span>
-      <button onclick="gfMonthNav(1)" style="border:none;background:none;cursor:pointer;color:${GFC.tealDark};font-size:20px"><i class="ti ti-chevron-right"></i></button>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px">
+      <button onclick="gfSetMonth(${year-1},${month})" style="padding:5px 12px;border:1.5px solid ${GFC.border};border-radius:8px;background:#fff;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:${GFC.tealDark}">◀ ${year-1}</button>
+      <span style="font-weight:700;color:${GFC.tealDark};font-size:1rem;min-width:44px;text-align:center">${year}</span>
+      <button onclick="gfSetMonth(${year+1},${month})" style="padding:5px 12px;border:1.5px solid ${GFC.border};border-radius:8px;background:#fff;cursor:pointer;font-size:0.82rem;font-family:'Kodchasan',sans-serif;color:${GFC.tealDark}">${year+1} ▶</button>
+    </div>
+    <div style="display:flex;gap:3px;margin-bottom:12px;width:100%">
+      ${GF_M.map((mn,i)=>`<button onclick="gfSetMonth(${year},${i})" style="flex:1;padding:6px 2px;border-radius:14px;border:1.5px solid ${i===month?GFC.teal:GFC.border};background:${i===month?GFC.tealPale:'#fff'};color:${i===month?GFC.tealDark:GFC.textSoft};font-weight:${i===month?'700':'400'};font-size:0.68rem;cursor:pointer;font-family:'Kodchasan',sans-serif;min-width:0;text-align:center">${mn.slice(0,3)}</button>`).join('')}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${chips}</div>
   </div>`;
@@ -106,6 +109,7 @@ function renderGFPhase(){ if(_gf.phase===1) renderGF1(); else document.getElemen
   `<div style="text-align:center;padding:40px;color:${GFC.textSoft}"><i class="ti ti-tools" style="font-size:32px"></i><p>A ${_gf.phase}. fázis épül — hamarosan.</p></div>`; }
 
 function gfMonthNav(delta){ let m=_gf.month.month+delta, y=_gf.month.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} _gf.month={year:y,month:m}; renderGyartasFlow(); }
+function gfSetMonth(y,m){ _gf.month={year:y,month:m}; renderGyartasFlow(); }
 function gfSetDay(v){ _gf.day=v; _gf.loaded=false; renderGyartasFlow(); }
 function gfSetView(v){ _gf.view=v; renderGyartasFlow(); }
 function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ toast('Van recept nélküli termék a listában — előbb rendezd, mielőtt sütnél.',true); return; } _gf.phase=n; renderGyartasFlow(); }
@@ -150,9 +154,12 @@ async function renderGF1(){
   const cache=(typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]).filter(p=>!p.deleted_at);
   const already=new Set(_gf.products.map(p=>p.productId));
   const q=(_gf.pickerSearch||'').toLowerCase();
+  const _pickCats=[...new Set(cache.filter(p=>!already.has(p.id)).map(p=>p.category||'Egyéb'))].sort((a,b)=>a.localeCompare(b,'hu'));
+  const _catChip=(lbl,val)=>`<button onclick="_gf.pickerCat=${val===null?'null':`'${val}'`};renderGF1()" style="padding:5px 12px;border-radius:14px;border:1.5px solid ${(_gf.pickerCat||null)===val?GFC.teal:GFC.border};background:${(_gf.pickerCat||null)===val?GFC.teal:'#fff'};color:${(_gf.pickerCat||null)===val?'#fff':GFC.textSoft};font-size:12px;cursor:pointer;font-family:'Kodchasan',sans-serif">${lbl}</button>`;
   const pickerList = _gf.pickerOpen ? `<div style="background:#fff;border:1.5px solid ${GFC.teal};border-radius:14px;padding:12px;margin-bottom:18px">
       <input id="gf-picker-input" oninput="_gf.pickerSearch=this.value;renderGF1();setTimeout(()=>{const e=document.getElementById('gf-picker-input');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)" placeholder="Termék keresése…" value="${esc(_gf.pickerSearch||'')}" style="width:100%;padding:10px 12px;border:1px solid ${GFC.border};border-radius:10px;font-family:'Kodchasan',sans-serif;font-size:15px;box-sizing:border-box;margin-bottom:8px">
-      <div style="max-height:220px;overflow-y:auto">${cache.filter(p=>!already.has(p.id) && (!q||p.name.toLowerCase().includes(q))).slice(0,30).map(p=>`
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${_catChip('Mind',null)}${_pickCats.map(c=>_catChip(esc(c),c)).join('')}</div>
+      <div style="max-height:220px;overflow-y:auto">${cache.filter(p=>!already.has(p.id) && (!q||p.name.toLowerCase().includes(q)) && (!_gf.pickerCat||(p.category||'Egyéb')===_gf.pickerCat)).slice(0,30).map(p=>`
         <button onclick="gfAddProduct(${p.id})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px 12px;border:none;border-bottom:0.5px solid ${GFC.border};background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:14px">
           <i class="ti ti-plus" style="color:${GFC.teal}"></i><span style="flex:1">${esc(p.name)}</span>${p.category?`<span style="font-size:12px;color:${GFC.textSoft}">${esc(p.category)}</span>`:''}</button>`).join('')||`<div style="padding:10px;color:${GFC.textSoft};font-size:14px">Nincs találat.</div>`}</div>
       <button onclick="_gf.pickerOpen=false;renderGF1()" style="margin-top:8px;border:none;background:none;color:${GFC.textSoft};cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:13px">Mégse</button>
@@ -160,10 +167,13 @@ async function renderGF1(){
 
   const sc=_gfStockCheck(); const short=sc.filter(x=>!x.ok);
   const fmt=(g,u)=>(typeof fmtQtyUnit==='function')?fmtQtyUnit(g,u):(Math.round(g)+' g');
-  const stockCard = sc.length ? `<div style="background:#fff;border:1px solid ${GFC.border};border-radius:14px;padding:14px 16px;margin-bottom:18px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-${short.length?'alert-triangle':'circle-check'}" style="font-size:20px;color:${short.length?GFC.gold:GFC.teal}"></i>
-      <span style="font-size:15px;font-weight:600">Készlet-ellenőrzés — ${short.length?short.length+' alapanyag kevés':'minden alapanyag elég'}</span></div>
-    ${short.slice(0,8).map(x=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid ${GFC.border};font-size:14px"><span>${esc(x.name)}</span><span style="color:${GFC.danger};font-weight:600">hiányzik ${fmt(x.short,x.unit)}</span></div>`).join('')}</div>` : '';
+  const stockCard = `<div style="background:#fff;border:1px solid ${GFC.border};border-radius:14px;padding:14px 16px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-${sc.length===0?'help-circle':(short.length?'alert-triangle':'circle-check')}" style="font-size:20px;color:${sc.length===0?GFC.textSoft:(short.length?GFC.gold:GFC.teal)}"></i>
+      <span style="font-size:15px;font-weight:600">Nyersanyag-ellenőrzés${sc.length?' — '+(short.length?short.length+' alapanyag kevés':'minden alapanyag elég'):''}</span></div>
+    ${sc.length===0 ? `<div style="font-size:13px;color:${GFC.textSoft}">Nem számolható — a listában lévő termékeknek nincs kész receptjük (nincs mihez viszonyítani a készletet).</div>`
+      : (short.length ? short.slice(0,10).map(x=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid ${GFC.border};font-size:14px"><span>${esc(x.name)}</span><span style="color:${GFC.danger};font-weight:600">hiányzik ${fmt(x.short,x.unit)}</span></div>`).join('')
+        : `<div style="font-size:13px;color:${GFC.textSoft}">A kiválasztott mennyiségekhez van elég készlet mindenből.</div>`)}
+  </div>`;
 
   const blocked = !_gfCanBake();
   const blockMsg = (_gf.products.some(p=>!p.hasRecipe)) ? `<div style="background:#fdecea;border:1px solid ${GFC.danger};border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:${GFC.danger}"><i class="ti ti-alert-circle" style="vertical-align:-2px"></i> Van recept nélküli termék (piros keret). Amíg nincs kész receptje, nem lehet továbblépni a sütéshez.</div>` : '';
@@ -178,4 +188,4 @@ async function renderGF1(){
 
 function gfAddProduct(pid){ const p=_gfMakeProd(pid,0,1); _gf.products.push(p); _gf.pickerOpen=false; _gf.pickerSearch=''; renderGF1(); }
 
-if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,_gf});
+if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,_gf});
