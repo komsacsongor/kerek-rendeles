@@ -105,7 +105,7 @@ function _gfDaySelector(){
   </div>`;
 }
 
-function renderGFPhase(){ if(_gf.phase===1) renderGF1(); else if(_gf.phase===2) renderGF2(); else document.getElementById('gf-phase').innerHTML=
+function renderGFPhase(){ if(_gf.phase===1) renderGF1(); else if(_gf.phase===2) renderGF2(); else if(_gf.phase===3) renderGF3(); else document.getElementById('gf-phase').innerHTML=
   `<div style="text-align:center;padding:40px;color:${GFC.textSoft}"><i class="ti ti-tools" style="font-size:32px"></i><p>A ${_gf.phase}. fázis épül — hamarosan.</p></div>`; }
 
 function gfMonthNav(delta){ let m=_gf.month.month+delta, y=_gf.month.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} _gf.month={year:y,month:m}; renderGyartasFlow(); }
@@ -281,4 +281,81 @@ function renderGF2(){
     </div>`;
 }
 
-if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,gfAddBatch,gfSetActiveBatch,gfRemoveBatch,gfAssignToBatch,gfBatchQty,gfGf2Tab,_gf});
+
+// ---------- FÁZIS 3: Sütés (vezetett, batchenként) ----------
+let _gfTimer=null;
+function _gf3Steps(b){ const out=[]; const seen=new Set();
+  (b.items||[]).forEach(it=>{ const p=_gf.products.find(x=>x.productId===it.productId); const r=p?(R.recipes||[]).find(x=>x.id===p.recipeId):null; if(!r||seen.has(r.id))return; seen.add(r.id);
+    (r.steps||[]).forEach(st=>out.push({recipe:r.name, title:st.title, desc:st.desc, timer:st.timer}));
+    if(r.bakeMin||r.bakeTempC) out.push({recipe:r.name, title:'Sütés', desc:`${r.bakeTempC?r.bakeTempC+' °C':''}${r.bakeMin?(r.bakeTempC?', ':'')+r.bakeMin+' perc':''}`, timer:r.bakeMin});
+  }); return out;
+}
+function gfStartBake(bid){ _gf.bakingBatch=bid; _gf.stepIdx=0; renderGF3(); }
+function gfStepPrev(){ if(_gf.stepIdx>0)_gf.stepIdx--; _gfStopTimer(); renderGF3(); }
+function gfStepNext(){ _gf.stepIdx=(_gf.stepIdx||0)+1; _gfStopTimer(); renderGF3(); }
+function gfBatchDone(bid){ if(!_gf.doneBatches)_gf.doneBatches={}; _gf.doneBatches[bid]=true; _gf.bakingBatch=null; _gfStopTimer(); renderGF3(); }
+function _gfStopTimer(){ if(_gfTimer){clearInterval(_gfTimer);_gfTimer=null;} }
+function gfStartTimer(min){ _gfStopTimer(); let sec=Math.round(min*60); const el=document.getElementById('gf-timer'); if(!el)return;
+  const upd=()=>{ const m=Math.floor(sec/60), s=sec%60; el.textContent=`${m}:${String(s).padStart(2,'0')}`; if(sec<=0){_gfStopTimer(); el.textContent='Kész!'; try{el.style.color=GFC.gold;}catch(e){} return;} sec--; };
+  upd(); _gfTimer=setInterval(upd,1000);
+}
+
+function renderGF3(){
+  const host=document.getElementById('gf-phase'); if(!host) return;
+  const big=_big();
+  const batches=(_gf.batches||[]).filter(b=>b.items&&b.items.length);
+  if(!batches.length){ host.innerHTML=`<div style="text-align:center;padding:30px;color:${GFC.textSoft}"><i class="ti ti-alert-circle" style="font-size:30px"></i><p>Még nincs batch. Menj vissza az <b>Előkészítés</b>hez, és oszd a termékeket sütőbe.</p><button onclick="gfGoPhase(2)" style="padding:10px 18px;background:${GFC.teal};color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:'Kodchasan',sans-serif"><i class="ti ti-arrow-left"></i> Vissza az előkészítéshez</button></div>`; return; }
+
+  // vezetett sütés egy batchre
+  if(_gf.bakingBatch){
+    const b=batches.find(x=>x.id===_gf.bakingBatch); const oven=(R.equipment||[]).find(e=>e.id===b.ovenId);
+    const steps=_gf3Steps(b); const i=Math.min(_gf.stepIdx||0, steps.length);
+    const prods=b.items.map(it=>{const p=_gf.products.find(x=>x.productId===it.productId); return esc(p?.name||'?')+' ×'+it.qty;}).join(' · ');
+    if(i>=steps.length || steps.length===0){
+      host.innerHTML=`<div style="background:#fff;border:2px solid ${GFC.teal};border-radius:16px;padding:20px;text-align:center">
+        <i class="ti ti-circle-check" style="font-size:40px;color:${GFC.teal}"></i>
+        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:${GFC.tealDark};margin:8px 0">${esc(oven?.name||'')} · batch kész?</div>
+        <div style="font-size:13px;color:${GFC.textSoft};margin-bottom:16px">${prods}${steps.length===0?'<br><span style="color:'+GFC.gold+'">Nincsenek rögzített lépések a receptnél — jelöld késznek, ha kisült.</span>':''}</div>
+        <button onclick="gfBatchDone(${b.id})" style="width:100%;padding:14px;background:${GFC.teal};color:#fff;border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:16px;font-weight:700;cursor:pointer"><i class="ti ti-check" style="vertical-align:-3px"></i> Batch kész</button>
+        <button onclick="_gf.bakingBatch=null;renderGF3()" style="margin-top:8px;border:none;background:none;color:${GFC.textSoft};cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:13px">Mégse</button></div>`; return;
+    }
+    const st=steps[i];
+    host.innerHTML=`<div style="background:#fff;border:2px solid ${GFC.teal};border-radius:16px;padding:${big?'18px':'14px'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div><div style="font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:${GFC.tealDark}">${esc(oven?.name||'')} · sütés</div><div style="font-size:12px;color:${GFC.textSoft}">${prods}</div></div>
+        <div style="font-size:13px;color:${GFC.textSoft}">lépés ${i+1} / ${steps.length}</div></div>
+      <div style="background:${GFC.tealPale};border-radius:14px;padding:${big?'18px':'14px'};text-align:center;margin-bottom:12px">
+        ${steps.length>1&&st.recipe?`<div style="font-size:11px;color:${GFC.textSoft};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${esc(st.recipe)}</div>`:''}
+        <div style="font-family:'Fraunces',serif;font-size:${big?'20px':'17px'};font-weight:600;color:${GFC.tealDark};margin-bottom:4px">${esc(st.title||'Lépés')}</div>
+        <div style="font-size:${big?'16px':'14px'};color:${GFC.tealDark}">${esc(st.desc||'')}</div>
+        ${st.timer?`<div id="gf-timer" style="font-family:'Fraunces',serif;font-size:${big?'44px':'34px'};font-weight:600;color:${GFC.teal};margin:12px 0">${st.timer}:00</div>
+          <button onclick="gfStartTimer(${st.timer})" style="background:#fff;color:${GFC.tealDark};border:1.5px solid ${GFC.teal};border-radius:12px;padding:10px 18px;font-family:'Kodchasan',sans-serif;font-size:15px;font-weight:600;cursor:pointer"><i class="ti ti-clock" style="vertical-align:-2px"></i> Időzítő indítása (${st.timer} perc)</button>`:''}
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:14px">${steps.map((_,k)=>`<div style="flex:1;height:6px;border-radius:3px;background:${k<i?GFC.teal:(k===i?GFC.tealMid:GFC.border)}"></div>`).join('')}</div>
+      <div style="display:flex;gap:10px">
+        ${i>0?`<button onclick="gfStepPrev()" style="flex:0 0 auto;padding:${big?'14px 18px':'12px 16px'};background:#fff;color:${GFC.tealDark};border:1.5px solid ${GFC.border};border-radius:12px;cursor:pointer;font-family:'Kodchasan',sans-serif"><i class="ti ti-arrow-left"></i></button>`:''}
+        <button onclick="gfStepNext()" style="flex:1;padding:${big?'14px':'12px'};background:${GFC.gold};color:${GFC.text};border:none;border-radius:12px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:pointer">${i+1===steps.length?'Utolsó lépés kész':'Kész, tovább'} <i class="ti ti-arrow-right" style="vertical-align:-3px"></i></button>
+      </div></div>`; return;
+  }
+
+  // batch-lista (összegzés + sütés indítása)
+  const cards=batches.map(b=>{ const oven=(R.equipment||[]).find(e=>e.id===b.ovenId); const done=_gf.doneBatches&&_gf.doneBatches[b.id];
+    const prods=b.items.map(it=>{const p=_gf.products.find(x=>x.productId===it.productId); return `${esc(p?.name||'?')} <b>×${it.qty}</b>`;}).join(' · ');
+    const bakeMin=Math.max(0,...b.items.map(it=>{const p=_gf.products.find(x=>x.productId===it.productId);const r=p?(R.recipes||[]).find(x=>x.id===p.recipeId):null;return Number(r?.bakeMin)||0;}));
+    return `<div style="background:${done?GFC.bgSoft:'#fff'};border:1px solid ${done?GFC.border:GFC.teal};border-radius:16px;padding:14px;margin-bottom:10px;${done?'opacity:0.7':''}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:46px;height:46px;border-radius:12px;background:${done?GFC.bgSoft:GFC.tealPale};display:flex;align-items:center;justify-content:center">${oven?.photo?`<img src="${oven.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:`<i class="ti ti-${done?'check':'flame'}" style="font-size:24px;color:${done?GFC.tealMid:GFC.teal}"></i>`}</div>
+        <div style="flex:1"><div style="font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:${GFC.tealDark}">${esc(oven?.name||'?')}</div><div style="font-size:13px;color:${GFC.textSoft}">${prods}${bakeMin?` · ${bakeMin} perc`:''}</div></div>
+        ${done?`<span style="background:${GFC.tealPale};color:${GFC.tealDark};padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700">Kész</span>`
+          :`<button onclick="gfStartBake(${b.id})" style="background:${GFC.teal};color:#fff;border:none;border-radius:12px;padding:${big?'13px 20px':'11px 16px'};font-family:'Kodchasan',sans-serif;font-size:${big?'15px':'14px'};font-weight:700;cursor:pointer"><i class="ti ti-player-play" style="vertical-align:-3px"></i> Sütés indítása</button>`}
+      </div></div>`;
+  }).join('');
+  const allDone=batches.every(b=>_gf.doneBatches&&_gf.doneBatches[b.id]);
+  host.innerHTML=`<div style="font-size:13px;color:${GFC.textSoft};margin-bottom:10px">${batches.length} batch · ${_gfDayLabelFull(_gf.day)}</div>${cards}
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button onclick="gfGoPhase(2)" style="flex:0 0 auto;padding:${big?'16px 20px':'13px 18px'};background:#fff;color:${GFC.tealDark};border:1.5px solid ${GFC.border};border-radius:14px;cursor:pointer;font-family:'Kodchasan',sans-serif"><i class="ti ti-arrow-left"></i> Vissza</button>
+      <button onclick="gfGoPhase(4)" ${allDone?'':'disabled'} style="flex:1;padding:${big?'16px':'13px'};background:${allDone?GFC.teal:GFC.border};color:#fff;border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${allDone?'pointer':'not-allowed'}">${allDone?'Minden batch kész — tovább a lezáráshoz':'Süsd meg az összes batch-et'} <i class="ti ti-arrow-right" style="vertical-align:-3px"></i></button>
+    </div>`;
+}
+
+if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,gfAddBatch,gfSetActiveBatch,gfRemoveBatch,gfAssignToBatch,gfBatchQty,gfGf2Tab,gfStartBake,gfStepPrev,gfStepNext,gfBatchDone,gfStartTimer,_gf});
