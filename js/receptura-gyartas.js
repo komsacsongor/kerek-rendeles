@@ -204,6 +204,9 @@ function _gf2Needs(){
       total[ing.ingredientId]=(total[ing.ingredientId]||0)+amt;
       perProd[p.productId].ings[ing.ingredientId]=(perProd[p.productId].ings[ing.ingredientId]||0)+amt;
     });
+    // levain összetevők (őskovász/liszt/víz) — külön tételként a kiadagolásba
+    if(r.levainAmount>0 && typeof calcLevain==='function'){ const comp=calcLevain(Math.round(r.levainAmount*sc));
+      [['L-starter',comp.starter],['L-flour',comp.flour],['L-water',comp.water]].forEach(([k,v])=>{ if(v>0){ total[k]=(total[k]||0)+v; perProd[p.productId].ings[k]=(perProd[p.productId].ings[k]||0)+v; } }); }
   });
   return {total, perProd};
 }
@@ -221,12 +224,29 @@ function renderGF2(){
   const money=n=>(n||0).toFixed(2)+' lej';
   const fmt=(g)=>(typeof fmtQtyUnit==='function')?fmtQtyUnit(g,'g'):(g>=1000?(g/1000).toFixed(2)+' kg':Math.round(g)+' g');
 
-  // --- LEVAIN ---
-  const lev=_gf2Levain();
-  const levCard = lev>0 ? `<div style="background:${GFC.tealPale};border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
-    <i class="ti ti-microscope" style="font-size:26px;color:${GFC.teal}"></i>
-    <div style="flex:1"><div style="font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:${GFC.tealDark}">Levain a napra</div>
-    <div style="font-size:13px;color:${GFC.textSoft}">Készíts elő összesen <b style="color:${GFC.tealDark}">${fmt(lev)}</b> kész levaint (előző nap).</div></div></div>` : '';
+  // --- LEVAIN (termékenként + összetétel + visszaadagolás) ---
+  const fmtL=(g)=>(g>=1000?(g/1000).toFixed(2)+' kg':Math.round(g)+' g');
+  const levItems=_gf.products.map(p=>{ const r=_gf2Recipe(p.productId); const q=_gfTotal(p); if(!r||!(r.levainAmount>0)||!q)return null;
+    const sc=(typeof calcScaleFactor==='function')?calcScaleFactor(r,q):q; const amt=Math.round(r.levainAmount*sc);
+    const comp=(typeof calcLevain==='function')?calcLevain(amt):{starter:0,flour:0,water:0};
+    const refill=(typeof calcRefill==='function')?calcRefill(comp.starter):{flour:0,water:0};
+    return {name:p.name, amt, comp, refill};
+  }).filter(Boolean);
+  let levCard='';
+  if(levItems.length){
+    const tot=levItems.reduce((a,x)=>({amt:a.amt+x.amt, st:a.st+x.comp.starter, fl:a.fl+x.comp.flour, wa:a.wa+x.comp.water, rfl:a.rfl+x.refill.flour, rwa:a.rwa+x.refill.water}),{amt:0,st:0,fl:0,wa:0,rfl:0,rwa:0});
+    levCard=`<div style="background:${GFC.tealPale};border-radius:14px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-microscope" style="font-size:22px;color:${GFC.teal}"></i><span style="font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:${GFC.tealDark}">Levain előkészítés (előző nap)</span></div>
+      ${levItems.map(x=>`<div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:${GFC.tealDark};margin-bottom:4px"><span>${esc(x.name)}</span><span>${fmtL(x.amt)} levain</span></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:${GFC.textSoft}">
+          <span>🫙 őskovász: <b>${fmtL(x.comp.starter)}</b></span><span>🌾 liszt: <b>${fmtL(x.comp.flour)}</b></span><span>💧 víz: <b>${fmtL(x.comp.water)}</b></span>
+        </div>
+        <div style="font-size:12px;color:${GFC.goldDark};margin-top:4px">↩ visszaadagolás az őskovászba: liszt <b>${fmtL(x.refill.flour)}</b> + víz <b>${fmtL(x.refill.water)}</b></div>
+      </div>`).join('')}
+      <div style="border-top:1px solid ${GFC.border};margin-top:8px;padding-top:8px;font-size:13px;color:${GFC.tealDark}"><b>Összesen:</b> ${fmtL(tot.amt)} levain (őskovász ${fmtL(tot.st)} · liszt ${fmtL(tot.fl)} · víz ${fmtL(tot.wa)}) · visszaadagolás: liszt ${fmtL(tot.rfl)} + víz ${fmtL(tot.rwa)}</div>
+    </div>`;
+  }
 
   // --- BATCHEK ---
   const ovens=_gfBatchesOvens();
@@ -260,7 +280,7 @@ function renderGF2(){
   const tab=_gf.gf2tab||'total';
   const tabBtn=(id,lbl)=>`<button onclick="gfGf2Tab('${id}')" style="border:none;border-radius:8px;padding:8px 16px;font-family:'Kodchasan',sans-serif;font-size:13px;cursor:pointer;background:${tab===id?GFC.teal:'transparent'};color:${tab===id?'#fff':GFC.textSoft};font-weight:${tab===id?'700':'400'}">${lbl}</button>`;
   let checklistBody='';
-  const ingName=id=>{const ing=(typeof getIng==='function')?getIng(+id):null; return ing?ing.name:'#'+id;};
+  const ingName=id=>{ if(id==='L-starter')return 'Levain — őskovász'; if(id==='L-flour')return 'Levain — liszt'; if(id==='L-water')return 'Levain — víz'; const ing=(typeof getIng==='function')?getIng(+id):null; return ing?ing.name:'#'+id;};
   if(Object.keys(total).length===0){ checklistBody=`<p style="font-size:13px;color:${GFC.textSoft};padding:8px 0">Nincs mit kiadagolni — a termékeknek nincs kész receptjük.</p>`; }
   else if(tab==='byprod'){
     checklistBody=Object.values(perProd).filter(pp=>Object.keys(pp.ings).length).map(pp=>`<div style="margin-bottom:12px"><div style="font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:${GFC.tealDark};margin-bottom:4px">${esc(pp.name)}</div>${Object.entries(pp.ings).map(([id,g])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid ${GFC.border};font-size:13px"><span>${esc(ingName(id))}</span><span style="font-weight:600">${fmt(g)}</span></div>`).join('')}</div>`).join('');
@@ -290,6 +310,19 @@ function _gf3Steps(b){ const out=[]; const seen=new Set();
     (r.steps||[]).forEach(st=>out.push({recipe:r.name, title:st.title, desc:st.desc, timer:st.timer}));
     if(r.bakeMin||r.bakeTempC) out.push({recipe:r.name, title:'Sütés', desc:`${r.bakeTempC?r.bakeTempC+' °C':''}${r.bakeMin?(r.bakeTempC?', ':'')+r.bakeMin+' perc':''}`, timer:r.bakeMin});
   }); return out;
+}
+function _gf3RecipeCard(pid, qty){
+  const p=_gf.products.find(x=>x.productId===pid); const r=p?(R.recipes||[]).find(x=>x.id===p.recipeId):null;
+  if(!r) return `<div style="font-size:12px;color:${GFC.textSoft};padding:6px 8px">${esc(p?.name||'?')} — nincs recept</div>`;
+  const sc=(typeof calcScaleFactor==='function')?calcScaleFactor(r,qty):qty;
+  const ings=[...(r.dryIngredients||[]),...(r.otherDryIngredients||[]),...(r.wetIngredients||[]),...(r.starterIngredients||[])];
+  const ingHtml=ings.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${esc(i.name)}</span><span style="color:${GFC.tealDark};font-weight:600">${Math.round((i.amount||0)*sc)} g</span></div>`).join('')||`<span style="font-size:12px;color:${GFC.textSoft}">nincs összetevő</span>`;
+  const steps=(r.steps||[]).map((st,k)=>`<div style="font-size:12px;padding:4px 0;border-top:0.5px solid ${GFC.border}"><b>${k+1}.</b> ${esc(st.title||'')} ${st.timer?`<span style="color:${GFC.teal}">⏱ ${st.timer}p</span>`:''}<br><span style="color:${GFC.textSoft}">${esc(st.desc||'')}</span></div>`).join('');
+  return `<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px;color:${GFC.tealDark};font-weight:600;padding:6px 4px;list-style:none">▸ ${esc(r.name)} ×${qty} — recept + folyamat</summary>
+    <div style="padding:10px 12px;background:${GFC.cream};border-radius:10px;margin-top:4px">
+      <div style="font-size:11px;color:${GFC.textSoft};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Összetevők (${qty} db-ra)</div>${ingHtml}
+      ${steps?`<div style="font-size:11px;color:${GFC.textSoft};text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 3px">Folyamat</div>${steps}`:''}
+    </div></details>`;
 }
 function gfStartBake(bid){ _gf.bakingBatch=bid; _gf.stepIdx=0; renderGF3(); }
 function gfStepPrev(){ if(_gf.stepIdx>0)_gf.stepIdx--; _gfStopTimer(); renderGF3(); }
@@ -349,7 +382,8 @@ function renderGF3(){
         <div style="flex:1"><div style="font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:${GFC.tealDark}">${esc(oven?.name||'?')}</div><div style="font-size:13px;color:${GFC.textSoft}">${prods}${bakeMin?` · ${bakeMin} perc`:''}</div></div>
         ${done?`<span style="background:${GFC.tealPale};color:${GFC.tealDark};padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700">Kész</span>`
           :`<button onclick="gfStartBake(${b.id})" style="background:${GFC.teal};color:#fff;border:none;border-radius:12px;padding:${big?'13px 20px':'11px 16px'};font-family:'Kodchasan',sans-serif;font-size:${big?'15px':'14px'};font-weight:700;cursor:pointer"><i class="ti ti-player-play" style="vertical-align:-3px"></i> Sütés indítása</button>`}
-      </div></div>`;
+      </div>
+      <div style="margin-top:8px">${b.items.map(it=>_gf3RecipeCard(it.productId,it.qty)).join('')}</div></div>`;
   }).join('');
   const allDone=batches.every(b=>_gf.doneBatches&&_gf.doneBatches[b.id]);
   host.innerHTML=`<div style="font-size:13px;color:${GFC.textSoft};margin-bottom:10px">${batches.length} batch · ${_gfDayLabelFull(_gf.day)}</div>${cards}
