@@ -13,7 +13,7 @@ async function getProductionStats(fromStr, toStr) {
   const priceForRecipe = rid => { const r=recipeOf(rid); const p=r&&r.product_id?cache.find(x=>x.id===r.product_id):null; return Number(p?.price)||0; };
 
   const s = {
-    ordered_planned:0, baked:0, extra_sale:0, extra_internal:0, extra_marketing:0, experimental:0,
+    ordered_planned:0, baked:0, extra_sale:0, extra_internal:0, extra_marketing:0, extra_waste:0, experimental:0,
     waste:0, ingCost:0, energyKwh:0, bakeMinutesSum:0, batchCount:0, trayFillSum:0, trayFillN:0,
     revenue:0, byRecipe:{}, days:new Set()
   };
@@ -28,7 +28,7 @@ async function getProductionStats(fromStr, toStr) {
       s.revenue += act*priceForRecipe(rid); }
     else if(l.log_type==='extra'){ const a=l.allocation||'sale';
       if(a==='sale'){ s.extra_sale+=act; s.revenue += act*priceForRecipe(rid); }
-      else if(a==='internal') s.extra_internal+=act; else if(a==='marketing') s.extra_marketing+=act; }
+      else if(a==='internal') s.extra_internal+=act; else if(a==='marketing') s.extra_marketing+=act; else if(a==='waste') s.extra_waste+=act; }
     else if(l.log_type==='experimental'){ s.experimental+=act; }
     // batch KPI-ok (csak ahol van batch-adat)
     if(l.bake_minutes!=null){ s.bakeMinutesSum += Number(l.bake_minutes)||0; s.batchCount++; }
@@ -37,10 +37,11 @@ async function getProductionStats(fromStr, toStr) {
     if(l.total_cost!=null) s.ingCost += Number(l.total_cost)||0;
   });
   // KPI-ok
-  const totalExtra = s.extra_sale+s.extra_internal+s.extra_marketing;
+  const totalExtra = s.extra_sale+s.extra_internal+s.extra_marketing+s.extra_waste;
   s.kpi = {
     fulfillment: s.ordered_planned>0 ? Math.round(s.baked/s.ordered_planned*100) : 0,
     wasteRate: (s.ordered_planned)>0 ? Math.round(s.waste/s.ordered_planned*100) : 0,
+    wastePieces: s.extra_waste,
     extraUtil: totalExtra>0 ? Math.round(s.extra_sale/totalExtra*100) : 0,
     avgOvenFill: s.trayFillN>0 ? Math.round(s.trayFillSum/s.trayFillN*100) : null,
     avgBakeMin: s.batchCount>0 ? Math.round(s.bakeMinutesSum/s.batchCount) : null,
@@ -78,8 +79,8 @@ async function renderProductionStats(range){
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       ${kpiCard('Sütött', s.baked+' db', 'rendelt: '+s.ordered_planned)}
       ${kpiCard('Teljesítés', k.fulfillment+'%')}
-      ${kpiCard('Selejt', s.waste+' db', k.wasteRate+'%')}
-      ${kpiCard('Extra', (s.extra_sale+s.extra_internal+s.extra_marketing)+' db', '🛒'+s.extra_sale+' 🏠'+s.extra_internal+' 🎁'+s.extra_marketing)}
+      ${kpiCard('Selejt', (s.waste+s.extra_waste)+' db', 'sütési '+s.waste+' + kidobott '+s.extra_waste)}
+      ${kpiCard('Extra', (s.extra_sale+s.extra_internal+s.extra_marketing)+' db', '🛒'+s.extra_sale+' 🏠'+s.extra_internal+' 🎁'+s.extra_marketing+(s.extra_waste?' 🗑'+s.extra_waste:''))}
       ${kpiCard('Kísérleti', s.experimental+' db')}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">

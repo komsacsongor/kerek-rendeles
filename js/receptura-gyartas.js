@@ -105,12 +105,12 @@ function _gfDaySelector(){
   </div>`;
 }
 
-function renderGFPhase(){ if(_gf.phase===1) renderGF1(); else if(_gf.phase===2) renderGF2(); else if(_gf.phase===3) renderGF3(); else document.getElementById('gf-phase').innerHTML=
+function renderGFPhase(){ if(_gf.phase===1) renderGF1(); else if(_gf.phase===2) renderGF2(); else if(_gf.phase===3) renderGF3(); else if(_gf.phase===4) renderGF4(); else document.getElementById('gf-phase').innerHTML=
   `<div style="text-align:center;padding:40px;color:${GFC.textSoft}"><i class="ti ti-tools" style="font-size:32px"></i><p>A ${_gf.phase}. fázis épül — hamarosan.</p></div>`; }
 
 function gfMonthNav(delta){ let m=_gf.month.month+delta, y=_gf.month.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} _gf.month={year:y,month:m}; renderGyartasFlow(); }
 function gfSetMonth(y,m){ _gf.month={year:y,month:m}; renderGyartasFlow(); }
-function gfSetDay(v){ _gf.day=v; _gf.loaded=false; renderGyartasFlow(); }
+function gfSetDay(v){ _gf.day=v; _gf.loaded=false; _gf.ordersLoaded=false; _gf.batches=[]; _gf.alloc={}; _gf.doneBatches={}; renderGyartasFlow(); }
 function gfSetView(v){ _gf.view=v; renderGyartasFlow(); }
 function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ toast('Van recept nélküli termék a listában — előbb rendezd, mielőtt sütnél.',true); return; } _gf.phase=n; renderGyartasFlow(); }
 function gfChangeExtra(pid,delta){ const p=_gf.products.find(x=>x.productId===pid); if(p){ p.extra=Math.max(-(p.ordered),(p.extra||0)+delta); renderGF1(); } }
@@ -358,4 +358,88 @@ function renderGF3(){
     </div>`;
 }
 
-if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,gfAddBatch,gfSetActiveBatch,gfRemoveBatch,gfAssignToBatch,gfBatchQty,gfGf2Tab,gfStartBake,gfStepPrev,gfStepNext,gfBatchDone,gfStartTimer,_gf});
+
+// ---------- FÁZIS 4: Lezárás (teljesítés + allokálás + selejt + zárás) ----------
+async function _gf4LoadOrders(){
+  const [y,m0,dd]=_gf.day.split('-').map(Number); const m=m0-1;
+  let orders=[], clients=[];
+  try{ orders=await sb.query('orders',{filter:`year=eq.${y}&month=eq.${m}&day=eq.${dd}`,limit:5000})||[]; }catch(e){}
+  try{ clients=await sb.query('clients',{select:'id,name',limit:2000})||[]; }catch(e){}
+  const cname=id=>{const c=clients.find(x=>x.id===id);return c?c.name:'—';};
+  const byProd={}; orders.forEach(o=>{ (byProd[o.product_id]=byProd[o.product_id]||[]).push({client:cname(o.client_id), qty:o.quantity}); });
+  _gf.orderDetail=byProd; _gf.ordersLoaded=true;
+}
+function _gf4Baked(p){ // amit lesütöttünk: a batchekbe osztott mennyiség, vagy ha nincs batch, a total
+  const placed=(_gf.batches||[]).reduce((n,b)=>n+b.items.filter(i=>i.productId===p.productId).reduce((m,i)=>m+i.qty,0),0);
+  return placed>0?placed:_gfTotal(p);
+}
+function _gf4Alloc(pid){ if(!_gf.alloc)_gf.alloc={}; if(!_gf.alloc[pid])_gf.alloc[pid]={sale:0,internal:0,marketing:0,waste:0}; return _gf.alloc[pid]; }
+function gfAllocChange(pid,key,delta){ const a=_gf4Alloc(pid); a[key]=Math.max(0,(a[key]||0)+delta); renderGF4(); }
+
+async function renderGF4(){
+  const host=document.getElementById('gf-phase'); if(!host) return;
+  const big=_big();
+  if(!_gf.ordersLoaded){ host.innerHTML=`<p style="color:${GFC.textSoft}">Betöltés…</p>`; await _gf4LoadOrders(); }
+
+  const cards=_gf.products.map(p=>{
+    const baked=_gf4Baked(p), ordered=p.ordered||0;
+    const surplus=Math.max(0,baked-ordered);
+    const a=_gf4Alloc(p.productId); const allocSum=(a.sale||0)+(a.internal||0)+(a.marketing||0)+(a.waste||0);
+    const det=(_gf.orderDetail&&_gf.orderDetail[p.productId])||[];
+    const custRows=det.length?det.map(d=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:${GFC.textSoft}"><span>${esc(d.client)}</span><span>${d.qty} db</span></div>`).join(''):`<div style="font-size:12px;color:${GFC.textSoft}">nincs vevői rendelés</div>`;
+    const step=(key,lbl,icon,col)=>`<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:10px;padding:${big?'9px 12px':'7px 10px'}">
+      <i class="ti ${icon}" style="font-size:${big?'20px':'18px'};color:${col}"></i><span style="flex:1;font-size:${big?'14px':'13px'}">${lbl}</span>
+      <button onclick="gfAllocChange(${p.productId},'${key}',-1)" style="width:${big?'34px':'28px'};height:${big?'34px':'28px'};border:1px solid ${GFC.border};border-radius:8px;background:#fff;cursor:pointer;font-size:16px">−</button>
+      <span style="min-width:26px;text-align:center;font-weight:700;color:${key==='waste'?GFC.danger:GFC.tealDark}">${a[key]||0}</span>
+      <button onclick="gfAllocChange(${p.productId},'${key}',1)" style="width:${big?'34px':'28px'};height:${big?'34px':'28px'};border:1px solid ${GFC.border};border-radius:8px;background:#fff;cursor:pointer;font-size:16px">+</button></div>`;
+    const allocBox=surplus>0?`<div style="background:${GFC.bgSoft};border-radius:12px;padding:10px;margin-top:10px">
+      <div style="font-size:12px;color:${GFC.textSoft};margin-bottom:8px">Felesleg: <b style="color:${GFC.tealDark}">${surplus} db</b> — oszd szét:</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${step('sale','Extra eladás','ti-shopping-cart',GFC.teal)}${step('internal','Belső fogyasztás','ti-home',GFC.tealMid)}${step('marketing','Marketing (kóstoló)','ti-gift',GFC.gold)}${step('waste','Selejt','ti-trash',GFC.danger)}</div>
+      <div style="margin-top:8px;padding:7px 10px;border-radius:8px;background:${allocSum===surplus?GFC.tealPale:'#fdecea'};font-size:12px;color:${allocSum===surplus?GFC.tealDark:GFC.danger};display:flex;justify-content:space-between"><span>Szétosztva: <b>${allocSum} / ${surplus}</b></span><span>${allocSum===surplus?'<i class="ti ti-check" style="vertical-align:-2px"></i> kész':(allocSum<surplus?(surplus-allocSum)+' db még':'túl sok!')}</span></div>
+    </div>`:'';
+    return `<div style="background:${GFC.cream};border:1px solid ${GFC.border};border-radius:16px;padding:${big?'16px':'13px'};margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-family:'Fraunces',serif;font-size:${big?'17px':'15px'};font-weight:600;color:${GFC.tealDark}">${esc(p.name)}</div><div style="font-size:13px;color:${GFC.textSoft}">sütve: <b style="color:${GFC.tealDark}">${baked}</b> · rendelt: ${ordered}</div></div>
+      <div style="margin:8px 0 4px"><div style="font-size:12px;color:${GFC.textSoft};margin-bottom:2px">Rendelésekhez (${Math.min(baked,ordered)} db):</div>${custRows}</div>
+      ${allocBox}</div>`;
+  }).join('') || `<p style="color:${GFC.textSoft}">Nincs termék.</p>`;
+
+  // ellenőrzés: minden felesleg szét van-e osztva
+  const allAllocated=_gf.products.every(p=>{ const s=Math.max(0,_gf4Baked(p)-(p.ordered||0)); const a=_gf4Alloc(p.productId); return ((a.sale||0)+(a.internal||0)+(a.marketing||0)+(a.waste||0))===s; });
+
+  host.innerHTML=`
+    <div style="font-size:13px;color:${GFC.textSoft};margin-bottom:10px">${_gfDayLabelFull(_gf.day)} · zárd le a napot</div>
+    ${cards}
+    <div id="gf4-closed"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button onclick="gfGoPhase(3)" style="flex:0 0 auto;padding:${big?'16px 20px':'13px 18px'};background:#fff;color:${GFC.tealDark};border:1.5px solid ${GFC.border};border-radius:14px;cursor:pointer;font-family:'Kodchasan',sans-serif"><i class="ti ti-arrow-left"></i> Vissza</button>
+      <button onclick="gfCloseDay()" ${allAllocated?'':'disabled'} style="flex:1;padding:${big?'16px':'13px'};background:${allAllocated?GFC.gold:GFC.border};color:${GFC.text};border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${allAllocated?'pointer':'not-allowed'}"><i class="ti ti-lock-check" style="vertical-align:-3px"></i> ${allAllocated?'Nap lezárása → napló + statisztika':'Oszd szét a felesleget mindenhol'}</button>
+    </div>`;
+}
+
+async function gfCloseDay(){
+  const btn=event&&event.target; if(btn)btn.disabled=true;
+  const now=_gf.day; // a SÜTÉSI napra rögzítünk
+  let ok=0, err=0;
+  for(const p of _gf.products){
+    const r=(R.recipes||[]).find(x=>x.id===p.recipeId); if(!r){continue;}
+    const baked=_gf4Baked(p), ordered=p.ordered||0; const a=_gf4Alloc(p.productId);
+    // batch-adat az elsődleges batchből (KPI-hoz)
+    const b=(_gf.batches||[]).find(bb=>bb.items.some(i=>i.productId===p.productId));
+    const oven_id=b?b.ovenId:null; const bake_minutes=Number(r.bakeMin)||null;
+    // 'order' log — teljesítés
+    if(ordered>0){ try{ await kData.insert('production_logs',{date:now,log_type:'order',recipe_id:r.id,pieces_planned:ordered,pieces_actual:Math.min(baked,ordered),oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow'}); ok++; }catch(e){err++;} }
+    // extra/allokálás logok
+    for(const [key,val] of Object.entries({sale:a.sale,internal:a.internal,marketing:a.marketing,waste:a.waste})){
+      if(val>0){ try{ await kData.insert('production_logs',{date:now,log_type:'extra',recipe_id:r.id,pieces_planned:val,pieces_actual:val,allocation:key,oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow · '+key}); ok++; }catch(e){err++;} }
+    }
+  }
+  _gf.doneBatches=_gf.doneBatches||{}; (_gf.batches||[]).forEach(b=>_gf.doneBatches[b.id]=true);
+  const el=document.getElementById('gf4-closed');
+  if(el) el.innerHTML=`<div style="background:${GFC.tealPale};border-radius:14px;padding:16px;margin:12px 0;text-align:center">
+    <i class="ti ti-circle-check" style="font-size:34px;color:${GFC.teal}"></i>
+    <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:${GFC.tealDark};margin:6px 0">Nap lezárva ✓</div>
+    <div style="font-size:13px;color:${GFC.textSoft}">${ok} tétel rögzítve a naplóba${err?` · ${err} hiba`:''}. A statisztikában (Elemzés → Sütési statisztika) megjelenik.</div></div>`;
+  toast('Nap lezárva — '+ok+' tétel a naplóba.');
+}
+
+if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,gfAddBatch,gfSetActiveBatch,gfRemoveBatch,gfAssignToBatch,gfBatchQty,gfGf2Tab,gfStartBake,gfStepPrev,gfStepNext,gfBatchDone,gfStartTimer,gfAllocChange,gfCloseDay,_gf});
