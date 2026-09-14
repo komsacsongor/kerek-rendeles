@@ -89,8 +89,8 @@ function _gfDaySelector(){
   const md=_gfMonthDays(year,month);
   const chips = md.length ? md.map(d=>{ const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const on=ds===_gf.day; const dow=new Date(year,month,d).getDay();
-    return `<button onclick="gfSetDay('${ds}')" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:8px 14px;border:1.5px solid ${on?GFC.teal:GFC.border};border-radius:14px;cursor:pointer;background:${on?GFC.teal:'#fff'};color:${on?'#fff':GFC.tealDark};font-family:'Kodchasan',sans-serif;min-width:52px">
-      <span style="font-size:11px;opacity:0.8">${GF_D[dow]}</span><span style="font-size:17px;font-weight:700">${d}</span></button>`;
+    return `<button onclick="gfSetDay('${ds}')" style="display:inline-flex;flex-direction:column;align-items:center;gap:0;padding:5px 9px;border:1.5px solid ${on?GFC.teal:GFC.border};border-radius:10px;cursor:pointer;background:${on?GFC.teal:'#fff'};color:${on?'#fff':GFC.tealDark};font-family:'Kodchasan',sans-serif;min-width:38px">
+      <span style="font-size:10px;opacity:0.8">${GF_D[dow]}</span><span style="font-size:14px;font-weight:700">${d}</span></button>`;
   }).join('') : `<span style="font-size:0.85rem;color:${GFC.textSoft}">Nincs sütési nap ebben a hónapban.</span>`;
   return `<div style="background:${GFC.cream};border:1px solid ${GFC.border};border-radius:14px;padding:12px">
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px">
@@ -112,11 +112,11 @@ function gfMonthNav(delta){ let m=_gf.month.month+delta, y=_gf.month.year; if(m<
 function gfSetMonth(y,m){ _gf.month={year:y,month:m}; renderGyartasFlow(); }
 function gfSetDay(v){ _gf.day=v; _gf.loaded=false; _gf.ordersLoaded=false; _gf.batches=[]; _gf.alloc={}; _gf.doneBatches={}; renderGyartasFlow(); }
 function gfSetView(v){ _gf.view=v; renderGyartasFlow(); }
-function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ toast('Van recept nélküli termék a listában — előbb rendezd, mielőtt sütnél.',true); return; } _gf.phase=n; renderGyartasFlow(); }
+function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ toast('Legalább egy receptes (süthető) termék kell a továbblépéshez.',true); return; } _gf.phase=n; renderGyartasFlow(); }
 function gfChangeExtra(pid,delta){ const p=_gf.products.find(x=>x.productId===pid); if(p){ p.extra=Math.max(-(p.ordered),(p.extra||0)+delta); renderGF1(); } }
 function gfSetExtra(pid,val){ const p=_gf.products.find(x=>x.productId===pid); if(p){ p.extra=Math.max(-(p.ordered),parseInt(val)||0); renderGF1(); } }
 function gfRemoveProduct(pid){ _gf.products=_gf.products.filter(x=>x.productId!==pid); renderGF1(); }
-function _gfCanBake(){ return _gf.products.length>0 && _gf.products.every(p=>p.hasRecipe) && _gf.products.some(p=>_gfTotal(p)>0); }
+function _gfCanBake(){ return _gf.products.some(p=>p.hasRecipe && _gfTotal(p)>0); }
 
 // ---------- FÁZIS 1 ----------
 async function renderGF1(){
@@ -176,14 +176,15 @@ async function renderGF1(){
   </div>`;
 
   const blocked = !_gfCanBake();
-  const blockMsg = (_gf.products.some(p=>!p.hasRecipe)) ? `<div style="background:#fdecea;border:1px solid ${GFC.danger};border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:${GFC.danger}"><i class="ti ti-alert-circle" style="vertical-align:-2px"></i> Van recept nélküli termék (piros keret). Amíg nincs kész receptje, nem lehet továbblépni a sütéshez.</div>` : '';
+  const hasNoRec=_gf.products.some(p=>!p.hasRecipe);
+  const blockMsg = hasNoRec ? `<div style="background:#fff7ed;border:1px solid ${GFC.gold};border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:${GFC.goldDark}"><i class="ti ti-alert-triangle" style="vertical-align:-2px"></i> Van recept nélküli termék (piros keret) — ezek <b>kimaradnak a sütésből</b>, amíg nincs kész receptjük. A többivel tovább lehet lépni.</div>` : '';
 
   host.innerHTML=`
     <div style="display:flex;flex-direction:column;gap:${big?'10px':'8px'};margin-bottom:14px">${rows}</div>
     ${pickerList}
     ${stockCard}
     ${blockMsg}
-    <button onclick="gfGoPhase(2)" ${blocked?'disabled':''} style="width:100%;padding:${big?'16px':'13px'};background:${blocked?GFC.border:GFC.teal};color:#fff;border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${blocked?'not-allowed':'pointer'}">Kész — tovább az előkészítéshez <i class="ti ti-arrow-right" style="vertical-align:-3px"></i></button>`;
+    <button onclick="gfGoPhase(2)" ${blocked?'disabled':''} style="width:100%;padding:${big?'16px':'13px'};background:${blocked?GFC.border:GFC.teal};color:#fff;border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${blocked?'not-allowed':'pointer'}" title="${blocked?'Legalább egy süthető (receptes) termék kell':''}">${blocked?'Adj legalább egy receptes terméket':'Kész — tovább az előkészítéshez'} <i class="ti ti-arrow-right" style="vertical-align:-3px"></i></button>`;
 }
 
 function gfAddProduct(pid){ const p=_gfMakeProd(pid,0,1); _gf.products.push(p); _gf.pickerOpen=false; _gf.pickerSearch=''; renderGF1(); }
