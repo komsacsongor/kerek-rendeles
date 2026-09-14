@@ -112,7 +112,7 @@ function gfMonthNav(delta){ let m=_gf.month.month+delta, y=_gf.month.year; if(m<
 function gfSetMonth(y,m){ _gf.month={year:y,month:m}; renderGyartasFlow(); }
 function gfSetDay(v){ _gf.day=v; _gf.loaded=false; _gf.ordersLoaded=false; _gf.batches=[]; _gf.alloc={}; _gf.doneBatches={}; renderGyartasFlow(); }
 function gfSetView(v){ _gf.view=v; renderGyartasFlow(); }
-function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ toast('Legalább egy receptes (süthető) termék kell a továbblépéshez.',true); return; } _gf.phase=n; renderGyartasFlow(); }
+function gfGoPhase(n){ if(n>1 && !_gfCanBake()){ if(!confirm('Nincs süthető (receptes) termék a listában — a következő fázisok üresek lesznek. Tovább mégis (pl. teszteléshez)?')) return; } _gf.phase=n; renderGyartasFlow(); }
 function gfChangeExtra(pid,delta){ const p=_gf.products.find(x=>x.productId===pid); if(p){ p.extra=Math.max(-(p.ordered),(p.extra||0)+delta); renderGF1(); } }
 function gfSetExtra(pid,val){ const p=_gf.products.find(x=>x.productId===pid); if(p){ p.extra=Math.max(-(p.ordered),parseInt(val)||0); renderGF1(); } }
 function gfRemoveProduct(pid){ _gf.products=_gf.products.filter(x=>x.productId!==pid); renderGF1(); }
@@ -175,7 +175,7 @@ async function renderGF1(){
         : `<div style="font-size:13px;color:${GFC.textSoft}">A kiválasztott mennyiségekhez van elég készlet mindenből.</div>`)}
   </div>`;
 
-  const blocked = !_gfCanBake();
+  const blocked = false; const _nothingBakeable = !_gfCanBake();
   const hasNoRec=_gf.products.some(p=>!p.hasRecipe);
   const blockMsg = hasNoRec ? `<div style="background:#fff7ed;border:1px solid ${GFC.gold};border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:${GFC.goldDark}"><i class="ti ti-alert-triangle" style="vertical-align:-2px"></i> Van recept nélküli termék (piros keret) — ezek <b>kimaradnak a sütésből</b>, amíg nincs kész receptjük. A többivel tovább lehet lépni.</div>` : '';
 
