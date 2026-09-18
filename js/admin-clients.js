@@ -45,7 +45,7 @@ function _clientCard(cl) {
     <div class="client-card-head">
       <div class="client-avatar">${initials}</div>
       <div>
-        <div class="client-name">${displayName}</div>
+        <div class="client-name">${displayName}${cl.is_admin?' <span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:8px;font-size:0.66rem;font-weight:700;margin-left:4px">👑 Admin</span>':''}</div>
         <div class="client-meta">Kód: <b>${cl.id}</b></div>
         <div class="client-meta" style="margin-top:2px">📅 Kliens: ${cl.joinDate ? new Date(cl.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
       </div>
@@ -56,8 +56,9 @@ function _clientCard(cl) {
       <div class="client-stat"><span>📦 Összes rendelés</span><span class="bold">${totalQty} db</span></div>
       <div class="client-stat"><span>💰 Összes forgalom</span><span style="color:var(--gold-dark);font-weight:700">${totalRev} lej</span></div>
     </div>
-    <div style="padding:10px 16px;display:flex;gap:8px">
+    <div style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${cl.id}')">Adatlap</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleClientAdmin('${cl.id}')" title="Admin jog: bármikor rendelhet, a 18:00 zárás nem korlátozza" style="${cl.is_admin?'border-color:var(--gold);color:var(--gold-dark)':''}">${cl.is_admin?'👑 Admin ✓':'👑 Admin jog'}</button>
       <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();${deleteFn}">${deleteLabel}</button>
     </div>
   </div>`;
@@ -275,3 +276,16 @@ async function approveClient(clientId) {
     if(typeof updatePendingBadge==='function') updatePendingBadge();
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
+
+// v2.53.134: admin-jog kapcsoló a vevőnek (a 18:00 rendelési zárás alóli kivétel)
+async function toggleClientAdmin(id){
+  const cl = D.clients.find(c => c.id === id); if(!cl) return;
+  const nv = !cl.is_admin;
+  const msg = nv
+    ? 'Admin jogot adsz "'+(cl.name||id)+'" vevőnek?\n\nBármikor rendelhet — a 18:00 rendelési zárás nem korlátozza.'
+    : 'Elveszed az admin jogot "'+(cl.name||id)+'" vevőtől?\n\nA 18:00 rendelési zárás újra érvényes lesz rá.';
+  if(!(await confirmDialog(msg))) return;
+  try { await sb.update('clients', { is_admin: nv }, 'id=eq.'+id); cl.is_admin = nv; renderClients(); toast(nv?'👑 Admin jog megadva.':'Admin jog levéve.'); }
+  catch(e){ toast('⚠️ Hiba: '+e.message, true); }
+}
+if(typeof window!=='undefined') window.toggleClientAdmin = toggleClientAdmin;

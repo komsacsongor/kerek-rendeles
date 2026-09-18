@@ -107,8 +107,11 @@ function renderProductPivot() {
 
   // Check if any baking day is within 24h
   const urgentDay = allDays.find(d => isBakingDay(d) && hoursUntil(d) >= 0 && hoursUntil(d) < 24);
-  if (urgentDay) checkDeadline(urgentDay.getDate());
+  const _adminUser = !!(typeof currentUser !== 'undefined' && currentUser && currentUser.is_admin);
+  if (urgentDay && !_adminUser) checkDeadline(urgentDay.getDate());
   else document.getElementById('deadline-notice').classList.remove('show');
+  if (_adminUser) { const dn=document.getElementById('deadline-notice'), dt=document.getElementById('deadline-text');
+    if(dn&&dt){ dt.textContent='👑 Admin — a rendelési határidő nem korlátoz, bármelyik napra rendelhetsz.'; dn.classList.add('show'); try{dn.style.background='#ecfdf5';dn.style.color='#065f46';}catch(e){} } }
 
   if (prods.length === 0) {
     container.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-soft)">Erre a hónapra még nincs aktív terméklista.</div>';
@@ -202,7 +205,8 @@ function renderProductPivot() {
       const hoursLeft = hoursUntil(d);
       const stDeadline = orderSt.deadline ? new Date(orderSt.deadline) : null;
       const dlLeft = stDeadline ? (stDeadline - new Date()) / 36e5 : null;
-      const isLocked = dlLeft !== null ? dlLeft <= 0 : defaultDeadlinePassed(d);
+      const _isAdminUser = !!(typeof currentUser !== 'undefined' && currentUser && currentUser.is_admin);
+      const isLocked = _isAdminUser ? false : (dlLeft !== null ? dlLeft <= 0 : defaultDeadlinePassed(d));
       const stStatus = orderSt.status || '';
       const disabled = isPast || isLocked || stStatus === 'cancelled' || stStatus === 'fulfilled';
       const stIcon = stStatus === 'fulfilled' ? '🎉' : stStatus === 'confirmed' ? '✅' : stStatus === 'modified' ? '✏️' : stStatus === 'cancelled' ? '❌' : stStatus === 'pending' ? '⏳' : '';
