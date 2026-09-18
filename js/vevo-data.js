@@ -195,7 +195,7 @@ async function doLogin() {
     ]);
 
     if(clients?.length) {
-      appData.clients = clients.map(c=>({id:c.id,name:c.name,email:c.email||'',phone:c.phone||''}));
+      appData.clients = clients.map(c=>({id:c.id,name:c.name,email:c.email||'',phone:c.phone||'',is_admin:!!c.is_admin}));
     }
     if(products?.length) {
       appData.products = products.map(p=>({
