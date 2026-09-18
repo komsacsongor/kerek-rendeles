@@ -388,7 +388,8 @@ function renderMobileOrderCards() {
     const mobOrderSt = (appData.orderStatus && appData.orderStatus[key]) || {};
     const mobDeadline = mobOrderSt.deadline ? new Date(mobOrderSt.deadline) : null;
     const mobDeadlineLeft = mobDeadline ? (mobDeadline - new Date()) / 36e5 : null;
-    const isLocked = mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : defaultDeadlinePassed(d);
+    const _mobIsAdmin = !!(typeof currentUser !== 'undefined' && currentUser && currentUser.is_admin);
+    const isLocked = _mobIsAdmin ? false : (mobDeadlineLeft !== null ? mobDeadlineLeft <= 0 : defaultDeadlinePassed(d));
     const rowOrders = appData.orders[key] || {};
     const rowTotal = Object.values(rowOrders).reduce((a,b)=>a+b,0);
     const rowVal = Object.entries(rowOrders).reduce((acc,[pid,q])=>{ const p=appData.products.find(p=>p.id==pid); return acc+(p?p.price*q:0); },0);
