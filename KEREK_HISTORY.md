@@ -5,7 +5,7 @@
 > - Egy nehéz bug-pattern reprodukálásához kell referencia
 > - Részletes feature-tervezés kell (M0-S6 backlog)
 >
-> Az aktív session-kontextus → `KEREK_SKILL.md`.
+> Az aktív session-kontextus → `KEREK_SKILL.md`. Félbeszakadt állapot → `KEREK_ATADAS.md`.
 
 ---
 
@@ -34,11 +34,10 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.46.0** ⭐ | 2026-06-12 | **Auto-zárás 18:00**: `auto-confirm-orders` EF + vevő-push, `auto-confirm-cron.yml` (`0 16 * * *` UTC) |
 | **v2.47.x** | 2026-06-12 | **P1 sütési log**: per-recept rendelt vs sütött (`production_logs` order/extra/experimental), 📒 napló + per-rendelő checklist; recept-leírás dropdown az Üzemi nézetben |
 | **v2.48.x** ⭐ | 2026-06-12 | **Modul-jelszó kezelő**: admin UI + `admin-set-password` EF + `admin-auth` modul-param, receptúra biztonságos login; admin jelszó-bugfix (settings→admin_secrets); edge-deploy auto-felismerés; P1 önellenőrzés fixek (PostgREST AND, helyi dátum) |
-| **v2.49.x** | 2026-06-18 | **M0 natív mértékegység**: alapanyagonként `unit` (g/kg/ml/l/db), bázis-tárolás g/db, pontos ×1000 váltás; egység-választó modal, megjelenítés/bevételezés/ár-szerkesztő/CSV egységben; `\${}` backslash-bug fix a stock-ban |
-| **v2.50.0** ⭐ | 2026-06-18 | **SEC Fázis 1 (suppliers pilot)**: `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist) + `kData` kliens-helper; receptúra suppliers EF mögé; `suppliers` anon-lezárva; EF CORS `apikey` fix; CI: push-trigger eltávolítva + deploy-loop fail-fast |
-| **v2.51.0** | 2026-06-18 | **Recept↔termék ár/törlés szinkron**: `products.price` az egyetlen igazság-forrás (saveRecipe beolvassa az ár-mezőt, modal a linkelt termék árát tölti, meglévő ár megőrződik, dup-check linkelést ajánl, törlés feloldja a product_id-t névből) — *staging-only, validálatlan* |
-| **v2.52.0** | 2026-06-18 | **Másodlagos mértékegység**: alapanyagonként opcionális `alt_unit`/`alt_factor`; `recipeAmountToGrams` egység-tudatos aggregáció (db→g) — *staging-only, validálatlan* |
-| **v2.53.x** ⭐ | 2026-06-22..23 | **PUSH RENDSZER TELJES JAVÍTÁS (prodon élesben)**: a push SOHA nem ment — két gyökérok: (1) `dynamic-service` nem-szabványos HKDF → újraírva RFC 8291 `aes128gcm` + RFC 8292 VAPID; (2) EF CORS `Allow-Headers` hiányos (`authorization`) → "Failed to fetch". + env-aware VAPID kulcs (prod=eredeti `BKnbS6hp` ép pár, staging=új `BAuR41Vy`, mert az eredeti privát visszanyerhetetlen) + env-routing (`PUSH_FN_URL`/`PUSH_ANON`/broadcast-lekérés `/staging/` detektálással) + admin „Teszt értesítés" gomb + logó badge/ikon (Asset_93x, a forrásbeli jobb-széli sáv-artefakt levágva) + SW auto-update (`reg.update()`+`controllerchange` reload). **Szelektív merge**: csak a push ment prodra (v2.51/v2.52 stagingen maradt). Mellékes bugfixek: PGRST102 (orders `o.qty`→`o.quantity` + uniform-key payload), visszautasítás-utáni újrarendelés (`cancelled`→`pending`), `checkout@v5` (Node 24) |
+| **v2.49-2.52** | 2026-07..08 | M0 mértékegység (unit/alt_unit/alt_factor), AI recept-import robusztus párosító (`_matchIngredientByName`), termékcsalád (kiszerelés- vs gyártási-variáns), batch-alapú gyártás alapok — részletek `git log` |
+| **v2.53.x** ⭐ | 2026-09 | **Gyártás 4-fázisú napi flow** (`receptura-gyartas.js`: Mit sütök ma? → Előkészítés+levain+batch → Sütés vezetett → Lezárás+selejt), Üzemi/PC nézet, KEREK-arculat; **admin-jogú vevő** (`clients.is_admin`, 18:00 zárás bypass mindkét nézetben); 3-szintű statisztika |
+| **v2.54.0** | 2026-09-25 | **Számla-bevételező AI operátor** (`receptura-invoice.js`) — bundle-ből pusholva stagingre 2026-09-26 |
+| **v2.54.1** ⭐ | 2026-09-29 | **Audit-javítások (A+B)**: auto-confirm lapozás + fulfilled-védelem; gyártás-flow „Nap lezárása" FIFO-levonással + fulfilled + dupla-lezárás védelem; közös sütés-lezárási segédek; vevő „összes törlése" csak módosítható napokra; polling-leképezés egységesítve; számla-operátor javítások; SQL-ek a `db/`-be; `CLAUDE.md` |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 
@@ -85,9 +84,12 @@ A gyártás-nap egységes **„production run" 3 forrásból** — minden ami s�
 A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végrehajtási artefaktum, nem recept-tervezés). A recept-leírás **dropdown** az Üzemi nézetben — új kolléga lássa a folyamatot, ha kell.
 
 - **P1 (kész, staging):** sütési log — per-recept rendelt vs sütött (`production_logs`: order/extra/experimental), per-rendelő checklist (a **jövőbeli kiszállítás alapja**). NINCS DB-séma változás (meglévő mezők + a checklist a rendelésekből származik).
-- **P2 (tervezett):** `gyartas.html` különálló tablet-app a mai sütőnap rendeléseivel, lépésenkénti végrehajtással, rögzítés-munka-közben; a meglévő `receptura-production.js`/`operational.js` logikát újrahasznosítja.
+- **P2 (megvalósult másképp, v2.53):** a különálló tablet-app helyett a napi 4-fázisú vezetett flow a `receptura.html`-ben (`receptura-gyartas.js`), Üzemi/PC nézet-váltóval.
 
 **Benchmark (Cybake ISB)** igazolta a víziót: kollégáknak „mit kell ma sütni" + lépés-checklist gyártási tételenként; zárt mesteradatok; a bizonyíték a munka melléktermékeként rögzül (minimal-click capture).
+
+### Számla-bevételező operátor (v2.54.0, tervezés)
+**Miért FIFO rétegek + tétel-visszakövethetőség**: gluténmentes termék → allergén/visszahívás miatt kell tudni, melyik beszállítói tétel ment melyik sütésbe (a fogyasztás `batch_id`-vel rögzít). **Landed cost súly szerint, érték-fallback**: a szállítás/járulékos költség a nyersanyag-árba épül (IAS 2 / román OMFP: a beszerzési ár tartalmazza a szállítást), súly-arányosan, ahol nincs súly ott érték szerint. **Nettó árak** (ÁFA levonható). **Deviza BNR** hivatalos árfolyammal, automata lekéréssel (a batch ára lejben). **Kérdezési UX**: nem chat, hanem áttekintő képernyő státuszokkal (✅ biztos / 🆕 új / ❓ hiányos) + inline javítás — a felhasználó csak a bizonytalanokat rendezi, egy véglegesítés.
 
 ---
 
@@ -169,20 +171,28 @@ A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végr
 - Ok: a `admin` jelszó Have I Been Pwned-ban szerepel, Chrome ezért megtagadja a mentést
 - Fix: `navigator.credentials.store()` hívás eltávolítása, KEREK saját localStorage marad
 
-### EF CORS Allow-Headers ≠ kliens-fejlécek → "Failed to fetch" (v2.50.0)
-- Tünet: a `kData`→`admin-data` hívás "Failed to fetch", a lista csendben üres (try/catch elnyeli)
-- Ok: a `kData` `apikey` fejlécet is küld (a `sb`-t tükrözve), de az EF CORS `Allow-Headers`-e csak `content-type, authorization` volt → a böngésző **preflight (OPTIONS)** elbukott
-- Fix: minden kliens-fejléc legyen az `Allow-Headers`-ben (`+ apikey`). Tanulság: új EF-nél a CORS-fejlécek fedjék a tényleges kliens-fejléceket
+---
 
-### Deploy-loop maszkolja a hibát (v2.50.0)
-- Tünet: EF-deploy job "success", pedig egy függvény deploy elbukott (e-mail "exit code 1")
-- Ok: `for ... do supabase functions deploy ...; done` — a step exit-kódja az UTOLSÓ parancsé, így a loop közepi hiba elveszett
-- Fix: fail-fast — hibás függvényeket gyűjteni és a végén `exit 1`. (Node 20→24 forcing csak warning, NEM hibaok — a sikeres futásokon is ott van.)
+### PostgREST ~1000 sor / kérés (v2.54.1 audit)
+- Tünet: az `auto-confirm-orders` EF egy `select()`-tel olvasta az ÖSSZES rendelést — 1000 sor fölött a többi sosem záródott le
+- Fix: év/hónap-szűkítés + `.range()` lapozás stabil rendezéssel. **Tanulság**: EF-ben/nagy táblán soha ne „egy lekérés = minden”.
 
-### Mező betöltve, de mentéskor nem visszaolvasva (v2.51.0, recept ár)
-- Tünet: a recept ár-mező módosítása nem hatott, mentés `suggestedPrice`-szal írta felül a `products.price`-t
-- Ok: `saveRecipe` a `data`-ba NEM olvasta be az `r-product-price`-t → `data.productPrice` undefined → `|| suggestedPrice` mindig a javasoltat vette
-- Fix: mező visszaolvasása; ár csak megadáskor íródik, üresnél meglévő ár megőrződik. Tanulság: ha egy mezőt betöltünk, ellenőrizni kell, hogy mentéskor vissza is olvasódik-e
+### Két párhuzamos folyamat szétcsúszása (v2.54.1 audit)
+- Tünet: az új gyártás-flow „Nap lezárása" nem vont le készletet, nem állított fulfilled-et, önköltség 0 — a régi „Sütés elvégezve" igen
+- Ok: az új flow saját kóddal épült, a régi logikát nem hívta
+- Fix: KÖZÖS segédek (`addRecipeNeeds`, `fifoDeductNeeds`, `hasStockDeductionForDate`, `markDaysFulfilled`), mindkét belépési pont ezeket hívja; napi 1 'customer' log = dupla-levonás védelem
+
+### Polling más leképezéssel, mint az első betöltés (v2.54.1 audit)
+- Tünet: 30 mp után eltűnt a csomagméret/bruttó ár, 2000 tétel fölött csonka készlet
+- Fix: egy `mapBatchRow` + `recomputeIngredientStock`, ugyanaz a lekérés (limit, rendezés)
+
+### Állapot-mutáció megerősítés ELŐTT (v2.54.1 audit)
+- Tünet: „Mégse" után újrakattintva az extra sütés alapanyaga duplán vonódott le
+- Ok: a `window._lastProductionNeeds` objektumot a megerősítő ablak előtt módosította
+- Fix: másolaton dolgozik. **Tanulság**: megerősítés előtt csak lokális másolatot építs.
+
+### Titok a publikus repóban (2026-09-29)
+- Egy GitHub PAT a `package.json` repository URL-jében volt (és a git-történetben marad) → eltávolítva, visszavonandó. **Tanulság**: publikus repóba soha semmilyen titok.
 
 ---
 
@@ -214,40 +224,6 @@ Ezek **léteznek de üresek** — a kód képes velük dolgozni, NE töröld ők
 
 Prioritás: **M0/M1** (must-have) → **S2-S6** (új session) → **B1-B6** (backlog) → **L1-L8** (long-term)
 
-### 🔴 M0 — Mértékegység támogatás (SÜRGŐS)
-
-**Probléma**: minden alapanyag g-ban tárolva (`qty_remaining_g`, `min_stock_g`). Valóságban: liszt kg, tej L, tojás db, élesztő csomag. **Felhasználói panasz**: "A bevételezéskor megadott mennyiséget kell hoznia a végén."
-
-**M0.1 — DB séma** (felhasználó futtatja SQL Editorban):
-```sql
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name='ingredients' AND column_name='unit') THEN
-    ALTER TABLE ingredients ADD COLUMN unit TEXT DEFAULT 'g';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name='ingredients' AND column_name='unit_to_g_ratio') THEN
-    ALTER TABLE ingredients ADD COLUMN unit_to_g_ratio NUMERIC DEFAULT 1;
-  END IF;
-END $$;
-```
-Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány gramm 1 unit (kg → 1000, tojás → 60g, stb.).
-
-**M0.2 — UI**:
-- Alapanyag modal: unit dropdown + ha `db`/`csomag`, "1 egység = X g" mező
-- Bevételezés modal: mennyiség + unit-lock
-- Bevásárló lista: ajánlott mennyiség az adott unit-ban (5 kg, NEM 5000 g)
-- Stock kijelzés: szintén unit-ban
-
-**M0.3 — Belső**: `qty_remaining_g` MARAD g-ban (recept-kompatibilitás). Bevétel: `qty_g = input_qty * unit_to_g_ratio`. Recipe ingredients: g-ban.
-
-**M0.4 — fmtQty(grams, unit, ratio)** új signature. Clipboard: "Liszt: 25 kg", "Tojás: 30 db".
-
-**M0.5 — Backward compat**: meglévő 37 alapanyag default `unit='g'` marad.
-
-**Becsült méret**: ~400 sor új JS + DB migration + UI módosítás — egy nagy session vagy két kisebb.
-
 ### 🟡 M1 — Bevásárló lista folytatás
 
 - **M1.1** Persistent shopping overrides — `shopping_overrides` tábla, page reload után megmaradnak, "💾 Mentés" gomb
@@ -256,19 +232,27 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 - **M1.4** Akció/promóció — `ingredient_promotions` tábla, "+20% boost" jelölés
 - **M1.5** Multi-format export — CSV, PDF, WhatsApp deep-link, mailto
 
+**Üzleti érték**: a bevásárlás gyors és teljes legyen — ne maradjon „gazdátlan" alapanyag, és a lista egy kattintással a beszállítóhoz továbbítható. Kevesebb manuális gépelés, kevesebb kifelejtett tétel.
+
+> ✅ **M0 mértékegység — KÉSZ** (v2.49-2.52, `unit`/`alt_unit`/`alt_factor`).
+
 ### 🟢 S2 — Bevásárló lista v3 (EOQ + MOQ)
 
-- **EOQ**: `EOQ = sqrt(2 * D * S / H)` képlet
-- **MOQ** beszállítónként
+- **EOQ**: `EOQ = sqrt(2 * D * S / H)` képlet — az a rendelési méret, ami minimálja a rendelési (S) + tárolási (H) költséget adott kereslet (D) mellett
+- **MOQ** beszállítónként (minimum rendelési mennyiség)
 - **Multi-supplier**: új tábla `ingredient_supplier (priority, moq, lead_days, price_per_unit, last_purchase_date)`
 - Beszerzési költség-kalkulátor (lej/kg rangsorolás)
+
+**Üzleti érték**: nem *mit*, hanem *mennyit és kitől* optimálisan — kevesebb lekötött tőke a raktárban, kevesebb kifogyás, a legjobb forrás automatikus ajánlása.
 
 ### 🟢 S4 — Malom fermentáció state machine
 
 - Folyamat: `pending` → `in_progress` → `completed` → `dried`
-- Dashboard widget: "Folyamatban lévő fermentációk"
-- Auto-learning yield refinement
+- Dashboard widget: "Folyamatban lévő fermentációk" (mi érik most, mikorra kész)
+- Auto-learning yield refinement (a tényleges input→output arányból finomítja a hozamot)
 - Recipe-specific yield: +66% nyersanyag bevásárló listán ha yield 60%
+
+**Üzleti érték**: a saját malom/kovász-fermentáció követhetővé válik — tudod, mikor kész egy tétel és mennyi nyersanyag kell valójában (a hozam beépül a bevásárlásba). Stratégiailag fontos a saját malom miatt.
 
 ### 🟢 S5-S6 — Kísérleti sütés v2 (verziókezelés)
 
@@ -277,6 +261,16 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 - Side-by-side recept diff
 - Lineage map (fa-szerkezet)
 - Promote workflow: experimental → active csak ≥3 sütés + ≥4 csillag átlag
+
+**Üzleti érték**: rendszeres, adatolt receptfejlesztés — variánsokat próbálsz, értékeled, a nyertest élesíted, a történet (leszármazás) megmarad. A fejlesztés nem fejben zajlik.
+
+### 🟢 Kiszállítás / Átvétel (a sütési logból)
+
+**Állapot**: az alap KÉSZ — a gyártás Lezárás (Phase 4) már összeállítja a **per-rendelő checklistet** (ki mit rendelt a sütési napra, mennyi sült). Csak a cselekvés-réteg hiányzik.
+
+**Amit hozzáad**: a napi listából **rendelőnkénti átadó-lista** összekészítve, **státusszal** (rendelt → sütött → **átadva/kiszállítva**). Elemei: átvétel vs kiszállítás jelölés; kiszállításnál útvonal-sorrend; „átadva" pipa rendelőnként; kapcsolat a **fizetési állapottal** (U4) — az átadás a természetes fizetési pont.
+
+**Üzleti érték**: ez a **hiányzó utolsó láncszem**. A kör most `rendelés → gyártás → fulfilled (sütött)`-nél véget ér; a kiszállítás/átvétel zárná be `→ átadva → fizetve`-ig. Az alap megvan, ezért olcsó ráépíteni — **a legérettebb következő lépés**.
 
 ### 🟢 B1-B6 — Backlog
 
@@ -297,27 +291,12 @@ Megengedett unit: `g`, `kg`, `L`, `ml`, `db`, `csomag`. `unit_to_g_ratio`: hány
 
 | Feladat | Prioritás |
 |---|---|
-| U4 Fizetési állapot tracking | Közepes |
+| U4 Fizetési állapot tracking (a Kiszállítással összeér) | Közepes |
 | U3 Napi kapacitás limit | Közepes |
 | DB reset demo-vevők (élesítés előtt) | ⏳ Felhasználói |
-| P2 különálló gyártás app (`gyartas.html`, tablet) — P1 után | 🟡 |
-| Kiszállítás a sütési logból | 🟢 Jövő |
 | Valódi e-mail értesítés (reg. kód) | Középtáv |
 
-**✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
-
-### ✅ Recept↔termék szinkron — JAVÍTVA v2.51.0 (ellenőrzés alatt)
-Gyökérok volt: a modal a `recipes.product_price`-t kezelte, az admin a `products.price`-t; ráadásul `saveRecipe` nem is olvasta be az ár-mezőt → minden mentés `suggestedPrice`-szal írta felül. Megoldás: **`products.price` az egyetlen igazság-forrás** — (1) saveRecipe beolvassa az ár-mezőt; (2) modal a linkelt termék árát tölti (névfeloldás fallback); (3) ár csak megadáskor íródik, meglévő termék ára megőrződik; (4) dup-check linkelést ajánl blokkolás helyett; (5) törlés feloldja a `product_id`-t névből, ha hiányzik. + egyszeri migrációs SQL: legacy receptek `product_id` linkelése névegyezésből.
-
-### 🔒 Biztonsági lockdown (SEC) — folyamatban
-- **Fázis 1 (suppliers pilot) — kész (prod ellenőrzés alatt):** `admin-data` EF (authentikált PostgREST-proxy, service_role, modul-jelszó + tábla/metódus whitelist), a receptúra suppliers-hívásai EF-re terelve, `suppliers` anon-lezárva (RLS). Minta a többi admin/receptúra-only táblához.
-- **Hátra:** Fázis 1 kiterjesztése (recipes/IP, ingredients, gyártás stb. EF mögé) → Fázis 2 vevő-PII (`clients`/`orders`/`messages`) `client-data` EF-fel → Fázis 3 katalógus. Részletek: `SECURITY_AUDIT.md`.
-
-### ⏳ Ellenőrzésre vár (felhasználói teszt + SQL)
-- **SEC Fázis 1 PROD:** beszállító felvétele (EF-úton), majd lezáró SQL a prod Supabase-en (`ALTER TABLE suppliers ENABLE RLS` + `REVOKE anon`), Advisor ERROR eltűnés.
-- **v2.51.0 recept-szinkron STAGING:** migrációs SQL futtatása + a 6 pontos teszt-lista; utána prodra (merge + Pages + migráció prodon).
-- **v2.52.0 egység 2a STAGING:** `ALTER TABLE ingredients ADD alt_unit/alt_factor` + teszt (Tojás L db+ml/70, recept tömeg/nedvesség/költség). v2.51-gyel együtt mehet prodra.
-- **Node 20→24 deprecation:** `actions/checkout@v4`, `supabase/setup-cli@v1` action-verziók bumpja (warning, nem sürgős; csak deploy-teszttel együtt).
+**✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48) · M0 mértékegység (v2.49-52) · Gyártás napi flow (v2.53) · Admin-jogú vevő (v2.53) · Számla-operátor (v2.54, unpushed)
 
 ---
 
@@ -391,6 +370,14 @@ A staging branch push **failure**-t adott (hibás e-mail), mert a `github-pages`
 ### v2.44.2 scope-szűkítés tévedés
 Próbáltam `scope: ./vevo`-ra szűkíteni a vevő manifest-et — a Chrome strict spec-validáció miatt INVALID lett. **Tanulság**: scope-szűkítés CSAK directory-szegmensre (slash-szel végződő) működik, részfájl-prefix NEM elég.
 
+### 2026-09-25 Push-engedély elavulás webes session-ben (proxy)  🔴
+- **Tünet**: `git push` a `kerek-rendeles`-re → **403 a CCR proxynál** („not in this session's authorized repository set"), MÉG a régi működő PAT-tal is.
+- **Ok**: a **Claude Code on the web** környezetben a GitHub-hitelesítés egy proxyn megy, ami **session-önként** engedélyez repót. A **Claude GitHub App 2026-09-24-i telepítése** (a tudástár-összekapcsolási kísérletkor) átállította a hitelesítési hátteret PAT-ról App-alapúra; a **korábbi (2026-09-05 óta futó) session push-engedélye elavult**.
+- **Diagnózis lépések (reprodukció)**: `curl "$HTTPS_PROXY/__agentproxy/status"`; `GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push` → a 403 a `git-receive-pack` info/refs kérésnél, a proxytól (issuer „CCR Upstream Proxy CA"), a GitHub el sem éri. Fetch/olvasás megy (publikus repo, névtelen). A history-ban a régi push PAT-tal, URL-be ágyazva ment (`https://ghp_…@github.com/…`).
+- **Amit NEM old meg**: token-visszaállítás (a valódi PAT-tal is 403 — a proxy repo szerint tilt); GitHub App átállítás (már „All repositories", read+write — a GitHub oldal rendben); sandbox-beli trükk (a `github.com` a proxyn megy, nem kerülhető meg).
+- **Fix**: friss, a repóra engedélyezett Claude Code on the web task (az új App-engedéllyel indul), VAGY a commitot bundle-ből pushold a saját gépedről. A félbeszakadt v2.54.0-ra: `KEREK_ATADAS.md`.
+- **Tanulság**: ha egy futó webes session-ben menet közben települ/átáll a GitHub App, a session push-engedélye elavulhat. A token soha nem a megoldás a proxy-repo-tiltásra; a `KEREK_SKILL.md` §4/§10 token-push recept csak engedélyezett session-ben érvényes.
+
 ---
 
 ## 8. Brand assets referencia
@@ -408,6 +395,25 @@ PWA Admin ikon:    icon-admin-192.png / icon-admin-512.png (gold pöttyök)
 
 ---
 
+## 9. 2026-09 session-ök részletei (v2.53–v2.54)
+
+### Gyártás 4-fázisú napi flow (v2.53.117-133)
+- Új modul `js/receptura-gyartas.js` — a lapos fülsáv helyett **hangsúlyos számozott stepper** (a folyamat a főszereplő), Üzemi/PC nézet-váltó, KEREK-arculat (Fraunces/Kodchasan, teal/arany).
+- **Fázis 1 „Mit sütök ma?"**: nap-választó chipek + app-stílusú hónap-nav (nem dropdown); rendelt (fix) + extra stepper + „= total"; keresős/kategória-szűrős plusz-termék; nyersanyag-ellenőrzés MINDIG látszik; recept nélküli termék blokkolja a továbblépést, de megerősítéssel feloldható.
+- **Fázis 2 „Előkészítés"**: levain termékenkénti bontás (őskovász/liszt/víz + visszaadagolás `calcRefill`); batch-beállítás sütő-fotó kártyákkal, kapacitás-sáv + valós költség (kW × idő × áram), batch-on-batch; kiadagolás-checklist két füllel (Raktárból totál / Termékenként).
+- **Fázis 3 „Sütés"**: batch-összegző kártyák → „Sütés indítása" → vezetett lépések (recept folyamat + időzítő + haladás-sáv) → „batch kész"; kinyitható recept-kártyák a beállított mennyiségre skálázva.
+- **Fázis 4 „Lezárás"**: teljesítés + vevőnév-megfeleltetés + felesleg DARABONKÉNTI allokálása (eladás/belső/marketing/**selejt**) összeg-ellenőrzéssel → `production_logs` a sütési napra, batch-adattal. Selejt a statisztikában.
+- Transzparencia: a fő recept-lista CSAK komplett recepteket mutat; a hiányos/recept nélküli termékek külön szekcióban (⚠️), kattintva kiegészítésre nyílnak.
+
+### Admin-jogú vevő (v2.53.134-136)
+- `clients.is_admin` (SQL már lefuttatva PROD+STAGING). Az admin-jogú vevő a **18:00 rendelési zárás alól kivétel** — bármikor rendelhet, a rendszer fogadja. Több admin lehet; admin UI-ban 👑 jog-kapcsoló + badge.
+- **Bug-fix tanulság**: az `is_admin` kimaradt a vevő `clients`-leképezéséből (`{id,name,email,phone}`) → pótolva; és a **mobil nézetnek külön `isLocked`-ja volt** admin-bypass nélkül → a vevő mobilt használ, ezért MINDKÉT nézetben (pivot + mobil) kell a bypass.
+
+### Számla-operátor (v2.54.0) — lásd §2 döntés + KEREK_ATADAS.md
+Meglévő infra újrahasznosítva: FIFO `ingredient_batches` (bevétel+fogyasztás batch_id-vel), `suppliers` + ANAF CUI-lekérdezés, AI multi-provider (`aiParseRecipe` minta) + `_matchIngredientByName`. Új: `receptura-invoice.js`, pdf.js (helyi), `bnr-rates` EF, SQL (invoice_number/currency/fx_rate). **UNPUSHED** (push-blokk, §7). Groq gpt-oss csak szöveg → szkennelt/fotóhoz vision modell kell.
+
+---
+
 ## 📎 Frissítés
 
 Ez a fájl akkor frissítendő, ha:
@@ -421,6 +427,7 @@ Ez a fájl akkor frissítendő, ha:
 - A git commit message már elég részletes
 
 A versenytárs-források:
+- **`KEREK_ATADAS.md`**: félbeszakadt állapot / átadás — ELŐBB ezt
 - **`KEREK_SKILL.md`**: kötelező olvasmány minden session-induláskor
 - **`KEREK_HISTORY.md`** (ez a fájl): opcionális, csak szükség esetén
 - `git log --oneline`: a teljes, autoritatív történet

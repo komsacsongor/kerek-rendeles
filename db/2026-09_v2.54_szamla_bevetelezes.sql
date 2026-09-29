@@ -16,3 +16,10 @@ CREATE INDEX IF NOT EXISTS idx_ing_batches_invoice_no
 
 -- Megjegyzés: a tábla már létezik, ezért új GRANT nem szükséges —
 -- az oszlop-jogosultságok a tábla-szintű GRANT-ból öröklődnek.
+
+NOTIFY pgrst, 'reload schema';
+
+-- ELLENŐRZÉS: 3 sort kell adnia
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_schema='public' AND table_name='ingredient_batches'
+  AND column_name IN ('invoice_number','currency','fx_rate');

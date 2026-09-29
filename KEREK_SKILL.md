@@ -1,12 +1,14 @@
 ---
 name: kerek-workflow
-description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Aktuális verzió v2.53.11 (push prodon élesben; v2.51/v2.52 staging-only). Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
+description: KEREK pékség rendeléskezelő — fejlesztési kontextus. GitHub komsacsongor/kerek-rendeles, Supabase lfaxeihrmiylggahougl.supabase.co, Hosting komsacsongor.github.io/kerek-rendeles. Állapot 2026-09-29: prod v2.53.94, staging v2.54.1. ELŐBB: CLAUDE.md + KEREK_ATADAS.md. Esszencia: szabályok, antipattern-ek, modulok, táblák. Részletes történet → KEREK_HISTORY.md.
 ---
 
 # KEREK – Fejlesztési Skill (lean)
 
 > **Cél**: minimális induló kontextus AI-szám. Bug-pattern-ek, projekt-konvenciók, infrastruktúra.
 > Részletes történet, decision rationale és roadmap: lásd **KEREK_HISTORY.md** (külön fájl).
+
+> **2026-09-29:** a munka Claude Code on the web-ben folyik (felhő-session, a repó automatikusan klónozva). Session-indítás és push-szabályok: `CLAUDE.md`. Aktuális állapot / folytatás: `KEREK_ATADAS.md`. A korábbi push-blokk (2026-09-25) megoldódott.
 
 ---
 
@@ -59,29 +61,29 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Szolgáltatás | Adat |
 |---|---|
 | GitHub | komsacsongor/kerek-rendeles (publikus) |
-| Token | **Claude memóriában: `KEREK GitHub token`** (ghp_l1v3N73...) |
+| Push | Claude Code on the web: a session git-proxyja hitelesít — **token NEM kell, és NE is legyen a repóban** (publikus!) |
 | Supabase prod | lfaxeihrmiylggahougl.supabase.co |
 | Supabase staging | xgcwxlwjlohzbzpcapnw.supabase.co |
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Aktuális verzió** | **v2.53.11 (2026-06-23)** — prod push élesben; v2.51/v2.52 staging-only |
+| **Verzió (prod / staging)** | **v2.53.94 / v2.54.1** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
-⚠️ Token NE legyen a SKILL.md-ben (push-blokk a secret-detektor miatt). Claude memóriából vedd.
+⚠️ **Titok (token, API-kulcs, jelszó) SOHA ne kerüljön a repóba** — a repó publikus. 2026-09-29: egy PAT a `package.json`-ban volt → eltávolítva; a tulajdonosnak vissza kell vonnia.
+⚠️ Push 403 („not in this session's authorized repository set") = a session nincs a repóra engedélyezve → új, a repóra engedélyezett session kell; token nem oldja meg.
 
 ---
 
 ## 4. Minden session elején (KÖTELEZŐ)
 
 ```bash
-TOKEN="[Claude memóriából: KEREK GitHub token]"
-cd /home/claude && rm -rf kerek-rendeles && git clone "https://${TOKEN}@github.com/komsacsongor/kerek-rendeles.git"
-cd kerek-rendeles && git config user.email "kerek@deploy.bot" && git config user.name "KEREK Deploy"
-git checkout staging                    # ⚠️ staging-first
-git log --oneline | head -20            # ⚠️ már megcsinált feature?
+git fetch origin && git checkout -B <session-ág> origin/staging   # ⚠️ staging-first
+git log --oneline -20                                             # ⚠️ már megcsinált feature?
 npm install && npx jest --no-coverage
 ```
+
+A felhő-session ELDOBHATÓ: ami nincs pusholva, a session végén elvész (így veszett el majdnem a v2.54.0). Minden lezárt munkaegység → push.
 
 **Mielőtt új feature-höz tervezet írok**:
 ```bash
@@ -102,44 +104,42 @@ Indok: session-compactation után a régi tanulság elveszhet, de a git megőrzi
 
 **Belépési adatok dev/demo**:
 - Admin + Receptúra: `admin`
-- Demo vevők: `KER-WVGR-ZFPT` (Csongor), `KER-PQ88-PP5F` (Andrea), `KER-X9JY-Y8AP` (Réka)
+- Demo vevők: `KER-WVGR-ZFPT` (Csongor, **admin-jogú vevő** — v2.53.134, bármikor rendelhet a 18:00 zárás után is), `KER-PQ88-PP5F` (Andrea), `KER-X9JY-Y8AP` (Réka)
 
 ---
 
-## 6. Fájlstruktúra (funkció → fájl térkép)
+## 6. Fájlstruktúra
 
 ```
-index.html · admin.html · vevo.html · receptura.html · register.html
-manifest.json (Vevő PWA) · manifest-admin.json (Admin PWA)
-sw.js (network-first, Supabase kizárva) · supabase.js · kerek-constants.js · kerek-styles.css
+index.html, admin.html, vevo.html, receptura.html, register.html
+manifest.json (Vevő PWA)          manifest-admin.json (Admin PWA)
+sw.js (network-first, Supabase kizárva)
+supabase.js                       kerek-constants.js  kerek-styles.css
 
-── ADMIN (admin.html, 13 modul) ──────────────────────────────
-admin-data.js         → D state, loadAllData(), doLogin(), initApp(), realtime
-admin-ui.js           → nav()/RENDERS/VIEW_TITLES, selectMonth(), badge-ek
-admin-baking.js       → Sütési lista + naptár + „Sütési tervezés" nézet (bpTab/renderBakingPlan/renderBpMonths), confirmDay(), toggleCalDay()
-admin-catalog.js      → Termékek: lista, modal+kép, kód-generálás, saveProduct, családok, archívum, switchCatalogTab
-admin-catalog-plan.js → Havi terv MÁTRIX (per-sütinap elérhetőség: renderMonthPlan, plan*) + termék-visszavonás/override (openWithdrawDialog, wd*)
-admin-orders.js       → renderOrders() összesítő, CSV export
-admin-reports.js      → Elemzések: kimutatások + kategória-bontás (renderReports→renderCategories)
-admin-clients.js      → kliensek, approveClient()/deleteClient()
-admin-messages.js     → üzenetek, msg-badge
-admin-settings.js · admin-data-audit.js · admin-push.js · admin-help.js
+js/admin-data.js          → D, loadAllData(), doLogin(), initApp()
+js/admin-ui.js            → nav(), RENDERS, updatePendingBadge()
+js/admin-baking.js        → sütési naptár, confirmDay(), statusBadge()
+js/admin-orders.js        → renderOrders(), CSV export
+js/admin-catalog.js       → saveProduct(), renderFamilies()
+js/admin-clients.js       → _clientCard(), approveClient(), deleteClient(), toggleClientAdmin() (👑 admin-jog)
+js/admin-messages.js      → renderMessages(), updateMsgBadge()
+js/admin-reports.js, admin-settings.js, admin-help.js, admin-data-audit.js
 
-── VEVŐ (vevo.html, 7 modul) ─────────────────────────────────
-vevo-data.js          → appData, doLogin() (3 mód), initApp()
-vevo-ui.js            → hónap-választók, termék-modal
-vevo-orders-render.js → rendelési pivot/nézet (per-sütinap szűrés)
-vevo-orders-actions.js→ saveOrder() mentés
-vevo-orders-extras.js · vevo-standing.js (állandó rendelés) · vevo-analytics.js
+js/receptura-data.js      → R, initApp()
+js/receptura-ui.js        → nav(), calcScaleFactor(), getFifoPrice()
+js/receptura-recipes.js, modal.js, ai.js, stock.js, production.js,
+  processing.js, levain.js, operational.js, shopping.js, settings.js, help.js,
+  ing-cats.js, masterdata.js, suppliers.js, equipment.js, costhelp.js
+js/receptura-gyartas.js   → napi 4-fázisú gyártás flow (v2.53.125+): renderGyartasFlow(), GF1-4
+js/receptura-batch.js     → batch-tervező, ovenCapacityPieces
+js/receptura-stats.js     → getProductionStats(), 3-szintű analitika
+js/receptura-invoice.js   → 🧾 Számla-bevételező operátor (v2.54.0, staging): renderInvoiceIntake(), aiParseInvoice(), invCommit()
+js/lib/pdf.min.js + pdf.worker.min.js → pdfjs v3 UMD (számla PDF)
 
-── RECEPTÚRA (receptura.html, 17 modul) ──────────────────────
-receptura-data.js (R, initApp) · ui.js (calcScaleFactor, getFifoPrice) · recipes.js · production.js · processing.js
-receptura-ai.js · suppliers.js · stock.js · shopping.js · ingredients.js · ing-cats.js · recipe-cats.js
-receptura-levain.js · settings.js · modal.js · operational.js · help.js
-
-── MEGOSZTOTT ────────────────────────────────────────────────
-kerek-constants.js    → APP_VERSION, konstansok, közös helperek (getBakingDays, getOrderKey, isProductAvailableOnDay, MONTHS…)
-kerek-styles.css · sw.js · supabase.js
+js/vevo-data.js           → appData, doLogin() (3 mód), initApp()
+js/vevo-ui.js             → buildMonthSelectors(), showProductModal()
+js/vevo-orders.js         → renderOrderTable(), renderMobileOrderCards()
+js/vevo-analytics.js, vevo-orders-render/actions/extras.js
 ```
 
 ---
@@ -147,9 +147,10 @@ kerek-styles.css · sw.js · supabase.js
 ## 7. Supabase aktív táblák
 
 ```
-clients:           id, name, email, phone, note, join_date, created_at
+clients:           id, name, email, phone, note, is_admin, join_date, created_at
                    ⚠️ active oszlop NEM LÉTEZIK — soft delete prefix-szel
                    ⚠️ note (egyes szám!) — NEM 'notes'
+                   is_admin (v2.53.134): admin-jogú vevő, a 18:00 zárás alól kivétel; több is lehet
                    Pending:  name = '[PENDING] Valaki'
                    Deleted:  name = '[DELETED] Valaki'
 
@@ -173,15 +174,23 @@ ingredients:       id, name, category, sub_type,
                    min_stock_override_g, max_stock_override_g,
                    lead_time_days, order_cycle_days, safety_factor,
                    price_per_g, base_price_per_g, material_type, family_id,
+                   unit, alt_unit, alt_factor, preferred_supplier_id,
                    created_at, auto_updated_at
                    ⚠️ suppliers oszlop NEM LÉTEZIK (kliens-state derived)
                    ⚠️ min_stock_g (rövid név) NEM LÉTEZIK
-                   ⚠️ unit, unit_to_g_ratio MÉG NEM LÉTEZIK (M0 backlog)
 
 ingredient_batches: id, ingredient_id, received_date, qty_received_g,
                     qty_remaining_g, price_per_g, price_gross_per_unit,
                     package_size_g, supplier_name, source_type,
                     processing_id, invoice_ref, notes, created_at
+                    v2.54.0: invoice_number, currency, fx_rate — db/2026-09_v2.54_szamla_bevetelezes.sql (PROD+STAGING)
+                       — kerek_szamla_bevetelezes.sql PROD+STAGING
+
+suppliers:         id, name, brand, contact_person, email, phone, notes, cui, reg_com,
+                   is_vat_payer, address, judet, localitate, bank_name, bank_iban,
+                   currency, vat_included, payment_terms_days, min_order_value,
+                   shipping_cost, free_shipping_above, default_discount_pct, active
+                   ANAF CUI-lekérdezés: anaf-lookup EF
 
 orders:            id, client_id, year, month, day, product_id, quantity, updated_at
 order_status:      client_id, year, month, day, status, admin_note, deadline,
@@ -193,11 +202,14 @@ audit_log:         id, action, entity_name, details, created_at
 push_subscriptions: client_id, endpoint, p256dh, auth, created_at
 admin_secrets:     key (PK), value, updated_at — szigorú RLS, csak service_role ír/olvas
                    Kulcsok: admin_password, receptura_password, gyartas_password (jelszó-hashek)
-production_logs:   id, date (HELYI dátum!), log_type, recipe_id, pieces_planned,
-                   pieces_actual, ingredient_usage (JSONB), total_cost
-                   log_type: order (rendelt) | extra (+1) | experimental (teszt) | customer (FIFO aggregát)
+production_logs:   id, date (HELYI dátum = SÜTÉSI NAP), log_type, recipe_id, pieces_planned,
+                   pieces_actual, ingredient_usage (JSONB), total_cost, allocation, notes,
+                   oven_id, bake_minutes, trays_used, batch_no  (v2.53 — db/2026-09_v2.53_gyartas_oszlopok.sql)
+                   log_type: order | extra | experimental | customer (FIFO aggregát = KÉSZLETLEVONÁS)
+                   ⚠️ extra_waste NEM oszlop (csak a statisztika számolt értéke)
+                   ⚠️ 1 'customer' sor / sütési nap — ez a dupla-levonás elleni védelem alapja
 monthly_active_products: id, year, month, product_id
-baking_calendar:   üres a DB-ben (default Kedd/Péntek/Szombat kliens-side)
+baking_calendar:   sütési nap kivételek (extra/removed) — default Kedd/Péntek/Szombat kliens-side
 ```
 
 ### Kliens-state vs DB-séma mapping (KRITIKUS)
@@ -208,6 +220,7 @@ baking_calendar:   üres a DB-ben (default Kedd/Péntek/Szombat kliens-side)
 | `ing.minStock` / `maxStock` | `_override_g` priority, fallback `_auto_g` | Derived |
 | `ing.totalStockG` | `SUM(qty_remaining_g) FROM ingredient_batches` | Számolt |
 | `ing.fifoPrice` | Legrégebbi batch `price_per_g` | Számolt |
+| `ing.avgPrice` | Súlyozott átlag a batch-ekből | Számolt |
 | `R.batches` | Direct DB | OK |
 | `R.stock` | **DEPRECATED** — NE használd | csak ingredient_batches |
 
@@ -226,15 +239,25 @@ Mellérendelt rendszerek, NE pótold egyiket a másikkal.
 ```
 Vevő → vevo.html → orders tábla
 Admin → admin.html → jóváhagyás → order_status: confirmed
-Receptúra → production_logs → FIFO levonat → order_status: fulfilled
+Receptúra/Gyártás → production_logs → FIFO levonat → order_status: fulfilled
 ```
 
 ### Készlet (FIFO)
 ```
-Bevétel  → ingredient_batches INSERT
+Bevétel  → ingredient_batches INSERT (kézi, malom-output, VAGY v2.54.0 számla-operátor)
 Készlet  = SUM(qty_remaining_g) WHERE qty_remaining_g > 0
 FIFO ár  = legrégebbi batch price_per_g
-Levonat  = FIFO sorrend, batch-enként qty_remaining_g csökk
+Levonat  = FIFO sorrend, batch-enként qty_remaining_g csökk (production.js/processing.js:
+           a fogyasztás batch_id-vel rögzít → tétel-visszakövethetőség)
+```
+
+### Számla-bevételező operátor (v2.54.0 — staging)
+```
+Számla (PDF/fotó) → aiParseInvoice (text pdf.js / vision) → párosítás (_matchIngredientByName)
+→ landed cost (súly, érték-fallback) → deviza→lej (bnr-rates EF) → áttekintő (✅/🆕/❓)
+→ invCommit: suppliers insert (ha új) + ingredients insert (ha új) + ingredient_batches insert
+   (source_type='invoice', invoice_number, currency, fx_rate, nettó árak)
+Groq: gpt-oss-20b csak szöveg; szkennelt/fotó → vision modell (R.settings.invoiceVisionModel)
 ```
 
 ### Scale factor (KRITIKUS)
@@ -261,191 +284,67 @@ getKey(month, year)  → "2026-4"     // vevo — FORDÍTOTT sorrend!
 // dateStr: MINDIG local date, soha toISOString() → timezone bug
 ```
 
-### Biztonsági lockdown — admin-data EF + kData (SEC, v2.50+)
-- Az anon kulcs **PUBLIKUS** (repo + kliens-JS) → minden RLS-nyitott tábla bárkinek elérhető. Valódi védelem: anon-hozzáférés szűkítése + műveletek **EF (service_role)** mögé. Anon-kulcs rotálás NEM segít.
-- `admin-data` EF: authentikált PostgREST-proxy — modul-jelszó (SHA-256 vs `admin_secrets`, admin-fallback) + tábla/metódus **whitelist** + service_role továbbít. `kData` kliens-helper tükrözi a `sb`-t, az EF-en át (jelszó: `window._kerekPw`, login után memóriában).
-- **Fázis 1 „A" csoport KÉSZ (staging+prod, v2.53.46):** 13 admin/receptúra-only tábla anon-tól **grant-szinten zárva** — `suppliers, recipes, recipe_ingredients, recipe_steps, ingredients, ingredient_families, ingredient_milling_profile, ingredient_batches, processing_batches/inputs/outputs, production_logs, audit_log`. Minden: `DROP POLICY` + `ENABLE RLS` + `REVOKE ALL FROM anon, authenticated` → `rls_on=true, policies=0, anon_grants=0`. Anon REST-fetch → `[]`/401. Az app mindet `kData`/EF-en olvassa. SQL: `kerek_rls_lockdown_revoke.sql`. Hátra: Fázis 2 vevő-PII (clients/orders/messages) → Fázis 3 katalógus (webshop-fázis). Terv: `SECURITY_AUDIT.md`.
-- ⚠️ **EF-DEPLOY KÜLÖN A GIT PUSH-TÓL!** A repo `supabase/functions/**` szerkesztése önmagában NEM élesíti az EF-et (a Pages-deploy csak a statikus oldalt tolja ki). Deploy: `Deploy Edge Functions` workflow — **v2.53.47 óta paths-auto** (`supabase/functions/**` push → main=prod, staging=staging) + manuális dispatch. Korábban csak manuális volt → **napokig elavult élő EF** (repo-whitelist ≠ élő EF): a nem-whitelistezett táblák `forbidden`/`not_configured`-öt adtak, csendben. Új tábla whitelistezése UTÁN mindig EF-deploy kell.
-- ⚠️ Új EF-nél a CORS `Allow-Headers` fedje a tényleges kliens-fejléceket (`apikey` is!), különben a preflight bukik → "Failed to fetch".
-
-### Push notification rendszer (v2.53.x — prodon élesben)
-
-**Architektúra**: feliratkozás (`vevo-data.js` / `admin-settings.js`, azonos VAPID public key, `client_id='ADMIN'` az adminra) → `push_subscriptions` → küldő a **`dynamic-service` EF** (RFC 8291 `aes128gcm` titkosítás + RFC 8292 VAPID JWT; a 410/404 endpointokat self-clean törli) → `sw.js` push handler → `showNotification`. Minden trigger a `sendPushToClient(clientId, type, title, body)` / `sendPushBroadcast(...)` helpereken megy (`kerek-constants.js`). Triggerek: `new_order`/`new_client` → `ADMIN` (new_order 60s throttle); `confirmed`/`modified`/`cancelled`/`fulfilled`/`message` + `baking_day`/`product_*`/`admin_broadcast` → vevő.
-
-**VAPID kulcs — env-érzékeny, KRITIKUS**:
-- prod = **eredeti** pár (`BKnbS6hp…` + privát a prod Supabase secretben, ÉP) → meglévő prod feliratkozók NEM kényszerülnek újrafeliratkozásra.
-- staging = **új** pár (`BAuR41Vy…` + `dyU87…`), mert az eredeti PRIVÁT visszanyerhetetlen (csak prod secretként létezett, maszkolt).
-- A kliens `VAPID_PUBLIC_KEY`/`ADMIN_PUSH_VAPID` `location.pathname.includes('/staging/')` alapján választ. A `dynamic-service` mindig `Deno.env.get('VAPID_PRIVATE_KEY'/'VAPID_PUBLIC_KEY')`-ből olvas → MINDKÉT Supabase projektben kell MINDKÉT secret (különben "VAPID env hiányzik" / 403).
-
-**Push env-routing** (`kerek-constants.js`): `PUSH_FN_URL`, `PUSH_ANON` és a broadcast kliens-lekérések `/staging/` detektálással env-érzékenyek — különben a staging push a PRODRA megy (és fordítva).
-
-**SW auto-update** (`kerek-constants.js` reg, v2.53.11): `reg.update()` minden load-on + `controllerchange` → egyszeri `location.reload()`. Enélkül a **telepített PWA SW-je csak teljes app-bezárás/újranyitásra** frissül (hard-refresh NEM elég) → régi badge/ikon ragad.
-
-**Badge vs ikon**: a desktop banner a nagy **`icon`**-t (`icon-192`) mutatja, a telefon a kis **`badge`**-et (`badge-96`) — KÉT KÜLÖN kép, külön kell javítani. A notification `icon`/`badge` URL-en `?v=` cache-bust (HTTP-cache megkerülés).
-
-### Mobile vs Desktop
+### Egység-helperek (kerek-constants.js)
 ```javascript
-function isMobile() { return window.innerWidth <= 640; }
-// Desktop: renderOrderTable() — HTML tábla
-// Mobil:   renderMobileOrderCards() — kártyák, kategória tab sticky
-// MONTHS_SHORT mobilon, MONTHS desktopon
+unitFactor(u)   // kg/l/L → 1000, egyébként 1 (megjelenítés↔bázis)
+unitBigLabel(u) // ár-egység: db | l | kg
+localToday()    // helyi dátum YYYY-MM-DD (soha toISOString)
 ```
 
 ### `.mob-locked` CSS (KRITIKUS)
 ```css
-/* CSAK az input gombokat — termékinfó kattintható marad! */
 .mob-locked { opacity: 0.6; }
 .mob-locked .mob-qty-btn,
 .mob-locked .mob-qty-display,
 .mob-locked input { pointer-events: none; opacity: 0.5; }
 /* ⚠️ NE tedd pointer-events:none az egész .mob-locked divre! */
+/* ⚠️ admin-jogú vevő (is_admin): az isLocked-ot MINDKÉT nézetben (pivot + mobil) megkerüli */
 ```
 
-### UI koherencia — paletta, táblázatok, kiemelések (KÖTELEZŐ minden modulra)
-**Elv:** finom kiemelés. A szín információt hordoz, nem dekoráció — világos tint + vékony keret + színes ikon/szöveg, NEM nagy telített felület.
-
-**Csak `:root` tokent használj, soha ne hardcode hexet.** A tokenek MINDEN HTML saját inline `:root`-jában külön szerepelnek (admin/vevo/receptura), és ez felülírja a `kerek-styles.css`-t → új token felvételekor MIND a 4 helyre (css + 3 HTML) tedd be. (Tanulság: `--bg-soft` sokáig sehol sem volt definiálva → mindenhol átlátszó volt; v2.53.37-ben pótolva `#EFF5F3`.)
-
-**Szemantikus színek (de-facto, a kódban egységes):**
-- Aktív / „sül" / elsődleges → kiemelés `--teal`, tint háttér `--teal-pale`, szöveg/ikon `--teal-dark`.
-- Extra / figyelem / kiegészítő gomb → `--gold`, `--gold-dark`.
-- Veszély / törölve / elmarad / visszavonva → háttér `#fee2e2`, szöveg `#b91c1c`, keret `#fca5a5` (projekt de-facto piros — amíg nincs `--danger*` token).
-- Semleges → `--text`, halvány `--text-soft`, keret `--border`, lágy háttér `--bg-soft`, off-white `--cream`.
-
-**Táblázat-konvenció — KÉT család (koherencia!):**
-- **(1) Adat / kimutatás** → `class="tbl"`: fejléc `--slate` háttér + `--cream` szöveg (pénzügy, riportok, listák).
-- **(2) Beállító / tervező** (pl. Havi terv, sütés) → fejléc **solid `--teal-dark` háttér + `--cream` szöveg** (párhuzam az adat-tábla `--slate`+`--cream`-jével, csak teal hue-val). ⚠️ A `--teal-pale` a **kiválasztott/bepipált cella** tintje — ezért a fejléc NEM lehet teal-pale, különben összeolvad a cellákkal. Mai nap kiemelés a sötét fejlécen: `--gold` pill.
-- Közös: konténer `overflow:auto`, `1px solid var(--border)`, kerek sarok, `--bg-soft` háttér; sorok közt `1px var(--border)`.
-- Nagy/rácsos tábla: befagyasztott fejléc-sor + első oszlop (sticky = freeze-pane); a sticky fejléc a család színét kapja, az első (termék)oszlop fehér.
-- Cella: alap fehér; „be" állapot `--teal-pale` tint + `--teal` keret + `--teal-dark` ✓.
-- Kiemelés: „ma" = `--teal` pill fehér szöveggel; hétvége `--gold-dark`; lezárt/múlt `--bg-soft` + 🔒.
-- Üres állapot: középre igazított `--text-soft` üzenet.
-
-**Chip/szűrő/gomb:** aktív `btn-primary`, inaktív `btn-ghost`, kis méret `btn-sm`.
-**Státusz-jelölés:** kis színes pötty/ikon + rövid felirat, NEM nagy háttérsáv.
-
-**Minta-komponens (freeze-pane mátrix):** `renderMonthPlan()` (admin-catalog.js) — ez a referencia a jövőbeli rácsos táblákhoz.
-
 ### PWA architektúra (v2.43.x végleges)
+2 különálló telepíthető PWA (Vevő `manifest.json` id=`kerek-vevo`, Admin `manifest-admin.json` id=`kerek-admin`), relatív path-ok (`./`), `launch_handler: navigate-new`.
 
-**2 különálló telepíthető PWA**:
-
-| App | Manifest | start_url | scope | id | Ikon |
-|---|---|---|---|---|---|
-| **Vevő** | `manifest.json` | `./vevo.html` | `./` | `kerek-vevo` | teal |
-| **Admin** | `manifest-admin.json` | `./index.html` | `./` | `kerek-admin` | gold |
-
-- `id` mező a Chrome-ban megkülönbözteti a 2 appot (W3C spec)
-- `launch_handler: { client_mode: 'navigate-new' }` — start_url indít, NEM utolsó URL
-- A vevő-manifest CSAK `vevo.html`-en hivatkozott, admin-manifest a többi 3 oldalon
-- Manifest path-ok mindig **relatívak** (`./`) — staging-compat (lásd HISTORY 22.7)
-- SW regisztráció `kerek-constants.js`-ben minden NEM-vevő oldalon
-
-### KEREK saját jelszó-tárolás (localStorage)
-
-A Chrome / Samsung Pass nem ajánl mentést PWA standalone módban. Saját storage:
-
-| Modul | Storage key | Tárolt érték |
-|---|---|---|
-| Admin | `kerek_admin_remember_pw` | `btoa(jelszó)` |
-| Receptúra | `kerek_receptura_remember_pw` | `btoa(jelszó)` |
-| Vevő | `kerek_vevo_remember_login` | `btoa(KER-kód/email/név)` |
-
-Helper minta `kerek*Save/Load/Forget*`. Auto-load `DOMContentLoaded`-en. Save a `doLogin` SIKERES ágában.
-Checkbox a login képernyőn: "🔐 Maradjak bejelentkezve ezen az eszközön" (default: checked).
-NEM titkosított — saját eszközön elfogadható.
-
-### Modul-jelszó kezelés (v2.48 — biztonságos)
-
-A belépési jelszavak az **`admin_secrets`** táblában (key/value, szigorú RLS, csak service_role). A kliens NEM ír/olvas közvetlenül — minden művelet Edge Function-ön át:
-- **`admin-auth`** validál: `{password, module}` (module ∈ admin/receptura/gyartas, whitelist + admin-fallback ha a modul-jelszó nincs beállítva).
-- **`admin-set-password`** ír: előbb a jelenlegi admin jelszót validálja, majd upsertel `${module}_password` hash-t.
-- **Admin UI**: „🔑 Jelszavak" szekció — elkülönített 🔒 biztonsági blokk (jelenlegi admin jelszó) + admin/receptúra/gyártás új-jelszó sorok.
-- ⚠️ A receptúra mostantól a valódi admin (vagy külön receptúra) jelszót kéri, NEM a régi `'admin'` fallbackot.
+### Modul-jelszó kezelés (v2.48)
+Jelszavak az `admin_secrets`-ben (RLS, service_role). Írás: `admin-set-password` EF; validálás: `admin-auth` EF (`module` param). A receptúra a valódi admin/receptúra jelszót kéri.
 
 ---
 
 ## 9. Szintaxis ellenőrzés (push előtt)
 
 ```bash
-# JS — node --input-type=module (browser globals ReferenceError-t ad, ez normális)
-for f in js/*.js; do
-  node --input-type=module < $f 2>&1 | grep -v "ReferenceError\|window is not\|document is not" || echo "$f OK"
-done
-
-# VAGY: vm.Script (kevésbé szigorú)
-for f in js/*.js; do
-  node -e "const fs=require('fs'),vm=require('vm');new vm.Script(fs.readFileSync('$f','utf8'));console.log('$f OK')"
-done
-
+for f in js/*.js; do node --check "$f" && echo "$f OK" || echo "FAIL $f"; done
 npx jest --no-coverage
 ```
-
 ⚠️ Python `repr()` korrupcia a backtick template literal-okra → NE használd JS-check-re.
 
 ---
 
 ## 10. Version bump + push (KÖTELEZŐ minden release)
 
-```python
-import re, datetime
-NEW_VER = "X.Y.Z"
-DATE = datetime.date.today().strftime("%Y-%m-%d")
-with open('kerek-constants.js') as f: c = f.read()
-c = re.sub(r"APP_VERSION = 'v[\d.]+ \([^)]+\)'", f"APP_VERSION = 'v{NEW_VER} ({DATE})'", c)
-open('kerek-constants.js','w').write(c)
-for f in ['admin.html', 'receptura.html', 'vevo.html', 'index.html', 'register.html']:
-    c = open(f).read()
-    c = re.sub(r'(\?v=)[\d.]+"', rf'\g<1>{NEW_VER}"', c)
-    open(f, 'w').write(c)
-with open('sw.js') as f: sw = f.read()
-sw = re.sub(r"const CACHE_NAME = 'kerek-v[\d.]+'", f"const CACHE_NAME = 'kerek-v{NEW_VER}'", sw)
-open('sw.js','w').write(sw)
-```
-
 **3 hely** (mindegyik kötelező):
 1. `kerek-constants.js` → `APP_VERSION`
-2. 5 HTML → `?v=X.Y.Z"` query
+2. HTML → `?v=X.Y.Z"` query (a MÓDOSÍTOTT fájlokra + a `kerek-constants.js`)
 3. `sw.js` → `CACHE_NAME`
 
 ```bash
-TOKEN="[Claude memóriából]"
 git add -A && git commit -m "feat/fix: leírás (vX.Y.Z)"
-git push "https://${TOKEN}@github.com/komsacsongor/kerek-rendeles.git" staging
+git push origin HEAD:staging          # a session-ágra is: git push -u origin <session-ág>
 ```
+A `/staging/` oldal frissítése: `deploy.yml` workflow_dispatch a **main**-en (GitHub MCP `actions_run_trigger`) — a main-en futó workflow a staging ágat is kiteszi `/staging/` alá. `supabase/functions/**` változásnál a `deploy-edge-functions.yml` staging push-ra automatikusan a STAGING projektbe deployol.
 
 Egy session-en belül több release esetén MINDEN release saját version-bumppal.
-
----
 
 ## 11. ⚠️ Push előtti verifikáció (UI változásnál)
 
 ```bash
-# 1. String egyezés MÓDOSÍTÁS ELŐTT
-grep -n "KERESETT_STRING" érintett_fájl.html
-# Ha NEM egyezik 100% → olvasd el a tényleges tartalmat (NE feltételezz)
-
-# 2. Nav item hozzáadásnál
-grep -n "nav-item" admin.html | head -20
-
-# 3. RENDERS bejegyzés ellenőrzése
-grep -n "RENDERS\|'view-name'" js/admin-ui.js
-
-# 4. Konstans duplikáció ellenőrzése (KRITIKUS!)
-grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
-
-# 5. Deploy után console ellenőrzés
-# read_console_messages tool — NE csak screenshot!
-# ?v=XXXX cache bypass-szal tesztelj
+grep -n "KERESETT_STRING" érintett_fájl.html   # string egyezés MÓDOSÍTÁS ELŐTT
+grep -n "nav-item" receptura.html | head -20    # nav item
+grep -n "renders\|'view-name'" js/receptura-ui.js  # RENDERS/router bejegyzés
+grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js # konstans duplikáció
+# Deploy után: read_console_messages (NE csak screenshot), ?v=XXXX cache bypass
 ```
 
-**Push előtt checklist**:
-- ✅ Fájlok elolvasva grep/sed-del
-- ✅ String egyezések igazolva
-- ✅ Nincs duplikált konstans
-- ✅ View div / nav item / RENDERS igazolva
-- ✅ Syntax check OK
-- ✅ Jest OK
+**Push előtt checklist**: fájlok elolvasva · string egyezések igazolva · nincs duplikált konstans · view div / nav item / router igazolva · `node --check` OK · Jest OK.
 
 ---
 
@@ -453,7 +352,7 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
 
 | Hiba | Helyes megoldás |
 |---|---|
-| `toISOString()` timezone bug | Mindig local dateStr |
+| `toISOString()` timezone bug | Mindig local dateStr / `localToday()` |
 | `products.type` használata | NEM LÉTEZIK |
 | `clients.active` használata | NEM LÉTEZIK — soft delete prefix |
 | `clients.notes` (többes szám) | NEM LÉTEZIK — `clients.note` |
@@ -465,244 +364,69 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js
 | Supabase filter vesszővel | `&` kell: `year=eq.X&month=eq.Y` |
 | Duplikált `const` deklaráció | Mindig grep-pel ellenőrizd előtte |
 | `.mob-locked { pointer-events:none }` egész div-re | Csak inputokra |
-| `MONTHS_SHORT` deklarálása | Már `kerek-constants.js`-ben! |
+| admin-jogú vevő isLocked bypass CSAK egy nézetben | MINDKÉT nézet (pivot + mobil) — a vevő mobilt használ |
 | `getKey(month, year)` paraméter sorrend | Fordított mint `mk(year, month)` |
-| `sb.upsert/update` `{...obj}` spread | TILTOTT — `sb.updateFields(table, {named}, where)` |
+| `sb.upsert/update` `{...obj}` spread | TILTOTT — `kData.updateFields(table, {named}, where)` |
 | `loadAllData()` receptúrában | `reloadReceptData()` |
 | `Number(x)` konverzió nélkül | NaN-bug — `Number(x) \|\| 0` fallback |
-| Anti-spread esetén `desc` mezőt küld | DB `description`-t vár |
-| Regex check FUNCTION DEFINÍCIÓ-t és HÍVÁS-t összemos | `re.sub(r'function \w+\([^)]*\)\s*\{[^}]*\}', '', code).count('functionName(')` |
-| PWA manifest abszolút path staging-en | Relatív path: `./vevo.html`, `scope: ./`, `icons.src: ./img/...` |
-| `navigator.credentials.store()` gyenge jelszóra | Chrome data breach blokk → KEREK saját localStorage |
-| Badge számolás csak status-rekord alapján | DEFAULT-status (pending): iterálj az adat-táblát, status mint felülírás |
-| Új feature közvetlen main-be push | STAGING-FIRST: `git checkout staging` legyen első parancs |
-| Edge Function deploy hardkódolt listával | `deploy-edge-functions.yml` auto-felismeri `supabase/functions/*/`-t — új EF ne maradjon ki (404 → néma fetch-hiba) |
-| Jelszó `settings`-be írása / kliens-oldali compare | Jelszavak az `admin_secrets`-ben; írás csak `admin-set-password` EF-en át, validálás `admin-auth`-on (`module` param); alfanumerikus jelszó |
-| Bulk `upsert` tömb eltérő kulcsokkal | `PGRST102 object keys must match` — `undefined` érték kiejti a kulcsot (`JSON.stringify`); normalizálj + érvénytelen tételt szűrj (uniform kulcsok) |
-| Orders betöltés `o.qty` | NEM LÉTEZIK — az oszlop `quantity` → `o.quantity` |
-| EF CORS `Allow-Headers` hiányos | `authorization` (+`apikey`) is kell, különben preflight → "Failed to fetch" (minden push csendben bukik) |
-| Telepített PWA SW frissítése hard-refreshre | NEM frissül — `reg.update()` + `controllerchange` reload kell; vagy teljes app-bezárás |
-| Notification `icon` és `badge` keverése | Desktop a nagy `icon`-t, telefon a kis `badge`-et mutatja — két külön kép |
-| VAPID privát kulcs "valahol megvan" | Supabase ÉS GitHub secret MASZKOLT — visszanyerhetetlen; ha elveszett, új pár kell |
-| Push küldés env-keveredés (staging→prod) | `PUSH_FN_URL`/`PUSH_ANON`/broadcast-lekérés legyen `/staging/`-detektált; teszt előtt fixáld: melyik env + melyik eszköz |
-| Visszautasítás (`cancelled`) utáni újrarendelés nem látszik | A status-reset feltétele tartalmazza a `cancelled`-et is → `pending` (de NEM `fulfilled`-et) |
+| data-action select/input change-re | a delegátor CSAK click — select/input → inline `onchange="fn(this.value)"` |
+| Új EF deploy hardkódolt listával | `deploy-edge-functions.yml` auto-felismeri `supabase/functions/*/`-t |
+| Push 403 → token cserélgetése | NEM token-hiba — a session nincs a repóra engedélyezve |
+| Lekérés `limit:5000`-rel „mindent” | A PostgREST kérésenként max ~1000 sort ad → EF-ben/nagy táblán lapozz (`.range`) és szűkíts (év/hónap) |
+| Készletlevonás saját FIFO-ciklussal | KÖZÖS segéd: `addRecipeNeeds` / `fifoDeductNeeds` / `hasStockDeductionForDate` / `markDaysFulfilled` (receptura-production.js) |
+| Batch-sor saját leképezéssel | `mapBatchRow` + `recomputeIngredientStock` (receptura-data.js) — első betöltés, polling, bevételezés ugyanazt használja |
+| Új DB-sor ID nélkül az R.* state-be | a `kData.insert` visszaadott sorát vedd fel (ID!) — ID nélkül a későbbi update a DB-ben elhal |
+| Egyszeri, verziózatlan SQL | `db/ÉÉÉÉ-HH_vX.Y_leírás.sql`, idempotens + ellenőrző SELECT; PROD-ra is (a staging DB hetente felülíródik) |
 
 ---
 
-## 13. Új konvenciók (kötelezőek)
+## 13-16. Konvenciók, Claude-tanulságok, Staging, Brand
 
-### 13.1 DB műveletek anti-spread
-- ❌ `sb.upsert/update(table, {...obj}, ...)` — kliens-extra-mezők DB-be → PGRST204
-- ✅ `sb.updateFields(table, {field1, field2}, where)` — named field-ek
-- ✅ Új rekord ID: `nextId = MAX(id) + 1` explicit kérdezés
-
-### 13.2 CSS központosítás
-- ❌ inline `style="..."` modal/form/sticky pozícióhoz HTML-ben
-- ✅ `.modal`, `.form-row`, `.form-group`, `.sticky-bottom-bar` osztályok `kerek-styles.css`-ben
-- `.form-group > input/select/textarea` (DIRECT child only — nested flex containers preserved)
-- iOS safe-area: `padding-bottom: max(default, env(safe-area-inset-bottom))` minden fix-bottom elemen
-
-### 13.3 State sync
-- Egységes Realtime subscription minden modulban
-- Új tábla: hozzá kell adni mindhárom modul `*_RT_TABLES` listájához
-- Supabase oldalon **kötelező**: `ALTER PUBLICATION supabase_realtime ADD TABLE <table>;`
-- Realtime callback használjon `reload*Data()` helper-t, NEM `loadAllData()`-t
-- 500ms debounce minimum
-- NE save() a Realtime reload után
-
-### 13.4 Navigáció event delegation
-- ❌ `getAttribute('onclick').indexOf(...)` lookup minta (törékeny M7 után)
-- ✅ Keresés mind `onclick`, mind `data-action="..." data-arg1="..."` alapján
-- Új gombok: `data-action="..."` + `data-arg1="..."` (delegátor: `kerek-constants.js`)
-
-### 13.5 NaN guard
-- Minden numerikus értékre: `Number(x) || 0` fallback
-- `qty`, `price`, `stock` lehetnek string-ek (localStorage)
-- Példa: `total += (Number(p.price) || 0) * (Number(qty) || 0);`
-
-### 13.6 Tooltip rendszer
-- `data-tip="..."` attribútum + CSS `[data-tip]:hover`
-- Backward compat: ha van `title="..."`, duplikálódik `data-tip`-be is
-- Mobil: **tap-toggle** (`.tip-open` osztály) v2.45.2 óta — a régi long-press HELYETT; tördelés `white-space:normal`
-
-### 13.7 Idempotens SQL migration
-A felhasználó futtatja Supabase Dashboardban. Mindig `DO $$ BEGIN IF NOT EXISTS (...) THEN ALTER... END IF; END $$` formában.
-
-### 13.8 Badge default-status pattern
-Ha státusz default-érték (pl. `pending` nincs explicit rekord):
-
-```js
-Object.keys(D.orders || {}).forEach(function(k) {
-  if (k.indexOf('-' + y + '-' + m + '-') === -1) return;
-  var totalQty = 0;
-  Object.values(D.orders[k]).forEach(function(q){ totalQty += (Number(q) || 0); });
-  if (totalQty === 0) return;
-  var status = (D.orderStatus && D.orderStatus[k] && D.orderStatus[k].status) || 'pending';
-  if (status === 'pending') pendingOrders++;
-});
-```
-
-**Kulcs**: iterálj az adat-táblát, és a status mint opcionális felülírás.
+> Változatlanok — részletek a korábbi verzióban / `KEREK_HISTORY.md`-ben.
+Kiemelt: anti-spread DB (`kData.updateFields`), CSS központosítás (`kerek-styles.css`), Realtime `reload*Data()` + `ALTER PUBLICATION`, NaN guard, tooltip `data-tip` tap-toggle, idempotens SQL (`DO $$ ... IF NOT EXISTS`), badge default-status pattern. Staging: `deploy.yml` dual-branch, `sync-staging.yml` heti prod→staging (vasárnap 4:00 UTC, **staging DB felülíródik prod-ból** → séma/adat PROD-ra is!), `deploy-edge-functions.yml` auto-discovery. Brand: Fraunces + Kodchasan, teal `#129990`/dark `#064C48`/gold `#EFB036`.
 
 ---
 
-## 14. Claude-specifikus fejlesztési tanulságok
-
-### 14.1 Dead code eltakarítás minden refaktornál
-```bash
-grep -rn "loadAllData\|R\.stock\|monthlyActive[^P]" js/
-```
-Találat → átírni vagy `// DEPRECATED vX.Y` komment + következő release-ben törölni.
-
-### 14.2 Field-name konzisztencia loadAllData ↔ reload*Data között
-Mindig ugyanazt a mezőnevet használja a 2 hely. NE találd ki a mezőneveket fejből — `loadAllData` az autoritatív forrás.
-
-### 14.3 Bug kategorizálás (6 anti-pattern típus)
-
-| Kód | Tünet | Gyökér |
-|---|---|---|
-| **A** Schema-mismatch / DB-spread | `PGRST204 column not found` | Spread DB-műveletben |
-| **B** CSS-regresszió | Visszatérő layout-bug | Inline style ↔ központi CSS ütközés |
-| **C** State-sync verseny | Stale adat, badge eltűnik | Realtime config / reload helper hibás |
-| **D** Init flow gap | Login után badge nem inicializál | Részleges `update*()` hívás |
-| **E** Field-name / NaN inkonzisztencia | NaN lej, undefined érték | Eltérő mezőnevek vagy Number() hiánya |
-| **F** Workflow-megsértés | Tesztelés nélkül élesbe | NEM staging-first |
-
-Új bug-jelentésnél előbb kategorizáld, aztán nézd HISTORY-t — gyakran ismert pattern.
-
-### 14.4 Browser MCP-takarékosság
-- 4 perces timeout-tal lefagy ha sok WS-event van
-- Rutinszerű screenshot helyett `javascript_exec`: `document.getElementById('X')?.textContent`
-- Több művelet 1 `browser_batch`-ben
-- Ha lefagy: NE retry — `tabs_context_mcp` ellenőrzés + várj
-
-### 14.5 Image limit (100/session)
-Egy verifikáció = egy screenshot. `javascript_exec` pontosabb state-info-t ad mint kép.
-
-### 14.6 Tervezet-jóváhagyás (>100 sor új kódhoz)
-```
-"Tervezem: új view view-shopping + js/receptura-shopping.js (~270 sor).
- Funkciók: ..., Edge case: ..., Érinti: ..."
-```
-NE kezdj kódolni mielőtt a felhasználó bólint.
-
----
-
-## 15. Staging munkamenet
-
-### 15.1 Architektúra
-```
-komsacsongor.github.io/kerek-rendeles/         → prod Supabase (lfaxeihrmiylggahougl)
-                                                  │
-                                                  │ heti sync vasárnap 4:00 UTC
-                                                  ▼
-komsacsongor.github.io/kerek-rendeles/staging/ → staging Supabase (xgcwxlwjlohzbzpcapnw)
-                                                  Email + phone anonimizálva
-                                                  KIVÉTEL: Csongor (komsa.csongor@gmail.com)
-```
-
-### 15.2 GitHub Workflows
-- `deploy.yml` — dual-branch deploy
-- `sync-staging.yml` — heti prod→staging sync (pg_dump → restore → GRANT → cache reload → anonimizáció)
-- `deploy-edge-functions.yml` — **auto-felismeri** a `supabase/functions/*/`-t (NE hardkódolj listát!). Funkciók: admin-auth, **admin-data** (kData-proxy), admin-set-password, auto-confirm-orders, dynamic-service. **v2.53.47: paths-auto trigger** (`push` + `paths: supabase/functions/**` → main=prod, staging=staging) + manuális dispatch.
-
-### 15.3 GitHub Secrets
-| Secret | Mire |
-|---|---|
-| `SUPABASE_PROD_DB_URL` | sync dump (Session pooler) |
-| `SUPABASE_STAGING_DB_URL` | sync restore |
-| `SUPABASE_ACCESS_TOKEN` | Edge Functions deploy (sbp_...) |
-
-### 15.4 Staging branch deploy
-A `deploy.yml` v2.45 óta `branches:[main]` + `if: github.ref=='refs/heads/main' || workflow_dispatch` → a staging push **már NEM fail-el**. A `/staging/` tartalom frissítéséhez viszont továbbra is dispatch kell minden staging push UTÁN:
-```bash
-curl -X POST -H "Authorization: token $TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/komsacsongor/kerek-rendeles/actions/workflows/deploy.yml/dispatches" \
-  -d '{"ref":"main"}'
-```
-A workflow_dispatch a main-en fut, DE a staging branch HEAD-jét felteszi `/staging/` alá.
-
-### 15.5 SQL anti-pattern
-- pg_dump verzió-mismatch: `/usr/lib/postgresql/17/bin/pg_dump` explicit
-- DB jelszó: alfanumerikus (URL-ben `?`, `/`, `+`, `&`, `=`, `@` problémás)
-- Schema drop után: `GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role` + tables/sequences/functions
-- PostgREST cache: `NOTIFY pgrst, 'reload schema'`
-
----
-
-## 16. Brand & arculat
-
-```
-Font elsődleges:   Fraunces (fejlécek, serif, italic)
-Font másodlagos:   Kodchasan (UI elemek)
-Teal dark:         #064C48  (--teal-dark)
-Gold:              #EFB036  (--gold)
-Teal:              #129990  (--teal)
-Logo:              pöttyös mintázat + KEREK felirat (egyben PNG)
-```
-
-Logo render fix (alja levágva CSS-aliasing miatt):
-```css
-display:block; margin:0 auto; padding-bottom:4px
-```
-Plus a height-et kicsivel emeld: 80→84px (admin/receptura), 72→76px (vevő), 100→104px (index).
-
-**Brand asset források** (`/mnt/project/`, ikon/badge generáláshoz):
-- `Asset_93x.png` (952×1288) = **logó** (pontozott virág-mandala + „KERƏK" felirat). ⚠️ A jobb szélén egy **tömör fehér sáv-artefakt** (931–951. px) — bbox-nál ki kell szűrni (>88% fehér oszlop), különben függőleges vonal a badge-en.
-- `Asset_123x.png` (1120×1092) = **sűrű mandala** (kenyér/zöldség motívumok, szöveg nélkül) — túl részletes badge-méretben.
-- `app ikon`/`notif icon` = `icon-192/512` (a **logó** teal `#064C48` háttéren, ~16% padding), `badge` = `badge-96` (átlátszó, fehér logó-sziluett). A felhasználó a **logót** (Asset_93x) kéri, nem a sűrű mandalát.
-
----
-
-## 17. Nyitott bugok
+## 17. Nyitott bugok / kockázatok (audit 2026-09-29)
 
 | # | Tünet | Kategória | Prio |
 |---|---|---|---|
+| S1 | Vevő-login előtt MINDEN vevő adata (név, email, telefon, kód) letöltődik; bárki bárki nevében beléphet | biztonság/GDPR | 🔴 (C csomag) |
+| S2 | AI API-kulcs a `settings` táblában, anon kulccsal olvasható | biztonság | 🔴 (C csomag) |
+| S3 | `dynamic-service` (push) hitelesítés nélkül hívható → tetszőleges push bármely vevőnek | biztonság | 🔴 (C csomag) |
+| S4 | 18:00 határidő és login rate-limit csak kliens-oldalon | biztonság | 🟡 |
+| P1 | Sütés-rögzítés nem atomi (félbeszakadásnál részleges levonás) | adat | 🟡 |
+| P2 | Kísérleti sütés (openExperimentalBake) saját FIFO-ciklus, még nem a közös segéddel | adat | 🟢 |
+| P3 | Supabase max-rows (~1000/kérés) — a kliens `limit:5000` lekérései csonkulhatnak nagy táblán | adat | 🟡 |
 | **#7** | Üzenet badge race — néha eltűnik mielőtt látszott | C state-sync | Közepes |
-| **#14** | Tooltip — v2.45.2 újraírás valószínűleg megoldotta (ellenőrizendő) | B CSS | Alacsony |
 | **#27** | Burgonya/Cirokliszt min/max abszurdul kicsi (1-15 g) | E adat | Közepes |
 
----
-
-## 18. Hátralévő fejlesztések (lista)
-
-Részletes ROADMAP → **KEREK_HISTORY.md** 5. szekció.
+## 18. Hátralévő fejlesztések
 
 | # | Feladat | Prioritás |
 |---|---|---|
-| **M0** | Mértékegység támogatás (`unit`, `unit_to_g_ratio`) | 🔴 Sürgős |
-| **M1** | Bevásárló lista folytatás (overrides, wizard, history) | 🟡 Folytatás |
-| **S2** | EOQ + MOQ pénzügyi optimalizáció | 🟢 Új session |
-| **S4** | Malom fermentáció state machine | 🟢 Új session |
-| **S5-S6** | Kísérleti sütés verziókezelés | 🟢 Új session |
-| **B1-B6** | Backlog (szezonalitás, trend, reverse lookup, stb.) | 🟢 |
-| — | DB reset demo-vevők (élesítés előtt) | ⏳ Felhasználói feladat |
-| **P2** | Különálló gyártás app (`gyartas.html`, tablet) — P1 után | 🟡 |
-| — | Kiszállítás a sütési logból (per-rendelő checklist a jövőbeli alap) | 🟢 Jövő |
+| — | **Élesítés** v2.53.95→v2.54.1 (gyártás flow + admin-vevő + számla-operátor + audit-javítások) + SQL-ek + EF-ek — lásd KEREK_ATADAS.md | 🔴 Most |
+| — | **PROD promóció** v2.53.95→136 (gyártás flow + admin-vevő) + SQL-ek | 🔴 Most |
+| **M1** | Bevásárló lista folytatás (overrides, wizard, history) | 🟡 |
+| **S2** | EOQ + MOQ pénzügyi optimalizáció | 🟢 |
+| **S4** | Malom fermentáció state machine | 🟢 |
+| **S5-S6** | Kísérleti sütés verziózás | 🟢 |
+| **P2** | Különálló gyártás app (tablet) — a napi flow már receptura.html-ben | 🟢 |
+| — | Kiszállítás a sütési logból (per-rendelő checklist a jövőbeli alap) | 🟢 |
 
-**✅ Kész (korábban roadmapen):** Hibrid auto-confirm cron 18:00 (v2.46) · Admin+vevő Web Push (v2.45-46) · SC3 admin.html→12 modul (M7 refactor) · Termék soft-delete (v2.36/38) · P1 sütési log (v2.47) · Modul-jelszó kezelő (v2.48)
+**✅ Kész (staging):** M0 mértékegység (unit/alt_unit) · gyártás 4-fázisú napi flow (v2.53.125-133) · admin-jogú vevő + 18:00 bypass (v2.53.134-136) · számla-operátor (v2.54.0) · audit-javítások A+B (v2.54.1).
 
 ---
 
-## 19. Aktuális állapot (2026-07-07)
+## 19. Aktuális állapot (2026-09-29)
 
-- **Production (main): v2.53.46-sec.** Fázis 2/3 admin-restrukturálás élesben: **„🗓️ Sütési tervezés"** nézet (naptár a Beállításokból + **Havi terv per-sütinap mátrix** + termék-visszavonás/override, közös hónap-gombsor); **„📊 Elemzések"** összevonva (kategória-bontás a Kimutatásokba olvasztva, fül-sorral); „Termékkatalógus"→**„Termékek"**; sidebar **verzió-tag** (cache self-check). **Security Fázis 1 „A" lezárva** (13 tábla grant-lockdown, EF-gated). `admin-catalog.js` bontva → +`admin-catalog-plan.js` (mátrix+override). Teszt-vevők törölve (prod+staging).
-- **Kétlépéses Havi terv modell:** aktiválás a Termékek fülön (`monthly_active_products`), a mátrix CSAK a napi elérhetőséget állítja (`product_day_exceptions`, `available=false` = eltérés); a termék **aktív marad üres napokkal is** (mátrixból nincs aktiválás/deaktiválás).
-- **Receptúra modul: PROD-verzión tartva** (v2.51/v2.52 recept-szinkron + alt_unit STAGING-only, validálatlan). A staging→prod promóciók **szelektíven kihagyják** a 7 receptúra-fájlt (`receptura.html` + `js/receptura-*.js`); a közös fájlok mennek, a receptúra prod-verzión marad. Az **EF-frissítés feloldotta a recept-tesztelést** stagingen.
-- **Promóció-minta (divergens ágak):** staging ⊇ main tartalmilag (a prod-fixek benne vannak) → promóció = `git checkout staging -- .` + a 7 receptúra-fájl visszaállítása régi main-re. ELŐBB ellenőrizd a tartalom-supersetet (kData/standing/PGRST102 jelenléte), NE csak a commit-eltérést.
-- **Vár:** receptúra staging-validálás → promóció (utolsó held-back rész); **DB demo/teszt-adat reset** (go-live előtt); Security Fázis 2 (vevő-PII, webshop); iOS push teszt.
+- **Prod (main)**: v2.53.94
+- **Staging**: **v2.54.1** — v2.54.0 számla-operátor + audit-javítások (A+B csomag). Részletek, teendők: `KEREK_ATADAS.md`.
 
 ---
 
 ## 📎 Részletes történet és roadmap
 
-Külön fájlban: **KEREK_HISTORY.md**
-
-- Verzió-történet milestones
-- Decision rationale (miért 2 PWA, miért staging-first, stb.)
-- 25+ megoldott bug katalógusa (csak kategória-szinten)
-- Részletes ROADMAP (M0-L8)
-- Session-specifikus tanulságok (PWA scope hibalecke, deploy concurrency, stb.)
-
-Az AI csak akkor olvassa, ha **konkrét tanulság / minta** kell.
+Külön fájlban: **KEREK_HISTORY.md** (opcionális, csak konkrét minta/tanulság kell).
+**Átadás / félbeszakadt állapot: KEREK_ATADAS.md** (ELŐBB ezt).
+`git log --oneline`: a teljes, autoritatív történet.

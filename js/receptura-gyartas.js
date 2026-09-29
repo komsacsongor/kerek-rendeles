@@ -441,40 +441,76 @@ async function renderGF4(){
   // ellenőrzés: minden felesleg szét van-e osztva
   const allAllocated=_gf.products.every(p=>{ const s=Math.max(0,_gf4Baked(p)-(p.ordered||0)); const a=_gf4Alloc(p.productId); return ((a.sale||0)+(a.internal||0)+(a.marketing||0)+(a.waste||0))===s; });
 
+  const closed=!!(_gf.closedDays&&_gf.closedDays[_gf.day]); const canClose=allAllocated&&!closed;
   host.innerHTML=`
     <div style="font-size:13px;color:${GFC.textSoft};margin-bottom:10px">${_gfDayLabelFull(_gf.day)} · zárd le a napot</div>
     ${cards}
     <div id="gf4-closed"></div>
     <div style="display:flex;gap:10px;margin-top:8px">
       <button onclick="gfGoPhase(3)" style="flex:0 0 auto;padding:${big?'16px 20px':'13px 18px'};background:#fff;color:${GFC.tealDark};border:1.5px solid ${GFC.border};border-radius:14px;cursor:pointer;font-family:'Kodchasan',sans-serif"><i class="ti ti-arrow-left"></i> Vissza</button>
-      <button onclick="gfCloseDay()" ${allAllocated?'':'disabled'} style="flex:1;padding:${big?'16px':'13px'};background:${allAllocated?GFC.gold:GFC.border};color:${GFC.text};border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${allAllocated?'pointer':'not-allowed'}"><i class="ti ti-lock-check" style="vertical-align:-3px"></i> ${allAllocated?'Nap lezárása → napló + statisztika':'Oszd szét a felesleget mindenhol'}</button>
+      <button onclick="gfCloseDay(this)" ${canClose?'':'disabled'} style="flex:1;padding:${big?'16px':'13px'};background:${canClose?GFC.gold:GFC.border};color:${GFC.text};border:none;border-radius:14px;font-family:'Kodchasan',sans-serif;font-size:${big?'16px':'15px'};font-weight:700;cursor:${canClose?'pointer':'not-allowed'}"><i class="ti ti-lock-check" style="vertical-align:-3px"></i> ${closed?'Nap lezárva ✓':(allAllocated?'Nap lezárása → készlet + napló + statisztika':'Oszd szét a felesleget mindenhol')}</button>
     </div>`;
 }
 
-async function gfCloseDay(){
-  const btn=event&&event.target; if(btn)btn.disabled=true;
-  const now=_gf.day; // a SÜTÉSI napra rögzítünk
-  let ok=0, err=0;
-  for(const p of _gf.products){
-    const r=(R.recipes||[]).find(x=>x.id===p.recipeId); if(!r){continue;}
-    const baked=_gf4Baked(p), ordered=p.ordered||0; const a=_gf4Alloc(p.productId);
-    // batch-adat az elsődleges batchből (KPI-hoz)
-    const b=(_gf.batches||[]).find(bb=>bb.items.some(i=>i.productId===p.productId));
-    const oven_id=b?b.ovenId:null; const bake_minutes=Number(r.bakeMin)||null;
-    // 'order' log — teljesítés
-    if(ordered>0){ try{ await kData.insert('production_logs',{date:now,log_type:'order',recipe_id:r.id,pieces_planned:ordered,pieces_actual:Math.min(baked,ordered),oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow'}); ok++; }catch(e){err++;} }
-    // extra/allokálás logok
-    for(const [key,val] of Object.entries({sale:a.sale,internal:a.internal,marketing:a.marketing,waste:a.waste})){
-      if(val>0){ try{ await kData.insert('production_logs',{date:now,log_type:'extra',recipe_id:r.id,pieces_planned:val,pieces_actual:val,allocation:key,oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow · '+key}); ok++; }catch(e){err++;} }
+// v2.54.1: a nap lezárása MOST már levonja a készletet (FIFO, önköltséggel), "elkészült"-re állítja a
+// rendeléseket (a lemondottak kivételével), és nem rögzíthető duplán (sem itt, sem a régi "Sütés elvégezve"-vel).
+async function gfCloseDay(btn){
+  const day=_gf.day;
+  _gf.closedDays=_gf.closedDays||{};
+  if(_gf.closing) return;
+  if(_gf.closedDays[day]){ toast('Ez a nap már le van zárva.'); return; }
+
+  // alapanyag-igény a TÉNYLEGESEN sütött darabszámból (selejt is fogyasztott alapanyagot)
+  const needs={};
+  _gf.products.forEach(p=>{ const r=(R.recipes||[]).find(x=>x.id===p.recipeId); if(r) addRecipeNeeds(needs, r, _gf4Baked(p)); });
+
+  _gf.closing=true;
+  try{
+    if(await hasStockDeductionForDate(day)){
+      if(!(await confirmDialog(`⚠️ Erre a sütési napra (${day}) már rögzítettek lezárást / készletlevonást.\n\nHa folytatod, a napló és az alapanyag-levonás MÁSODSZOR is rögzül. Biztosan folytatod?`))) return;
     }
-  }
-  _gf.doneBatches=_gf.doneBatches||{}; (_gf.batches||[]).forEach(b=>_gf.doneBatches[b.id]=true);
-  const el=document.getElementById('gf4-closed');
-  if(el) el.innerHTML=`<div style="background:${GFC.tealPale};border-radius:14px;padding:16px;margin:12px 0;text-align:center">
-    <i class="ti ti-circle-check" style="font-size:34px;color:${GFC.teal}"></i>
-    <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:${GFC.tealDark};margin:6px 0">Nap lezárva ✓</div>
-    <div style="font-size:13px;color:${GFC.textSoft}">${ok} tétel rögzítve a naplóba${err?` · ${err} hiba`:''}. A statisztikában (Elemzés → Sütési statisztika) megjelenik.</div></div>`;
-  toast('Nap lezárva — '+ok+' tétel a naplóba.');
+    const missing=findMissingNeeds(needs);
+    let msg='Lezárod a napot?\n\nLevonja az alapanyagokat a készletből (FIFO):\n'+
+      Object.values(needs).filter(n=>n.ingId).map(n=>`  ${missing.includes(n)?'✗':'✓'} ${n.name}: ${Math.round(n.total).toLocaleString()} g`).join('\n');
+    if(missing.length) msg+='\n\n⚠️ A ✗ jelű alapanyagokból kevesebb van a készleten — ezek 0-ra csökkennek.';
+    msg+='\n\nA rendelések "elkészült" állapotot kapnak, a vevők értesítést kapnak.\nA művelet nem visszavonható!';
+    if(!(await confirmDialog(msg))) return;
+    if(btn) btn.disabled=true;
+
+    // 1) készletlevonás + aggregát napló (önköltség)
+    const { usage, totalCost, failed } = await fifoDeductNeeds(needs);
+    await kData.insert('production_logs',{date:day,log_type:'customer',pieces_planned:0,pieces_actual:0,ingredient_usage:JSON.stringify(usage),total_cost:totalCost,notes:'Gyártás flow · készletlevonás'});
+
+    // 2) teljesítés + allokálás logok
+    let ok=0, err=0;
+    for(const p of _gf.products){
+      const r=(R.recipes||[]).find(x=>x.id===p.recipeId); if(!r){continue;}
+      const baked=_gf4Baked(p), ordered=p.ordered||0; const a=_gf4Alloc(p.productId);
+      // batch-adat az elsődleges batchből (KPI-hoz)
+      const b=(_gf.batches||[]).find(bb=>bb.items.some(i=>i.productId===p.productId));
+      const oven_id=b?b.ovenId:null; const bake_minutes=Number(r.bakeMin)||null;
+      if(ordered>0){ try{ await kData.insert('production_logs',{date:day,log_type:'order',recipe_id:r.id,pieces_planned:ordered,pieces_actual:Math.min(baked,ordered),oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow'}); ok++; }catch(e){err++;} }
+      for(const [key,val] of Object.entries({sale:a.sale,internal:a.internal,marketing:a.marketing,waste:a.waste})){
+        if(val>0){ try{ await kData.insert('production_logs',{date:day,log_type:'extra',recipe_id:r.id,pieces_planned:val,pieces_actual:val,allocation:key,oven_id,bake_minutes,total_cost:0,notes:'Gyártás flow · '+key}); ok++; }catch(e){err++;} }
+      }
+    }
+
+    // 3) rendelések → fulfilled (lemondottak kivételével) + vevő-push
+    let fulfilled=0; try{ fulfilled=await markDaysFulfilled([day], day); }catch(e){ console.warn('fulfilled:', e.message); err++; }
+
+    _gf.closedDays[day]=true;
+    _gf.doneBatches=_gf.doneBatches||{}; (_gf.batches||[]).forEach(b=>_gf.doneBatches[b.id]=true);
+    renderGF4();
+    const el=document.getElementById('gf4-closed');
+    if(el) el.innerHTML=`<div style="background:${GFC.tealPale};border-radius:14px;padding:16px;margin:12px 0;text-align:center">
+      <i class="ti ti-circle-check" style="font-size:34px;color:${GFC.teal}"></i>
+      <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:${GFC.tealDark};margin:6px 0">Nap lezárva ✓</div>
+      <div style="font-size:13px;color:${GFC.textSoft}">${ok} tétel a naplóban · ${usage.length} alapanyag-tétel levonva · önköltség ${totalCost.toFixed(2)} lej · ${fulfilled} rendelés elkészült${(err||failed)?` · <b style="color:${GFC.danger}">${err+failed} hiba</b>`:''}.</div></div>`;
+    toast('Nap lezárva — készlet levonva, '+ok+' tétel a naplóba.', !!(err||failed));
+  }catch(e){
+    toast('⚠️ Hiba a lezárásnál: '+e.message, true);
+    if(btn) btn.disabled=false;
+  }finally{ _gf.closing=false; }
 }
 
 if(typeof window!=='undefined') Object.assign(window,{renderGyartasFlow,gfSetDay,gfSetView,gfGoPhase,gfMonthNav,gfSetMonth,gfChangeExtra,gfSetExtra,gfAddProduct,gfRemoveProduct,gfAddBatch,gfSetActiveBatch,gfRemoveBatch,gfAssignToBatch,gfBatchQty,gfGf2Tab,gfStartBake,gfStepPrev,gfStepNext,gfBatchDone,gfStartTimer,gfAllocChange,gfCloseDay,_gf});

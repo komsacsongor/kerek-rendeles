@@ -18,6 +18,89 @@ function _isBakingDayR(dateObj) {
   return (isDefault || isExtra) && !isRemoved;
 }
 
+// ===== v2.54.1: KÖZÖS sütés-lezárási segédek =====
+// A régi "Sütés elvégezve" (confirmBakingDone) és az új gyártás-flow "Nap lezárása" (gfCloseDay)
+// ugyanezeket használja → egyforma készletlevonás, napló és státusz, és a kettő nem von le duplán.
+const LEVAIN_ING_ID = 105; // "Kész levain" alapanyag (egységként vonjuk le, nem bontjuk víz+lisztre)
+
+// Egy recept alapanyag-igényét hozzáadja a needs-hez (a darabszámra skálázva)
+function addRecipeNeeds(needs, recipe, pieces) {
+  if (!recipe || !(pieces > 0)) return;
+  const scale = calcScaleFactor(recipe, pieces);
+  const add = (ingId, amount, nameHint) => {
+    if (!ingId || !(amount > 0)) return;
+    if (!needs[ingId]) { const ing = getIng(ingId); needs[ingId] = { name: ing?.name || nameHint || '?', ingId, total: 0, cost: 0, subType: ing?.subType || 'other_dry' }; }
+    needs[ingId].total += amount;
+  };
+  if (recipe.levainAmount > 0) add(LEVAIN_ING_ID, recipe.levainAmount * scale, 'Kész levain');
+  const allIng = (recipe.allIngredients && recipe.allIngredients.length) ? recipe.allIngredients
+    : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]), ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+  allIng.forEach(ing => add(ing.ingredientId, (ing.amount || 0) * scale, ing.name));
+}
+
+// Hiányzó alapanyagok listája (készlet < igény)
+function findMissingNeeds(needs) {
+  return Object.values(needs).filter(n => n.ingId && getTotalStock(getIng(n.ingId)) < Math.round(n.total));
+}
+
+// FIFO-levonás. A helyi állapot CSAK sikeres DB-írás után változik (eddig hiba esetén szétcsúszott).
+async function fifoDeductNeeds(needs) {
+  const usage = []; let totalCost = 0, failed = 0;
+  for (const need of Object.values(needs)) {
+    if (!need.ingId || !(need.total > 0)) continue;
+    let remaining = need.total;
+    const batches = (R.batches || [])
+      .filter(b => b.ingredientId === need.ingId && b.qtyRemainingG > 0 && b.id != null)
+      .sort((a, b) => (a.receivedDate || '').localeCompare(b.receivedDate || ''));
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, batch.qtyRemainingG);
+      try {
+        await kData.update('ingredient_batches', { qty_remaining_g: Math.max(0, batch.qtyRemainingG - take) }, `id=eq.${batch.id}`);
+      } catch (e) { console.warn('batch update:', e.message); failed++; continue; }
+      batch.qtyRemainingG -= take;
+      remaining -= take;
+      const cost = take * (Number(batch.pricePerG) || 0);
+      totalCost += cost;
+      usage.push({ ingredient_id: need.ingId, batch_id: batch.id, qty_g: take, cost });
+    }
+    if (typeof recomputeIngredientStock === 'function') recomputeIngredientStock(need.ingId);
+  }
+  return { usage, totalCost, failed };
+}
+
+// Volt-e már készletlevonás (log_type='customer') erre a sütési napra — dupla levonás elleni védelem
+async function hasStockDeductionForDate(dateStr) {
+  try {
+    const rows = await kData.query('production_logs', { select: 'id', filter: `date=eq.${dateStr}&log_type=eq.customer`, limit: 1 });
+    return !!(rows && rows.length);
+  } catch (e) { console.warn('deduction check:', e.message); return false; }
+}
+
+// A sütési napok rendeléseit "fulfilled"-re állítja — a LEMONDOTT napokat kihagyja — és értesíti a vevőket
+async function markDaysFulfilled(days, bakeDateStr) {
+  if (!days || !days.length) return 0;
+  const orFilter = 'or=(' + days.map(ds => { const [y, m, d] = ds.split('-').map(Number); return `and(year.eq.${y},month.eq.${m-1},day.eq.${d})`; }).join(',') + ')';
+  const [orders, statuses] = await Promise.all([
+    sb.query('orders', { select: 'client_id,year,month,day', filter: orFilter, limit: 5000 }),
+    sb.query('order_status', { select: 'client_id,year,month,day,status', filter: orFilter, limit: 5000 }).catch(() => []),
+  ]);
+  const k = o => `${o.client_id}-${o.year}-${o.month}-${o.day}`;
+  const cancelled = new Set((statuses || []).filter(s => s.status === 'cancelled').map(k));
+  const rows = new Map(); const clients = new Set();
+  (orders || []).forEach(o => {
+    const key = k(o);
+    if (cancelled.has(key) || rows.has(key)) return;
+    rows.set(key, { client_id: o.client_id, year: o.year, month: o.month, day: o.day, status: 'fulfilled', admin_note: `Sütés elvégezve: ${bakeDateStr}` });
+    clients.add(o.client_id);
+  });
+  if (rows.size) await sb.upsert('order_status', [...rows.values()], 'client_id,year,month,day');
+  if (typeof sendPushToClient === 'function') {
+    clients.forEach(cid => sendPushToClient(cid, 'fulfilled', '🎉 Rendelésed elkészült!', 'Átveheted a pékségben.').catch(() => {}));
+  }
+  return rows.size;
+}
+
 async function initProductionPrep() {
   const now = new Date();
   _prodSelectedMonth = { year: now.getFullYear(), month: now.getMonth() };
@@ -419,19 +502,18 @@ async function calcProductionPrep() {
 
 // ===== SÜTÉS ELVÉGEZVE – FIFO LEVONAT =====
 async function confirmBakingDone() {
-  const needs = window._lastProductionNeeds;
+  // v2.54.1: MÁSOLATON dolgozunk — eddig az extra igények a window._lastProductionNeeds-be íródtak,
+  // így "Mégse" után újrakattintva az extra alapanyag duplán vonódott le.
+  const needs = JSON.parse(JSON.stringify(window._lastProductionNeeds || {}));
   const days = window._lastProductionDays;
-  if (!needs || Object.keys(needs).length === 0) {
+  if (Object.keys(needs).length === 0) {
     toast('⚠️ Előbb számítsd ki az előkészítést!', true); return;
   }
+  // a log a SÜTÉSI NAPOT rögzíti (v2.53.104); több napnál az elsőt
+  const bakeDate = (Array.isArray(days) && days.length >= 1) ? days[0] : _prodLocalDate();
 
   // v2.53.100 Phase 2b: EXTRA sütés — az igényeket a needs-hez adjuk (egy FIFO-pass, nincs dupla-levonás)
   const _extraBakes = [];
-  const _addExtraNeed = (ingId, amount, nameHint) => {
-    if (!ingId || !amount) return;
-    if (!needs[ingId]) { const ing=getIng(ingId); needs[ingId]={name:ing?.name||nameHint||'?', ingId, total:0, cost:0, subType:ing?.subType||'other_dry'}; }
-    needs[ingId].total += amount;
-  };
   (window._lastProductionRecipes||[]).forEach(pr => {
     const exEl = document.getElementById('prod-extra-' + pr.recipe_id);
     const extra = exEl ? (parseInt(exEl.value)||0) : 0;
@@ -441,95 +523,39 @@ async function confirmBakingDone() {
     const recipe = pr.recipe || R.recipes.find(r=>r.id===pr.recipe_id);
     if (!recipe) return;
     _extraBakes.push({ recipe_id: recipe.id, extra, allocation });
-    const scale = calcScaleFactor(recipe, extra);
-    if (recipe.levainAmount>0) _addExtraNeed(105, recipe.levainAmount*scale, 'Kész levain');
-    const allIng = (recipe.allIngredients && recipe.allIngredients.length) ? recipe.allIngredients
-      : [...(recipe.dryIngredients||[]),...(recipe.otherDryIngredients||[]),...(recipe.wetIngredients||[]),...(recipe.starterIngredients||[])];
-    allIng.forEach(ing => _addExtraNeed(ing.ingredientId, (ing.amount||0)*scale, ing.name));
+    addRecipeNeeds(needs, recipe, extra);
   });
 
-  // Check for missing/insufficient ingredients
-  const missing = Object.values(needs).filter(n => {
-    if (!n.ingId) return false;
-    const ing = getIng(n.ingId);
-    const stock = getTotalStock(ing);
-    return stock < Math.round(n.total);
-  });
+  // v2.54.1: dupla levonás elleni védelem (a gyártás-flow "Nap lezárása" is levon)
+  if (await hasStockDeductionForDate(bakeDate)) {
+    if (!(await confirmDialog(`⚠️ Erre a sütési napra (${bakeDate}) már rögzítettek készletlevonást (a Gyártás flow-ban vagy itt).\n\nHa folytatod, az alapanyagok MÁSODSZOR is levonódnak. Biztosan folytatod?`))) return;
+  }
 
-  const hasMissing = missing.length > 0;
-
+  const missing = findMissingNeeds(needs);
   let confirmMsg = 'Rögzíted a sütést elvégezve?\n\n';
-
-  if (hasMissing) {
+  if (missing.length) {
     confirmMsg += '⚠️ FIGYELEM – HIÁNYZÓ ALAPANYAGOK:\n';
     confirmMsg += missing.map(n => {
-      const ing = getIng(n.ingId);
-      const stock = Math.round(getTotalStock(ing));
+      const stock = Math.round(getTotalStock(getIng(n.ingId)));
       const need = Math.round(n.total);
       return `  ✗ ${n.name}: ${stock.toLocaleString()}g van, ${need.toLocaleString()}g kell (${(need-stock).toLocaleString()}g hiány)`;
     }).join('\n');
     confirmMsg += '\n\nA hiányzó alapanyagokat 0-ra csökkenti, a sütés részlegesen kerül rögzítésre.\n\nBiztosan folytatod?\n\n';
   }
-
   confirmMsg += 'Levonja az alapanyagokat a készletből (FIFO):\n';
   confirmMsg += Object.values(needs).filter(n=>n.ingId && !missing.find(m=>m.ingId===n.ingId))
     .map(n => `  ✓ ${n.name}: ${Math.round(n.total).toLocaleString()}g`).join('\n');
   confirmMsg += '\n\nA művelet nem visszavonható!';
-
-  const confirmed = await confirmDialog(confirmMsg);
-  if (!confirmed) return;
+  if (!(await confirmDialog(confirmMsg))) return;
 
   const btn = document.getElementById('prod-done-btn');
   if (btn) { btn.textContent = '⏳ Feldolgozás...'; btn.disabled = true; }
 
   try {
-    const usage = [];
-    let totalCost = 0;
+    const { usage, totalCost, failed } = await fifoDeductNeeds(needs);
 
-    for (const [key, need] of Object.entries(needs)) {
-      if (!need.ingId || need.total <= 0) continue;
-      let remaining = need.total;
-
-      // FIFO: deduct from oldest batches first
-      const batches = R.batches
-        .filter(b => b.ingredientId === need.ingId && b.qtyRemainingG > 0)
-        .sort((a,b) => a.receivedDate.localeCompare(b.receivedDate));
-
-      for (const batch of batches) {
-        if (remaining <= 0) break;
-        const take = Math.min(remaining, batch.qtyRemainingG);
-        const cost = take * batch.pricePerG;
-        totalCost += cost;
-        usage.push({ ingredient_id: need.ingId, batch_id: batch.id, qty_g: take, cost });
-
-        // Update batch in DB
-        batch.qtyRemainingG -= take;
-        remaining -= take;
-        try {
-          await kData.update('ingredient_batches',
-            { qty_remaining_g: Math.max(0, batch.qtyRemainingG) },
-            `id=eq.${batch.id}`);
-        } catch(e) { console.warn('batch update:', e.message); }
-      }
-
-      // Update local ingredient stock
-      const ing = getIng(need.ingId);
-      if (ing) {
-        ing.totalStockG = Math.max(0, (ing.totalStockG || 0) - need.total);
-        const remaining_batches = R.batches.filter(b => b.ingredientId === need.ingId && b.qtyRemainingG > 0);
-        const fifoB = [...remaining_batches].sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
-        ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
-        const tot = ing.totalStockG;
-        ing.avgPrice = tot > 0 ? remaining_batches.reduce((s,b) => s + b.pricePerG * b.qtyRemainingG, 0) / tot : 0;
-      }
-    }
-
-    // Save production log
-    // v2.53.104: a log a SÜTÉSI NAPOT rögzíti (a kiválasztott nap), nem a kattintás idejét →
-    // a napló/prep a jó napnál mutatja a sütést. Egy nap kiválasztásakor pontos; több napnál az elsőt veszi.
-    const now = (Array.isArray(days) && days.length >= 1) ? days[0] : _prodLocalDate();
     await kData.insert('production_logs', {
-      date: now,
+      date: bakeDate,
       log_type: 'customer',
       pieces_planned: 0,
       pieces_actual: 0,
@@ -557,7 +583,7 @@ async function confirmBakingDone() {
       }
       try {
         await kData.insert('production_logs', {
-          date: now, log_type: 'order', recipe_id: pr.recipe_id,
+          date: bakeDate, log_type: 'order', recipe_id: pr.recipe_id,
           pieces_planned: pr.planned, pieces_actual: actual,
           oven_id, bake_minutes, trays_used, batch_no,
           total_cost: 0, notes: `Sütési napok: ${days?.join(', ') || '—'}`
@@ -568,58 +594,22 @@ async function confirmBakingDone() {
     for (const ex of _extraBakes) {
       try {
         await kData.insert('production_logs', {
-          date: now, log_type: 'extra', recipe_id: ex.recipe_id,
+          date: bakeDate, log_type: 'extra', recipe_id: ex.recipe_id,
           pieces_planned: ex.extra, pieces_actual: ex.extra,
           allocation: ex.allocation, total_cost: 0,
           notes: `Extra sütés · ${ex.allocation}`
         });
       } catch(e) { console.warn('extra log:', e.message); }
     }
-    // Set FULFILLED on all orders for baked days (per client)
-    // H3+H5 fix: single OR-query for all days, then 1 bulk upsert (was N+1 nested loops)
-    let fulfilledCount = 0;
-    const fulfilledClients = new Set();
-    try {
-      if (days && days.length > 0) {
-        // Build OR filter for all baking days
-        const dayFilters = days.map(dateStr => {
-          const [dy, dm, dd] = dateStr.split('-').map(Number);
-          return `and(year.eq.${dy},month.eq.${dm-1},day.eq.${dd})`;
-        });
-        const orFilter = `or=(${dayFilters.join(',')})`;
-        const allRelevantOrders = await sb.query('orders', { filter: orFilter, limit: 5000 }) || [];
 
-        // Deduplicate to (client_id, year, month, day) unique rows
-        const uniqueRows = new Map();
-        allRelevantOrders.forEach(o => {
-          const key = `${o.client_id}-${o.year}-${o.month}-${o.day}`;
-          if (!uniqueRows.has(key)) {
-            uniqueRows.set(key, {
-              client_id: o.client_id, year: o.year, month: o.month, day: o.day,
-              status: 'fulfilled', admin_note: `Sütés elvégezve: ${now}`
-            });
-            fulfilledClients.add(o.client_id);
-          }
-        });
-        const rows = Array.from(uniqueRows.values());
-        if (rows.length > 0) {
-          await sb.upsert('order_status', rows, 'client_id,year,month,day');
-          fulfilledCount = rows.length;
-        }
-      }
-    } catch(e) { console.warn('fulfilled status write:', e.message); }
-
-    // v2.27.0: Push notification to all fulfilled clients
-    if (typeof sendPushToClient === 'function') {
-      fulfilledClients.forEach(cid => {
-        sendPushToClient(cid, 'fulfilled', '🎉 Rendelésed elkészült!', 'Átveheted a pékségben (Str. Főutca 1).').catch(()=>{});
-      });
-    }
+    // FULFILLED a sütési napok rendeléseire (lemondottak kivételével) + vevő-push
+    try { await markDaysFulfilled(days, bakeDate); }
+    catch(e) { console.warn('fulfilled status write:', e.message); }
 
     const topBtn = document.getElementById('prod-done-btn-top');
     if (topBtn) { topBtn.style.display = 'none'; }
     if (btn) { btn.style.display = 'none'; btn.textContent = '✅ Sütés elvégezve'; btn.disabled = false; }
-    toast(`✅ Sütés rögzítve! ${usage.length} alapanyag levonva. Önköltség: ${totalCost.toFixed(2)} lej`);
+    toast(`✅ Sütés rögzítve! ${usage.length} tétel levonva. Önköltség: ${totalCost.toFixed(2)} lej` + (failed ? ` · ⚠️ ${failed} tétel levonása sikertelen` : ''), !!failed);
     renderStock();
     renderStockAlerts();
     window._lastProductionNeeds = {};

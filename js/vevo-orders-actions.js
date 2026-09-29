@@ -11,6 +11,32 @@ function markOrderDirty(day) {
   if (currentUser) _dirtyOrderDays.add(getOrderKey(currentUser.id, selectedYear, selectedMonth, day));
 }
 
+// v2.54.1: ha egy már jóváhagyott/módosított nap tételét a vevő azonnal törli (qty→0),
+// a nap visszakerül pending-be — eddig "jóváhagyott" maradt, és az admin nem látta a változást.
+function _reopenDayIfClosed(day) {
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  const st = (appData.orderStatus && appData.orderStatus[key]) || {};
+  if (st.status !== 'confirmed' && st.status !== 'modified') return;
+  if (!appData.orderStatus) appData.orderStatus = {};
+  appData.orderStatus[key] = { ...st, status: 'pending' };
+  sb.upsert('order_status', { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
+    status: 'pending', admin_note: st.admin_note || null }, 'client_id,year,month,day')
+    .catch(e => console.warn('reopen status:', e.message));
+}
+
+// v2.54.1: a vevő által még módosítható nap? (ugyanaz a szabály, mint a pivot/mobil nézet zárolása)
+function _isOrderDayEditable(day) {
+  const d = new Date(selectedYear, selectedMonth, day);
+  const now = new Date();
+  if (d < now && !isSameDay(d, now)) return false;                       // múltbeli
+  const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+  const st = (appData.orderStatus && appData.orderStatus[key]) || {};
+  if (st.status === 'cancelled' || st.status === 'fulfilled') return false;
+  if (currentUser.is_admin) return true;                                 // admin-jogú vevő: nincs határidő
+  if (st.deadline) return new Date(st.deadline) > now;
+  return !defaultDeadlinePassed(d);
+}
+
 function pivotChangeQty(day, pid, delta) {
   if (!currentUser) return;
   const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
@@ -25,6 +51,7 @@ function pivotChangeQty(day, pid, delta) {
       sb.delete('orders',
         `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
       ).catch(e => console.warn('qty0 delete:', e.message));
+      _reopenDayIfClosed(day);
     }
   }
   if (Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];
@@ -206,15 +233,22 @@ async function saveOrder() {
 }
 
 async function clearOrder() {
-  if (!(await confirmDialog('Biztosan törlöd az összes rendelést ebben a hónapban?'))) return;
-  // Delete from Supabase
+  // v2.54.1: CSAK a még módosítható napokat törli — eddig a lezárt, sőt a már kisütött napok
+  // rendelését is törölte, és ezzel a riportok / gyártási adatok is elvesztek.
+  const editable = getDays(selectedYear, selectedMonth).map(d => d.getDate()).filter(day => {
+    const k = getOrderKey(currentUser.id, selectedYear, selectedMonth, day);
+    return appData.orders[k] && Object.keys(appData.orders[k]).length && _isOrderDayEditable(day);
+  });
+  if (!editable.length) { toast('Nincs törölhető (még módosítható) rendelés ebben a hónapban.'); return; }
+  if (!(await confirmDialog(`Biztosan törlöd a rendelést ${editable.length} még módosítható napon? A lezárt napok rendelése megmarad.`))) return;
   try {
     await sb.delete('orders',
-      `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`);
-  } catch(e) { console.warn('clearOrder delete:', e.message); }
-  // Clear locally
-  const days = getDays(selectedYear, selectedMonth);
-  days.forEach(d => { delete appData.orders[getOrderKey(currentUser.id, selectedYear, selectedMonth, d.getDate())]; });
+      `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=in.(${editable.join(',')})`);
+  } catch(e) { toast('⚠️ Törlés sikertelen: ' + e.message, true); return; }
+  editable.forEach(day => {
+    delete appData.orders[getOrderKey(currentUser.id, selectedYear, selectedMonth, day)];
+    _reopenDayIfClosed(day);
+  });
   localStorage.setItem('kerek_vevo_data', JSON.stringify(appData));
   renderOrderTable();
   updateHeroTotal();
@@ -237,6 +271,7 @@ function mobChangeQty(day, pid, delta) {
       sb.delete('orders',
         `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
       ).catch(e => console.warn('qty0 delete:', e.message));
+      _reopenDayIfClosed(day);
     }
   }
   if(Object.keys(appData.orders[key]).length === 0) delete appData.orders[key];

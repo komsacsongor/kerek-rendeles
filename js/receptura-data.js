@@ -22,6 +22,38 @@ let R = _s || {
 
 function save() { R._v = DATA_VERSION; localStorage.setItem('kerek_recipe_data', JSON.stringify(R)); }
 
+// v2.54.1: EGY leképezés az ingredient_batches sorokra (első betöltés, polling, új bevételezés)
+function mapBatchRow(b) {
+  return {
+    id: b.id, ingredientId: b.ingredient_id,
+    receivedDate: b.received_date || '',
+    qtyReceivedG: Number(b.qty_received_g) || 0,
+    qtyRemainingG: Number(b.qty_remaining_g) || 0,
+    pricePerG: Number(b.price_per_g) || 0,
+    priceGrossPerUnit: Number(b.price_gross_per_unit) || 0,
+    packageSizeG: b.package_size_g || 1000,
+    supplierName: b.supplier_name || '',
+    sourceType: b.source_type || 'purchase',
+    processingId: b.processing_id || null,
+    notes: b.notes || '',
+  };
+}
+
+// Alapanyagonkénti készlet / FIFO-ár / átlagár / beszállítók újraszámítása az R.batches-ből
+function recomputeIngredientStock(onlyIngId) {
+  (R.ingredients || []).forEach(ing => {
+    if (onlyIngId != null && ing.id !== onlyIngId) return;
+    const ingBatches = (R.batches || []).filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0)
+      .sort((a, b) => (a.receivedDate || '').localeCompare(b.receivedDate || ''));
+    ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+    ing.fifoPrice = ingBatches[0] ? ingBatches[0].pricePerG : 0;
+    ing.avgPrice = ing.totalStockG > 0
+      ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / ing.totalStockG
+      : 0;
+    ing.suppliers = [...new Set(ingBatches.map(b => b.supplierName).filter(Boolean))];
+  });
+}
+
 // v2.37.0 fix #11/#15: full reload Realtime callback-hez, nem hív loadAllData-t mert az nem létezik fv-ként
 // Csak a kritikus táblákat tölti újra (recipes + ingredients + products + batches)
 // v2.53.73: EGYETLEN kanonikus adat-betöltő. NINCS nav / render / save() — csak R feltöltése.
@@ -130,32 +162,8 @@ async function loadReceptCoreData() {
       }));
     }
     if(dbBatches) {
-      R.batches = dbBatches.map(b => ({
-        id: b.id, ingredientId: b.ingredient_id,
-        receivedDate: b.received_date,
-        qtyReceivedG: b.qty_received_g,
-        qtyRemainingG: b.qty_remaining_g,
-        pricePerG: b.price_per_g || 0,
-        priceGrossPerUnit: b.price_gross_per_unit || 0,
-        packageSizeG: b.package_size_g || 1000,
-        supplierName: b.supplier_name || '',
-        sourceType: b.source_type || 'purchase',
-        notes: b.notes || '',
-      }));
-      // Compute totalStockG per ingredient from batches
-      R.ingredients.forEach(ing => {
-        const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
-        ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
-        // FIFO price = oldest batch with stock
-        const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
-        ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
-        // Weighted average price
-        const totalStock = ing.totalStockG;
-        ing.avgPrice = totalStock > 0
-          ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / totalStock
-          : 0;
-        ing.suppliers = [...new Set(ingBatches.map(b => b.supplierName).filter(Boolean))];
-      });
+      R.batches = dbBatches.map(mapBatchRow);
+      recomputeIngredientStock();
     }
     // Calc auto min/max from orders (async, non-blocking)
     calcAutoMinMax().catch(e => console.warn('autoMinMax:', e.message));
@@ -281,25 +289,14 @@ async function initApp() {
   startUnifiedPolling(async () => {
     try {
       // Re-fetch ingredient batches (FIFO stock changes from purchases/baking)
-      const batches = await kData.query('ingredient_batches', { limit: 2000 });
-      const newBatchesJson = JSON.stringify((batches||[]).map(b=>({i:b.ingredient_id,r:b.qty_remaining_g})));
-      const oldBatchesJson = JSON.stringify((R.batches||[]).map(b=>({i:b.ingredientId,r:b.qtyRemainingG})));
-      if (newBatchesJson !== oldBatchesJson) {
-        R.batches = (batches||[]).map(b => ({
-          id: b.id, ingredientId: b.ingredient_id, receivedDate: b.received_date,
-          qtyReceivedG: b.qty_received_g, qtyRemainingG: b.qty_remaining_g,
-          pricePerG: b.price_per_g, supplierName: b.supplier_name,
-          sourceType: b.source_type, processingId: b.processing_id, notes: b.notes
-        }));
-        // Recompute per-ingredient stock
-        if (R.ingredients) {
-          R.ingredients.forEach(ing => {
-            const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
-            ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
-            const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
-            ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
-          });
-        }
+      // v2.54.1: ugyanaz a lekérés (limit + rendezés) és ugyanaz a leképezés, mint az első betöltésnél —
+      // eddig a polling kevesebb mezőt (csomagméret, bruttó ár) és max 2000 tételt töltött vissza.
+      const batches = await kData.query('ingredient_batches', { order:'ingredient_id,received_date,id', limit: 5000 });
+      const sig = arr => arr.map(b => `${b.id}:${b.qtyRemainingG}`).sort().join('|');
+      const fresh = (batches||[]).map(mapBatchRow);
+      if (sig(fresh) !== sig(R.batches||[])) {
+        R.batches = fresh;
+        recomputeIngredientStock();
         // Re-render active view
         const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
         if (activeView === 'stock') { if (typeof renderStock === 'function') renderStock(); if (typeof renderStockAlerts === 'function') renderStockAlerts(); }

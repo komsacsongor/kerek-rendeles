@@ -142,7 +142,7 @@ async function handleInvoiceFile(input){
     if(payload.images.length){ _invStatus('Számla kiolvasása képből (vision AI)…', true); }
     else { _invStatus('Számla kiolvasása szövegből (AI)…', true); }
     const parsed = await aiParseInvoice(payload);
-    _INV.parsed = parsed;
+    _INV.parsed = parsed; _INV.partial = false;
     _invStatus('Párosítás és költség-számítás…', true);
     await _invBuildModel(parsed);
     document.getElementById('inv-status').style.display='none';
@@ -331,10 +331,10 @@ async function _invBuildModel(parsed){
 function _invSuggestNewIng(ln){
   // egység tipp: db-jellegű? tömeg? térfogat?
   const u = _invNorm(ln.unit);
-  let unit = 'g';
-  if(/(db|buc|bucata|piece|pcs)/.test(u)) unit='db';
-  else if(/(l|liter|litru|ml)/.test(u)) unit='l';
-  else unit='g'; // kg/g/zsák → g bázis, kg megjelenítés
+  // v2.54.1: pontos egyezés — eddig részszöveg-keresés volt, így pl. a „kilogram" (benne „l") folyadék lett
+  let unit = 'g'; // kg/g/zsák → g bázis, kg megjelenítés
+  if(['db','buc','bucata','bucati','piece','pieces','pcs','pc','darab','ea'].includes(u)) unit='db';
+  else if(['l','ml','cl','dl','liter','litru','litri','litre','litres','liters'].includes(u)) unit='l';
   const cats = R.ingredientCategories||[];
   return { name: ln.hu||ln.raw, category: cats[0]||'Egyéb', subType:'other_dry', unit, materialType:'raw' };
 }
@@ -440,7 +440,8 @@ function _invRowLejPerBase(ln){
 }
 
 // ---------- INTERAKCIÓK ----------
-function _invLineStatus(ln){ return ln.chosenIngId==='__new__' ? 'new' : ((ln.baseQtyG>0 && ln.lineTotalNet>0) ? 'ok' : 'missing'); }
+// v2.54.1: a hiányzó mennyiség/ár az ÚJ alapanyagnál is blokkol (eddig javítás után átcsúszott)
+function _invLineStatus(ln){ if(!(ln.baseQtyG>0 && ln.lineTotalNet>0)) return 'missing'; return ln.chosenIngId==='__new__' ? 'new' : 'ok'; }
 function invSetIng(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.chosenIngId=v; ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetQty(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.baseQtyG=_invNum(v); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetTotal(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.lineTotalNet=_invNum(v); _invRecalcLanded(); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
@@ -466,8 +467,8 @@ async function invCommit(){
   const missing = _INV.lines.filter(l=>l.status==='missing');
   if(missing.length){ toast(`⚠️ ${missing.length} tételnél hiányzik a mennyiség vagy az ár.`, true); return; }
 
-  // Duplikátum-védelem
-  if(invNo){
+  // Duplikátum-védelem (egy félbeszakadt bevételezés folytatásánál nem kérdez újra)
+  if(invNo && !_INV.partial){
     try{
       const dup = await kData.query('ingredient_batches', { filter:`invoice_number=eq.${encodeURIComponent(invNo)}`, limit:1 });
       if(dup && dup.length){ if(!(await confirmDialog(`A(z) „${invNo}" számla már be lett vételezve. Biztos újra rögzíted?`))) return; }
@@ -485,22 +486,29 @@ async function invCommit(){
       const sdata = { id:nextId, name:sp.name, cui:sp.cui||null, reg_com:sp.reg_com||null, address:sp.address||null, bank_iban:sp.iban||null, currency:(_INV.fx.currency||'lej').toLowerCase()==='ron'?'lej':(_INV.fx.currency||'lej').toLowerCase(), active:true, updated_at:new Date().toISOString() };
       await kData.insert('suppliers', sdata);
       R.suppliers = R.suppliers||[]; if(typeof mapSupplierDb==='function') R.suppliers.push(mapSupplierDb({...sdata, created_at:new Date().toISOString()})); else R.suppliers.push({...sdata});
+      // v2.54.1: újrapróbálásnál ne jöjjön létre még egyszer
+      _INV.supplier = { match:'found', id:nextId, data:sdata, parsed:sp };
     }
 
     // 2) Alapanyagok + 3) FIFO bevételezés
     let created=0, received=0;
     for(const ln of _INV.lines){
+      if(ln.committed) continue; // v2.54.1: félbeszakadt bevételezés folytatása — a már rögzített sort kihagyjuk
       let ingId = ln.chosenIngId;
       // Új alapanyag
       if(ingId==='__new__'){
         const ni = ln.newIng || _invSuggestNewIng(ln);
-        const nextIngId = Math.max(0, ...R.ingredients.map(i=>i.id))+1;
+        // v2.54.1: az ID a DB-ben lévő legnagyobb + 1 (a helyi lista hiányos lehet → ütközés)
+        let dbMax = 0;
+        try { const top = await kData.query('ingredients', { select:'id', order:'id.desc', limit:1 }); dbMax = top?.[0]?.id || 0; } catch(e) {}
+        const nextIngId = Math.max(dbMax, ...R.ingredients.map(i=>i.id))+1;
         const irow = { id:nextIngId, name:ni.name, category:ni.category, sub_type:ni.subType, unit:ni.unit, material_type:ni.materialType||'raw' };
         await kData.insert('ingredients', irow);
         const newIngObj = { id:nextIngId, name:ni.name, cat:ni.category, subType:ni.subType, unit:ni.unit, materialType:ni.materialType||'raw', suppliers:[], totalStockG:0, fifoPrice:0, avgPrice:0, basePriceG:0, notes:'',
           get minStock(){return this.minStockAutoG||0;}, get maxStock(){return this.maxStockAutoG||0;} };
         R.ingredients.push(newIngObj);
         ingId = nextIngId; created++;
+        ln.chosenIngId = String(nextIngId); // újrapróbálásnál már meglévőként kezeljük
       } else {
         ingId = parseInt(ingId);
       }
@@ -526,26 +534,23 @@ async function invCommit(){
         fx_rate: _INV.fx.rate||1,
         notes: [`Számla: ${invNo||'—'}`, ...noteBits].join(' · ')
       };
-      await kData.insert('ingredient_batches', batchRow);
+      const ins = await kData.insert('ingredient_batches', batchRow);
+      // v2.54.1: a DB által visszaadott sort (ID-val!) vesszük fel — ID nélkül a későbbi FIFO-levonás
+      // a DB-ben nem történt meg, csak helyben
+      const saved = Array.isArray(ins) ? ins[0] : ins;
       R.batches = R.batches||[];
-      R.batches.push({ ingredientId:ingId, receivedDate:batchRow.received_date, qtyReceivedG:ln.baseQtyG, qtyRemainingG:ln.baseQtyG, pricePerG, supplierName, sourceType:'invoice' });
+      R.batches.push(mapBatchRow(saved && saved.id != null ? saved : batchRow));
+      ln.committed = true; _INV.partial = true;
       received++;
     }
 
-    // Készlet/árak újraszámítása
-    R.ingredients.forEach(ing=>{
-      const bs = R.batches.filter(b=>b.ingredientId===ing.id && b.qtyRemainingG>0);
-      ing.totalStockG = bs.reduce((s,b)=>s+b.qtyRemainingG,0);
-      const f=[...bs].sort((a,b)=>a.receivedDate.localeCompare(b.receivedDate))[0];
-      ing.fifoPrice = f?f.pricePerG:0;
-      ing.avgPrice = ing.totalStockG>0 ? bs.reduce((s,b)=>s+b.pricePerG*b.qtyRemainingG,0)/ing.totalStockG : 0;
-    });
+    recomputeIngredientStock();
     if(typeof auditLog==='function') auditLog('invoice_intake', supplierName, `Számla ${invNo||'—'}: ${received} tétel, ${created} új alapanyag`);
 
     _INV.busy=false;
     toast(`✅ Bevételezve: ${received} tétel${created?`, ${created} új alapanyag`:''}.`);
     document.getElementById('inv-review').innerHTML = `<div class="card" style="text-align:center;padding:26px"><div style="font-size:2rem">✅</div><div style="font-weight:700;color:var(--teal-dark);margin-top:6px">Kész! ${received} tétel bevételezve.</div><div style="font-size:0.8rem;color:var(--text-soft);margin-top:4px">Ellenőrizd az <b>Alapanyagok & Készlet</b> nézetben.</div><button class="btn btn-ghost mt-16" data-action="invPick">Újabb számla</button></div>`;
-    _INV.parsed=null; _INV.lines=[];
+    _INV.parsed=null; _INV.lines=[]; _INV.partial=false;
   }catch(e){
     _INV.busy=false; if(btn){ btn.disabled=false; btn.textContent='✅ Bevételezés véglegesítése'; }
     console.error('invCommit:', e);
