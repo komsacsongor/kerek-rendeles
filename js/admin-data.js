@@ -83,7 +83,8 @@ async function loadAllData() {
     sb.query('clients', { order: 'name', limit: QUERY_LIMIT_CLIENTS }).then(clients => {
       D.clients = (clients||[]).map(c => ({
         id: c.id, name: c.name, email: c.email || '',
-        phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
+        phone: c.phone || '', note: c.note || '', joinDate: c.join_date || '',
+        is_admin: !!c.is_admin  // v2.55.0: eddig kimaradt → a 👑 jelzés eltűnt, a jog nem volt visszavonható
       }));
     }),
     sb.query('monthly_active_products', { limit: 2000 }).then(maps => {

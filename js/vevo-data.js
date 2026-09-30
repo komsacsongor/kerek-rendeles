@@ -1,80 +1,5 @@
 
-// ===== AUTH TABS =====
-function switchAuthTab(tab) {
-  const isLogin = tab === 'login';
-  document.getElementById('auth-login-panel').style.display = isLogin ? 'block' : 'none';
-  document.getElementById('auth-reg-panel').style.display = isLogin ? 'none' : 'block';
-  document.getElementById('reg-success').style.display = 'none';
-  document.getElementById('login-error').style.display = 'none';
-  // Tab button styles
-  const loginBtn = document.getElementById('tab-login-btn');
-  const regBtn = document.getElementById('tab-reg-btn');
-  if (loginBtn) {
-    loginBtn.style.background = isLogin ? 'white' : 'transparent';
-    loginBtn.style.color = isLogin ? 'var(--teal-dark)' : 'var(--text-soft)';
-    loginBtn.style.fontWeight = isLogin ? '700' : '400';
-    loginBtn.style.boxShadow = isLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
-  }
-  if (regBtn) {
-    regBtn.style.background = !isLogin ? 'white' : 'transparent';
-    regBtn.style.color = !isLogin ? 'var(--teal-dark)' : 'var(--text-soft)';
-    regBtn.style.fontWeight = !isLogin ? '700' : '400';
-    regBtn.style.boxShadow = !isLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
-  }
-}
-
-function _genCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  return `KER-${seg()}-${seg()}`;
-}
-
-const _regAttempts = { count: 0, resetAt: 0 };
-
-async function doRegister() {
-  const now = Date.now();
-  if (now > _regAttempts.resetAt) { _regAttempts.count = 0; _regAttempts.resetAt = now + 60000; }
-  if (++_regAttempts.count > 5) {
-    _showLoginError(`⚠️ Túl sok próbálkozás. Várj ${Math.ceil((_regAttempts.resetAt - now)/1000)} másodpercet.`);
-    return;
-  }
-  const name  = (document.getElementById('reg-name')?.value || '').trim();
-  const email = (document.getElementById('reg-email')?.value || '').trim();
-  const phone = (document.getElementById('reg-phone')?.value || '').trim();
-  _showLoginError('');
-  if (!name)  { _showLoginError('⚠️ Add meg a nevedet!'); return; }
-  if (!email) { _showLoginError('⚠️ Add meg az email címedet!'); return; }
-  if (!email.includes('@') || !email.includes('.')) { _showLoginError('⚠️ Érvénytelen email cím!'); return; }
-
-  const btn = document.getElementById('reg-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Feldolgozás...'; }
-
-  try {
-    // Check duplicate email
-    const existing = await sb.query('clients', { filter: `email=eq.${encodeURIComponent(email)}`, limit: 1 });
-    if (existing && existing.length > 0) {
-      const ex = existing[0];
-      _showLoginError(ex.name.startsWith('[DELETED]')
-        ? '⚠️ Ez az email cím egy deaktivált fiókhoz tartozik. Keresd fel a pékséget.'
-        : '⚠️ Ez az email cím már regisztrálva van! Lépj be az email címeddel.');
-      if (btn) { btn.disabled = false; btn.textContent = 'Regisztráció →'; }
-      return;
-    }
-    const code = _genCode();
-    await sb.insert('clients', { id: code, name: '[PENDING] ' + name, email, phone: phone || null });
-    // Show success
-    document.getElementById('auth-reg-panel').style.display = 'none';
-    document.getElementById('reg-code-display').textContent = code;
-    document.getElementById('reg-email-display').textContent = email;
-    document.getElementById('reg-success').style.display = 'block';
-  } catch(e) {
-    const msg = e.message || JSON.stringify(e);
-    _showLoginError(msg.includes('unique') || msg.includes('23505')
-      ? '⚠️ Ez az email cím már regisztrálva van!'
-      : '⚠️ Hiba: ' + msg);
-    if (btn) { btn.disabled = false; btn.textContent = 'Regisztráció →'; }
-  }
-}
+// v2.55.0: a regisztráció a szerveren (vevo-auth EF) történik — lásd js/vevo-auth.js
 
 function _showLoginError(msg) {
   const el = document.getElementById('login-error');
@@ -125,20 +50,7 @@ let appData = JSON.parse(localStorage.getItem('kerek_vevo_data') || 'null') || {
     '2026-4': [1,2,3,5,6,7,8,9],
     '2026-5': [1,2,4,5,7,8,10],
   },
-  clients: [
-    { id:'anna', name:'Kovács Anna', email:'anna@example.com' },
-    { id:'bela', name:'Nagy Béla', email:'bela@example.com' },
-    { id:'cica', name:'Fekete Cica', email:'cica@example.com' },
-  ],
-  orders: {
-    'anna-2026-3-4': { 1:2, 2:1, 7:1 },
-    'anna-2026-3-11': { 1:2, 5:4, 7:1 },
-    'anna-2026-4-1': { 1:2, 5:3, 7:1 },
-    'anna-2026-4-8': { 2:1, 6:4, 8:2 },
-    'bela-2026-3-4': { 2:2, 5:2, 8:3 },
-    'bela-2026-4-4': { 2:2, 5:2, 9:3 },
-    'cica-2026-3-7': { 1:1, 7:2, 9:3 },
-  },
+  orders: {},
   messages: {},
   helpConditions: '',
   helpDelivery: '',
@@ -154,37 +66,14 @@ let selectedYear = new Date().getFullYear();
 let summaryMonth = selectedMonth;
 
 // ===== AUTH =====
-// S2: Rate limiting – max 5 attempts per 60 seconds
-const _loginAttempts = { count: 0, resetAt: 0 };
+// v2.55.0 (C1): a belépés a SZERVEREN történik (vevo-auth EF, js/vevo-auth.js) — a böngésző
+// nem tölti le a vevőlistát. Ez a fájl csak a nyilvános adatokat és a belépett vevő saját adatait tölti.
 
-async function doLogin() {
-  const now = Date.now();
-  if (now > _loginAttempts.resetAt) { _loginAttempts.count = 0; _loginAttempts.resetAt = now + 60000; }
-  _loginAttempts.count++;
-  if (_loginAttempts.count > 5) {
-    const waitSec = Math.ceil((_loginAttempts.resetAt - now) / 1000);
-    document.getElementById('login-error').textContent = `⚠️ Túl sok próbálkozás. Várj ${waitSec} másodpercet.`;
-    document.getElementById('login-error').style.display = 'block';
-    return;
-  }
-  showVersionBadge();
-  const val = document.getElementById('login-input').value.trim().toLowerCase();
-  const errEl2 = document.getElementById('login-error');
-  if (!val) {
-    if(errEl2) { errEl2.textContent = '⚠️ Add meg a belépési kódot!'; errEl2.style.display='block'; }
-    return;
-  }
-  if(errEl2) errEl2.style.display='none';
-  if (val === 'admin') { window.location.href = 'admin.html'; return; }
-
-  // Loading jelzés
-  const btn = document.querySelector('#login-screen button');
-  if(btn) { btn.disabled = true; btn.textContent = 'Betöltés...'; }
-
+// Nyilvános (vevő-független) adatok: termékek, havi kínálat, kivételek, beállítás-szövegek
+async function loadPublicData() {
   try {
     // Mindig Supabase-ből tölt – friss termékek, kliensek, beállítások
-    const [clients, products, maps, exceptions, settings_cond, settings_del, settings_bake, settings_header] = await Promise.all([
-      sb.query('clients', {limit: 500}),
+    const [products, maps, exceptions, settings_cond, settings_del, settings_bake, settings_header] = await Promise.all([
       sb.query('products', {order:'id', limit: 500}),
       sb.query('monthly_active_products', {limit: 2000}),
       sb.query('product_day_exceptions', {limit: 5000}).catch(()=>[]),
@@ -194,9 +83,6 @@ async function doLogin() {
       sb.getSetting('vevo_header_text'),  // v2.41.1
     ]);
 
-    if(clients?.length) {
-      appData.clients = clients.map(c=>({id:c.id,name:c.name,email:c.email||'',phone:c.phone||'',is_admin:!!c.is_admin}));
-    }
     if(products?.length) {
       appData.products = products.map(p=>({
         id:p.id, name:p.name, weight:p.weight||'', price:p.price||0,
@@ -236,212 +122,193 @@ async function doLogin() {
     if(!appData.bakingCalendar) appData.bakingCalendar = {};
   }
 
-  if(btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
-
-  const normalizedVal = val.replace(/-/g,'').toLowerCase().trim();
-  const valLower = val.toLowerCase().trim();
-  const client = appData.clients.find(c =>
-    c.id === val ||
-    c.id === val.toUpperCase() ||
-    c.id.toLowerCase() === valLower ||
-    c.id.replace(/-/g,'').toLowerCase() === normalizedVal ||
-    (c.email && c.email.toLowerCase() === valLower) ||
-    c.name.toLowerCase() === valLower
-  );
-  if (client && client.name && client.name.startsWith('[PENDING]')) {
-    const _errEl = document.getElementById('login-error');
-    if(_errEl) { _errEl.textContent = '⏳ A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!'; _errEl.style.display='block'; }
-    return;
-  }
-  if (client && client.name && client.name.startsWith('[DELETED]')) {
-    _showLoginError('❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.');
-    return;
-  }
-  if (client) {
-    currentUser = client;
-    document.getElementById('login-screen').style.display = 'none';
-    auditLog('login', currentUser.name||currentUser.id, 'Vevő belépés');
-    if (typeof kerekVevoSaveLogin === 'function') kerekVevoSaveLogin(val);
-    if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
-    document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
-    setTimeout(() => { if (typeof updateMsgIndicator === 'function') updateMsgIndicator(); }, 800);
-    const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
-    document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';
-    // Vevő rendelései + üzenetei Supabase-ből
-    try {
-      const [userOrders, userMsgs, calData, userStatuses] = await Promise.all([
-        sb.query('orders', {filter: `client_id=eq.${client.id}`, limit: 2000}),
-        sb.query('messages', {filter: `client_id=eq.${client.id}`, order: 'created_at', limit: 200}),
-        sb.query('baking_calendar', {limit: 200}),
-        sb.query('order_status', {filter: `client_id=eq.${client.id}`, limit: 500}),
-      ]);
-      (userOrders||[]).forEach(r => {
-        const k = getOrderKey(r.client_id, r.year, r.month, r.day);
-        if(!appData.orders[k]) appData.orders[k] = {};
-        appData.orders[k][r.product_id] = r.quantity;
-      });
-      appData.orderStatus = {};
-      (userStatuses||[]).forEach(r => {
-        const k = getOrderKey(r.client_id, r.year, r.month, r.day);
-        appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note};
-      });
-      (userMsgs||[]).forEach(r => {
-        const k = `${r.client_id}-${r.year}-${r.month}`;
-        if(!appData.messages[k]) appData.messages[k] = [];
-        appData.messages[k].push({text: r.text, ts: r.created_at});
-      });
-      (calData||[]).forEach(r => {
-        const k = `${r.year}-${r.month}`;
-        appData.bakingCalendar[k] = {extra: r.extra_dates||[], removed: r.removed_dates||[]};
-      });
-    } catch(e) { console.warn('User data load:', e.message); }
-
-    // H8 fix: a határidőn túli rendeléseket jóváhagyjuk (nincs mindig cron).
-    // FONTOS: a RENDELÉSEKEN (appData.orders) iterálunk, mert új rendelésnél NINCS
-    // order_status sor — a status-sorokon iterálva ezek kimaradnának.
-    try {
-      const now = new Date();
-      const expiredKeys = [];
-      Object.keys(appData.orders || {}).forEach(k => {
-        const order = appData.orders[k];
-        if (!order || Object.keys(order).length === 0) return;           // üres nap
-        const st = (appData.orderStatus || {})[k] || {};
-        if (['confirmed','cancelled','fulfilled'].includes(st.status)) return; // már lezárt
-        const parts = k.split('-');                                      // clientId-year-month-day
-        const y = parseInt(parts[parts.length-3]);
-        const mo = parseInt(parts[parts.length-2]);                      // 0-alapú
-        const dy = parseInt(parts[parts.length-1]);
-        const expired = st.deadline
-          ? (new Date(st.deadline) <= now)
-          : (typeof defaultDeadlinePassed === 'function' && defaultDeadlinePassed(new Date(y, mo, dy)));
-        if (expired) expiredKeys.push(k);
-      });
-      if (expiredKeys.length > 0) {
-        const expiredRows = expiredKeys.map(k => {
-          const parts = k.split('-'); // clientId-year-month-day
-          const cid = parts.slice(0, -3).join('-'); // clientId may contain -
-          return {
-            client_id: cid,
-            year: parseInt(parts[parts.length-3]),
-            month: parseInt(parts[parts.length-2]),
-            day: parseInt(parts[parts.length-1]),
-            status: 'confirmed',
-            confirmed_at: now.toISOString()
-          };
-        });
-        await sb.upsert('order_status', expiredRows, 'client_id,year,month,day');
-        expiredKeys.forEach(k => {
-          appData.orderStatus[k] = { ...appData.orderStatus[k], status: 'confirmed' };
-        });
-      }
-    } catch(e) { console.warn('Auto-confirm:', e.message); }
-
-    buildMonthSelectors();
-    if (typeof loadViewPref === 'function') loadViewPref();
-    renderOrderTable();
-    if (typeof applyVevoHeader === 'function') applyVevoHeader();  // v2.41.1
-    updateHeroTotal();
-    // Show sticky bottom total bar after successful login
-    const sticky = document.getElementById('sticky-month-total');
-    if (sticky) sticky.style.display = 'flex';
-    document.body.classList.add('has-sticky-total');
-    loadMessage();
-    // v2.53.61: push deep-link — a belépés + üzenet-betöltés UTÁN ugrunk az üzenetekhez
-    // (a szándék sessionStorage-ban él, túléli a login-képernyőt/kattintást)
-    if (sessionStorage.getItem('pendingOpenMsg') === '1'){
-      sessionStorage.removeItem('pendingOpenMsg');
-      setTimeout(() => { if (typeof showMessages === 'function') showMessages(); }, 500);
-    }
-    renderHelpConditions();
-    initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
-
-    // v2.36.0 fix #8 + #9: Realtime subscription for instant admin replies + in-app notification
-    if (window._kerekVevoUnsub) { try { window._kerekVevoUnsub(); } catch(e){} }
-    if (typeof sb.subscribe === 'function') {
-      try {
-        let _rtDebounce = null;
-        const VEVO_RT_TABLES = ['messages', 'order_status', 'products', 'monthly_active_products', 'baking_calendar', 'settings', 'settings', 'product_day_exceptions'];
-        window._kerekVevoUnsub = sb.subscribe(VEVO_RT_TABLES, ({table, event}) => {
-          if (_rtDebounce) clearTimeout(_rtDebounce);
-          _rtDebounce = setTimeout(async () => {
-            const beforeMsgCount = countMyMessages();
-            // Reload data (full refresh; same as polling does)
-            try { await reloadVevoData(); } catch(e) {}
-            const afterMsgCount = countMyMessages();
-            // #9: In-app toast if new admin message arrived
-            if (table === 'messages' && event === 'INSERT' && afterMsgCount > beforeMsgCount) {
-              showAdminMsgBanner();
-              if (typeof updateMsgIndicator === 'function') updateMsgIndicator();
-            }
-            // Re-render active view
-            if (typeof renderOrderTable === 'function') renderOrderTable();
-            if (typeof updateHeroTotal === 'function') updateHeroTotal();
-          }, 500);
-        });
-      } catch(e) { console.warn('Vevo Realtime subscribe failed:', e.message); }
-    }
-
-    // v2.26.0: Unified 30s polling (Page Visibility aware) - now backup to Realtime
-    if (window._kerekStopPoll) { try { window._kerekStopPoll(); } catch(e){} }
-    window._kerekStopPoll = startUnifiedPolling(async () => {
-      if (!currentUser) return;
-      let changed = false;
-      // 1. Messages
-      loadMessage();
-      // 2. Order status (admin modifications)
-      try {
-        const st = await sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500});
-        if (!appData.orderStatus) appData.orderStatus = {};
-        (st||[]).forEach(r => {
-          const k = getOrderKey(r.client_id, r.year, r.month, r.day);
-          const prev = (appData.orderStatus[k]||{}).status;
-          appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
-          if (prev !== r.status) changed = true;
-        });
-      } catch(e) {}
-      // 3. Products (prices, new items, archive)
-      try {
-        const prods = await sb.query('products', { order: 'id', limit: 500 });
-        const newJson = JSON.stringify((prods||[]).map(p=>({id:p.id,price:p.price,name:p.name})));
-        const oldJson = JSON.stringify(appData.products.map(p=>({id:p.id,price:p.price,name:p.name})));
-        if (newJson !== oldJson) {
-          appData.products = (prods||[]).map(p => ({
-            id: p.id, name: p.name, weight: p.weight || '', price: p.price,
-            category: p.category || 'Egyéb', desc: p.description || '',
-            image: p.image || null, code: p.code || '',
-            marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
-            allergens: p.allergens || '', nutrition: p.nutrition || null,
-            familyId: p.product_family_id || null,
-            baking_dows: p.baking_dows || null
-          }));
-          changed = true;
-        }
-      } catch(e) {}
-      // 4. Monthly active products (admin may toggle availability)
-      try {
-        const maps = await sb.query('monthly_active_products', { limit: 2000 });
-        const grouped = {};
-        (maps||[]).forEach(r => {
-          const k = `${r.year}-${r.month}`;
-          if (!grouped[k]) grouped[k] = [];
-          grouped[k].push(r.product_id);
-        });
-        if (JSON.stringify(grouped) !== JSON.stringify(appData.monthlyActiveProducts||{})) {
-          appData.monthlyActiveProducts = grouped;
-          changed = true;
-        }
-      } catch(e) {}
-      if (changed) { renderOrderTable(); updateHeroTotal(); }
-    }, 30000);
-  } else {
-    const errEl = document.getElementById('login-error');
-    if(errEl) { errEl.textContent = '❌ Ismeretlen kód! Kérj segítséget a pékségtől.'; errEl.style.display='block'; }
-    const inp = document.getElementById('login-input');
-    if(inp) { inp.style.border='1.5px solid #ef4444'; inp.focus(); inp.addEventListener('input', () => { if(errEl) errEl.style.display='none'; inp.style.border=''; }, {once:true}); }
-  }
 }
-function logout() { localStorage.removeItem('kerek_vevo_data');
-  localStorage.removeItem('kerek_data'); window.location.href = 'vevo.html'; }
+
+// Belépett vevő: saját adatok betöltése + a felület indítása (a vevo-auth.js hívja sikeres belépés után)
+async function vevoEnterApp(client) {
+  showVersionBadge();
+  currentUser = client;
+  document.getElementById('login-screen').style.display = 'none';
+  if (typeof KEREKAnalytics !== 'undefined') KEREKAnalytics.sessionStart();
+  document.getElementById('user-badge').textContent = '👤 ' + esc(client.name);
+  setTimeout(() => { if (typeof updateMsgIndicator === 'function') updateMsgIndicator(); }, 800);
+  const _displayName = client.name.replace(/^\[(PENDING|DELETED)\]\s*/,'');
+  document.getElementById('hero-greeting').textContent = 'Szia, ' + esc(_displayName.split(' ').slice(-1)[0]) + '! 👋';
+  // Vevő rendelései + üzenetei Supabase-ből
+  try {
+    const [userOrders, userMsgs, calData, userStatuses] = await Promise.all([
+      vData.query('orders', {limit: 2000}),
+      vData.query('messages', {order: 'created_at', limit: 200}),
+      sb.query('baking_calendar', {limit: 200}),
+      vData.query('order_status', {limit: 500}),
+    ]);
+    (userOrders||[]).forEach(r => {
+      const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+      if(!appData.orders[k]) appData.orders[k] = {};
+      appData.orders[k][r.product_id] = r.quantity;
+    });
+    appData.orderStatus = {};
+    (userStatuses||[]).forEach(r => {
+      const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+      appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
+    });
+    (userMsgs||[]).forEach(r => {
+      const k = `${r.client_id}-${r.year}-${r.month}`;
+      if(!appData.messages[k]) appData.messages[k] = [];
+      appData.messages[k].push({text: r.text, ts: r.created_at});
+    });
+    (calData||[]).forEach(r => {
+      const k = `${r.year}-${r.month}`;
+      appData.bakingCalendar[k] = {extra: r.extra_dates||[], removed: r.removed_dates||[]};
+    });
+  } catch(e) { console.warn('User data load:', e.message); }
+
+  // H8 fix: a határidőn túli rendeléseket jóváhagyjuk (nincs mindig cron).
+  // FONTOS: a RENDELÉSEKEN (appData.orders) iterálunk, mert új rendelésnél NINCS
+  // order_status sor — a status-sorokon iterálva ezek kimaradnának.
+  try {
+    const now = new Date();
+    const expiredKeys = [];
+    Object.keys(appData.orders || {}).forEach(k => {
+      const order = appData.orders[k];
+      if (!order || Object.keys(order).length === 0) return;           // üres nap
+      const st = (appData.orderStatus || {})[k] || {};
+      if (['confirmed','cancelled','fulfilled'].includes(st.status)) return; // már lezárt
+      const parts = k.split('-');                                      // clientId-year-month-day
+      const y = parseInt(parts[parts.length-3]);
+      const mo = parseInt(parts[parts.length-2]);                      // 0-alapú
+      const dy = parseInt(parts[parts.length-1]);
+      const expired = st.deadline
+        ? (new Date(st.deadline) <= now)
+        : (typeof defaultDeadlinePassed === 'function' && defaultDeadlinePassed(new Date(y, mo, dy)));
+      if (expired) expiredKeys.push(k);
+    });
+    if (expiredKeys.length > 0) {
+      const expiredRows = expiredKeys.map(k => {
+        const parts = k.split('-'); // clientId-year-month-day
+        const cid = parts.slice(0, -3).join('-'); // clientId may contain -
+        return {
+          client_id: cid,
+          year: parseInt(parts[parts.length-3]),
+          month: parseInt(parts[parts.length-2]),
+          day: parseInt(parts[parts.length-1]),
+          status: 'confirmed',
+          confirmed_at: now.toISOString()
+        };
+      });
+      await vData.upsert('order_status', expiredRows);
+      expiredKeys.forEach(k => {
+        appData.orderStatus[k] = { ...appData.orderStatus[k], status: 'confirmed' };
+      });
+    }
+  } catch(e) { console.warn('Auto-confirm:', e.message); }
+
+  buildMonthSelectors();
+  if (typeof loadViewPref === 'function') loadViewPref();
+  renderOrderTable();
+  if (typeof applyVevoHeader === 'function') applyVevoHeader();  // v2.41.1
+  updateHeroTotal();
+  // Show sticky bottom total bar after successful login
+  const sticky = document.getElementById('sticky-month-total');
+  if (sticky) sticky.style.display = 'flex';
+  document.body.classList.add('has-sticky-total');
+  loadMessage();
+  // v2.53.61: push deep-link — a belépés + üzenet-betöltés UTÁN ugrunk az üzenetekhez
+  // (a szándék sessionStorage-ban él, túléli a login-képernyőt/kattintást)
+  if (sessionStorage.getItem('pendingOpenMsg') === '1'){
+    sessionStorage.removeItem('pendingOpenMsg');
+    setTimeout(() => { if (typeof showMessages === 'function') showMessages(); }, 500);
+  }
+  renderHelpConditions();
+  initPushSubscription().then(() => updatePushBtn()).catch(() => updatePushBtn());
+
+  // v2.36.0 fix #8 + #9: Realtime subscription for instant admin replies + in-app notification
+  if (window._kerekVevoUnsub) { try { window._kerekVevoUnsub(); } catch(e){} }
+  if (typeof sb.subscribe === 'function') {
+    try {
+      let _rtDebounce = null;
+      // v2.55.0: a SAJÁT adatok (üzenetek, rendelési állapot) NEM realtime-on jönnek (az mindenki eseményét küldené),
+        // hanem a 30 mp-es lekérdezéssel, a vevo-data EF-en át. Realtime csak a nyilvános táblákra.
+        const VEVO_RT_TABLES = ['products', 'monthly_active_products', 'baking_calendar', 'settings', 'product_day_exceptions'];
+      window._kerekVevoUnsub = sb.subscribe(VEVO_RT_TABLES, ({table, event}) => {
+        if (_rtDebounce) clearTimeout(_rtDebounce);
+        _rtDebounce = setTimeout(async () => {
+          const beforeMsgCount = countMyMessages();
+          // Reload data (full refresh; same as polling does)
+          try { await reloadVevoData(); } catch(e) {}
+          const afterMsgCount = countMyMessages();
+          // #9: In-app toast if new admin message arrived
+          if (table === 'messages' && event === 'INSERT' && afterMsgCount > beforeMsgCount) {
+            showAdminMsgBanner();
+            if (typeof updateMsgIndicator === 'function') updateMsgIndicator();
+          }
+          // Re-render active view
+          if (typeof renderOrderTable === 'function') renderOrderTable();
+          if (typeof updateHeroTotal === 'function') updateHeroTotal();
+        }, 500);
+      });
+    } catch(e) { console.warn('Vevo Realtime subscribe failed:', e.message); }
+  }
+
+  // v2.26.0: Unified 30s polling (Page Visibility aware) - now backup to Realtime
+  if (window._kerekStopPoll) { try { window._kerekStopPoll(); } catch(e){} }
+  window._kerekStopPoll = startUnifiedPolling(async () => {
+    if (!currentUser) return;
+    let changed = false;
+    // 1. Messages (v2.55.0: realtime helyett itt vesszük észre az új admin-üzenetet)
+    const _adm0 = (typeof _curMonthAdminMsgs === 'function') ? _curMonthAdminMsgs().length : 0;
+    await loadMessage();
+    if (typeof _curMonthAdminMsgs === 'function' && _curMonthAdminMsgs().length > _adm0) {
+      if (typeof showAdminMsgBanner === 'function') showAdminMsgBanner();
+      if (typeof updateMsgIndicator === 'function') updateMsgIndicator();
+    }
+    // 2. Order status (admin modifications)
+    try {
+      const st = await vData.query('order_status', {limit: 500});
+      if (!appData.orderStatus) appData.orderStatus = {};
+      (st||[]).forEach(r => {
+        const k = getOrderKey(r.client_id, r.year, r.month, r.day);
+        const prev = (appData.orderStatus[k]||{}).status;
+        appData.orderStatus[k] = {status: r.status, admin_note: r.admin_note, deadline: r.deadline};
+        if (prev !== r.status) changed = true;
+      });
+    } catch(e) {}
+    // 3. Products (prices, new items, archive)
+    try {
+      const prods = await sb.query('products', { order: 'id', limit: 500 });
+      const newJson = JSON.stringify((prods||[]).map(p=>({id:p.id,price:p.price,name:p.name})));
+      const oldJson = JSON.stringify(appData.products.map(p=>({id:p.id,price:p.price,name:p.name})));
+      if (newJson !== oldJson) {
+        appData.products = (prods||[]).map(p => ({
+          id: p.id, name: p.name, weight: p.weight || '', price: p.price,
+          category: p.category || 'Egyéb', desc: p.description || '',
+          image: p.image || null, code: p.code || '',
+          marketing_desc: p.marketing_desc || '', ingredient_label: p.ingredient_label || '',
+          allergens: p.allergens || '', nutrition: p.nutrition || null,
+          familyId: p.product_family_id || null,
+          baking_dows: p.baking_dows || null
+        }));
+        changed = true;
+      }
+    } catch(e) {}
+    // 4. Monthly active products (admin may toggle availability)
+    try {
+      const maps = await sb.query('monthly_active_products', { limit: 2000 });
+      const grouped = {};
+      (maps||[]).forEach(r => {
+        const k = `${r.year}-${r.month}`;
+        if (!grouped[k]) grouped[k] = [];
+        grouped[k].push(r.product_id);
+      });
+      if (JSON.stringify(grouped) !== JSON.stringify(appData.monthlyActiveProducts||{})) {
+        appData.monthlyActiveProducts = grouped;
+        changed = true;
+      }
+    } catch(e) {}
+    if (changed) { renderOrderTable(); updateHeroTotal(); }
+  }, 30000);
+}
+// logout(): js/vevo-auth.js (a munkamenet-tokent is törli)
 
 // ===== v2.36.0: REALTIME HELPER-EK (vevő) =====
 function countMyMessages() {
@@ -482,13 +349,13 @@ async function reloadVevoData() {
   try {
     const monthFilter = ''; // load all months
     const [userOrders, userStatuses, userMsgs, dbProducts, dbMonthly, dbBaking, dbStanding] = await Promise.all([
-      sb.query('orders', {filter: `client_id=eq.${currentUser.id}`, limit: 1000}),
-      sb.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500}),
-      sb.query('messages', {filter: `client_id=eq.${currentUser.id}`, order: 'created_at', limit: 200}),
+      vData.query('orders', {filter: `client_id=eq.${currentUser.id}`, limit: 1000}),
+      vData.query('order_status', {filter: `client_id=eq.${currentUser.id}`, limit: 500}),
+      vData.query('messages', {filter: `client_id=eq.${currentUser.id}`, order: 'created_at', limit: 200}),
       sb.query('products', {filter: 'deleted_at=is.null', limit: 500}).catch(() => null),
       sb.query('monthly_active_products', {limit: 500}).catch(() => null),
       sb.query('baking_calendar', {limit: 500}).catch(() => null),
-      sb.query('standing_orders', {filter: `client_id=eq.${currentUser.id}`, limit: 500}).catch(() => null),
+      vData.query('standing_orders', {filter: `client_id=eq.${currentUser.id}`, limit: 500}).catch(() => null),
     ]);
     // Orders
     appData.orders = {};
@@ -593,7 +460,7 @@ async function savePushSubscription(sub) {
   if (!currentUser) return;
   const j = sub.toJSON();
   try {
-    await sb.upsert('push_subscriptions', {
+    await vData.upsert('push_subscriptions', {
       client_id: currentUser.id,
       endpoint: j.endpoint,
       p256dh: j.keys.p256dh,
@@ -614,7 +481,7 @@ async function togglePushSubscription() {
     const sameKey = curKey.length === wantKey.length && curKey.every((b, i) => b === wantKey[i]);
     if (!sameKey) { await initPushSubscription(); await updatePushBtn(); return; }
     await existing.unsubscribe();
-    await sb.delete('push_subscriptions', `client_id=eq.${currentUser.id}`);
+    await vData.delete('push_subscriptions', `client_id=eq.${currentUser.id}`);
     toast('🔕 Értesítések kikapcsolva.');
   } else {
     await initPushSubscription();
@@ -686,7 +553,8 @@ const KEREK_VEVO_REMEMBER_KEY = 'kerek_vevo_remember_login';
 function kerekVevoSaveLogin(loginValue) {
   try {
     const cb = document.getElementById('remember-vevo-login');
-    if (cb && cb.checked && loginValue) {
+    // v2.55.0: csak kódot / e-mailt jegyzünk meg (név szerinti belépés megszűnt; a PIN-t soha)
+    if (cb && cb.checked && loginValue && (loginValue.includes('@') || !/\s/.test(loginValue))) {
       localStorage.setItem(KEREK_VEVO_REMEMBER_KEY, btoa(unescape(encodeURIComponent(loginValue))));
     } else {
       localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY);
@@ -699,6 +567,7 @@ function kerekVevoLoadLogin() {
     const saved = localStorage.getItem(KEREK_VEVO_REMEMBER_KEY);
     if (!saved) return;
     const val = decodeURIComponent(escape(atob(saved)));
+    if (!val.includes('@') && /\s/.test(val)) { localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY); return; }  // régi név-belépés
     const input = document.getElementById('login-input');
     const cb = document.getElementById('remember-vevo-login');
     if (input && !input.value) input.value = val;

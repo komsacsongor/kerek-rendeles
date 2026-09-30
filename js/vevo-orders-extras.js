@@ -92,7 +92,7 @@ async function copyLastOrder() {
 
   let prevOrders = [];
   try {
-    prevOrders = await sb.query('orders', {
+    prevOrders = await vData.query('orders', {
       filter: `client_id=eq.${currentUser.id}&year=eq.${prevY}&month=eq.${prevM}`,
       order: 'day.asc', limit: 200
     }) || [];

@@ -47,6 +47,66 @@ const kData = {
   delete(table, filter) { return this._call(table, 'DELETE', { query: filter }); },
 };
 
+// ===== v2.55.0 (C1): VEVŐ munkamenet + adat-proxy =====
+// A vevő a vevo-auth EF-től kap aláírt tokent; a saját adatait (rendelés, állapot, üzenet, állandó
+// rendelés, push) CSAK a vevo-data EF-en át éri el, amely a tokenre szűkít és a határidőt is ellenőrzi.
+const VEVO_TOKEN_KEY = 'kerek_vevo_token';
+const vSession = {
+  _mem: null, // admin-előnézet tokenje: csak memóriában
+  get token() {
+    if (this._mem) return this._mem;
+    try { return sessionStorage.getItem(VEVO_TOKEN_KEY) || localStorage.getItem(VEVO_TOKEN_KEY); } catch (e) { return null; }
+  },
+  set(token, remember) {
+    try {
+      localStorage.removeItem(VEVO_TOKEN_KEY); sessionStorage.removeItem(VEVO_TOKEN_KEY);
+      (remember ? localStorage : sessionStorage).setItem(VEVO_TOKEN_KEY, token);
+    } catch (e) {}
+  },
+  clear() {
+    this._mem = null;
+    try { localStorage.removeItem(VEVO_TOKEN_KEY); sessionStorage.removeItem(VEVO_TOKEN_KEY); } catch (e) {}
+  },
+};
+
+async function vAuth(action, payload = {}) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/vevo-auth`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+const vData = {
+  async _call(table, method, { query = '', body = null, action = null, extra = null } = {}) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/vevo-data`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: vSession.token, table, method, query, body, action, ...(extra || {}) }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (res.status === 401 && j.error === 'invalid_token' && typeof vevoSessionExpired === 'function') vevoSessionExpired();
+    if (!res.ok) throw new Error(j.detail || j.error || 'vevo-data hiba');
+    if (j.skipped_days && j.skipped_days.length && typeof toast === 'function')
+      toast(`⚠️ ${j.skipped_days.join('., ')}. napi rendelés már lezárult — azt nem lehetett módosítani.`, true);
+    return j.data;
+  },
+  query(table, opts = {}) {
+    let q = '';
+    if (opts.select) q += `select=${opts.select}&`;
+    if (opts.filter) q += `${opts.filter}&`;
+    if (opts.order) q += `order=${opts.order}&`;
+    if (opts.limit) q += `limit=${opts.limit}&`;
+    return this._call(table, 'GET', { query: q });
+  },
+  insert(table, data) { return this._call(table, 'POST', { body: data }); },
+  upsert(table, data) { return this._call(table, 'POST', { body: data }); },
+  delete(table, filter) { return this._call(table, 'DELETE', { query: filter || '' }); },
+  audit(logAction, details) { return this._call('', '', { action: 'audit', extra: { log_action: logAction, details } }); },
+};
+
 // ===== PASSWORD HASHING =====
 async function hashPassword(pw) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));

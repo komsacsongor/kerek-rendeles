@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kerek-v2.54.1';
+const CACHE_NAME = 'kerek-v2.55.0';
 const CACHE_URLS = [
   // v2.43.5: minden modul start_url-je cache-elve (PWA install criteria)
   '/kerek-rendeles/index.html',
@@ -24,6 +24,8 @@ const CACHE_URLS = [
   '/kerek-rendeles/js/vevo-orders-extras.js',
   '/kerek-rendeles/js/vevo-ui.js',
   '/kerek-rendeles/js/vevo-analytics.js',
+  '/kerek-rendeles/js/vevo-standing.js',
+  '/kerek-rendeles/js/vevo-auth.js',
 ];
 
 // Install: cache core files

@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.54.1** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.55.0** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -39,21 +39,32 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **Vevő**: jövőbeli nap tétele 0-ra → admin oldalon a nap pending; „Összes törlése" a múltbeli/lezárt napokat meghagyja.
 - **Számla-operátor**: PDF feltöltés → áttekintő → véglegesítés → a Készletben megjelenik; hiányzó mennyiségű új tételnél nem enged véglegesíteni.
 
-## 5. C csomag (biztonság) — folyamatban
+## 5. C csomag (biztonság)
 
-Döntések (Csongor, 2026-09-30):
-- Belépés: **kód** VAGY **e-mail + PIN** (4–6 számjegy); név szerinti belépés megszűnik; „Maradj bejelentkezve” 90 nap.
-- Elfelejtett PIN: **2 előre definiált biztonsági kérdés** (9-es listából), napi 3 próba → önkiszolgáló új PIN. Később: e-mailes helyreállítás (ingyenes Brevo).
-- Admin: vevő-kártyán PIN-állapot, PIN törlése, helyreállítási jelzés; PIN-állapot összesítő. (WhatsApp-gomb NEM kell.)
-- E-mail és telefonszám kötelező (regisztráció + meglévők adat-ellenőrzése).
-- Meglévő vevők: belépés után POP-UP kéri a beállítást (adatok → PIN → 2 kérdés); „Később” csak az átmeneti időszak végéig. Új vevők: a regisztrációban állítják be, pop-up nélkül.
-- 3 lépés: C1 vevői oldal → C2 admin/receptúra → C3 lezárás (SQL); termék-írásvédelem is C3.
-- Képernyőterv: `prototypes/c1_belepes.html` (jóváhagyásra vár).
+### C1 — vevői oldal: KÉSZ (staging, v2.55.0) — tesztre vár
+- **Belépés a szerveren** (`vevo-auth` EF): kód VAGY e-mail + PIN; név szerinti belépés megszűnt; aláírt token („Maradjak bejelentkezve” 90 nap, egyébként 12 óra). A böngésző NEM tölti le a vevőlistát.
+- **Saját adatok** (`vevo-data` EF): rendelés, állapot, üzenet, állandó rendelés, push — a tokenre szűkítve; a **határidőt és a lezárt napokat a szerver is ellenőrzi** (lezárt nap sorait kihagyja), a vevő nem írhat admin-üzenetet, nem állíthat fulfilled/cancelled státuszt.
+- **Meglévő vevők**: belépés után kötelező pop-up (adatok → PIN → 2 kérdés), „Később” nincs. **Átmenet**: a még PIN nélküli fiók **2026-10-31-ig** e-maillel (PIN nélkül) is beléphet — utána csak kóddal (`LEGACY_EMAIL_UNTIL`, vevo-auth).
+- **Új vevők**: regisztráció 2 lépésben (név/e-mail/telefon kötelező → PIN + 2 kérdés), a kódot a szerver generálja. `register.html` → átirányít.
+- **Helyreállítás**: e-mail → saját 2 kérdés → új PIN (napi 3 próba; a 3. után admin-push). Ismeretlen e-mailre is „kérdések” jönnek (nem derül ki, kinek van fiókja).
+- **Admin**: vevő-kártyán PIN-állapot, „PIN törlése”, hibás-helyreállítás figyelmeztetés, összesítő + szűrő; **előnézet** csak olvasható, 30 perces tokennel (a nyitott `?preview=ID` megszűnt); admin-jog jelzés javítva (`is_admin` a leképezésben).
+- Realtime: a vevő a saját üzeneteit/állapotát 30 mp-es lekérdezéssel kapja (a realtime mindenki eseményét küldte volna).
+- DB: `client_auth` tábla (RLS, policy nélkül) — `db/2026-10_v2.55_vevo_auth.sql`.
 
-Biztonsági kérdések (lista): első mobiltelefon márkája+típusa; első munkahely neve; első koncert/fesztivál; első külföldi város; első autó márkája+színe; kedvenc általános iskolai tanár vezetékneve; kedvenc könyv/film címe; legjobb gyerekkori barát utcája; nagyszülő kedvenc étele.
+**Teendő a teszthez:** az SQL STAGING-en (és PROD-on is futtatható, üres új tábla). Teszt: kóddal belépés → pop-up → beállítás → kilépés → e-mail+PIN belépés → „Elfelejtettem” → regisztráció → admin: PIN-állapot, PIN törlése, előnézet.
+
+### C2 — admin / receptúra (következik)
+- `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
+- `dynamic-service` hitelesítés: service kulcs / modul-jelszó / vevő-token (csak ADMIN felé).
+- AI-kulcs szerver-oldalra (ai-proxy EF, kulcs az `admin_secrets`-ben) + régi kulcs cseréje.
+- Műveleti napló (audit_log) admin/receptúra írás kData-n át (júliusi lezárás óta nem írt).
+
+### C3 — lezárás (SQL, Csongor futtatja)
+- RLS + policy nélkül: clients, orders, order_status, messages, standing_orders, push_subscriptions; settings: csak nyilvános kulcsok olvashatók; termékek/kínálat/naptár: anon csak olvas.
+
+Biztonsági kérdések (lista): `kerek-constants.js` → `SEC_QUESTIONS` (9 db).
 
 ## 6. Nyitott (következő csomagok)
 
-- **C — Biztonság** (külön terv kell): vevő-login szerveren át + `clients` RLS-lezárás (GDPR); AI-kulcs szerver-oldalra; `dynamic-service` hitelesítés. Részletek: `KEREK_SKILL.md` §17.
 - **D — Tesztek** a rendelés / készlet / gyártás logikára.
 - Nyitott kérdések Csongor felé: az élesben is `admin` az admin jelszó? A pékség valódi címe (ha kell a push-ba)?

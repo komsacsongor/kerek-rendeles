@@ -345,15 +345,22 @@ function switchPreviewClient(clientId) {
   // Show client code
   document.getElementById('preview-client-code').textContent = 'Kód: ' + clientId;
 
-  // Load vevo.html in iframe with auto-login via URL param
+  // v2.55.0: csak olvasható, 30 perces előnézeti token (admin jelszóval) — a régi nyitott ?preview=ID link megszűnt
   const frame = document.getElementById('vevo-preview-frame');
-  frame.src = 'vevo.html?preview=' + clientId;
+  _previewUrl(clientId).then(u => { if (u) frame.src = u; });
+}
+async function _previewUrl(clientId) {
+  try {
+    const r = await vAuth('admin_preview', { password: window._kerekPw, client_id: clientId });
+    if (!r.ok) throw new Error(r.data?.error || 'hiba');
+    return 'vevo.html#preview=' + encodeURIComponent(r.data.token);
+  } catch (e) { toast('⚠️ Előnézet nem nyitható: ' + e.message, true); return null; }
 }
 
-function openVevoFullscreen() {
+async function openVevoFullscreen() {
   const sel = document.getElementById('preview-client-sel');
-  const clientId = sel.value;
-  window.open('vevo.html?preview=' + clientId, '_blank', 'width=420,height=800');
+  const u = await _previewUrl(sel.value);
+  if (u) window.open(u, '_blank', 'width=420,height=800');
 }
 
 // ===== TOAST =====

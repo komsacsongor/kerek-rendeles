@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.54.1-sec (2026-09-29)';
+const APP_VERSION = 'v2.55.0-sec (2026-10-01)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -257,6 +257,13 @@ function getDays(year, month) {
 // ===== SC11: AUDIT LOG =====
 async function auditLog(action, entityName='', details='') {
   if (typeof sb === 'undefined') return;
+  // v2.55.0: a vevő a saját eseményeit a vevo-data EF-en át naplózza (a belépést a szerver naplózza)
+  if (typeof vData !== 'undefined' && typeof currentUser !== 'undefined' && currentUser && typeof vSession !== 'undefined' && vSession.token && typeof D === 'undefined' && typeof R === 'undefined') {
+    // csak az érdemi események (a kattintás-analitika nem terheli a szervert / a naplót)
+    if (!['order_save', 'order_clear', 'message_send', 'standing_change'].includes(action)) return;
+    try { await vData.audit(action, details); } catch(e) { console.warn('Audit log hiba:', e.message); }
+    return;
+  }
   try {
     await sb.insert('audit_log', { action, entity_name: entityName, details });
   } catch(e) { console.warn('Audit log hiba:', e.message); }
@@ -273,6 +280,19 @@ function isProductAvailableOnDay(product, day, dow, exForMonth) {
   if (!dows || !dows.length) return true; // nincs alap hét-nap = minden sütőnap
   return dows.includes(dow);
 }
+
+// ===== v2.55.0: biztonsági kérdések (a vevo-auth EF csak az azonosítót tárolja) =====
+const SEC_QUESTIONS = {
+  1: 'Mi volt az első mobiltelefonod márkája és típusa?',
+  2: 'Mi volt az első munkahelyed neve?',
+  3: 'Melyik volt az első koncert vagy fesztivál, amin voltál?',
+  4: 'Melyik városban jártál először külföldön?',
+  5: 'Mi volt az első autód márkája és színe?',
+  6: 'Hogy hívták a kedvenc tanárodat az általános iskolában? (vezetéknév)',
+  7: 'Mi a kedvenc könyved vagy filmed címe?',
+  8: 'Melyik utcában lakott a legjobb gyerekkori barátod?',
+  9: 'Melyik étel a kedvenced, amit a nagyszülőd főzött?',
+};
 
 // ===== PUSH NOTIFICATION SENDER =====
 // v2.53.x: env-erzekeny (onallo /staging/ detektalas, load-order fuggetlen)

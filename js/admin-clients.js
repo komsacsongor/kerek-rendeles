@@ -28,6 +28,20 @@ function showRegLink() {
   modal.style.display = 'flex';
 }
 
+function _pinPill(cl) {
+  if (!_pinStatus || cl.name.startsWith('[PENDING]')) return '';
+  const st = _pinStatus[cl.id];
+  return st && st.has_pin
+    ? '<span style="background:var(--teal-pale);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;margin-left:4px">PIN ✓</span>'
+    : '<span style="background:#fdecea;color:#C0574E;border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;margin-left:4px">nincs PIN</span>';
+}
+function _pinFlag(cl) {
+  const st = _pinStatus && _pinStatus[cl.id];
+  if (!st || !st.rec_locked) return '';
+  const nm = esc(cl.name.replace(/^\[(PENDING|DELETED)\]\s*/, '').split(' ').slice(-1)[0]);
+  return `<div style="display:flex;gap:8px;align-items:flex-start;background:#fdf2e3;border-radius:10px;padding:9px 10px;margin-top:8px;font-size:0.78rem;color:#6b4a14">⚠️ <span><b>Ma ${st.rec_fails_today} hibás helyreállítási próba.</b><br>Ha ${nm} jelentkezik, töröld a PIN-jét: a következő kódos belépéskor újat választ.</span></div>`;
+}
+
 function _clientCard(cl) {
   const initials = cl.name.replace(/^\[(PENDING|DELETED)\]\s*/,'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
   let totalQty=0,totalRev=0;
@@ -46,19 +60,21 @@ function _clientCard(cl) {
       <div class="client-avatar">${initials}</div>
       <div>
         <div class="client-name">${displayName}${cl.is_admin?' <span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:8px;font-size:0.66rem;font-weight:700;margin-left:4px">👑 Admin</span>':''}</div>
-        <div class="client-meta">Kód: <b>${cl.id}</b></div>
+        <div class="client-meta">Kód: <b>${cl.id}</b> ${_pinPill(cl)}</div>
         <div class="client-meta" style="margin-top:2px">📅 Kliens: ${cl.joinDate ? new Date(cl.joinDate).toLocaleDateString('hu-HU',{year:'numeric',month:'short',day:'numeric'}) : 'ismeretlen'}</div>
       </div>
     </div>
     <div class="client-card-body">
-      <div class="client-stat"><span>📧 Email</span><span>${cl.email||'—'}</span></div>
-      <div class="client-stat"><span>📱 Telefon</span><span>${cl.phone||'—'}</span></div>
+      <div class="client-stat"><span>📧 Email</span><span>${esc(cl.email||'—')}</span></div>
+      <div class="client-stat"><span>📱 Telefon</span><span>${esc(cl.phone||'—')}</span></div>
       <div class="client-stat"><span>📦 Összes rendelés</span><span class="bold">${totalQty} db</span></div>
       <div class="client-stat"><span>💰 Összes forgalom</span><span style="color:var(--gold-dark);font-weight:700">${totalRev} lej</span></div>
+      ${_pinFlag(cl)}
     </div>
     <div style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${cl.id}')">Adatlap</button>
       <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleClientAdmin('${cl.id}')" title="Admin jog: bármikor rendelhet, a 18:00 zárás nem korlátozza" style="${cl.is_admin?'border-color:var(--gold);color:var(--gold-dark)':''}">${cl.is_admin?'👑 Admin ✓':'👑 Admin jog'}</button>
+      ${_pinStatus && _pinStatus[cl.id] && (_pinStatus[cl.id].has_pin || _pinStatus[cl.id].rec_locked) ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();resetClientPin('${cl.id}')" title="A vevő a következő belépéskor a kódjával lép be és új PIN-t választ">🔄 PIN törlése</button>` : ''}
       <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();${deleteFn}">${deleteLabel}</button>
     </div>
   </div>`;
@@ -76,9 +92,45 @@ async function restoreClient(id) {
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
 
+// ===== v2.55.0 (C1): vevő PIN-állapot (vevo-auth EF, admin jelszóval) =====
+let _pinStatus = null, _pinStatusAt = 0, _pinFilterMissing = false;
+async function loadPinStatus(force) {
+  if (!force && _pinStatus && Date.now() - _pinStatusAt < 60000) return;
+  try {
+    const r = await vAuth('admin_pin_status', { password: window._kerekPw });
+    if (r.ok) { _pinStatus = {}; (r.data.rows || []).forEach(x => { _pinStatus[x.client_id] = x; }); _pinStatusAt = Date.now(); }
+  } catch (e) { console.warn('PIN-állapot:', e.message); }
+}
+function togglePinFilter() { _pinFilterMissing = !_pinFilterMissing; renderClients(); }
+async function resetClientPin(id) {
+  const cl = D.clients.find(c => c.id === id);
+  const nm = (cl?.name || id).replace(/^\[(PENDING|DELETED)\]\s*/, '');
+  if (!(await confirmDialog(`Törlöd ${nm} PIN-kódját és biztonsági kérdéseit?\n\nA vevő a következő belépéskor a KÓDJÁVAL (${id}) lép be, és új PIN-t választ. A többi eszközén kijelentkezik.`))) return;
+  try {
+    const r = await vAuth('admin_reset_pin', { password: window._kerekPw, client_id: id });
+    if (!r.ok) throw new Error(r.data?.error || 'hiba');
+    await loadPinStatus(true); renderClients();
+    toast('🔄 PIN törölve — ' + nm + ' a kódjával lép be legközelebb.');
+  } catch (e) { toast('⚠️ Hiba: ' + e.message, true); }
+}
+
 function renderClients(){
-  const active = D.clients.filter(c => !c.name.startsWith('[DELETED]'));
+  if (!_pinStatus || Date.now() - _pinStatusAt > 60000) loadPinStatus().then(() => { if (_pinStatus) _renderClientsNow(); });
+  _renderClientsNow();
+}
+function _renderClientsNow(){
+  const all = D.clients.filter(c => !c.name.startsWith('[DELETED]'));
   const deleted = D.clients.filter(c => c.name.startsWith('[DELETED]'));
+  const approved = all.filter(c => !c.name.startsWith('[PENDING]'));
+  const hasPin = c => !!(_pinStatus && _pinStatus[c.id] && _pinStatus[c.id].has_pin);
+  const active = _pinFilterMissing ? all.filter(c => !hasPin(c)) : all;
+
+  let sumEl = document.getElementById('clients-pin-summary');
+  if (!sumEl) { sumEl = document.createElement('div'); sumEl.id = 'clients-pin-summary'; const g = document.getElementById('clients-grid'); g.parentNode.insertBefore(sumEl, g); }
+  const withPin = approved.filter(hasPin).length;
+  sumEl.innerHTML = _pinStatus ? `<div style="background:var(--teal-pale);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:0.82rem;color:var(--teal-dark)">
+      <span>🔐 <b>PIN-állapot:</b> ${approved.length} vevőből <b>${withPin}</b> beállította · <b>${approved.length - withPin}</b> még nem</span>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="togglePinFilter()">${_pinFilterMissing ? 'Összes vevő' : 'Csak akiknek nincs PIN'}</button></div>` : '';
 
   document.getElementById('clients-grid').innerHTML = active.map(c => _clientCard(c)).join('');
 

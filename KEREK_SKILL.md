@@ -67,7 +67,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Verzió (prod / staging)** | **v2.53.94 / v2.54.1** |
+| **Verzió (prod / staging)** | **v2.53.94 / v2.55.0** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ **Titok (token, API-kulcs, jelszó) SOHA ne kerüljön a repóba** — a repó publikus. 2026-09-29: egy PAT a `package.json`-ban volt → eltávolítva; a tulajdonosnak vissza kell vonnia.
@@ -100,7 +100,7 @@ Indok: session-compactation után a régi tanulság elveszhet, de a git megőrzi
 |---|---|---|
 | **Admin** | `admin.html` | `admin-auth` Edge Function (`admin_secrets.admin_password` hash) |
 | **Receptúra** | `receptura.html` | `admin-auth` EF `module='receptura'` (v2.48) → `admin_secrets.receptura_password`, ennek híján admin-fallback |
-| **Vevő** | `vevo.html` | `clients.id` (KER-XXXX-XXXX) **NEM jelszó** — 3 mód: kód / email / név |
+| **Vevő** | `vevo.html` | v2.55.0: **kód** VAGY **e-mail + PIN** a `vevo-auth` EF-en át → aláírt token; saját adatok a `vevo-data` EF-en át (név szerinti belépés megszűnt) |
 
 **Belépési adatok dev/demo**:
 - Admin + Receptúra: `admin`
@@ -136,7 +136,8 @@ js/receptura-stats.js     → getProductionStats(), 3-szintű analitika
 js/receptura-invoice.js   → 🧾 Számla-bevételező operátor (v2.54.0, staging): renderInvoiceIntake(), aiParseInvoice(), invCommit()
 js/lib/pdf.min.js + pdf.worker.min.js → pdfjs v3 UMD (számla PDF)
 
-js/vevo-data.js           → appData, doLogin() (3 mód), initApp()
+js/vevo-auth.js           → v2.55.0: belépés/regisztráció/PIN-pop-up/helyreállítás (vevo-auth EF), pinBoxHtml()
+js/vevo-data.js           → appData, loadPublicData(), vevoEnterApp(client), reloadVevoData()
 js/vevo-ui.js             → buildMonthSelectors(), showProductModal()
 js/vevo-orders.js         → renderOrderTable(), renderMobileOrderCards()
 js/vevo-analytics.js, vevo-orders-render/actions/extras.js
@@ -201,7 +202,10 @@ settings:          key, value, updated_at
 audit_log:         id, action, entity_name, details, created_at
 push_subscriptions: client_id, endpoint, p256dh, auth, created_at
 admin_secrets:     key (PK), value, updated_at — szigorú RLS, csak service_role ír/olvas
-                   Kulcsok: admin_password, receptura_password, gyartas_password (jelszó-hashek)
+                   Kulcsok: admin_password, receptura_password, gyartas_password (jelszó-hashek), vevo_token_secret
+client_auth:       client_id (PK), pin_hash, q1, a1_hash, q2, a2_hash, pin_set_at, token_version,
+                   pin_fail_count, pin_locked_until, rec_fail_day, rec_fail_count — v2.55.0, RLS policy nélkül
+                   (csak vevo-auth/vevo-data EF, service_role). NINCS FK (beágyazás elleni védelem).
 production_logs:   id, date (HELYI dátum = SÜTÉSI NAP), log_type, recipe_id, pieces_planned,
                    pieces_actual, ingredient_usage (JSONB), total_cost, allocation, notes,
                    oven_id, bake_minutes, trays_used, batch_no  (v2.53 — db/2026-09_v2.53_gyartas_oszlopok.sql)
@@ -269,11 +273,16 @@ function calcScaleFactor(recipe, pieces) {
 // calcRawWeight() csak megjelenítéshez — tartalmaz bakeLoss-t!
 ```
 
-### Vevő bejelentkezés (3 mód)
-```javascript
-client.id === val ||                         // belépési kód
-client.email?.toLowerCase() === valLower ||  // email
-client.name.toLowerCase() === valLower       // teljes név
+### Vevő bejelentkezés (v2.55.0 — C1)
+```
+vevo.html → vAuth('login', {login, pin, remember})  [supabase.js]
+  → vevo-auth EF: kód (ilike id / KER-normalizálás) VAGY e-mail + PIN (PBKDF2, 3 hiba → 15 perc)
+  → token = base64url({cid, v, exp, ro}) . HMAC-SHA256 (titok: admin_secrets.vevo_token_secret, auto-generált)
+  → vSession (localStorage 90 nap / sessionStorage 12 óra)
+Saját adatok: vData.query/insert/upsert/delete  → vevo-data EF (client_id kényszerítve, határidő szerver-oldalon)
+Nincs PIN / hiányzó e-mail-telefon → needs_setup → kötelező pop-up (openSetupSheet)
+Token érvénytelen: törölt/függő vevő, PIN-reset/helyreállítás (client_auth.token_version++)
+Admin: vAuth('admin_pin_status' | 'admin_reset_pin' | 'admin_preview', {password: window._kerekPw})
 ```
 
 ### Kulcs formátumok
@@ -376,6 +385,8 @@ grep -rn "const ÚJ_VÁLTOZÓ" js/ kerek-constants.js # konstans duplikáció
 | Készletlevonás saját FIFO-ciklussal | KÖZÖS segéd: `addRecipeNeeds` / `fifoDeductNeeds` / `hasStockDeductionForDate` / `markDaysFulfilled` (receptura-production.js) |
 | Batch-sor saját leképezéssel | `mapBatchRow` + `recomputeIngredientStock` (receptura-data.js) — első betöltés, polling, bevételezés ugyanazt használja |
 | Új DB-sor ID nélkül az R.* state-be | a `kData.insert` visszaadott sorát vedd fel (ID!) — ID nélkül a későbbi update a DB-ben elhal |
+| Vevő saját adata `sb`-vel (anon) | `vData` (vevo-data EF) — a vevő csak a tokenje szerinti adatot éri el |
+| Titok-hash (PIN/válasz) anon-olvasható táblában | külön, RLS-zárt tábla (`client_auth`) + lassú hash (PBKDF2) |
 | Egyszeri, verziózatlan SQL | `db/ÉÉÉÉ-HH_vX.Y_leírás.sql`, idempotens + ellenőrző SELECT; PROD-ra is (a staging DB hetente felülíródik) |
 
 ---
@@ -391,10 +402,10 @@ Kiemelt: anti-spread DB (`kData.updateFields`), CSS központosítás (`kerek-sty
 
 | # | Tünet | Kategória | Prio |
 |---|---|---|---|
-| S1 | Vevő-login előtt MINDEN vevő adata (név, email, telefon, kód) letöltődik; bárki bárki nevében beléphet | biztonság/GDPR | 🔴 (C csomag) |
+| S1 | ~~Vevő-login előtt minden vevő adata letöltődik~~ — **C1 (v2.55.0) javítja**; a `clients` anon-olvasása a C3 lezárásig még nyitott | biztonság/GDPR | 🟡 (C3) |
 | S2 | AI API-kulcs a `settings` táblában, anon kulccsal olvasható | biztonság | 🔴 (C csomag) |
-| S3 | `dynamic-service` (push) hitelesítés nélkül hívható → tetszőleges push bármely vevőnek | biztonság | 🔴 (C csomag) |
-| S4 | 18:00 határidő és login rate-limit csak kliens-oldalon | biztonság | 🟡 |
+| S3 | `dynamic-service` (push) hitelesítés nélkül hívható → tetszőleges push bármely vevőnek | biztonság | 🔴 (C2) |
+| S4 | ~~18:00 határidő csak kliens-oldalon~~ — C1: a vevo-data EF ellenőrzi; a közvetlen anon-írás a C3-ig még lehetséges | biztonság | 🟡 (C3) |
 | P1 | Sütés-rögzítés nem atomi (félbeszakadásnál részleges levonás) | adat | 🟡 |
 | P2 | Kísérleti sütés (openExperimentalBake) saját FIFO-ciklus, még nem a közös segéddel | adat | 🟢 |
 | P3 | Supabase max-rows (~1000/kérés) — a kliens `limit:5000` lekérései csonkulhatnak nagy táblán | adat | 🟡 |
@@ -421,7 +432,7 @@ Kiemelt: anti-spread DB (`kData.updateFields`), CSS központosítás (`kerek-sty
 ## 19. Aktuális állapot (2026-09-29)
 
 - **Prod (main)**: v2.53.94
-- **Staging**: **v2.54.1** — v2.54.0 számla-operátor + audit-javítások (A+B csomag). Részletek, teendők: `KEREK_ATADAS.md`.
+- **Staging**: **v2.55.0** — számla-operátor, audit-javítások (A+B), **C1 biztonság: szerver-oldali vevő-belépés (PIN)**. Részletek, teendők: `KEREK_ATADAS.md`.
 
 ---
 

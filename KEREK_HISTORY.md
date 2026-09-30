@@ -38,6 +38,7 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.53.x** ⭐ | 2026-09 | **Gyártás 4-fázisú napi flow** (`receptura-gyartas.js`: Mit sütök ma? → Előkészítés+levain+batch → Sütés vezetett → Lezárás+selejt), Üzemi/PC nézet, KEREK-arculat; **admin-jogú vevő** (`clients.is_admin`, 18:00 zárás bypass mindkét nézetben); 3-szintű statisztika |
 | **v2.54.0** | 2026-09-25 | **Számla-bevételező AI operátor** (`receptura-invoice.js`) — bundle-ből pusholva stagingre 2026-09-26 |
 | **v2.54.1** ⭐ | 2026-09-29 | **Audit-javítások (A+B)**: auto-confirm lapozás + fulfilled-védelem; gyártás-flow „Nap lezárása" FIFO-levonással + fulfilled + dupla-lezárás védelem; közös sütés-lezárási segédek; vevő „összes törlése" csak módosítható napokra; polling-leképezés egységesítve; számla-operátor javítások; SQL-ek a `db/`-be; `CLAUDE.md` |
+| **v2.55.0** ⭐ | 2026-10-01 | **C1 biztonság**: vevő-belépés a szerveren (`vevo-auth` EF: kód / e-mail+PIN, aláírt token), saját adatok `vevo-data` EF-en át (szerver-oldali határidő), kötelező PIN-pop-up a meglévő vevőknek, biztonsági kérdéses helyreállítás, admin PIN-kezelés + biztonságos előnézet |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 
@@ -193,6 +194,13 @@ A **mise-en-place + levain-előkészítés a gyártás modulba** tartozik (végr
 
 ### Titok a publikus repóban (2026-09-29)
 - Egy GitHub PAT a `package.json` repository URL-jében volt (és a git-történetben marad) → eltávolítva, visszavonandó. **Tanulság**: publikus repóba soha semmilyen titok.
+
+---
+
+### Belépés a böngészőben (v2.55.0 C1 előtt)
+- Tünet: a vevő-login előtt a teljes vevőlista (név, e-mail, telefon, kód) a böngészőbe töltődött; `vevo.html?preview=ID` jelszó nélkül beléptetett
+- Ok: kliens-oldali azonosítás, nyilvános anon kulcs
+- Fix: szerver-oldali belépés + aláírt token + szűkített adat-proxy; PIN/válasz külön RLS-zárt táblában, PBKDF2-vel. **Tanulság**: publikus kulcs mellett a böngésző csak azt kaphatja meg, amit bárki láthat.
 
 ---
 

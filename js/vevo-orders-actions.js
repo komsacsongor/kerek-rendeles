@@ -19,7 +19,7 @@ function _reopenDayIfClosed(day) {
   if (st.status !== 'confirmed' && st.status !== 'modified') return;
   if (!appData.orderStatus) appData.orderStatus = {};
   appData.orderStatus[key] = { ...st, status: 'pending' };
-  sb.upsert('order_status', { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
+  vData.upsert('order_status', { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
     status: 'pending', admin_note: st.admin_note || null }, 'client_id,year,month,day')
     .catch(e => console.warn('reopen status:', e.message));
 }
@@ -48,7 +48,7 @@ function pivotChangeQty(day, pid, delta) {
     delete appData.orders[key][pid];
     // C3 fix: Delete from Supabase immediately on qty=0 (prevent data corruption)
     if (current > 0) {
-      sb.delete('orders',
+      vData.delete('orders',
         `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
       ).catch(e => console.warn('qty0 delete:', e.message));
       _reopenDayIfClosed(day);
@@ -147,7 +147,7 @@ async function saveOrder() {
   
   try {
     if(upserts.length > 0) {
-      await sb.upsert('orders', upserts, 'client_id,year,month,day,product_id');
+      await vData.upsert('orders', upserts, 'client_id,year,month,day,product_id');
       // Ha jóváhagyott/módosított nap rendelését változtatta meg a vevő → vissza PENDING
       // v2.53.21 FIX: CSAK a vevő által ténylegesen módosított (dirty) napokat reseteljük,
       // ne az összes rendelt napot (különben a korábban jóváhagyott napok is visszaesnének).
@@ -159,7 +159,7 @@ async function saveOrder() {
         if (st.status === 'confirmed' || st.status === 'modified' || st.status === 'cancelled') {
           const newRow = { client_id: currentUser.id, year: selectedYear, month: selectedMonth, day,
             status: 'pending', admin_note: st.admin_note || null };
-          await sb.upsert('order_status', newRow, 'client_id,year,month,day');
+          await vData.upsert('order_status', newRow, 'client_id,year,month,day');
           if (!appData.orderStatus) appData.orderStatus = {};
           appData.orderStatus[key] = { ...st, status: 'pending' };
         }
@@ -179,7 +179,7 @@ async function saveOrder() {
         });
       });
       if (statusRows.length) {
-        await sb.upsert('order_status', statusRows, 'client_id,year,month,day');
+        await vData.upsert('order_status', statusRows, 'client_id,year,month,day');
         if (!appData.orderStatus) appData.orderStatus = {};
         statusRows.forEach(r => {
           const key = getOrderKey(currentUser.id, selectedYear, selectedMonth, r.day);
@@ -207,7 +207,7 @@ async function saveOrder() {
         document.getElementById('order-message').value = '';
         // Rendelés mégis elmegy, csak üzenet nem
       } else {
-        await sb.insert('messages', {
+        await vData.insert('messages', {
           client_id: currentUser.id,
           year: selectedYear,
           month: selectedMonth,
@@ -242,7 +242,7 @@ async function clearOrder() {
   if (!editable.length) { toast('Nincs törölhető (még módosítható) rendelés ebben a hónapban.'); return; }
   if (!(await confirmDialog(`Biztosan törlöd a rendelést ${editable.length} még módosítható napon? A lezárt napok rendelése megmarad.`))) return;
   try {
-    await sb.delete('orders',
+    await vData.delete('orders',
       `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=in.(${editable.join(',')})`);
   } catch(e) { toast('⚠️ Törlés sikertelen: ' + e.message, true); return; }
   editable.forEach(day => {
@@ -268,7 +268,7 @@ function mobChangeQty(day, pid, delta) {
     delete appData.orders[key][pid];
     // C3 fix: Delete from Supabase immediately on qty=0 (prevent data corruption)
     if (current > 0) {
-      sb.delete('orders',
+      vData.delete('orders',
         `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}&day=eq.${day}&product_id=eq.${pid}`
       ).catch(e => console.warn('qty0 delete:', e.message));
       _reopenDayIfClosed(day);
@@ -339,7 +339,7 @@ async function sendMessageOnly() {
     toast('⚠️ Kérjük várj 30 másodpercet üzenetek között!', true); return;
   }
   try {
-    await sb.insert('messages', {
+    await vData.insert('messages', {
       client_id: currentUser.id,
       year: selectedYear,
       month: selectedMonth,
@@ -356,7 +356,7 @@ async function vevoConfirmOrder(year, month, day) {
   if (!currentUser) return;
   const key = getOrderKey(currentUser.id, year, month, day);
   try {
-    await sb.upsert('order_status', {
+    await vData.upsert('order_status', {
       client_id: currentUser.id, year, month, day,
       status: 'confirmed', confirmed_at: new Date().toISOString()
     }, 'client_id,year,month,day');
