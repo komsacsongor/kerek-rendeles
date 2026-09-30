@@ -44,7 +44,9 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 Döntések (Csongor, 2026-09-30):
 - Belépés: **kód** VAGY **e-mail + PIN** (4–6 számjegy); név szerinti belépés megszűnik; „Maradj bejelentkezve” 90 nap.
 - Elfelejtett PIN: **2 előre definiált biztonsági kérdés** (9-es listából), napi 3 próba → önkiszolgáló új PIN. Később: e-mailes helyreállítás (ingyenes Brevo).
-- Admin: vevő-kártyán WhatsApp-gomb (wa.me, kézi küldés), PIN törlése, helyreállítási jelzés.
+- Admin: vevő-kártyán PIN-állapot, PIN törlése, helyreállítási jelzés; PIN-állapot összesítő. (WhatsApp-gomb NEM kell.)
+- E-mail és telefonszám kötelező (regisztráció + meglévők adat-ellenőrzése).
+- Meglévő vevők: belépés után POP-UP kéri a beállítást (adatok → PIN → 2 kérdés); „Később” csak az átmeneti időszak végéig. Új vevők: a regisztrációban állítják be, pop-up nélkül.
 - 3 lépés: C1 vevői oldal → C2 admin/receptúra → C3 lezárás (SQL); termék-írásvédelem is C3.
 - Képernyőterv: `prototypes/c1_belepes.html` (jóváhagyásra vár).
 
