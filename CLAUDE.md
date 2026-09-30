@@ -3,12 +3,14 @@
 > Ezt minden session automatikusan betölti. Részletes projekt-tudás: `KEREK_SKILL.md`.
 > Aktuális állapot / félbeszakadt munka / élesítési teendők: `KEREK_ATADAS.md` (ELŐBB ezt).
 > Történet, döntések, megtörtént hibák: `KEREK_HISTORY.md` (csak szükség esetén).
+> Arculat (színek, betűk, logók, minták): `docs/brand/BRAND.md` — UI-munka előtt kötelező.
 
 ## Együttműködés (Csongor)
 - Magyarul, tömören, végeredmény-fókusszal. Csongor nem programozó: a döntéseket üzleti nyelven kérdezd.
 - Új funkció / érdemi változtatás előtt rövid terv (mit, miért, edge case-ek, érintett fájlok) → jóváhagyás → kód.
 - Egy feature / javítás-csomag = egy commit. Hiányzó információnál kérdezz, ne találgass.
 - Ha valami nem hatékony a közös munkában, jelezd.
+- UI-változás előtt képernyőterv (`prototypes/`) jóváhagyásra; a brand és a meglévő app stílusa szerint.
 
 ## Git és környezetek
 - **Staging-first**: minden munka a `staging` ágra épül; a session-ágon fejlesztünk, és **a `staging` ágra pusholhatsz** (Csongor engedélye, 2026-09-26).

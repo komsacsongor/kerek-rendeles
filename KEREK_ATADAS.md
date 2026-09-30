@@ -39,7 +39,18 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **Vevő**: jövőbeli nap tétele 0-ra → admin oldalon a nap pending; „Összes törlése" a múltbeli/lezárt napokat meghagyja.
 - **Számla-operátor**: PDF feltöltés → áttekintő → véglegesítés → a Készletben megjelenik; hiányzó mennyiségű új tételnél nem enged véglegesíteni.
 
-## 5. Nyitott (következő csomagok)
+## 5. C csomag (biztonság) — folyamatban
+
+Döntések (Csongor, 2026-09-30):
+- Belépés: **kód** VAGY **e-mail + PIN** (4–6 számjegy); név szerinti belépés megszűnik; „Maradj bejelentkezve” 90 nap.
+- Elfelejtett PIN: **2 előre definiált biztonsági kérdés** (9-es listából), napi 3 próba → önkiszolgáló új PIN. Később: e-mailes helyreállítás (ingyenes Brevo).
+- Admin: vevő-kártyán WhatsApp-gomb (wa.me, kézi küldés), PIN törlése, helyreállítási jelzés.
+- 3 lépés: C1 vevői oldal → C2 admin/receptúra → C3 lezárás (SQL); termék-írásvédelem is C3.
+- Képernyőterv: `prototypes/c1_belepes.html` (jóváhagyásra vár).
+
+Biztonsági kérdések (lista): első mobiltelefon márkája+típusa; első munkahely neve; első koncert/fesztivál; első külföldi város; első autó márkája+színe; kedvenc általános iskolai tanár vezetékneve; kedvenc könyv/film címe; legjobb gyerekkori barát utcája; nagyszülő kedvenc étele.
+
+## 6. Nyitott (következő csomagok)
 
 - **C — Biztonság** (külön terv kell): vevő-login szerveren át + `clients` RLS-lezárás (GDPR); AI-kulcs szerver-oldalra; `dynamic-service` hitelesítés. Részletek: `KEREK_SKILL.md` §17.
 - **D — Tesztek** a rendelés / készlet / gyártás logikára.
