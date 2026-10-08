@@ -1,28 +1,35 @@
 // =============================================================
-// KEREK Megrendelő – belépés, regisztráció, PIN-beállítás, helyreállítás (v2.55.0 — C1 biztonság)
+// KEREK Megrendelő – belépés, regisztráció, PIN-beállítás, helyreállítás (v2.55.0 — C1 biztonság; v2.55.1: e-mail + 4 jegyű PIN)
 // A belépés a SZERVEREN történik (vevo-auth EF). A böngésző csak a saját adatait kapja meg.
 // =============================================================
 
-// ---------- PIN-mező (6 doboz egy rejtett input fölött) ----------
+// ---------- PIN-mező (4 doboz egy rejtett input fölött) ----------
+// v2.55.1: a kurzor MINDIG a végén áll (különben a visszatörlés a mező közepéről törölt / „megakadt”)
+const PIN_LEN = 4;
 function pinBoxHtml(id, autoc = 'off') {
-  return `<div class="pinbox" id="${id}"><input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="${autoc}" aria-label="PIN-kód" oninput="pinBoxSync('${id}')" onfocus="pinBoxSync('${id}')" onblur="pinBoxSync('${id}',true)">${'<i></i>'.repeat(6)}</div>`;
+  return `<div class="pinbox" id="${id}"><input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="${PIN_LEN}" autocomplete="${autoc}" aria-label="PIN-kód"
+    oninput="pinBoxSync('${id}')" onfocus="pinBoxSync('${id}')" onclick="pinCaretEnd(this)" onkeyup="pinCaretEnd(this)" onselect="pinCaretEnd(this)" onblur="pinBoxSync('${id}',true)">${'<i></i>'.repeat(PIN_LEN)}</div>`;
 }
+function pinCaretEnd(inp) { const n = inp.value.length; try { if (inp.selectionStart !== n || inp.selectionEnd !== n) inp.setSelectionRange(n, n); } catch (e) {} }
 function pinBoxSync(id, blur) {
   const box = document.getElementById(id); if (!box) return;
   const inp = box.querySelector('input');
-  inp.value = inp.value.replace(/\D/g, '').slice(0, 6);
+  inp.value = inp.value.replace(/\D/g, '').slice(0, PIN_LEN);
+  pinCaretEnd(inp);
   const n = inp.value.length;
   box.querySelectorAll('i').forEach((el, i) => {
-    el.textContent = i < n ? '•' : '';
     el.classList.toggle('fill', i < n);
-    el.classList.toggle('cur', !blur && i === Math.min(n, 5) && document.activeElement === inp);
+    el.classList.toggle('cur', !blur && i === Math.min(n, PIN_LEN - 1) && document.activeElement === inp);
   });
+  if (!blur) { _showLoginError(''); if (typeof setupErr === 'function') setupErr(''); }
+  // belépésnél a 4. számjegy után automatikusan indul
+  if (!blur && id === 'login-pin' && n === PIN_LEN && /@/.test(document.getElementById('login-input')?.value || '')) doLogin();
 }
 function pinVal(id) { const b = document.getElementById(id); return b ? b.querySelector('input').value : ''; }
 function pinClear(id) { const b = document.getElementById(id); if (b) { b.querySelector('input').value = ''; pinBoxSync(id, true); } }
 function pinLocalProblem(pin) {
-  if (!/^\d{4,6}$/.test(pin)) return 'A PIN 4–6 számjegy legyen.';
-  if (/^(\d)\1+$/.test(pin) || '0123456789'.includes(pin) || '9876543210'.includes(pin)) return 'Ez a PIN túl egyszerű (pl. 1111, 1234). Válassz mást.';
+  if (!/^\d{4}$/.test(pin)) return 'A PIN pontosan 4 számjegy legyen.';
+  if (/^(\d)\1+$/.test(pin) || '01234567890'.includes(pin) || '09876543210'.includes(pin)) return 'Ez a PIN túl egyszerű (pl. 1111, 1234). Válassz mást.';
   return null;
 }
 function secQuestionOptions(selected, exclude) {
@@ -33,23 +40,24 @@ function secQuestionOptions(selected, exclude) {
 
 // ---------- hibaüzenetek ----------
 const VEVO_AUTH_MSG = {
-  unknown_code: '❌ Ismeretlen kód. Ellenőrizd, vagy lépj be az e-mail címeddel és a PIN-eddel.',
+  email_required: 'Add meg az e-mail címedet (a belépés e-mail címmel és PIN-kóddal történik).',
   bad_credentials: '❌ Hibás e-mail cím vagy PIN-kód.',
-  pin_required: 'Add meg a PIN-kódodat.',
-  code_required: 'Ehhez a fiókhoz még nincs PIN beállítva. Lépj be a belépési kódoddal (KER-…).',
-  name_login_removed: 'A név szerinti belépés megszűnt. Lépj be a kódoddal vagy az e-mail címeddel.',
+  pin_required: 'Add meg a 4 jegyű PIN-kódodat.',
+  temp_expired: '⏳ Az ideiglenes PIN lejárt. Kérj újat a pékségtől.',
+  temp_pin_needed: 'Ehhez a fiókhoz még nincs PIN. Kérj ideiglenes PIN-t a pékségtől.',
   pending: '⏳ A hozzáférésedet még nem hagyta jóvá a pékség. Hamarosan értesítünk!',
   deleted: '❌ Ez a fiók deaktiválva lett. Vedd fel a kapcsolatot a KEREK pékséggel.',
   rate_limit: '⚠️ Túl sok próbálkozás. Várj egy percet, és próbáld újra.',
   email_invalid: 'Érvénytelen e-mail cím.',
   phone_invalid: 'Adj meg egy érvényes telefonszámot.',
-  pin_format: 'A PIN 4–6 számjegy legyen.',
+  pin_format: 'A PIN pontosan 4 számjegy legyen.',
   pin_weak: 'Ez a PIN túl egyszerű (pl. 1111, 1234). Válassz mást.',
   questions_invalid: 'Válassz két különböző kérdést.',
   answer_short: 'A válaszok legalább 2 karakteresek legyenek.',
   email_exists: 'Ez az e-mail cím már egy másik fiókhoz tartozik.',
   email_deleted: 'Ez az e-mail cím egy deaktivált fiókhoz tartozik. Keresd a pékséget.',
   name_invalid: 'Add meg a teljes nevedet.',
+  save_failed: '⚠️ A mentés nem sikerült (szerverhiba). Próbáld újra később, vagy szólj a pékségnek.',
 };
 function authMsg(d, fallback) {
   if (d?.error === 'pin_locked') return `⏳ Túl sok hibás PIN. Próbáld újra ${d.wait_minutes || 15} perc múlva, vagy lépj be a kódoddal.`;
@@ -57,25 +65,21 @@ function authMsg(d, fallback) {
 }
 
 // ---------- belépés ----------
-function loginInputChanged() {
-  const v = (document.getElementById('login-input')?.value || '').trim();
-  const wrap = document.getElementById('login-pin-wrap');
-  if (wrap) wrap.style.display = v.includes('@') ? 'block' : 'none';
-  _showLoginError('');
-}
+function loginInputChanged() { _showLoginError(''); }
 
 async function doLogin() {
   const login = (document.getElementById('login-input')?.value || '').trim();
-  if (!login) { _showLoginError('⚠️ Add meg a belépési kódot vagy az e-mail címed!'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)) { _showLoginError('⚠️ ' + VEVO_AUTH_MSG.email_required); return; }
   const remember = !!document.getElementById('remember-vevo-login')?.checked;
-  const pin = login.includes('@') ? pinVal('login-pin') : '';
+  const pin = pinVal('login-pin');
+  if (window._loginBusy) return;
+  window._loginBusy = true;
   const btn = document.getElementById('login-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Belépés…'; }
   try {
     const r = await vAuth('login', { login, pin, remember });
     if (!r.ok) {
-      if (r.data?.error === 'pin_required') { const w = document.getElementById('login-pin-wrap'); if (w) w.style.display = 'block'; }
-      if (['bad_credentials', 'pin_locked'].includes(r.data?.error)) pinClear('login-pin');
+      if (['bad_credentials', 'pin_locked', 'temp_expired'].includes(r.data?.error)) pinClear('login-pin');
       _showLoginError(authMsg(r.data));
       return;
     }
@@ -85,6 +89,7 @@ async function doLogin() {
   } catch (e) {
     _showLoginError('⚠️ Nincs kapcsolat a szerverrel. Próbáld újra.');
   } finally {
+    window._loginBusy = false;
     if (btn) { btn.disabled = false; btn.textContent = 'Belépés →'; }
   }
 }
@@ -139,6 +144,11 @@ async function vevoPreviewFromHash() {
 }
 
 // ---------- belépő kártya panelek ----------
+function regBackToLogin() {
+  const email = document.getElementById('reg-success-email')?.textContent || '';
+  switchAuthTab('login');
+  const li = document.getElementById('login-input'); if (li && email) li.value = email;
+}
 function switchAuthTab(tab) {
   const panels = { login: 'auth-login-panel', register: 'auth-reg-panel', recover: 'auth-recover-panel' };
   Object.entries(panels).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.style.display = k === tab ? 'block' : 'none'; });
@@ -202,10 +212,13 @@ async function doRegister() {
       pin: f.pin, q1: f.q1, a1: f.a1, q2: f.q2, a2: f.a2,
     });
     if (!r.ok) { if (['email_exists', 'email_deleted', 'email_invalid', 'name_invalid', 'phone_invalid'].includes(r.data?.error)) regShowStep(1); return _showLoginError(authMsg(r.data)); }
+    _showLoginError('');
     document.getElementById('auth-reg-panel').style.display = 'none';
     document.getElementById('auth-tabs').style.display = 'none';
-    document.getElementById('reg-code-display').textContent = r.data.code;
+    document.getElementById('reg-success-email').textContent = document.getElementById('reg-email').value.trim();
     document.getElementById('reg-success').style.display = 'block';
+    ['reg-name', 'reg-phone', 'reg-a1', 'reg-a2'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    pinClear('reg-pin'); pinClear('reg-pin2');
   } catch (e) { _showLoginError('⚠️ Nincs kapcsolat a szerverrel. Próbáld újra.'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Regisztráció →'; } }
 }
@@ -252,7 +265,8 @@ async function recFinish() {
     return _showLoginError(authMsg(r.data));
   }
   vSession.set(r.data.token, remember);
-  await alertDialog(`✅ Kész! Az új PIN-kódod beállítva.\n\nA belépési kódod (ezzel is beléphetsz):\n${r.data.code}`);
+  _showLoginError('');
+  toast('✅ Kész! Az új PIN-kódod beállítva.');
   await vevoStart(r.data.client, r.data.needs_setup);
 }
 
@@ -307,6 +321,9 @@ async function setupSave() {
 
 // ---------- indítás ----------
 function vevoAuthInit() {
+  // v2.55.1: bármely mező szerkesztésekor eltűnik a korábbi hibaüzenet
+  document.querySelector('#login-screen .login-card')?.addEventListener('input', e => { if (!e.target.closest('.pinbox')) _showLoginError(''); });
+  document.getElementById('setup-sheet')?.addEventListener('input', () => setupErr(''));
   document.querySelectorAll('[data-pinbox]').forEach(el => { el.outerHTML = pinBoxHtml(el.id, el.dataset.autoc || 'off'); });
   if (new URLSearchParams(location.search).get('tab') === 'register') switchAuthTab('register');
   vevoPreviewFromHash();
@@ -316,6 +333,6 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else vevoAuthInit();
 
 if (typeof window !== 'undefined') Object.assign(window, {
-  doLogin, doRegister, switchAuthTab, loginInputChanged, regNext, secQChanged, recStart, recAnswersNext, recFinish,
+  doLogin, doRegister, switchAuthTab, regBackToLogin, pinCaretEnd, loginInputChanged, regNext, secQChanged, recStart, recAnswersNext, recFinish,
   setupNext, setupSave, logout, pinBoxSync, vevoSessionExpired,
 });

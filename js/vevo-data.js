@@ -6,6 +6,8 @@ function _showLoginError(msg) {
   if (!el) return;
   el.textContent = msg;
   el.style.display = msg ? 'block' : 'none';
+  // v2.55.1: hosszú űrlapnál a hibaüzenet ne essen a képernyőn kívülre
+  if (msg && el.scrollIntoView) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
 }
 
 
@@ -554,7 +556,7 @@ function kerekVevoSaveLogin(loginValue) {
   try {
     const cb = document.getElementById('remember-vevo-login');
     // v2.55.0: csak kódot / e-mailt jegyzünk meg (név szerinti belépés megszűnt; a PIN-t soha)
-    if (cb && cb.checked && loginValue && (loginValue.includes('@') || !/\s/.test(loginValue))) {
+    if (cb && cb.checked && loginValue && loginValue.includes('@')) {   // v2.55.1: csak e-mail (a kód már nem belépési adat)
       localStorage.setItem(KEREK_VEVO_REMEMBER_KEY, btoa(unescape(encodeURIComponent(loginValue))));
     } else {
       localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY);
@@ -567,7 +569,7 @@ function kerekVevoLoadLogin() {
     const saved = localStorage.getItem(KEREK_VEVO_REMEMBER_KEY);
     if (!saved) return;
     const val = decodeURIComponent(escape(atob(saved)));
-    if (!val.includes('@') && /\s/.test(val)) { localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY); return; }  // régi név-belépés
+    if (!val.includes('@')) { localStorage.removeItem(KEREK_VEVO_REMEMBER_KEY); return; }  // régi kód/név-belépés
     const input = document.getElementById('login-input');
     const cb = document.getElementById('remember-vevo-login');
     if (input && !input.value) input.value = val;

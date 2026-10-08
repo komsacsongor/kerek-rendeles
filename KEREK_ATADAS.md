@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.55.0** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.55.1** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -52,6 +52,14 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - DB: `client_auth` tábla (RLS, policy nélkül) — `db/2026-10_v2.55_vevo_auth.sql`.
 
 **Teendő a teszthez:** az SQL STAGING-en (és PROD-on is futtatható, üres új tábla). Teszt: kóddal belépés → pop-up → beállítás → kilépés → e-mail+PIN belépés → „Elfelejtettem” → regisztráció → admin: PIN-állapot, PIN törlése, előnézet.
+
+### C1 javítás — v2.55.1 (Csongor tesztje alapján, 2026-10-08)
+- **Belépés csak e-mail + 4 jegyű PIN** (a kód már nem belépési adat, csak belső azonosító); a 4. számjegy után automatikus belépés.
+- **Ideiglenes PIN** (admin, 🔑 a vevő-kártyán): 4 jegy, 7 napig; a vevő belépéskor köteles újat választani (`must_change`, `temp_pin_until`). A „PIN törlése” megszűnt.
+- Átmenet: PIN nélküli fiók 2026-10-31-ig e-maillel PIN nélkül is beléphet (→ kötelező beállítás); utána ideiglenes PIN kell.
+- Hibák javítva: hosszú űrlap görgethető; PIN-dobozban a kurzor mindig a végén (visszatörlés); a hibaüzenet eltűnik szerkesztéskor és sikernél; siker-képernyő „Vissza a belépéshez” gombbal; **regisztráció visszavonódik, ha a PIN nem mentődött** (eddig csendben „sikeres” lett — Suba Ernő esete).
+- **Ok (DB-ellenőrzés 2026-10-08):** a `client_auth` tábla sem stagingen, sem PROD-on NEM létezett → `db/2026-10_v2.55.1_vevo_auth_temp_pin.sql` (a tábla + új oszlopok, egyben) — **STAGING és PROD**.
+- DB-ellenőrzés: `.github/workflows/db-check.yml` (staging-push `db/` változáskor; logban: létezik-e, zárt-e).
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.

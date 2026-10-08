@@ -61,12 +61,19 @@ export const normEmail = (s: string) => String(s || '').trim().toLowerCase()
 export const normCode = (s: string) => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
 export const SEC_QUESTION_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+// v2.55.1: a PIN pontosan 4 számjegy; a túl egyszerűek (1111, 1234, 4321 …) tiltottak
 export function pinProblem(pin: string): string | null {
-  if (!/^\d{4,6}$/.test(pin)) return 'pin_format'
+  if (!/^\d{4}$/.test(pin)) return 'pin_format'
   if (/^(\d)\1+$/.test(pin)) return 'pin_weak'
-  const up = '0123456789', down = '9876543210'
-  if (up.includes(pin) || down.includes(pin)) return 'pin_weak'
+  if ('01234567890'.includes(pin) || '09876543210'.includes(pin)) return 'pin_weak'
   return null
+}
+export function randomPin(): string {
+  for (;;) {
+    const n = crypto.getRandomValues(new Uint16Array(1))[0] % 10000
+    const p = String(n).padStart(4, '0')
+    if (!pinProblem(p)) return p
+  }
 }
 
 // ---------- token (HMAC-SHA256, titok az admin_secrets-ben, első használatkor generálva) ----------

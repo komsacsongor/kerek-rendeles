@@ -67,7 +67,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Verzió (prod / staging)** | **v2.53.94 / v2.55.0** |
+| **Verzió (prod / staging)** | **v2.53.94 / v2.55.1** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ **Titok (token, API-kulcs, jelszó) SOHA ne kerüljön a repóba** — a repó publikus. 2026-09-29: egy PAT a `package.json`-ban volt → eltávolítva; a tulajdonosnak vissza kell vonnia.
@@ -100,7 +100,7 @@ Indok: session-compactation után a régi tanulság elveszhet, de a git megőrzi
 |---|---|---|
 | **Admin** | `admin.html` | `admin-auth` Edge Function (`admin_secrets.admin_password` hash) |
 | **Receptúra** | `receptura.html` | `admin-auth` EF `module='receptura'` (v2.48) → `admin_secrets.receptura_password`, ennek híján admin-fallback |
-| **Vevő** | `vevo.html` | v2.55.0: **kód** VAGY **e-mail + PIN** a `vevo-auth` EF-en át → aláírt token; saját adatok a `vevo-data` EF-en át (név szerinti belépés megszűnt) |
+| **Vevő** | `vevo.html` | v2.55.1: **e-mail + 4 jegyű PIN** a `vevo-auth` EF-en át → aláírt token; saját adatok a `vevo-data` EF-en át (kód/név NEM belépési adat) |
 
 **Belépési adatok dev/demo**:
 - Admin + Receptúra: `admin`
@@ -204,7 +204,7 @@ push_subscriptions: client_id, endpoint, p256dh, auth, created_at
 admin_secrets:     key (PK), value, updated_at — szigorú RLS, csak service_role ír/olvas
                    Kulcsok: admin_password, receptura_password, gyartas_password (jelszó-hashek), vevo_token_secret
 client_auth:       client_id (PK), pin_hash, q1, a1_hash, q2, a2_hash, pin_set_at, token_version,
-                   pin_fail_count, pin_locked_until, rec_fail_day, rec_fail_count — v2.55.0, RLS policy nélkül
+                   pin_fail_count, pin_locked_until, rec_fail_day, rec_fail_count, must_change, temp_pin_until — v2.55.x, RLS policy nélkül
                    (csak vevo-auth/vevo-data EF, service_role). NINCS FK (beágyazás elleni védelem).
 production_logs:   id, date (HELYI dátum = SÜTÉSI NAP), log_type, recipe_id, pieces_planned,
                    pieces_actual, ingredient_usage (JSONB), total_cost, allocation, notes,
@@ -276,13 +276,13 @@ function calcScaleFactor(recipe, pieces) {
 ### Vevő bejelentkezés (v2.55.0 — C1)
 ```
 vevo.html → vAuth('login', {login, pin, remember})  [supabase.js]
-  → vevo-auth EF: kód (ilike id / KER-normalizálás) VAGY e-mail + PIN (PBKDF2, 3 hiba → 15 perc)
+  → vevo-auth EF: e-mail + 4 jegyű PIN (PBKDF2, 3 hiba → 15 perc); PIN nélküli fiók 10-31-ig e-maillel → kötelező beállítás
   → token = base64url({cid, v, exp, ro}) . HMAC-SHA256 (titok: admin_secrets.vevo_token_secret, auto-generált)
   → vSession (localStorage 90 nap / sessionStorage 12 óra)
 Saját adatok: vData.query/insert/upsert/delete  → vevo-data EF (client_id kényszerítve, határidő szerver-oldalon)
 Nincs PIN / hiányzó e-mail-telefon → needs_setup → kötelező pop-up (openSetupSheet)
 Token érvénytelen: törölt/függő vevő, PIN-reset/helyreállítás (client_auth.token_version++)
-Admin: vAuth('admin_pin_status' | 'admin_reset_pin' | 'admin_preview', {password: window._kerekPw})
+Admin: vAuth('admin_pin_status' | 'admin_temp_pin' | 'admin_preview', {password: window._kerekPw})  — ideiglenes PIN: 7 nap, must_change
 ```
 
 ### Kulcs formátumok

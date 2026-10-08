@@ -18,14 +18,14 @@ jobs:
             local label="$1" url="$2" key="$3"
             code=$(curl -s -o body.txt -w '%{http_code}' "$url/rest/v1/client_auth?select=client_id&limit=1" -H "apikey: $key" -H "Authorization: Bearer $key")
             case "$code" in
-              404) echo "$label: ❌ client_auth tábla NINCS (az SQL nem futott le)";;
+              404) echo "$label: ❌ client_auth tábla NINCS (az SQL nem futott le)"; return;;
               401|403) echo "$label: ✅ client_auth létezik és ZÁRT ($code)";;
               200) echo "$label: ⚠️ client_auth létezik, de a nyilvános kulccsal OLVASHATÓ — RLS hiányzik!";;
               *) echo "$label: ? váratlan válasz $code: $(head -c 200 body.txt)";;
             esac
             for col in temp_pin_until must_change; do
               c2=$(curl -s -o b2.txt -w '%{http_code}' "$url/rest/v1/client_auth?select=$col&limit=0" -H "apikey: $key" -H "Authorization: Bearer $key")
-              grep -q "42703\|does not exist" b2.txt && echo "$label:    oszlop $col: nincs (v2.55.1 SQL kell)" || echo "$label:    oszlop $col: ok/zárt ($c2)"
+              grep -q "42703\|does not exist" b2.txt && echo "$label:    oszlop $col: ❌ nincs (v2.55.1 SQL kell)" || echo "$label:    oszlop $col: ✅ ($c2)"
             done
           }
           check STAGING https://xgcwxlwjlohzbzpcapnw.supabase.co sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1

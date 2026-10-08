@@ -31,6 +31,7 @@ function showRegLink() {
 function _pinPill(cl) {
   if (!_pinStatus || cl.name.startsWith('[PENDING]')) return '';
   const st = _pinStatus[cl.id];
+  if (st && st.temp) return `<span style="background:#fdf2e3;color:#6b4a14;border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;margin-left:4px">ideiglenes PIN${st.temp_until ? ' · ' + new Date(st.temp_until).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }) + '-ig' : ''}</span>`;
   return st && st.has_pin
     ? '<span style="background:var(--teal-pale);color:var(--teal-dark);border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;margin-left:4px">PIN ✓</span>'
     : '<span style="background:#fdecea;color:#C0574E;border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;margin-left:4px">nincs PIN</span>';
@@ -39,7 +40,7 @@ function _pinFlag(cl) {
   const st = _pinStatus && _pinStatus[cl.id];
   if (!st || !st.rec_locked) return '';
   const nm = esc(cl.name.replace(/^\[(PENDING|DELETED)\]\s*/, '').split(' ').slice(-1)[0]);
-  return `<div style="display:flex;gap:8px;align-items:flex-start;background:#fdf2e3;border-radius:10px;padding:9px 10px;margin-top:8px;font-size:0.78rem;color:#6b4a14">⚠️ <span><b>Ma ${st.rec_fails_today} hibás helyreállítási próba.</b><br>Ha ${nm} jelentkezik, töröld a PIN-jét: a következő kódos belépéskor újat választ.</span></div>`;
+  return `<div style="display:flex;gap:8px;align-items:flex-start;background:#fdf2e3;border-radius:10px;padding:9px 10px;margin-top:8px;font-size:0.78rem;color:#6b4a14">⚠️ <span><b>Ma ${st.rec_fails_today} hibás helyreállítási próba.</b><br>Ha ${nm} jelentkezik, adj neki ideiglenes PIN-t (🔑).</span></div>`;
 }
 
 function _clientCard(cl) {
@@ -74,7 +75,7 @@ function _clientCard(cl) {
     <div style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openClientDetail('${cl.id}')">Adatlap</button>
       <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleClientAdmin('${cl.id}')" title="Admin jog: bármikor rendelhet, a 18:00 zárás nem korlátozza" style="${cl.is_admin?'border-color:var(--gold);color:var(--gold-dark)':''}">${cl.is_admin?'👑 Admin ✓':'👑 Admin jog'}</button>
-      ${_pinStatus && _pinStatus[cl.id] && (_pinStatus[cl.id].has_pin || _pinStatus[cl.id].rec_locked) ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();resetClientPin('${cl.id}')" title="A vevő a következő belépéskor a kódjával lép be és új PIN-t választ">🔄 PIN törlése</button>` : ''}
+      ${_pinStatus && !cl.name.startsWith('[PENDING]') && !cl.name.startsWith('[DELETED]') ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();tempClientPin('${cl.id}')" title="Ideiglenes 4 jegyű PIN (7 nap) — a vevő belépés után újat választ">🔑 Ideiglenes PIN</button>` : ''}
       <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();${deleteFn}">${deleteLabel}</button>
     </div>
   </div>`;
@@ -102,15 +103,17 @@ async function loadPinStatus(force) {
   } catch (e) { console.warn('PIN-állapot:', e.message); }
 }
 function togglePinFilter() { _pinFilterMissing = !_pinFilterMissing; renderClients(); }
-async function resetClientPin(id) {
+// v2.55.1: ideiglenes 4 jegyű PIN (7 napig) — a vevő ezzel belép, és rögtön újat választ
+async function tempClientPin(id) {
   const cl = D.clients.find(c => c.id === id);
   const nm = (cl?.name || id).replace(/^\[(PENDING|DELETED)\]\s*/, '');
-  if (!(await confirmDialog(`Törlöd ${nm} PIN-kódját és biztonsági kérdéseit?\n\nA vevő a következő belépéskor a KÓDJÁVAL (${id}) lép be, és új PIN-t választ. A többi eszközén kijelentkezik.`))) return;
+  if (!cl?.email) { await alertDialog(`${nm} vevőnek nincs e-mail címe. Előbb add meg az adatlapján — a belépés e-mail + PIN-nel történik.`); return; }
+  if (!(await confirmDialog(`Ideiglenes PIN-t adsz ${nm} vevőnek?\n\nA régi PIN-je megszűnik, és minden eszközén kijelentkezik. Az ideiglenes PIN 7 napig érvényes; belépéskor új PIN-t kell választania.`))) return;
   try {
-    const r = await vAuth('admin_reset_pin', { password: window._kerekPw, client_id: id });
-    if (!r.ok) throw new Error(r.data?.error || 'hiba');
+    const r = await vAuth('admin_temp_pin', { password: window._kerekPw, client_id: id });
+    if (!r.ok) throw new Error(r.data?.error === 'no_email' ? 'nincs e-mail cím' : (r.data?.error || 'hiba'));
+    await alertDialog(`${nm} ideiglenes PIN-je:\n\n${r.data.pin}\n\nBelépés: ${r.data.email} + ez a PIN (7 napig érvényes).\nMondd el neki — belépés után új PIN-t választ.`, { title: '🔑 Ideiglenes PIN' });
     await loadPinStatus(true); renderClients();
-    toast('🔄 PIN törölve — ' + nm + ' a kódjával lép be legközelebb.');
   } catch (e) { toast('⚠️ Hiba: ' + e.message, true); }
 }
 
@@ -122,7 +125,7 @@ function _renderClientsNow(){
   const all = D.clients.filter(c => !c.name.startsWith('[DELETED]'));
   const deleted = D.clients.filter(c => c.name.startsWith('[DELETED]'));
   const approved = all.filter(c => !c.name.startsWith('[PENDING]'));
-  const hasPin = c => !!(_pinStatus && _pinStatus[c.id] && _pinStatus[c.id].has_pin);
+  const hasPin = c => !!(_pinStatus && _pinStatus[c.id] && _pinStatus[c.id].has_pin && !_pinStatus[c.id].temp);
   const active = _pinFilterMissing ? all.filter(c => !hasPin(c)) : all;
 
   let sumEl = document.getElementById('clients-pin-summary');

@@ -3,29 +3,29 @@
 // más vevők adatait. PIN és biztonsági válaszok PBKDF2-vel, a client_auth táblában (anon-lezárt).
 //
 // Műveletek (body.action):
-//   login {login, pin?, remember?}            → {token, client, needs_setup}
+//   login {login(e-mail), pin, remember?}     → {token, client, needs_setup}  (v2.55.1: kód nem belépési adat)
 //   me {token}                                 → {client, needs_setup}
 //   setup {token, email, phone, pin, q1,a1,q2,a2}  → {ok}
-//   register {name, email, phone, pin, q1,a1,q2,a2} → {code}
+//   register {name, email, phone, pin, q1,a1,q2,a2} → {ok}
 //   recover_start {email}                      → {q1,q2} | {no_setup} | {locked}
-//   recover_verify {email, a1, a2, new_pin, remember?} → {token, client, code}
+//   recover_verify {email, a1, a2, new_pin, remember?} → {token, client}
 //   admin_preview {password, client_id}        → {token} (csak olvasható, 30 perc)
-//   admin_reset_pin {password, client_id}      → {ok}
+//   admin_temp_pin {password, client_id}       → {pin} (ideiglenes, 7 nap, belépéskor cserélendő)
 //   admin_pin_status {password}                → {rows:[{client_id, has_pin, pin_set_at, rec_locked}]}
 
 import {
   CORS, json, admin, rateLimit, clientIp, slowHash, slowVerify, sha256, normAnswer, normEmail,
-  SEC_QUESTION_IDS, pinProblem, signToken, verifyToken, checkModulePassword, pushAdmin, bucharestToday,
+  SEC_QUESTION_IDS, pinProblem, randomPin, signToken, verifyToken, checkModulePassword, pushAdmin, bucharestToday,
 } from '../_shared/vevo.ts'
 
-// Az átmeneti időszak végéig a még PIN nélküli fiók e-maillel (PIN nélkül) is beléphet — utána csak kóddal.
+// Az átmeneti időszak végéig a még PIN nélküli fiók e-maillel (PIN nélkül) is beléphet — utána ideiglenes PIN kell (admin).
 const LEGACY_EMAIL_UNTIL = Date.parse('2026-10-31T23:59:59+02:00')
 const DAY = 86400000
 const PIN_LOCK_AFTER = 3, PIN_LOCK_MS = 15 * 60000, REC_PER_DAY = 3
 
 const cleanName = (n: string) => String(n || '').replace(/^\[(PENDING|DELETED)\]\s*/, '')
 const pubClient = (c: any) => ({ id: c.id, name: cleanName(c.name), email: c.email || '', phone: c.phone || '', is_admin: !!c.is_admin })
-const needsSetup = (c: any, a: any) => !(a?.pin_hash && a?.a1_hash && a?.a2_hash && c?.email && c?.phone)
+const needsSetup = (c: any, a: any) => !!a?.must_change || !(a?.pin_hash && a?.a1_hash && a?.a2_hash && c?.email && c?.phone)
 const likeEsc = (s: string) => s.replace(/[\\%_]/g, m => '\\' + m)
 const todayStr = () => { const t = bucharestToday(); return `${t.y}-${String(t.m0 + 1).padStart(2, '0')}-${String(t.d).padStart(2, '0')}` }
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 120
@@ -48,7 +48,7 @@ async function secretsRow(b: any) {
     q1: Number(b.q1), a1_hash: await slowHash(normAnswer(b.a1)),
     q2: Number(b.q2), a2_hash: await slowHash(normAnswer(b.a2)),
     pin_set_at: new Date().toISOString(), pin_fail_count: 0, pin_locked_until: null,
-    rec_fail_count: 0, rec_fail_day: null, updated_at: new Date().toISOString(),
+    rec_fail_count: 0, rec_fail_day: null, must_change: false, temp_pin_until: null, updated_at: new Date().toISOString(),
   }
 }
 async function findByEmail(sb: any, email: string) {
@@ -78,52 +78,37 @@ Deno.serve(async (req: Request) => {
     const sb = admin()
     if (!rateLimit('all:' + ip, 120)) return json({ error: 'rate_limit' }, 429)
 
-    // ---------------- LOGIN ----------------
+    // ---------------- LOGIN (v2.55.1: e-mail + 4 jegyű PIN; a kód már nem belépési adat) ----------------
     if (action === 'login') {
       if (!rateLimit('login:' + ip, 20)) return json({ error: 'rate_limit' }, 429)
       const raw = String(b.login || '').trim()
       if (!raw) return json({ error: 'missing_login' }, 400)
-      let c: any = null, viaEmail = false
-      if (raw.includes('@')) {
-        viaEmail = true
-        c = await findByEmail(sb, normEmail(raw))
-      } else {
-        const { data } = await sb.from('clients').select('id,name,email,phone,is_admin').ilike('id', likeEsc(raw)).limit(1)
-        c = (data || [])[0] || null
-        if (!c) {
-          const n = raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
-          if (/^KER[A-Z0-9]{8}$/.test(n)) {
-            const id = `KER-${n.slice(3, 7)}-${n.slice(7, 11)}`
-            const r = await sb.from('clients').select('id,name,email,phone,is_admin').eq('id', id).maybeSingle()
-            c = r.data || null
-          }
-        }
-        if (!c && !/^KER/i.test(raw) && raw.includes(' ')) return json({ error: 'name_login_removed' }, 401)
-      }
-      if (!c) return json({ error: viaEmail ? 'bad_credentials' : 'unknown_code' }, 401)
+      if (!raw.includes('@')) return json({ error: 'email_required' }, 400)
+      const c = await findByEmail(sb, normEmail(raw))
+      if (!c) return json({ error: 'bad_credentials' }, 401)
       if (String(c.name).startsWith('[PENDING]')) return json({ error: 'pending' }, 403)
       if (String(c.name).startsWith('[DELETED]')) return json({ error: 'deleted' }, 403)
       const auth = await getAuth(sb, c.id)
-
-      if (viaEmail) {
-        if (auth?.pin_hash) {
-          if (auth.pin_locked_until && Date.now() < Date.parse(auth.pin_locked_until))
-            return json({ error: 'pin_locked', wait_minutes: Math.ceil((Date.parse(auth.pin_locked_until) - Date.now()) / 60000) }, 429)
-          if (!b.pin) return json({ error: 'pin_required' }, 401)
-          if (!(await slowVerify(String(b.pin), auth.pin_hash))) {
-            const fails = (auth.pin_fail_count || 0) + 1
-            const upd: any = { pin_fail_count: fails >= PIN_LOCK_AFTER ? 0 : fails, updated_at: new Date().toISOString() }
-            if (fails >= PIN_LOCK_AFTER) upd.pin_locked_until = new Date(Date.now() + PIN_LOCK_MS).toISOString()
-            await sb.from('client_auth').update(upd).eq('client_id', c.id)
-            return json({ error: fails >= PIN_LOCK_AFTER ? 'pin_locked' : 'bad_credentials', wait_minutes: fails >= PIN_LOCK_AFTER ? 15 : undefined }, 401)
-          }
-          if (auth.pin_fail_count) await sb.from('client_auth').update({ pin_fail_count: 0 }).eq('client_id', c.id)
-        } else if (Date.now() > LEGACY_EMAIL_UNTIL) {
-          return json({ error: 'code_required' }, 401)   // átmenet vége: PIN nélkül csak kóddal
+      if (auth?.pin_hash) {
+        if (auth.pin_locked_until && Date.now() < Date.parse(auth.pin_locked_until))
+          return json({ error: 'pin_locked', wait_minutes: Math.ceil((Date.parse(auth.pin_locked_until) - Date.now()) / 60000) }, 429)
+        if (!b.pin) return json({ error: 'pin_required' }, 401)
+        if (!(await slowVerify(String(b.pin), auth.pin_hash))) {
+          const fails = (auth.pin_fail_count || 0) + 1
+          const upd: any = { pin_fail_count: fails >= PIN_LOCK_AFTER ? 0 : fails, updated_at: new Date().toISOString() }
+          if (fails >= PIN_LOCK_AFTER) upd.pin_locked_until = new Date(Date.now() + PIN_LOCK_MS).toISOString()
+          await sb.from('client_auth').update(upd).eq('client_id', c.id)
+          return json({ error: fails >= PIN_LOCK_AFTER ? 'pin_locked' : 'bad_credentials', wait_minutes: fails >= PIN_LOCK_AFTER ? 15 : undefined }, 401)
         }
+        // ideiglenes PIN (admin adta): csak a lejáratig érvényes
+        if (auth.must_change && auth.temp_pin_until && Date.now() > Date.parse(auth.temp_pin_until))
+          return json({ error: 'temp_expired' }, 401)
+        if (auth.pin_fail_count) await sb.from('client_auth').update({ pin_fail_count: 0 }).eq('client_id', c.id)
+      } else if (Date.now() > LEGACY_EMAIL_UNTIL) {
+        return json({ error: 'temp_pin_needed' }, 401)   // átmenet vége: PIN nélkül ideiglenes PIN kell a pékségtől
       }
       const t = await issue(c, auth, !!b.remember)
-      try { await sb.from('audit_log').insert({ action: 'login', entity_name: cleanName(c.name), details: viaEmail ? 'Vevő belépés (e-mail)' : 'Vevő belépés (kód)' }) } catch (_) {}
+      try { await sb.from('audit_log').insert({ action: 'login', entity_name: cleanName(c.name), details: auth?.pin_hash ? 'Vevő belépés (e-mail + PIN)' : 'Vevő belépés (e-mail, átmeneti — PIN beállítás következik)' }) } catch (_) {}
       return json({ ...t, client: pubClient(c), needs_setup: needsSetup(c, auth) })
     }
 
@@ -177,10 +162,14 @@ Deno.serve(async (req: Request) => {
       if (!code) return json({ error: 'save_failed' }, 500)
       const { error: e1 } = await sb.from('clients').insert({ id: code, name: '[PENDING] ' + name, email, phone })
       if (e1) return json({ error: /duplicate|23505/.test(e1.message) ? 'email_exists' : 'save_failed', detail: e1.message }, e1.message.includes('23505') ? 409 : 500)
-      await sb.from('client_auth').upsert({ client_id: code, token_version: 0, ...(await secretsRow(b)) }, { onConflict: 'client_id' })
+      const { error: e2 } = await sb.from('client_auth').upsert({ client_id: code, token_version: 0, ...(await secretsRow(b)) }, { onConflict: 'client_id' })
+      if (e2) {   // v2.55.1: ha a PIN nem mentődött, a regisztráció NEM sikeres — visszavonjuk
+        await sb.from('clients').delete().eq('id', code)
+        return json({ error: 'save_failed', detail: e2.message }, 500)
+      }
       try { await sb.from('audit_log').insert({ action: 'client_register', entity_name: name, details: 'Önregisztráció (jóváhagyásra vár)' }) } catch (_) {}
       await pushAdmin('new_client', '👤 Új regisztráció', `${name} regisztrált — jóváhagyásra vár`)
-      return json({ code })
+      return json({ ok: true })
     }
 
     // ---------------- RECOVERY ----------------
@@ -214,10 +203,10 @@ Deno.serve(async (req: Request) => {
       }
       const pp = pinProblem(String(b.new_pin || '')); if (pp) return json({ error: pp }, 400)
       const v = (a.token_version || 0) + 1   // a korábbi (esetleg ellopott) munkamenetek érvénytelenek
-      await sb.from('client_auth').update({ pin_hash: await slowHash(String(b.new_pin)), pin_set_at: new Date().toISOString(), token_version: v, pin_fail_count: 0, pin_locked_until: null, rec_fail_count: 0, rec_fail_day: null, updated_at: new Date().toISOString() }).eq('client_id', c.id)
+      await sb.from('client_auth').update({ pin_hash: await slowHash(String(b.new_pin)), pin_set_at: new Date().toISOString(), token_version: v, pin_fail_count: 0, pin_locked_until: null, rec_fail_count: 0, rec_fail_day: null, must_change: false, temp_pin_until: null, updated_at: new Date().toISOString() }).eq('client_id', c.id)
       try { await sb.from('audit_log').insert({ action: 'pin_recovered', entity_name: cleanName(c.name), details: 'PIN helyreállítva biztonsági kérdésekkel' }) } catch (_) {}
       const t = await issue(c, { token_version: v }, !!b.remember)
-      return json({ ...t, client: pubClient(c), code: c.id, needs_setup: needsSetup(c, { ...a, pin_hash: 'x' }) })
+      return json({ ...t, client: pubClient(c), needs_setup: needsSetup(c, { ...a, pin_hash: 'x', must_change: false }) })
     }
 
     // ---------------- ADMIN műveletek (admin jelszóval) ----------------
@@ -225,9 +214,9 @@ Deno.serve(async (req: Request) => {
       if (!rateLimit('adm:' + ip, 60)) return json({ error: 'rate_limit' }, 429)
       if (!(await checkModulePassword('admin', b.password))) return json({ error: 'unauthorized' }, 401)
       if (action === 'admin_pin_status') {
-        const { data } = await sb.from('client_auth').select('client_id,pin_hash,pin_set_at,rec_fail_day,rec_fail_count')
+        const { data } = await sb.from('client_auth').select('client_id,pin_hash,pin_set_at,rec_fail_day,rec_fail_count,must_change,temp_pin_until')
         const today = todayStr()
-        return json({ rows: (data || []).map((r: any) => ({ client_id: r.client_id, has_pin: !!r.pin_hash, pin_set_at: r.pin_set_at, rec_locked: r.rec_fail_day === today && (r.rec_fail_count || 0) >= REC_PER_DAY, rec_fails_today: r.rec_fail_day === today ? (r.rec_fail_count || 0) : 0 })) })
+        return json({ rows: (data || []).map((r: any) => ({ client_id: r.client_id, has_pin: !!r.pin_hash, pin_set_at: r.pin_set_at, rec_locked: r.rec_fail_day === today && (r.rec_fail_count || 0) >= REC_PER_DAY, rec_fails_today: r.rec_fail_day === today ? (r.rec_fail_count || 0) : 0, temp: !!r.must_change, temp_until: r.temp_pin_until })) })
       }
       const cid = String(b.client_id || '')
       const { data: c } = await sb.from('clients').select('id,name,email,phone,is_admin').eq('id', cid).maybeSingle()
@@ -237,10 +226,16 @@ Deno.serve(async (req: Request) => {
         const token = await signToken({ cid, v: a?.token_version || 0, exp: Date.now() + 30 * 60000, ro: true })
         return json({ token })
       }
-      if (action === 'admin_reset_pin') {
-        await sb.from('client_auth').upsert({ client_id: cid, pin_hash: null, q1: null, a1_hash: null, q2: null, a2_hash: null, pin_set_at: null, token_version: (a?.token_version || 0) + 1, pin_fail_count: 0, pin_locked_until: null, rec_fail_count: 0, rec_fail_day: null, updated_at: new Date().toISOString() }, { onConflict: 'client_id' })
-        try { await sb.from('audit_log').insert({ action: 'pin_reset', entity_name: cleanName(c.name), details: 'PIN törölve (admin)' }) } catch (_) {}
-        return json({ ok: true })
+      if (action === 'admin_temp_pin') {
+        // v2.55.1: ideiglenes 4 jegyű PIN (7 napig) — a vevő belépéskor újat választ. A korábbi munkamenetek érvénytelenek.
+        if (!c.email) return json({ error: 'no_email' }, 400)
+        const pin = randomPin()
+        const row = { client_id: cid, pin_hash: await slowHash(pin), must_change: true, temp_pin_until: new Date(Date.now() + 7 * DAY).toISOString(),
+          token_version: (a?.token_version || 0) + 1, pin_fail_count: 0, pin_locked_until: null, rec_fail_count: 0, rec_fail_day: null, updated_at: new Date().toISOString() }
+        const { error } = await sb.from('client_auth').upsert(row, { onConflict: 'client_id' })
+        if (error) return json({ error: 'save_failed', detail: error.message }, 500)
+        try { await sb.from('audit_log').insert({ action: 'pin_temp', entity_name: cleanName(c.name), details: 'Ideiglenes PIN kiadva (admin, 7 nap)' }) } catch (_) {}
+        return json({ ok: true, pin, email: c.email, valid_days: 7 })
       }
     }
     return json({ error: 'unknown_action' }, 400)
