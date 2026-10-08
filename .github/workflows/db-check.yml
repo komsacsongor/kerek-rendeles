@@ -1,9 +1,12 @@
 name: DB check (client_auth)
 
-# Kézi ellenőrzés: létezik-e a client_auth tábla, és el van-e zárva a nyilvános kulcs elől.
+# Ellenőrzés (kézi, vagy staging-push a db/ mappában): létezik-e a client_auth tábla, és el van-e zárva a nyilvános kulcs elől.
 # Nem olvas adatot — csak a válasz-kódot nézi (404 = nincs tábla, 401/403 = létezik és zárt, 200 = NYITOTT).
 on:
   workflow_dispatch:
+  push:
+    branches: [staging]
+    paths: ['.github/workflows/db-check.yml', 'db/**']
 
 jobs:
   check:
