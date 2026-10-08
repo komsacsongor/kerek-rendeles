@@ -1,0 +1,29 @@
+name: DB check (client_auth)
+
+# Kézi ellenőrzés: létezik-e a client_auth tábla, és el van-e zárva a nyilvános kulcs elől.
+# Nem olvas adatot — csak a válasz-kódot nézi (404 = nincs tábla, 401/403 = létezik és zárt, 200 = NYITOTT).
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: client_auth állapot (staging + prod)
+        run: |
+          check() {
+            local label="$1" url="$2" key="$3"
+            code=$(curl -s -o body.txt -w '%{http_code}' "$url/rest/v1/client_auth?select=client_id&limit=1" -H "apikey: $key" -H "Authorization: Bearer $key")
+            case "$code" in
+              404) echo "$label: ❌ client_auth tábla NINCS (az SQL nem futott le)";;
+              401|403) echo "$label: ✅ client_auth létezik és ZÁRT ($code)";;
+              200) echo "$label: ⚠️ client_auth létezik, de a nyilvános kulccsal OLVASHATÓ — RLS hiányzik!";;
+              *) echo "$label: ? váratlan válasz $code: $(head -c 200 body.txt)";;
+            esac
+            for col in temp_pin_until must_change; do
+              c2=$(curl -s -o b2.txt -w '%{http_code}' "$url/rest/v1/client_auth?select=$col&limit=0" -H "apikey: $key" -H "Authorization: Bearer $key")
+              grep -q "42703\|does not exist" b2.txt && echo "$label:    oszlop $col: nincs (v2.55.1 SQL kell)" || echo "$label:    oszlop $col: ok/zárt ($c2)"
+            done
+          }
+          check STAGING https://xgcwxlwjlohzbzpcapnw.supabase.co sb_publishable_5hDMQn7qDamzSVAigTYUHg_JXebCVj1
+          check PROD    https://lfaxeihrmiylggahougl.supabase.co sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN
