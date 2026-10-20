@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEREK – Számla bevételezés a Készletben (képernyőterv)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Kodchasan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --teal-dark:#064C48; --teal:#129990; --teal-mid:#43AAA0; --teal-light:#A3D1C6; --teal-pale:#E0F2EF;
+  --gold-dark:#B78029; --gold:#EFB036; --gold-light:#EBCF9E; --cream:#FAF7F0; --text:#1A2E31;
+  --text-soft:#5A7A80; --border:#C8DDD9; --bg-soft:#EFF5F3; --danger:#C0574E;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);font-family:'Kodchasan',sans-serif;color:var(--text);font-size:14px}
+.doc{max-width:1060px;margin:0 auto;padding:18px 16px 6px}
+.doc h1{font-family:'Fraunces',serif;color:var(--teal-dark);font-weight:600;margin:0 0 4px;font-size:1.45rem}
+.doc p{margin:0;color:var(--text-soft);font-size:.85rem}
+.nav{display:flex;gap:6px;flex-wrap:wrap;max-width:1060px;margin:0 auto;padding:12px 16px;position:sticky;top:0;background:var(--cream);z-index:5}
+.nav button{border:1.5px solid var(--border);background:#fff;color:var(--teal-dark);border-radius:20px;padding:6px 12px;font-family:inherit;font-size:.78rem;cursor:pointer}
+.nav button.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+.screen{display:none;max-width:1060px;margin:0 auto;padding:0 16px 40px}
+.screen.on{display:block}
+.note{background:#fff;border-left:4px solid var(--gold);border-radius:10px;padding:10px 14px;font-size:.82rem;margin-bottom:14px;line-height:1.5}
+.app{background:var(--bg-soft);border:1.5px solid var(--border);border-radius:14px;padding:14px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.top h2{font-family:'Fraunces',serif;font-weight:400;color:var(--teal-dark);margin:0;font-size:1.1rem}
+.btn{border-radius:9px;padding:7px 13px;font-family:inherit;font-size:.8rem;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--teal-dark);font-weight:600}
+.btn.p{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.g{background:var(--gold);border-color:var(--gold);color:var(--teal-dark)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.hl{outline:3px solid var(--gold);outline-offset:3px;border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;color:var(--text-soft);font-weight:600;padding:6px 8px;border-bottom:2px solid var(--border)}
+td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+.num{text-align:right}
+.src{display:inline-block;border-radius:10px;padding:1px 8px;font-size:.68rem;font-weight:600;margin-top:3px}
+.s-learn{background:var(--teal-pale);color:var(--teal-dark)}
+.s-dict{background:#eef2ff;color:#3730a3}
+.s-ai{background:#fff7ed;color:#9a3412}
+.s-new{background:#fef2f2;color:var(--danger)}
+select,input{font-family:inherit;font-size:.8rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;background:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:7px 12px;border-radius:9px;border:1.5px solid var(--border);background:#fff;font-size:.8rem;cursor:default}
+.tab.on{background:var(--teal-dark);color:#fff;border-color:var(--teal-dark)}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:var(--teal-pale);color:var(--teal-dark);font-weight:600}
+textarea{width:100%;min-height:120px;font-family:inherit;font-size:.78rem;padding:10px;border:1.5px solid var(--border);border-radius:10px}
+.stock tr td:first-child{font-weight:600}
+@media (max-width:640px){ table.rv thead{display:none} table.rv tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--border)} table.rv td{border:0;padding:0} table.rv td:nth-child(1),table.rv td:nth-child(2){grid-column:1/-1} table.rv td.num{text-align:left} }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Számla bevételezés az Alapanyagok & Készlet alatt</h1>
+  <p>Képernyőterv jóváhagyásra · a valódi adatok a vrac-magazin rendelésből · a sárga keret jelöli az újdonságot</p>
+</div>
+<div class="nav">
+  <button class="on" onclick="go(0,this)">1 · Készlet nézet</button>
+  <button onclick="go(1,this)">2 · Feltöltés (fotó / PDF / szöveg)</button>
+  <button onclick="go(2,this)">3 · Áttekintő — honnan jött a párosítás</button>
+  <button onclick="go(3,this)">4 · Második alkalommal (tanult)</button>
+</div>
+
+<!-- 1 -->
+<div class="screen on">
+  <div class="note">A bal menüből <b>eltűnik</b> a „🧾 Számla bevételezés” pont. Az <b>Alapanyagok & Készlet</b> nézet tetején lesz két új gomb. Az egyes alapanyag-sorokon a meglévő „📦 Bevételezés” (kézi) változatlan marad.</div>
+  <div class="app">
+    <div class="top"><h2>🌿 Alapanyagok & Készlet</h2></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div class="row">
+        <span class="hl"><button class="btn g">🧾 Számla bevételezése</button></span>
+        <span class="hl"><button class="btn">➕ Utólagos szállítási költség</button></span>
+        <button class="btn p">🛒 Bevásárló lista</button>
+        <button class="btn">📥 CSV export</button>
+        <button class="btn">🤖 Auto Min/Max</button>
+      </div>
+      <button class="btn p">＋ Új alapanyag</button>
+    </div>
+    <div class="card"><table class="stock">
+      <thead><tr><th>Alapanyag</th><th class="num">Készlet</th><th class="num">FIFO ár</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Hajdina</td><td class="num">2,0 kg</td><td class="num">8,50 lej/kg</td><td class="num"><button class="btn" style="font-size:.7rem;padding:3px 9px">📦 Bevételezés</button></td></tr>
+        <tr><td>Köles</td><td class="num">0,5 kg</td><td class="num">7,20 lej/kg</td><td class="num"><button class="btn" style="font-size:.7rem;padding:3px 9px">📦 Bevételezés</button></td></tr>
+        <tr><td>Rizsliszt</td><td class="num">12,0 kg</td><td class="num">6,10 lej/kg</td><td class="num"><button class="btn" style="font-size:.7rem;padding:3px 9px">📦 Bevételezés</button></td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="screen">
+  <div class="note">A gomb a Készlet nézeten belül nyitja meg a bevételezést (fölül „← Vissza a készlethez”). <b>Új: „Szöveg beillesztése”</b> — webshop-rendelésnél az oldal szövegét kimásolod és beilleszted. Ez pontosabb, mint a fotó, mert nem kell képet olvasni.</div>
+  <div class="app">
+    <div class="top"><h2>🌿 Alapanyagok & Készlet › 🧾 Számla bevételezése</h2><button class="btn">← Vissza a készlethez</button></div>
+    <div class="card">
+      <div class="tabs"><span class="tab">📷 Fotó</span><span class="tab">📄 PDF</span><span class="hl"><span class="tab on">📋 Szöveg beillesztése</span></span></div>
+      <textarea>Hrișcă decorticată – 10kg × 1	88,00 lei (fără TVA)
+Mei decorticat – 5kg × 1	35,00 lei (fără TVA)
+Orez pentru Sushi – 5kg × 1	51,50 lei (fără TVA)
+…
+Sub-total:	587,65 lei (fără TVA)</textarea>
+      <div class="row" style="margin-top:10px;justify-content:space-between"><span style="font-size:.74rem;color:var(--text-soft)">Webshopnál: jelöld ki a rendelés táblázatát → Másolás → ide Beillesztés.</span><button class="btn p">Feldolgozás →</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="screen">
+  <div class="note">
+    <b>Párosítás új sorrendben</b> (az AI már nem fordít szabadon — ebből jött a „drazsir”, „miel”):<br>
+    <span class="src s-learn">✅ tanult</span> amit korábban jóváhagytál ennél a beszállítónál ·
+    <span class="src s-dict">📖 szótár</span> beépített román–magyar alapanyag-szótár ·
+    <span class="src s-ai">🤖 AI-javaslat</span> az AI a <b>te alapanyag-listádból</b> választ, ellenőrizendő ·
+    <span class="src s-new">🆕 új</span> nincs ilyen alapanyag.<br>
+    A mennyiséget a tételnévből („– 10kg × 1”) is kiszámolja, nem csak az AI-ra hagyatkozik.
+  </div>
+  <div class="app">
+    <div class="top"><h2>🌿 Alapanyagok & Készlet › 🧾 Számla bevételezése</h2><button class="btn">← Vissza a készlethez</button></div>
+    <div class="card"><b style="font-family:Fraunces,serif;color:var(--teal-dark)">Vrac Magazin SRL</b> <span style="font-size:.78rem;color:var(--text-soft)">· 2026-09-17 · ✅ 7 kész · ⚠️ 3 ellenőrizendő</span></div>
+    <div class="card"><table class="rv">
+      <thead><tr><th>Számla tétel</th><th>Alapanyag</th><th class="num">Menny.</th><th class="num">Nettó</th><th class="num">lej/kg</th></tr></thead>
+      <tbody>
+        <tr><td>Hrișcă decorticată – 10kg × 1</td><td><select><option>Hajdina</option></select><br><span class="src s-dict">📖 szótár: hrișcă = hajdina</span></td><td class="num">10 kg</td><td class="num">88,00</td><td class="num"><b>10,03</b></td></tr>
+        <tr><td>Mei decorticat – 5kg × 1</td><td><select><option>Köles</option></select><br><span class="src s-dict">📖 szótár: mei = köles</span></td><td class="num">5 kg</td><td class="num">35,00</td><td class="num"><b>8,23</b></td></tr>
+        <tr style="background:#fff7ed"><td>Orez pentru Sushi – 5kg × 1</td><td><select><option>Rizs</option></select><br><span class="src s-ai">🤖 AI-javaslat — jó?</span> <button class="btn" style="font-size:.66rem;padding:1px 8px">✓ Igen</button></td><td class="num">5 kg</td><td class="num">51,50</td><td class="num"><b>11,53</b></td></tr>
+        <tr><td>Făină de năut – 5kg × 1</td><td><select><option>Csicseriborsóliszt</option></select><br><span class="src s-dict">📖 szótár</span></td><td class="num">5 kg</td><td class="num">46,00</td><td class="num"><b>10,43</b></td></tr>
+        <tr style="background:#fef2f2"><td>Fulgi de orz – 3kg × 1</td><td><select><option>🆕 Új: Árpapehely</option></select><br><span class="src s-new">🆕 új alapanyag</span></td><td class="num">3 kg</td><td class="num">17,40</td><td class="num"><b>7,04</b></td></tr>
+      </tbody></table>
+      <div style="font-size:.74rem;color:var(--text-soft);margin-top:8px">…a többi sor ugyanígy. Amit itt jóváhagysz vagy átírsz, azt <b>megjegyzi</b> erre a beszállítóra.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="screen">
+  <div class="note">Következő vrac-magazin rendelésnél ugyanezek a tételek már <b>tanultként</b> jönnek, és nem kell semmit ellenőrizned. Minél többet használod, annál kevesebb a kézi munka.</div>
+  <div class="app">
+    <div class="card"><b style="font-family:Fraunces,serif;color:var(--teal-dark)">Vrac Magazin SRL</b> <span style="font-size:.78rem;color:var(--text-soft)">· ✅ 10 kész</span></div>
+    <div class="card"><table class="rv">
+      <thead><tr><th>Számla tétel</th><th>Alapanyag</th><th class="num">Menny.</th><th class="num">Nettó</th></tr></thead>
+      <tbody>
+        <tr><td>Hrișcă decorticată – 10kg × 2</td><td>Hajdina<br><span class="src s-learn">✅ tanult</span></td><td class="num">20 kg</td><td class="num">176,00</td></tr>
+        <tr><td>Orez pentru Sushi – 5kg × 1</td><td>Rizs<br><span class="src s-learn">✅ tanult</span></td><td class="num">5 kg</td><td class="num">51,50</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+<script>
+function go(i,b){document.querySelectorAll('.screen').forEach((s,j)=>s.classList.toggle('on',i===j));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x===b));}
+</script>
+</body>
+</html>
