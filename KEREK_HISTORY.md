@@ -42,6 +42,7 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.55.1** | 2026-10-08 | C1 javítás a teszt alapján: e-mail + 4 jegyű PIN (kód megszűnt belépési adatként), ideiglenes PIN az adminban, görgetés/visszatörlés/hibaüzenet javítások, regisztráció-visszavonás sikertelen PIN-mentésnél; DB-ellenőrző workflow |
 | **v2.55.2** | 2026-10-20 | Számla-operátor: több fotó + lekicsinyítés, külön számlás / utólagos szállítási költség (raktáron lévő mennyiségre), vegyes szétosztás-hiba javítva; staging SQL-automatika (db-staging.yml) |
 | **v2.55.3** | 2026-10-20 | Számla-operátor e2e teszt (vrac-magazin rendelés): beszállító-választó + hasonló név („vrac-magazin.ro” ≈ „Vrac Magazin SRL”, eddig dupla cég lett), szerkeszthető szám/dátum, szám nélküli duplikátum-védelem, hasonló nevű párosítás = ellenőrizendő, összesítő-ellenőrzés, új alapanyag egysége a kiszerelésből (eddig „1 buc × 3 kg” → db), telefonos kártyanézet; belépés dupla-hívás javítva (receptúra + admin) |
+| **v2.55.4** | 2026-10-20 | Groq kivezette a llama-4-scout vision-modellt (404) → alapértelmezés qwen/qwen3.8-27b, és ha a modell nem létezik, a fiók modell-listájából automatikusan képes modellt választ és megjegyzi; `<think>` blokk szűrése; a mentett vision-modell eddig be sem töltődött (javítva) |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 

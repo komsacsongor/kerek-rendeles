@@ -17,7 +17,10 @@ const _INV = {
 };
 
 // A Groq alapból nem lát képet; ez a modell igen. Beállításból felülírható.
-const _INV_VISION_DEFAULT = { groq: 'meta-llama/llama-4-scout-17b-16e-instruct', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514', gemini: 'gemini-2.0-flash' };
+// v2.55.4: a Groq 2026 júliusában kivezette a llama-4-scout-ot → ha a beállított modell nem létezik,
+// a Groq modell-listájából automatikusan választ képes modellt (és megjegyzi).
+const _INV_GROQ_VISION = ['qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+const _INV_VISION_DEFAULT = { groq: _INV_GROQ_VISION[0], openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514', gemini: 'gemini-2.0-flash' };
 
 function _invNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''); }
 function _invNum(v){ if(v==null) return 0; if(typeof v==='number') return v; const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.').replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
@@ -232,6 +235,7 @@ async function aiParseInvoice({text, images}){
   }
   const promptText = _invPrompt() + (text ? `\n\nSZÁMLA SZÖVEGE:\n${text}` : '');
 
+  const build = model => {
   let apiUrl, headers, body;
   if(provider === 'anthropic' || provider === 'custom'){
     apiUrl = provider === 'custom' ? (R.settings.aiUrl || 'https://api.anthropic.com/v1/messages') : 'https://api.anthropic.com/v1/messages';
@@ -259,11 +263,36 @@ async function aiParseInvoice({text, images}){
     const content = useVision ? [{type:'text', text:promptText}, ...images.map(d=>({type:'image_url', image_url:{url:d}}))] : promptText;
     body = JSON.stringify({ model, max_tokens:8000, messages:[{role:'user', content}], response_format:{type:'json_object'} });
   }
+  return { apiUrl, headers, body };
+  };
+  const send = m => { const r = build(m); return fetch(r.apiUrl, {method:'POST', headers:r.headers, body:r.body}); };
 
-  const res = await fetch(apiUrl, {method:'POST', headers, body});
+  let res = await send(model);
+  let t = res.ok ? '' : await res.text();
+  // v2.55.4: kivezetett / nem elérhető Groq vision-modell → képes modell keresése a fiók modell-listájában
+  if(!res.ok && useVision && provider === 'groq' && (res.status === 404 || /model_not_found|decommissioned|does not exist|not supported/i.test(t))){
+    let ids = [];
+    try {
+      const lr = await fetch('https://api.groq.com/openai/v1/models', { headers:{ 'Authorization':'Bearer '+apiKey } });
+      ids = ((await lr.json())?.data || []).filter(x => x.active !== false).map(x => x.id);
+    } catch(e) { console.warn('groq models:', e.message); }
+    const cands = [..._INV_GROQ_VISION.filter(id => ids.includes(id)), ...ids.filter(id => /vision|vl\b|-vl-|llama-4|qwen3\.\d+-\d+b/i.test(id) && !_INV_GROQ_VISION.includes(id))]
+      .filter(id => id !== model);
+    for(const m of cands){
+      _invStatus(`A(z) „${esc(model)}” modell nem elérhető — próba: ${esc(m)}…`, true);
+      res = await send(m);
+      if(res.ok){
+        R.settings.invoiceVisionModel = m;
+        try { Promise.resolve(sb.setSetting('invoice_vision_model', m)).catch(e => console.warn('vision model save:', e.message)); } catch(e){}
+        const inp = document.getElementById('inv-vision-model'); if(inp) inp.value = m;
+        toast('ℹ️ Új képes AI-modell beállítva: ' + m);
+        break;
+      }
+      t = await res.text();
+    }
+  }
   if(!res.ok){
-    const t = await res.text();
-    if(res.status===400 && useVision) throw new Error('A képes kiolvasás nem sikerült — lehet, hogy a beállított vision-modell nem jó. Nyisd le a „Haladó: vision modell" részt és adj meg egy képes modellt. Részlet: '+t.slice(0,300));
+    if((res.status===400 || res.status===404) && useVision) throw new Error('A képes kiolvasás nem sikerült — nem találtam elérhető képes (vision) modellt, vagy a beállított nem jó. Nyisd le a „Haladó: vision modell" részt és adj meg egy képes modellt. Részlet: '+t.slice(0,300));
     throw new Error('AI hiba: '+res.status+' '+t.slice(0,300));
   }
   const data = await res.json();
@@ -271,7 +300,8 @@ async function aiParseInvoice({text, images}){
   if(provider==='gemini') jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
   else if(provider==='anthropic'||provider==='custom') jsonText = data.content?.[0]?.text;
   else jsonText = data.choices?.[0]?.message?.content;
-  jsonText = (jsonText||'').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+  // v2.55.4: gondolkodó modellek (pl. Qwen) <think>…</think> blokkja nem a válasz része
+  jsonText = (jsonText||'').replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
   if(!jsonText) throw new Error('Az AI üres választ adott.');
   let obj;
   try { obj = JSON.parse(jsonText); }

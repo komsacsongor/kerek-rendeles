@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.55.3** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.55.4** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -77,6 +77,9 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **Hiba javítva**: új alapanyag egysége a kiszerelésből („1 buc × 3 kg” eddig **db** lett, 3000 darabbal).
 - Telefonon kártyás tétel-nézet; siker után „➕ Később érkezett szállítás” gomb; utólagos listán „Számla (szám nélkül)” címke.
 - **Belépés** (receptúra + admin): a gomb + Enter + űrlap egyszerre 2-3× hívta (dupla betöltés, a próbálkozás-számláló hármasával nőtt) → egyszer.
+
+### v2.55.4 — vision-modell csere (2026-10-20)
+- A Groq 2026-07-ben kivezette a `meta-llama/llama-4-scout-17b-16e-instruct`-ot (fotós számla: „model_not_found”). Új alapértelmezés `qwen/qwen3.8-27b`; ha a modell nem létezik, a Groq `/models` listájából automatikusan választ képes modellt, és elmenti (`invoice_vision_model`). A mentett modell eddig betöltéskor nem töltődött vissza — javítva.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
