@@ -1,0 +1,4 @@
+# STAGING újrafuttatási lista — ha ez a fájl megváltozik, az itt felsorolt SQL-ek lefutnak a stagingen
+# (db-staging.yml). Idempotens fájlokat írj ide. A PROD-ot nem érinti.
+# 2026-10-20: C1 tábla + ideiglenes PIN oszlopok
+db/2026-10_v2.55.1_vevo_auth_temp_pin.sql

@@ -20,7 +20,9 @@
 - **Titok (token, API-kulcs, jelszó) soha nem kerül a repóba** — a repó publikus.
 
 ## Adatbázis
-- A Supabase ebből a környezetből NEM érhető el. Séma-változás = idempotens SQL a `db/ÉÉÉÉ-HH_vX.Y_leírás.sql` fájlba, ellenőrző SELECT-tel; Csongor futtatja a Supabase SQL Editorban (PROD **és** STAGING — a staging DB vasárnaponként felülíródik a PROD-ból).
+- A Supabase ebből a környezetből NEM érhető el közvetlenül. Séma-változás = idempotens SQL a `db/ÉÉÉÉ-HH_vX.Y_leírás.sql` fájlba, ellenőrző SELECT-tel.
+- **STAGING: automatikus** (`.github/workflows/db-staging.yml`, 2026-10-20): staging-pushra a push-ban új/módosított `db/*.sql` lefut a staging DB-n; újrafuttatás: `db/staging-apply.list` módosításával. Utána mindig fut a **csak olvasó** `db/checks/staging.sql` — az eredményt a GitHub Actions logból olvasd (GitHub MCP `get_job_logs`). Kérdéshez a checks fájlt bővítsd (személyes adatot ne listázz, csak darabszámot/állapotot).
+- **PROD: Csongor futtatja** a Supabase SQL Editorban — a vasárnapi szinkron a PROD sémáját másolja a stagingre, ezért minden séma-változás kell PROD-ra is.
 - Séma-referencia és tiltott oszlopnevek: `KEREK_SKILL.md` §7 és §12.
 
 ## Push előtt (kötelező)

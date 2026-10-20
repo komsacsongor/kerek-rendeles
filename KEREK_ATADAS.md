@@ -59,7 +59,7 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - Átmenet: PIN nélküli fiók 2026-10-31-ig e-maillel PIN nélkül is beléphet (→ kötelező beállítás); utána ideiglenes PIN kell.
 - Hibák javítva: hosszú űrlap görgethető; PIN-dobozban a kurzor mindig a végén (visszatörlés); a hibaüzenet eltűnik szerkesztéskor és sikernél; siker-képernyő „Vissza a belépéshez” gombbal; **regisztráció visszavonódik, ha a PIN nem mentődött** (eddig csendben „sikeres” lett — Suba Ernő esete).
 - **Ok (DB-ellenőrzés 2026-10-08):** a `client_auth` tábla sem stagingen, sem PROD-on NEM létezett → `db/2026-10_v2.55.1_vevo_auth_temp_pin.sql` (a tábla + új oszlopok, egyben) — **STAGING és PROD**.
-- DB-ellenőrzés: `.github/workflows/db-check.yml` (staging-push `db/` változáskor; logban: létezik-e, zárt-e).
+- DB: **staging SQL automatikus** (`db-staging.yml` + csak olvasó `db/checks/staging.sql`, 2026-10-20); PROD-ot Csongor futtatja. Kézi gyors-ellenőrzés: `db-check.yml`.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.

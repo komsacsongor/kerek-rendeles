@@ -1,0 +1,66 @@
+name: DB staging (SQL futtatás + ellenőrzés)
+
+# v2.55.1 (A opció): a STAGING adatbázison automatikusan lefuttatja az új / módosított SQL-eket,
+# és utána egy CSAK OLVASÓ ellenőrzést (db/checks/staging.sql). A PROD-ot SOHA nem érinti.
+#
+# Mi fut le:
+#   - a push-ban új/módosított db/*.sql fájlok (a db/checks/ kivételével)
+#   - a db/staging-apply.list-ben felsorolt fájlok, ha a lista megváltozott (újrafuttatás kérése)
+#   - mindig: db/checks/staging.sql — csak olvasó tranzakcióban (adatot nem módosíthat)
+# A migrációk idempotensek (IF NOT EXISTS), így az újrafuttatás biztonságos.
+
+on:
+  push:
+    branches: [staging]
+    paths: ['db/**', '.github/workflows/db-staging.yml']
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: PostgreSQL kliens
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          psql --version
+
+      - name: Futtatandó SQL-ek
+        id: files
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="HEAD~1"; fi
+          CHANGED=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- 'db/*.sql' | grep -v '^db/checks/' || true)
+          LISTED=""
+          if git diff --name-only "$BEFORE" HEAD -- db/staging-apply.list | grep -q .; then
+            LISTED=$(grep -v '^\s*#' db/staging-apply.list | sed '/^\s*$/d' || true)
+          fi
+          FILES=$(printf "%s\n%s\n" "$CHANGED" "$LISTED" | sed '/^\s*$/d' | sort -u)
+          echo "Futtatandó:"; echo "${FILES:-  (nincs)}"
+          { echo "list<<EOF"; echo "$FILES"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: SQL futtatás a STAGING-en
+        if: steps.files.outputs.list != ''
+        env:
+          DB: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          echo "${{ steps.files.outputs.list }}" | while read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || { echo "⚠️ nincs ilyen fájl: $f"; continue; }
+            echo "════════ $f ════════"
+            psql "$DB" -v ON_ERROR_STOP=1 -X -q -P pager=off -f "$f" || { echo "❌ HIBA: $f"; exit 1; }
+            echo "✅ lefutott: $f"
+          done
+
+      - name: Ellenőrzés (csak olvasó)
+        if: always()
+        env:
+          DB: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          PGOPTIONS: '-c default_transaction_read_only=on'
+        run: |
+          [ -f db/checks/staging.sql ] || { echo "nincs db/checks/staging.sql"; exit 0; }
+          psql "$DB" -X -P pager=off -f db/checks/staging.sql
