@@ -40,6 +40,7 @@ A részletes commit-történet `git log` segítségével mindig elérhető. Itt 
 | **v2.54.1** ⭐ | 2026-09-29 | **Audit-javítások (A+B)**: auto-confirm lapozás + fulfilled-védelem; gyártás-flow „Nap lezárása" FIFO-levonással + fulfilled + dupla-lezárás védelem; közös sütés-lezárási segédek; vevő „összes törlése" csak módosítható napokra; polling-leképezés egységesítve; számla-operátor javítások; SQL-ek a `db/`-be; `CLAUDE.md` |
 | **v2.55.0** ⭐ | 2026-10-01 | **C1 biztonság**: vevő-belépés a szerveren (`vevo-auth` EF: kód / e-mail+PIN, aláírt token), saját adatok `vevo-data` EF-en át (szerver-oldali határidő), kötelező PIN-pop-up a meglévő vevőknek, biztonsági kérdéses helyreállítás, admin PIN-kezelés + biztonságos előnézet |
 | **v2.55.1** | 2026-10-08 | C1 javítás a teszt alapján: e-mail + 4 jegyű PIN (kód megszűnt belépési adatként), ideiglenes PIN az adminban, görgetés/visszatörlés/hibaüzenet javítások, regisztráció-visszavonás sikertelen PIN-mentésnél; DB-ellenőrző workflow |
+| **v2.55.2** | 2026-10-20 | Számla-operátor: több fotó + lekicsinyítés, külön számlás / utólagos szállítási költség (raktáron lévő mennyiségre), vegyes szétosztás-hiba javítva; staging SQL-automatika (db-staging.yml) |
 
 A 25+ régi bug javítva (v2.36-v2.39 időszak) — részletek `git log --oneline`-ban.
 

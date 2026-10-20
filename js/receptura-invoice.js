@@ -1,6 +1,6 @@
 // ============================================================
 // KEREK – Számla-bevételező AI operátor
-// v2.54.0
+// v2.54.0 · v2.55.2: kép lekicsinyítés/több oldal, külön számlás és utólagos szállítási költség
 // Számla (PDF/kép, RO/EN/HU) → kiolvasás (text/vision) → párosítás
 // → landed cost → deviza→lej (BNR) → áttekintő → cég+alapanyag+FIFO bevételezés
 // ============================================================
@@ -39,12 +39,13 @@ function renderInvoiceIntake(){
     </div>
 
     <div class="card">
-      <input type="file" id="inv-file" accept="application/pdf,image/*" style="display:none" onchange="handleInvoiceFile(this)">
+      <input type="file" id="inv-file" accept="application/pdf,image/*,.heic,.heif" multiple style="display:none" onchange="handleInvoiceFile(this)">
       <div id="inv-drop" data-action="invPick" style="border:2px dashed var(--border);border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;transition:.15s;background:var(--teal-pale)">
         <div style="font-size:2rem;margin-bottom:6px">📤</div>
         <div style="font-weight:600;color:var(--teal-dark)">Kattints ide a számla feltöltéséhez</div>
-        <div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px">PDF (szöveges vagy szkennelt) vagy fotó · RO / EN / HU</div>
+        <div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px">PDF (szöveges vagy szkennelt) vagy fotó (JPG/PNG, több oldal = több kép egyszerre) · RO / EN / HU</div>
       </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px" data-action="invLaterCostOpen">➕ Utólagos szállítási / egyéb költség hozzáadása (kézzel)</button>
       ${!hasKey ? `<div style="margin-top:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;font-size:0.8rem;color:#9a3412">⚠️ Nincs AI API-kulcs. Add meg a <b>Beállítások → AI</b> alatt.</div>` : ''}
       <div style="margin-top:10px;font-size:0.72rem;color:var(--text-soft)">
         AI szolgáltató: <b>${esc(p)}</b>${p==='groq'?' — a szöveges PDF a jelenlegi modelleddel megy; fotó/szkennelt PDF esetén vision-modell kell (lásd lent).':''}
@@ -119,25 +120,46 @@ async function _pdfGetTextOrImages(file){
   return { text:'', images };
 }
 
+// Kép → lekicsinyített JPEG data-URL (max. hosszabb oldal: maxSide px)
+async function _imgToJpegDataURL(file, maxSide){
+  let src;
+  try {
+    src = (typeof createImageBitmap === 'function') ? await createImageBitmap(file) : null;
+  } catch(e) { src = null; }
+  if(!src){
+    src = await new Promise((res, rej) => { const url = URL.createObjectURL(file); const im = new Image();
+      im.onload = () => { res(im); URL.revokeObjectURL(url); }; im.onerror = () => { URL.revokeObjectURL(url); rej(); }; im.src = url; })
+      .catch(() => null);
+  }
+  if(!src) throw new Error('Ezt a képet nem lehet megnyitni' + (/heic|heif/i.test(file.type + file.name) ? ' (HEIC formátum). iPhone-on: Beállítások → Kamera → Formátumok → „Legkompatibilisebb”, vagy küldd el magadnak JPG-ként.' : '.'));
+  const w = src.width, h = src.height, k = Math.min(1, maxSide / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
 function _fileToDataURL(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
 }
 
 async function handleInvoiceFile(input){
-  const file = input.files?.[0];
-  if(!file) return;
+  const files = [...(input.files || [])];
+  if(!files.length) return;
   input.value='';
-  _INV.file = file;
+  _INV.file = files[0];
   document.getElementById('inv-review').innerHTML='';
   try{
     _invStatus('Fájl olvasása…', true);
     let payload;
-    if(file.type === 'application/pdf' || /\.pdf$/i.test(file.name)){
-      payload = await _pdfGetTextOrImages(file);
-    } else if(file.type.startsWith('image/')){
-      payload = { text:'', images:[ await _fileToDataURL(file) ] };
+    const pdf = files.find(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    if(pdf){
+      payload = await _pdfGetTextOrImages(pdf);
     } else {
-      throw new Error('Csak PDF vagy kép tölthető fel.');
+      // v2.55.2: fotó(k) — lekicsinyítés + JPEG (a nagy telefonos fotót / HEIC-et az AI elutasítaná); max 4 oldal
+      const imgs = files.filter(f => f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name)).slice(0, 4);
+      if(!imgs.length) throw new Error('Csak PDF vagy kép tölthető fel.');
+      payload = { text:'', images: [] };
+      for(const f of imgs) payload.images.push(await _imgToJpegDataURL(f, 1600));
     }
     if(payload.images.length){ _invStatus('Számla kiolvasása képből (vision AI)…', true); }
     else { _invStatus('Számla kiolvasása szövegből (AI)…', true); }
@@ -146,6 +168,12 @@ async function handleInvoiceFile(input){
     _invStatus('Párosítás és költség-számítás…', true);
     await _invBuildModel(parsed);
     document.getElementById('inv-status').style.display='none';
+    // v2.55.2: csak szállítás/egyéb költség van rajta (nincs alapanyag) → egy korábbi bevételezéshez rendeljük
+    if(!_INV.lines.length && (_INV.extra||[]).length){
+      invLaterCostOpen({ amount: _INV.extraInvoice, currency: _INV.fx.currency, rate: _INV.fx.rate, date: parsed.invoice_date,
+        desc: 'Szállítás' + (parsed.invoice_number ? ' · számla ' + parsed.invoice_number : ''), supplier: parsed.supplier?.name || '', fromInvoice: true });
+      return;
+    }
     renderInvoiceReview();
   }catch(e){
     console.error('invoice:', e);
@@ -310,22 +338,11 @@ async function _invBuildModel(parsed){
     if(!(ln.baseQtyG>0) || !(ln.unitPriceNet>0 || ln.lineTotalNet>0)) ln.status='missing';
   });
 
-  // Landed cost: extra (szállítás+egyéb) összeg szétosztása súly szerint, érték-fallback
-  const extraSum = extraLines.reduce((s,l)=>s+(l.lineTotalNet||0),0);
-  if(extraSum>0 && matLines.length){
-    const totalW = matLines.reduce((s,l)=>s+(l.weightKg>0?l.weightKg:0),0);
-    const totalV = matLines.reduce((s,l)=>s+(l.lineTotalNet||0),0);
-    matLines.forEach(l=>{
-      let share = 0;
-      if(totalW>0 && l.weightKg>0) share = l.weightKg/totalW;
-      else if(totalV>0) share = (l.lineTotalNet||0)/totalV;
-      l.landed = extraSum*share;
-    });
-  }
-
   _INV.lines = matLines;
   _INV.extra = extraLines;
-  _INV.extraSum = extraSum;
+  _INV.extraInvoice = extraLines.reduce((s,l)=>s+(l.lineTotalNet||0),0);   // a számlán szereplő szállítás/egyéb
+  _INV.manualExtra = { amount: 0, currency: _INV.fx.currency };   // v2.55.2: külön számlán érkezett (kézzel)
+  _invRecalcLanded();
 }
 
 function _invSuggestNewIng(ln){
@@ -390,7 +407,15 @@ function renderInvoiceReview(){
         <tbody>${_INV.lines.map(_invRowHtml).join('')}</tbody>
       </table>
     </div>
-    ${_INV.extra?.length ? `<div style="margin-top:10px;font-size:0.76rem;color:var(--text-soft)">Szétosztott költségek (${_INV.extra.map(e=>esc(e.raw)).join(', ')}): <b>${_invFmt(_invLej(_INV.extraSum))} lej</b> — súly szerint a nyersanyagokra osztva.</div>`:''}
+    ${_INV.extraSum > 0 ? `<div style="margin-top:10px;font-size:0.76rem;color:var(--text-soft)">Szétosztott költségek (${[...(_INV.extra||[]).map(e=>esc(e.raw)), ...((_INV.manualExtra?.amount>0)?['külön számla (kézi)']:[])].join(', ')}): <b>${_invFmt(_invLej(_INV.extraSum))} lej</b> — a nyersanyagokra osztva (súly, ennek híján érték szerint).</div>`:''}
+    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:0.8rem">
+      <span style="font-weight:600;color:var(--teal-dark)">➕ Külön számlán érkezett szállítás / egyéb költség (nettó):</span>
+      <input type="number" step="any" min="0" id="inv-manual-extra" value="${_INV.manualExtra?.amount || ''}" placeholder="0" onchange="invSetManualExtra(this.value, document.getElementById('inv-manual-cur').value)" style="width:96px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;text-align:right">
+      <select id="inv-manual-cur" onchange="invSetManualExtra(document.getElementById('inv-manual-extra').value, this.value)" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:7px">
+        ${[...new Set([_INV.fx.currency, 'RON'])].map(c=>`<option value="${c}" ${(_INV.manualExtra?.currency||_INV.fx.currency)===c?'selected':''}>${c==='RON'?'lej':c}</option>`).join('')}
+      </select>
+      <span style="color:var(--text-soft);font-size:0.72rem">Ha a szállítás külön számlán jött, írd be itt — a tételekre osztjuk (súly, ennek híján érték szerint). Ha később érkezik: „Utólagos költség”.</span>
+    </div>
   </div>
 
   <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
@@ -447,13 +472,31 @@ function invSetQty(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) ret
 function invSetTotal(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.lineTotalNet=_invNum(v); _invRecalcLanded(); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetFx(v){ const n=_invNum(v); if(n>0){ _INV.fx.rate=n; _INV.fx.source='kézi'; renderInvoiceReview(); } }
 
-// landed cost újraszámítás, ha a felhasználó módosít egy sorértéket
+// landed cost (újra)számítás: a számlán lévő + a kézzel megadott (külön számlás) szállítás/egyéb költség
+// szétosztása a nyersanyag-sorokra — súly szerint, ahol nincs súly, érték szerint
+function _invManualExtraInInvoiceCur(){
+  const m = _INV.manualExtra || { amount: 0 };
+  const amt = Number(m.amount) || 0;
+  if(!(amt > 0)) return 0;
+  if(m.currency === _INV.fx.currency) return amt;
+  if(m.currency === 'RON') return (_INV.fx.rate > 0) ? amt / _INV.fx.rate : 0;   // lej → számla pénzneme
+  return amt;
+}
 function _invRecalcLanded(){
-  const extraSum=_INV.extraSum||0; const mat=_INV.lines||[];
-  if(!(extraSum>0)||!mat.length) return;
-  const totalW=mat.reduce((s,l)=>s+(l.weightKg>0?l.weightKg:0),0);
-  const totalV=mat.reduce((s,l)=>s+(l.lineTotalNet||0),0);
-  mat.forEach(l=>{ let sh=0; if(totalW>0&&l.weightKg>0) sh=l.weightKg/totalW; else if(totalV>0) sh=(l.lineTotalNet||0)/totalV; l.landed=extraSum*sh; });
+  const extraSum = (_INV.extraInvoice || 0) + _invManualExtraInInvoiceCur();
+  _INV.extraSum = extraSum;
+  const mat = _INV.lines || [];
+  mat.forEach(l => { l.landed = 0; });
+  if(!(extraSum > 0) || !mat.length) return;
+  // v2.55.2 javítás: súly szerint CSAK ha minden sornak van súlya — vegyesen eddig többet osztott szét, mint a költség
+  const useW = mat.every(l => l.weightKg > 0);
+  const total = mat.reduce((s,l)=>s+(useW ? l.weightKg : (l.lineTotalNet||0)),0);
+  mat.forEach(l=>{ l.landed = total > 0 ? extraSum * (useW ? l.weightKg : (l.lineTotalNet||0)) / total : 0; });
+}
+function invSetManualExtra(v, cur){
+  _INV.manualExtra = { amount: _invNum(v), currency: cur || _INV.fx.currency };
+  _invRecalcLanded();
+  renderInvoiceReview();
 }
 
 // ---------- VÉGLEGESÍTÉS ----------
@@ -558,7 +601,153 @@ async function invCommit(){
   }
 }
 
+// ---------- UTÓLAGOS KÖLTSÉG (v2.55.2) ----------
+// Külön számlán / később érkezett szállítás vagy egyéb költség hozzárendelése egy KORÁBBI bevételezéshez.
+// A költség a kiválasztott tételek MÉG RAKTÁRON LÉVŐ mennyiségére oszlik (a már felhasznált rész önköltsége lezárt):
+// súly szerint (ha minden tétel tömeg-egységű), különben érték szerint. Az ár (price_per_g) emelkedik, a FIFO ezt használja.
+const _LC = { groups: [], sel: null, amount: 0, currency: 'RON', rate: 1, date: '', desc: 'Szállítás', supplier: '', fromInvoice: false, checked: new Set() };
+const _LC_CURS = ['RON', 'EUR', 'HUF', 'USD'];
+
+async function invLaterCostOpen(pre){
+  pre = (pre && typeof pre === 'object') ? pre : {};
+  let cur = String(pre.currency || 'RON').toUpperCase(); if(cur === 'LEJ' || cur === 'LEI') cur = 'RON';
+  Object.assign(_LC, { amount: Number(pre.amount) || 0, currency: cur, rate: cur === 'RON' ? 1 : (Number(pre.rate) || 0),
+    date: (pre.date && /^\d{4}-\d{2}-\d{2}$/.test(pre.date)) ? pre.date : localToday(), desc: pre.desc || 'Szállítás',
+    supplier: pre.supplier || '', fromInvoice: !!pre.fromInvoice, sel: null, checked: new Set() });
+  const host = document.getElementById('inv-review'); if(!host) return;
+  host.innerHTML = '<div class="card" style="font-size:0.86rem;color:var(--teal-dark)">⏳ Korábbi bevételezések betöltése…</div>';
+  let rows = [];
+  try {
+    rows = await kData.query('ingredient_batches', { select: 'id,ingredient_id,invoice_number,supplier_name,received_date,qty_received_g,qty_remaining_g,price_per_g,notes,source_type',
+      filter: 'source_type=in.(invoice,purchase)', order: 'received_date.desc,id.desc', limit: 400 }) || [];
+  } catch(e) { host.innerHTML = `<div class="card">⚠️ ${esc(e.message)}</div>`; return; }
+  const map = new Map();
+  rows.forEach(b => {
+    const key = b.invoice_number ? 'inv:' + b.invoice_number : 'man:' + (b.supplier_name || '') + '|' + b.received_date;
+    if(!map.has(key)) map.set(key, { key, invoice: b.invoice_number || '', supplier: b.supplier_name || '', date: b.received_date, batches: [] });
+    map.get(key).batches.push(b);
+  });
+  let groups = [...map.values()];
+  const sN = _invNorm(_LC.supplier);
+  if(sN) groups.sort((a, b) => (_invNorm(b.supplier) === sN ? 1 : 0) - (_invNorm(a.supplier) === sN ? 1 : 0));   // azonos beszállító előre
+  _LC.groups = groups.slice(0, 30);
+  if(_LC.currency !== 'RON' && !(_LC.rate > 0)) { const fx = await _invFxRate(_LC.currency, _LC.date); _LC.rate = fx.rate || 0; }
+  renderLaterCost();
+}
+
+function _lcUnitLbl(ing){ const u = ing?.unit || 'g'; return u === 'g' ? 'kg' : u === 'ml' ? 'l' : u; }
+function _lcPerUnit(ppg, ing){ const u = ing?.unit || 'g'; return (Number(ppg) || 0) * unitFactor(u === 'g' ? 'kg' : u === 'ml' ? 'l' : u); }
+function _lcLejTotal(){ return _LC.currency === 'RON' ? _LC.amount : _LC.amount * (_LC.rate || 0); }
+function _lcPlan(){
+  const g = _LC.groups.find(x => x.key === _LC.sel); if(!g) return null;
+  const sel = g.batches.filter(b => _LC.checked.has(b.id) && Number(b.qty_remaining_g) > 0);
+  const allMass = sel.length && sel.every(b => ['g', 'kg'].includes(getIng(b.ingredient_id)?.unit || 'g'));
+  const w = b => allMass ? Number(b.qty_remaining_g) : Number(b.qty_remaining_g) * (Number(b.price_per_g) || 0);
+  const W = sel.reduce((s, b) => s + w(b), 0);
+  const total = _lcLejTotal();
+  const plan = sel.map(b => { const share = W > 0 ? total * w(b) / W : 0; return { b, share, newPpg: (Number(b.price_per_g) || 0) + share / Number(b.qty_remaining_g) }; });
+  return { g, total, plan, allMass };
+}
+
+function lcSet(field, v){
+  if(field === 'amount') _LC.amount = Math.max(0, _invNum(v));
+  else if(field === 'rate') _LC.rate = Math.max(0, _invNum(v));
+  else if(field === 'desc') _LC.desc = String(v || '').slice(0, 80);
+  else if(field === 'currency') {
+    _LC.currency = v; _LC.rate = v === 'RON' ? 1 : 0;
+    if(v !== 'RON') { _invFxRate(v, _LC.date).then(fx => { _LC.rate = fx.rate || 0; renderLaterCost(); }); }
+  }
+  renderLaterCost();
+}
+function lcSelect(key){
+  _LC.sel = key; _LC.checked = new Set();
+  const g = _LC.groups.find(x => x.key === key);
+  (g?.batches || []).forEach(b => { if(Number(b.qty_remaining_g) > 0) _LC.checked.add(b.id); });
+  renderLaterCost();
+}
+function lcToggle(id, on){ id = Number(id); if(on) _LC.checked.add(id); else _LC.checked.delete(id); renderLaterCost(); }
+
+function renderLaterCost(){
+  const host = document.getElementById('inv-review'); if(!host) return;
+  const P = _lcPlan();
+  const inp = 'padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.84rem;font-family:Kodchasan,sans-serif';
+  const groupsHtml = _LC.groups.length ? _LC.groups.map(g => {
+    const on = g.key === _LC.sel;
+    const left = g.batches.filter(b => Number(b.qty_remaining_g) > 0).length;
+    const title = g.invoice ? `🧾 Számla ${esc(g.invoice)}` : '✍️ Kézi bevételezés';
+    return `<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid ${on ? 'var(--teal)' : 'var(--border)'};border-radius:12px;margin-bottom:8px;cursor:pointer;background:${on ? 'var(--teal-pale)' : '#fff'}">
+      <input type="radio" name="lc-group" ${on ? 'checked' : ''} onchange="lcSelect('${g.key.replace(/'/g, "\\'")}')" style="margin-top:3px;accent-color:var(--teal)">
+      <div style="flex:1;font-size:0.82rem"><div style="font-weight:600;color:var(--teal-dark)">${title} · ${esc(g.supplier || 'beszállító nélkül')}</div>
+      <div style="color:var(--text-soft);font-size:0.74rem">${esc(g.date || '')} · ${g.batches.length} tétel${left < g.batches.length ? ` · ${g.batches.length - left} már elfogyott` : ''}</div></div></label>`;
+  }).join('') : '<div style="font-size:0.82rem;color:var(--text-soft)">Nincs korábbi bevételezés.</div>';
+
+  let tableHtml = '';
+  if(P){
+    const rows = P.g.batches.map(b => {
+      const ing = getIng(b.ingredient_id); const lbl = _lcUnitLbl(ing);
+      const rem = Number(b.qty_remaining_g) || 0; const pl = P.plan.find(x => x.b.id === b.id);
+      const remDisp = (rem / unitFactor(lbl === 'db' ? 'db' : (lbl === 'l' ? 'l' : 'kg'))).toLocaleString('hu-HU', { maximumFractionDigits: 2 });
+      return `<tr style="border-bottom:1px solid var(--border);${rem > 0 ? '' : 'opacity:0.5'}">
+        <td style="padding:6px 8px"><input type="checkbox" ${_LC.checked.has(b.id) ? 'checked' : ''} ${rem > 0 ? '' : 'disabled'} onchange="lcToggle(${b.id}, this.checked)" style="accent-color:var(--teal)"></td>
+        <td style="padding:6px 8px">${esc(ing?.name || ('#' + b.ingredient_id))}${rem > 0 ? '' : ' <span style="font-size:0.7rem;color:var(--text-soft)">(elfogyott)</span>'}</td>
+        <td class="num" style="padding:6px 8px">${remDisp} ${lbl}</td>
+        <td class="num" style="padding:6px 8px">${_invFmt(_lcPerUnit(b.price_per_g, ing))}</td>
+        <td class="num" style="padding:6px 8px;color:var(--gold-dark)">${pl ? '+' + _invFmt(pl.share) : '—'}</td>
+        <td class="num" style="padding:6px 8px;font-weight:700;color:var(--teal-dark)">${pl ? _invFmt(_lcPerUnit(pl.newPpg, ing)) : '—'}</td></tr>`;
+    }).join('');
+    tableHtml = `<div class="card"><div style="font-weight:700;color:var(--teal-dark);margin-bottom:8px">Szétosztás előnézet</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+        <thead><tr style="text-align:left;color:var(--text-soft);border-bottom:2px solid var(--border)"><th></th><th style="padding:6px 8px">Alapanyag</th><th class="num" style="padding:6px 8px">Raktáron</th><th class="num" style="padding:6px 8px">Mostani lej/egys.</th><th class="num" style="padding:6px 8px">+költség (lej)</th><th class="num" style="padding:6px 8px">Új lej/egys.</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div style="font-size:0.74rem;color:var(--text-soft);margin-top:8px">A költség a <b>még raktáron lévő</b> mennyiségre oszlik (${P.allMass ? 'súly' : 'érték'} szerint) — a már felhasznált rész önköltsége lezárt.</div>
+      <button class="btn btn-primary" style="margin-top:12px" data-action="invLaterCostCommit" ${P.plan.length && P.total > 0 ? '' : 'disabled'}>✅ Hozzárendelés — ${_invFmt(P.total)} lej</button></div>`;
+  }
+
+  host.innerHTML = `
+  <div class="card" style="border-left:4px solid var(--gold)">
+    <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem;margin-bottom:4px">➕ Utólagos szállítási / egyéb költség</div>
+    <div style="font-size:0.8rem;color:var(--text-soft);margin-bottom:12px">${_LC.fromInvoice ? 'Ezen a számlán nincs alapanyag, csak költség. Válaszd ki, melyik bevételezéshez tartozik.' : 'Add meg az összeget (nettó), és válaszd ki, melyik bevételezéshez tartozik.'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Összeg (nettó)</div><input type="number" step="any" min="0" value="${_LC.amount || ''}" onchange="lcSet('amount', this.value)" style="${inp};width:110px;text-align:right"></div>
+      <div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Pénznem</div><select onchange="lcSet('currency', this.value)" style="${inp}">${[...new Set([..._LC_CURS, _LC.currency])].map(c => `<option value="${c}" ${c === _LC.currency ? 'selected' : ''}>${c === 'RON' ? 'lej' : c}</option>`).join('')}</select></div>
+      ${_LC.currency !== 'RON' ? `<div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Árfolyam (BNR)</div><input type="number" step="0.0001" value="${_LC.rate || ''}" placeholder="pl. 4.97" onchange="lcSet('rate', this.value)" style="${inp};width:96px"></div>` : ''}
+      <div style="flex:1;min-width:160px"><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Megnevezés</div><input type="text" value="${esc(_LC.desc)}" onchange="lcSet('desc', this.value)" style="${inp};width:100%;box-sizing:border-box"></div>
+    </div>
+    ${_LC.currency !== 'RON' ? `<div style="font-size:0.74rem;color:var(--text-soft);margin-top:6px">= ${_invFmt(_lcLejTotal())} lej</div>` : ''}
+  </div>
+  <div class="card"><div style="font-weight:700;color:var(--teal-dark);margin-bottom:8px">Melyik bevételezéshez tartozik?</div>${groupsHtml}</div>
+  ${tableHtml}`;
+}
+
+async function invLaterCostCommit(){
+  const P = _lcPlan();
+  if(!P || !P.plan.length) { toast('⚠️ Válassz ki legalább egy raktáron lévő tételt.', true); return; }
+  if(!(P.total > 0)) { toast('⚠️ Add meg az összeget' + (_LC.currency !== 'RON' ? ' és az árfolyamot' : '') + '.', true); return; }
+  const desc = (_LC.desc || 'Szállítás').trim();
+  const dup = P.plan.some(x => String(x.b.notes || '').includes('+' + desc + ' '));
+  if(dup && !(await confirmDialog(`Ennél a bevételezésnél már szerepel „${desc}” utólagos költség. Biztosan még egyszer hozzáadod?`))) return;
+  if(!(await confirmDialog(`${_invFmt(P.total)} lej „${desc}” költséget osztasz szét ${P.plan.length} tételre (a raktáron lévő mennyiségre).\n\nAz alapanyagok ára ennyivel nő; a már kisütött rész önköltsége nem változik.`))) return;
+  const stamp = localToday();
+  let ok = 0, fail = 0;
+  for(const x of P.plan) {
+    const notes = (x.b.notes ? x.b.notes + ' · ' : '') + `+${desc} ${x.share.toFixed(2)} lej (utólag, ${stamp})`;
+    try {
+      await kData.update('ingredient_batches', { price_per_g: x.newPpg, notes }, `id=eq.${x.b.id}`);
+      x.b.price_per_g = x.newPpg; x.b.notes = notes;
+      const lb = (R.batches || []).find(b => b.id === x.b.id); if(lb) { lb.pricePerG = x.newPpg; lb.notes = notes; }
+      ok++;
+    } catch(e) { console.warn('later cost:', e.message); fail++; }
+  }
+  if(typeof recomputeIngredientStock === 'function') recomputeIngredientStock();
+  if(typeof auditLog === 'function') auditLog('invoice_extra_cost', P.g.supplier || '', `${desc}: ${P.total.toFixed(2)} lej → ${ok} tétel (${P.g.invoice ? 'számla ' + P.g.invoice : 'kézi ' + P.g.date})`);
+  document.getElementById('inv-review').innerHTML = `<div class="card" style="text-align:center;padding:26px"><div style="font-size:2rem">${fail ? '⚠️' : '✅'}</div>
+    <div style="font-weight:700;color:var(--teal-dark);margin-top:6px">${ok} tétel ára frissítve (+${_invFmt(P.total)} lej).${fail ? ` ${fail} tétel mentése nem sikerült.` : ''}</div>
+    <div style="font-size:0.8rem;color:var(--text-soft);margin-top:4px">Ellenőrizd az <b>Alapanyagok & Készlet</b> nézetben.</div></div>`;
+  toast(fail ? `⚠️ ${fail} tétel mentése sikertelen` : '✅ Utólagos költség hozzárendelve.', !!fail);
+}
+
 // globálisok (data-action rendszerhez)
 if(typeof window!=='undefined'){
-  Object.assign(window, { renderInvoiceIntake, invPick, invSaveVisionModel, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit });
+  Object.assign(window, { renderInvoiceIntake, invPick, invSaveVisionModel, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit,
+    invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit });
 }

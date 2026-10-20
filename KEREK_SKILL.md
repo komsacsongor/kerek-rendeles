@@ -67,7 +67,7 @@ Tömör, végeredmény-fókusz. Csak kérdezz, ha info hiányzik. Hatékonysági
 | Anon key | sb_publishable_prELs2iHaoj9uu-yaARPOQ_PSYe2WAN |
 | Hosting prod | komsacsongor.github.io/kerek-rendeles |
 | Hosting staging | komsacsongor.github.io/kerek-rendeles/staging |
-| **Verzió (prod / staging)** | **v2.53.94 / v2.55.1** |
+| **Verzió (prod / staging)** | **v2.53.94 / v2.55.2** |
 | Verziózás | v2.MINOR.PATCH (MINOR új funkció, PATCH fix) |
 
 ⚠️ **Titok (token, API-kulcs, jelszó) SOHA ne kerüljön a repóba** — a repó publikus. 2026-09-29: egy PAT a `package.json`-ban volt → eltávolítva; a tulajdonosnak vissza kell vonnia.
@@ -258,7 +258,8 @@ Levonat  = FIFO sorrend, batch-enként qty_remaining_g csökk (production.js/pro
 ### Számla-bevételező operátor (v2.54.0 — staging)
 ```
 Számla (PDF/fotó) → aiParseInvoice (text pdf.js / vision) → párosítás (_matchIngredientByName)
-→ landed cost (súly, érték-fallback) → deviza→lej (bnr-rates EF) → áttekintő (✅/🆕/❓)
+→ landed cost (súly ha minden sornak van, különben érték; + kézi külön számlás költség) → deviza→lej (bnr-rates EF) → áttekintő (✅/🆕/❓)
+Utólagos költség (v2.55.2): invLaterCostOpen → bevételezés-csoport (invoice_number | supplier+dátum) → a RAKTÁRON LÉVŐ mennyiségre: price_per_g += share/qty_remaining_g
 → invCommit: suppliers insert (ha új) + ingredients insert (ha új) + ingredient_batches insert
    (source_type='invoice', invoice_number, currency, fx_rate, nettó árak)
 Groq: gpt-oss-20b csak szöveg; szkennelt/fotó → vision modell (R.settings.invoiceVisionModel)

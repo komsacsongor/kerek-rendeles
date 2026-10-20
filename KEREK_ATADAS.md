@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.55.1** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.55.2** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -60,6 +60,13 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - Hibák javítva: hosszú űrlap görgethető; PIN-dobozban a kurzor mindig a végén (visszatörlés); a hibaüzenet eltűnik szerkesztéskor és sikernél; siker-képernyő „Vissza a belépéshez” gombbal; **regisztráció visszavonódik, ha a PIN nem mentődött** (eddig csendben „sikeres” lett — Suba Ernő esete).
 - **Ok (DB-ellenőrzés 2026-10-08):** a `client_auth` tábla sem stagingen, sem PROD-on NEM létezett → `db/2026-10_v2.55.1_vevo_auth_temp_pin.sql` (a tábla + új oszlopok, egyben) — **STAGING és PROD**.
 - DB: **staging SQL automatikus** (`db-staging.yml` + csak olvasó `db/checks/staging.sql`, 2026-10-20); PROD-ot Csongor futtatja. Kézi gyors-ellenőrzés: `db-check.yml`.
+
+### Számla-operátor bővítés — v2.55.2 (2026-10-20)
+- **Fotó**: több kép egyszerre (több oldalas számla, max 4), automatikus lekicsinyítés 1600 px JPEG-re (nagy telefonfotó / HEIC elutasítás ellen); olvashatatlan HEIC-re útmutató.
+- **(a) Külön számlás szállítás a bevételezéskor**: kézi összeg + pénznem az áttekintőn → a tételekre osztva.
+- **(b) Csak szállítást tartalmazó számla feltöltése** → felismeri, és felajánlja: melyik korábbi bevételezéshez tartozik.
+- **(c) Utólagos kézi költség** („➕ Utólagos szállítási / egyéb költség”): összeg + pénznem (BNR) + megnevezés → bevételezés kiválasztása (számla vagy kézi bevételezés, azonos beszállító elöl) → előnézet → az ár a **még raktáron lévő** mennyiségre emelkedik (súly, vegyes egységnél érték szerint); megjegyzés a tételen, dupla-hozzáadás figyelmeztetés.
+- Javítva (v2.54.0 óta): vegyes súly/érték szétosztásnál többet osztott szét, mint a költség.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
