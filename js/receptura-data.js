@@ -200,7 +200,11 @@ function loginError(msg) {
   const pw = document.getElementById('login-pw');
   if(pw) { pw.style.border='1.5px solid #f87171'; pw.focus(); pw.addEventListener('input', ()=>{ if(el) el.textContent=''; pw.style.border=''; }, {once:true}); }
 }
-async function doLogin() {
+// v2.55.3: a gomb (data-action) + az űrlap-submit + az Enter egyszerre 2-3× hívta → dupla belépés/initApp,
+// a próbálkozás-számláló hármasával nőtt. Egyszerre csak egy belépés futhat.
+let _loginInFlight = false;
+async function doLogin(){ if(_loginInFlight) return; _loginInFlight = true; try { await _doLogin(); } finally { _loginInFlight = false; } }
+async function _doLogin() {
   const pw = document.getElementById('login-pw').value;
   if(!pw) { loginError('⚠️ Add meg a jelszót!'); return; }
   try {

@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.55.2** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.55.3** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -67,6 +67,16 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **(b) Csak szállítást tartalmazó számla feltöltése** → felismeri, és felajánlja: melyik korábbi bevételezéshez tartozik.
 - **(c) Utólagos kézi költség** („➕ Utólagos szállítási / egyéb költség”): összeg + pénznem (BNR) + megnevezés → bevételezés kiválasztása (számla vagy kézi bevételezés, azonos beszállító elöl) → előnézet → az ár a **még raktáron lévő** mennyiségre emelkedik (súly, vegyes egységnél érték szerint); megjegyzés a tételen, dupla-hozzáadás figyelmeztetés.
 - Javítva (v2.54.0 óta): vegyes súly/érték szétosztásnál többet osztott szét, mint a költség.
+
+### Számla-operátor finomítás — v2.55.3 (2026-10-20, e2e böngészős teszt a vrac-magazin rendeléssel)
+- **Beszállító**: választó az áttekintőn (meglévő / új, új névnél szerkeszthető); hasonló név felismerése jogi forma és domain nélkül („vrac-magazin.ro” ≈ „Vrac Magazin SRL”) → ⚠️ ellenőrizendő. Eddig ilyenkor **dupla beszállító** jött létre, és a tételre a számláról olvasott név került (most a törzsadatbeli).
+- **Szám és dátum** szerkeszthető; ha a dátum nem olvasható, kiemelve jelzi (eddig csendben a mai nap lett).
+- **Duplikátum-védelem szám nélkül**: azonos beszállító + nap számla-bevételezésénél rákérdez.
+- **Párosítás**: csak a pontos névegyezés „kész”; a hasonló név (pl. „sushi rizs” → Rizs) ⚠️ ellenőrizendő, „✓ Igen” gombbal.
+- **Összesítő**: tételek nettó + költség = bevételezett érték; eltérés a számla nettó összesítőjétől → piros figyelmeztetés (AI-olvasási hiba).
+- **Hiba javítva**: új alapanyag egysége a kiszerelésből („1 buc × 3 kg” eddig **db** lett, 3000 darabbal).
+- Telefonon kártyás tétel-nézet; siker után „➕ Később érkezett szállítás” gomb; utólagos listán „Számla (szám nélkül)” címke.
+- **Belépés** (receptúra + admin): a gomb + Enter + űrlap egyszerre 2-3× hívta (dupla betöltés, a próbálkozás-számláló hármasával nőtt) → egyszer.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.

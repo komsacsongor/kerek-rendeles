@@ -1,6 +1,8 @@
 // ============================================================
 // KEREK – Számla-bevételező AI operátor
 // v2.54.0 · v2.55.2: kép lekicsinyítés/több oldal, külön számlás és utólagos szállítási költség
+// v2.55.3: beszállító-választó (hasonló név), szerkeszthető szám/dátum, szám nélküli duplikátum-védelem,
+//         hasonló nevű párosítás = ellenőrizendő, összesítő-ellenőrzés, új alapanyag egysége a kiszerelésből
 // Számla (PDF/kép, RO/EN/HU) → kiolvasás (text/vision) → párosítás
 // → landed cost → deviza→lej (BNR) → áttekintő → cég+alapanyag+FIFO bevételezés
 // ============================================================
@@ -294,15 +296,12 @@ async function _invFxRate(currency, dateStr){
 async function _invBuildModel(parsed){
   // Beszállító párosítás
   const sup = parsed.supplier || {};
-  const cuiN = _invNorm(sup.cui);
-  const nameN = _invNorm(sup.name);
-  let found = null;
-  (R.suppliers||[]).forEach(s=>{
-    if(found) return;
-    if(cuiN && _invNorm(s.cui)===cuiN) found=s;
-    else if(nameN && _invNorm(s.name)===nameN) found=s;
-  });
-  _INV.supplier = found ? {match:'found', id:found.id, data:found, parsed:sup} : {match:'new', id:null, data:null, parsed:sup};
+  const m = _invFindSupplier(sup);
+  _INV.supplier = m ? {match:m.exact?'found':'fuzzy', id:m.s.id, data:m.s, parsed:sup} : {match:'new', id:null, data:null, parsed:sup};
+  _INV.newSupName = sup.name || '';
+  // v2.55.3: szám és dátum az áttekintőn szerkeszthető (webshop-rendelésnél gyakran nem olvasható)
+  const d = (parsed.invoice_date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.invoice_date)) ? parsed.invoice_date : '';
+  _INV.meta = { invNo: (parsed.invoice_number||'').toString().trim(), date: d || localToday(), dateRead: !!d };
 
   // Deviza
   _INV.fx = await _invFxRate(parsed.currency, parsed.invoice_date);
@@ -319,6 +318,7 @@ async function _invBuildModel(parsed){
       type,
       qty: _invNum(ln.qty),
       unit: ln.unit||'',
+      packUnit: ln.pack_unit||'',
       baseQtyG: _invNum(ln.base_qty_g),
       weightKg: _invNum(ln.weight_kg),
       unitPriceNet: _invNum(ln.unit_price_net),
@@ -332,10 +332,12 @@ async function _invBuildModel(parsed){
   // Alapanyag-párosítás + státusz
   matLines.forEach(ln=>{
     const m = (typeof _matchIngredientByName==='function') ? _matchIngredientByName(ln.hu) || _matchIngredientByName(ln.raw) : null;
-    if(m){ ln.match = m; ln.chosenIngId = m.id; ln.status='ok'; }
-    else { ln.status='new'; ln.chosenIngId='__new__'; ln.newIng = _invSuggestNewIng(ln); }
-    // hiányos adat felülírja
-    if(!(ln.baseQtyG>0) || !(ln.unitPriceNet>0 || ln.lineTotalNet>0)) ln.status='missing';
+    ln.newIng = _invSuggestNewIng(ln);
+    if(m){ ln.match = m; ln.chosenIngId = String(m.id);
+      // v2.55.3: csak a pontos névegyezés „kész"; a hasonló név (pl. „sushi rizs" → Rizs) ellenőrizendő
+      ln.fuzzy = ![ln.hu, ln.raw].some(x => _invNorm(x) && _invNorm(x)===_invNorm(m.name)); }
+    else { ln.chosenIngId='__new__'; }
+    ln.status = _invLineStatus(ln);   // hiányos adat felülírja
   });
 
   _INV.lines = matLines;
@@ -345,15 +347,37 @@ async function _invBuildModel(parsed){
   _invRecalcLanded();
 }
 
+// v2.55.3: beszállító keresése — CUI, majd név (jogi forma / domain nélkül: „vrac-magazin.ro" ≈ „Vrac Magazin SRL")
+function _invSupKey(name){
+  return (name||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/^(https?:\/\/)?(www\.)?/,'').replace(/\.(ro|hu|com|eu|net|org|shop|store)\b/g,' ')
+    .replace(/\b(s\.?r\.?l|s\.?a|kft|bt|zrt|nyrt|ltd|gmbh|pfa|ii|srl-d|co)\b\.?/g,' ').replace(/[^a-z0-9]/g,'');
+}
+function _invFindSupplier(sup){
+  const list = R.suppliers||[];
+  const cuiN = _invNorm(sup.cui).replace(/^ro/,'');
+  if(cuiN){ const s = list.find(x=>_invNorm(x.cui).replace(/^ro/,'')===cuiN); if(s) return {s, exact:true}; }
+  const nameN = _invNorm(sup.name);
+  if(!nameN) return null;
+  let s = list.find(x=>_invNorm(x.name)===nameN); if(s) return {s, exact:true};
+  const k = _invSupKey(sup.name);
+  if(k.length<4) return null;
+  s = list.find(x=>{ const a=_invSupKey(x.name); return a.length>=4 && (a===k || a.includes(k) || k.includes(a)); });
+  return s ? {s, exact:false} : null;
+}
+function _invSupplierName(){ return _INV.supplier.match==='new' ? (_INV.newSupName||'').trim() : (_INV.supplier.data?.name||''); }
+
 function _invSuggestNewIng(ln){
   // egység tipp: db-jellegű? tömeg? térfogat?
-  const u = _invNorm(ln.unit);
+  // v2.55.3: a kiszerelés egysége (pack_unit) az elsődleges — „1 buc × 3 kg" eddig darabos (db) alapanyag lett
+  const u = _invNorm(ln.packUnit || ln.unit);
   // v2.54.1: pontos egyezés — eddig részszöveg-keresés volt, így pl. a „kilogram" (benne „l") folyadék lett
   let unit = 'g'; // kg/g/zsák → g bázis, kg megjelenítés
   if(['db','buc','bucata','bucati','piece','pieces','pcs','pc','darab','ea'].includes(u)) unit='db';
   else if(['l','ml','cl','dl','liter','litru','litri','litre','litres','liters'].includes(u)) unit='l';
   const cats = R.ingredientCategories||[];
-  return { name: ln.hu||ln.raw, category: cats[0]||'Egyéb', subType:'other_dry', unit, materialType:'raw' };
+  const nm = (ln.hu||ln.raw||'').trim();
+  return { name: nm.charAt(0).toLocaleUpperCase('hu') + nm.slice(1), category: cats[0]||'Egyéb', subType:'other_dry', unit, materialType:'raw' };
 }
 
 // ---------- ÁTTEKINTŐ UI ----------
@@ -363,10 +387,21 @@ function _invFmt(n){ return (Math.round(n*100)/100).toLocaleString('hu-HU',{mini
 function renderInvoiceReview(){
   const host = document.getElementById('inv-review');
   if(!host) return;
-  const s = _INV.supplier, fx = _INV.fx, p = _INV.parsed||{};
+  const s = _INV.supplier, fx = _INV.fx, p = _INV.parsed||{}, meta = _INV.meta||{};
+  const inp = 'padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.82rem;font-family:Kodchasan,sans-serif;box-sizing:border-box';
   const supBadge = s.match==='found'
     ? `<span style="color:var(--teal-dark);font-weight:600">✅ Ismert beszállító</span>`
+    : s.match==='fuzzy'
+    ? `<span style="color:#9a3412;font-weight:600">⚠️ Hasonló nevű meglévő beszállító („${esc(s.parsed?.name||'')}”) — ellenőrizd, vagy válassz mást</span>`
     : `<span style="color:#9a3412;font-weight:600">🆕 Új beszállító — létrehozom</span>`;
+  const supOpts = (R.suppliers||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'))
+    .map(x=>`<option value="${x.id}" ${s.match!=='new' && String(s.id)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('');
+  // összesítő-ellenőrzés: a tételek nettó összege vs. a számla nettó összesítője (AI-olvasási hiba jelzése)
+  const linesNet = _INV.lines.reduce((t,l)=>t+(l.lineTotalNet||0),0);
+  const invNet = _invNum(p.totals?.net);
+  const extraNet = _INV.extraInvoice||0;
+  const sumOk = !(invNet>0) || Math.abs(invNet-linesNet)<0.02 || Math.abs(invNet-linesNet-extraNet)<0.02;
+  const grandLej = _invLej(linesNet + (_INV.extraSum||0));
   const fxNote = fx.currency==='RON' ? 'lej (nincs átváltás)'
     : (fx.rate>0 ? `${fx.currency} → lej árfolyam: <b>${fx.rate}</b> <span style="color:var(--text-soft)">(${esc(fx.source)})</span>`
                  : `<span style="color:#c0574e">⚠️ ${fx.currency} árfolyam nem elérhető — add meg kézzel</span>`);
@@ -379,8 +414,20 @@ function renderInvoiceReview(){
     <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="font-family:'Fraunces',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem">${esc(s.parsed?.name||'Ismeretlen beszállító')}</div>
-        <div style="font-size:0.78rem;color:var(--text-soft)">${s.parsed?.cui?('CUI: '+esc(s.parsed.cui)+' · '):''}Számla: <b>${esc(p.invoice_number||'—')}</b> · ${esc(p.invoice_date||'—')}</div>
+        <div style="font-size:0.78rem;color:var(--text-soft)">${s.parsed?.cui?('CUI: '+esc(s.parsed.cui)):'CUI nem olvasható'}</div>
         <div style="font-size:0.8rem;margin-top:4px">${supBadge}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:flex-end">
+          <div style="min-width:200px;flex:1"><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Beszállító</div>
+            <select id="inv-sup" onchange="invSetSupplier(this.value)" style="${inp};width:100%">
+              <option value="__new__" ${s.match==='new'?'selected':''}>🆕 Új beszállító létrehozása</option>${supOpts}
+            </select>
+            ${s.match==='new' ? `<input type="text" id="inv-sup-name" value="${esc(_INV.newSupName||'')}" placeholder="beszállító neve" onchange="invSetNewSupName(this.value)" style="${inp};width:100%;margin-top:6px">`:''}
+          </div>
+          <div><div style="font-size:0.7rem;color:var(--text-soft);margin-bottom:3px">Számla / rendelés száma</div>
+            <input type="text" id="inv-no" value="${esc(meta.invNo||'')}" placeholder="ha nincs, üresen" onchange="invSetMeta('invNo', this.value)" style="${inp};width:150px"></div>
+          <div><div style="font-size:0.7rem;color:${meta.dateRead?'var(--text-soft)':'#9a3412'};margin-bottom:3px">${meta.dateRead?'Dátum':'⚠️ Dátum (nem olvasható — ellenőrizd)'}</div>
+            <input type="date" id="inv-date" value="${esc(meta.date||'')}" onchange="invSetMeta('date', this.value)" style="${inp};${meta.dateRead?'':'border-color:#fdba74;background:#fff7ed'}"></div>
+        </div>
       </div>
       <div style="text-align:right;font-size:0.8rem">
         <div>${fxNote}</div>
@@ -392,10 +439,20 @@ function renderInvoiceReview(){
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-weight:700;color:var(--teal-dark)">Tételek</div>
-      <div style="font-size:0.78rem;color:var(--text-soft)">✅ ${okC} kész · ⚠️ ${needC} megerősítendő</div>
+      <div style="font-size:0.78rem;color:var(--text-soft)">✅ ${okC} kész${needC?` · ⚠️ ${needC} ellenőrizendő`:''}</div>
     </div>
     <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+      <style>@media (max-width:640px){
+        .inv-tbl thead{display:none}
+        .inv-tbl tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px 4px}
+        .inv-tbl td{padding:0!important}
+        .inv-tbl td:nth-child(1),.inv-tbl td:nth-child(2){grid-column:1/-1}
+        .inv-tbl td.num{text-align:left}
+        .inv-tbl td[data-l]::before{content:attr(data-l);display:block;font-size:0.62rem;color:var(--text-soft);font-weight:400}
+        .inv-tbl select{max-width:none!important}
+        .inv-tbl input{width:100%!important;box-sizing:border-box}
+      }</style>
+      <table class="inv-tbl" style="width:100%;border-collapse:collapse;font-size:0.8rem">
         <thead><tr style="text-align:left;color:var(--text-soft);border-bottom:2px solid var(--border)">
           <th style="padding:6px 8px">Számla tétel</th>
           <th style="padding:6px 8px">Alapanyag (párosítás)</th>
@@ -414,12 +471,17 @@ function renderInvoiceReview(){
       <select id="inv-manual-cur" onchange="invSetManualExtra(document.getElementById('inv-manual-extra').value, this.value)" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:7px">
         ${[...new Set([_INV.fx.currency, 'RON'])].map(c=>`<option value="${c}" ${(_INV.manualExtra?.currency||_INV.fx.currency)===c?'selected':''}>${c==='RON'?'lej':c}</option>`).join('')}
       </select>
-      <span style="color:var(--text-soft);font-size:0.72rem">Ha a szállítás külön számlán jött, írd be itt — a tételekre osztjuk (súly, ennek híján érték szerint). Ha később érkezik: „Utólagos költség”.</span>
+      <span style="color:var(--text-soft);font-size:0.72rem">Ha a szállítás külön számlán jött (vagy nincs róla papír), írd be itt — a tételekre osztjuk (súly, ennek híján érték szerint). Számla nélkül a kifizetett teljes összeget add meg. Ha később derül ki: „Utólagos költség”.</span>
     </div>
   </div>
 
   <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-    <div style="font-size:0.8rem;color:var(--text-soft)">A véglegesítés: ${s.match==='new'?'létrehozza a beszállítót, ':''}a hiányzó alapanyagokat létrehozza, és FIFO-tételként bevételez (visszakövethető, számlaszámmal).</div>
+    <div style="font-size:0.8rem;color:var(--text-soft);flex:1;min-width:220px">
+      <div style="font-size:0.86rem;color:var(--text)">Tételek nettó: <b>${_invFmt(_invLej(linesNet))} lej</b>${(_INV.extraSum||0)>0?` + költség <b>${_invFmt(_invLej(_INV.extraSum))} lej</b>`:''} = bevételezett érték <b style="color:var(--teal-dark)">${_invFmt(grandLej)} lej</b></div>
+      ${invNet>0 ? (sumOk ? `<div style="color:var(--teal-dark);margin-top:2px">✅ Egyezik a számla nettó összesítőjével (${_invFmt(invNet)} ${esc(fx.currency==='RON'?'lej':fx.currency)}).</div>`
+        : `<div style="color:#c0574e;font-weight:600;margin-top:2px">⚠️ A tételek összege (${_invFmt(linesNet)}) eltér a számla nettó összesítőjétől (${_invFmt(invNet)}) — ellenőrizd a sorokat!</div>`) : ''}
+      <div style="margin-top:4px">A véglegesítés: ${s.match==='new'?'létrehozza a beszállítót, ':''}a hiányzó alapanyagokat létrehozza, és FIFO-tételként bevételez (visszakövethető${meta.invNo?', számlaszámmal':''}).</div>
+    </div>
     <button class="btn btn-primary" data-action="invCommit" id="inv-commit-btn">✅ Bevételezés véglegesítése</button>
   </div>`;
 }
@@ -431,7 +493,7 @@ function _invRowHtml(ln){
   const ing = ln.chosenIngId && ln.chosenIngId!=='__new__' ? getIng(parseInt(ln.chosenIngId)) : null;
   const unitLbl = ing ? (ing.unit==='g'?'kg':ing.unit==='ml'?'l':ing.unit) : (ln.newIng?.unit==='g'?'kg':ln.newIng?.unit||'');
   const lejPerBase = _invRowLejPerBase(ln);
-  const missingCls = ln.status==='missing' ? 'background:#fef2f2' : (ln.status==='new'?'background:#fff7ed':'');
+  const missingCls = ln.status==='missing' ? 'background:#fef2f2' : ((ln.status==='new'||ln.status==='uncertain')?'background:#fff7ed':'');
   return `<tr style="border-bottom:1px solid var(--border);${missingCls}">
     <td style="padding:7px 8px"><div style="font-weight:600">${badge} ${esc(ln.raw)}</div><div style="font-size:0.68rem;color:var(--text-soft)">${esc(ln.hu)}${ln.type!=='material'?' · '+esc(ln.type):''}</div></td>
     <td style="padding:7px 8px">
@@ -439,7 +501,8 @@ function _invRowHtml(ln){
         <option value="__new__" ${ln.chosenIngId==='__new__'?'selected':''}>🆕 Új: ${esc(ln.newIng?.name||ln.hu)}</option>
         ${opts}
       </select>
-      ${ln.chosenIngId==='__new__' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Új alapanyag lesz (${esc(ln.newIng?.category||'')}, ${esc(ln.newIng?.unit||'')})</div>`:''}
+      ${ln.chosenIngId==='__new__' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Új alapanyag lesz (${esc(ln.newIng?.category||'')}, ${esc(ln.newIng?.unit==='g'?'kg':ln.newIng?.unit||'')})</div>`:''}
+      ${ln.status==='uncertain' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Hasonló név alapján — jó? <button class="btn btn-ghost btn-sm" style="padding:1px 8px;font-size:0.66rem" onclick="invConfirmIng(${ln.idx})">✓ Igen</button></div>`:''}
     </td>
     <td style="padding:7px 8px" class="num">
       <input type="number" step="any" value="${ln.baseQtyG||''}" onchange="invSetQty(${ln.idx}, this.value)" style="width:82px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-size:0.76rem">
@@ -449,8 +512,8 @@ function _invRowHtml(ln){
       <input type="number" step="any" value="${ln.lineTotalNet||''}" onchange="invSetTotal(${ln.idx}, this.value)" style="width:82px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-size:0.76rem">
       <div style="font-size:0.62rem;color:var(--text-soft)">nettó sor (${esc(_INV.fx.currency)})</div>
     </td>
-    <td class="num" style="padding:7px 8px;font-size:0.76rem;color:var(--text-soft)">${ln.landed>0?_invFmt(_invLej(ln.landed)):'—'}</td>
-    <td class="num" style="padding:7px 8px;font-weight:600">${lejPerBase>0?_invFmt(lejPerBase):'—'}<div style="font-size:0.62rem;color:var(--text-soft);font-weight:400">lej/${esc(unitLbl||'bázis')}</div></td>
+    <td class="num" data-l="+Szállítás (lej)" style="padding:7px 8px;font-size:0.76rem;color:var(--text-soft)">${ln.landed>0?_invFmt(_invLej(ln.landed)):'—'}</td>
+    <td class="num" data-l="Bekerülési ár" style="padding:7px 8px;font-weight:600">${lejPerBase>0?_invFmt(lejPerBase):'—'}<div style="font-size:0.62rem;color:var(--text-soft);font-weight:400">lej/${esc(unitLbl||'bázis')}</div></td>
   </tr>`;
 }
 
@@ -466,8 +529,24 @@ function _invRowLejPerBase(ln){
 
 // ---------- INTERAKCIÓK ----------
 // v2.54.1: a hiányzó mennyiség/ár az ÚJ alapanyagnál is blokkol (eddig javítás után átcsúszott)
-function _invLineStatus(ln){ if(!(ln.baseQtyG>0 && ln.lineTotalNet>0)) return 'missing'; return ln.chosenIngId==='__new__' ? 'new' : 'ok'; }
+function _invLineStatus(ln){
+  if(!(ln.baseQtyG>0 && ln.lineTotalNet>0)) return 'missing';
+  if(ln.chosenIngId==='__new__') return 'new';
+  return (ln.fuzzy && ln.match && String(ln.chosenIngId)===String(ln.match.id)) ? 'uncertain' : 'ok';
+}
 function invSetIng(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.chosenIngId=v; ln.status=_invLineStatus(ln); renderInvoiceReview(); }
+function invConfirmIng(idx){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.fuzzy=false; ln.status=_invLineStatus(ln); renderInvoiceReview(); }
+function invSetSupplier(v){
+  if(v==='__new__') _INV.supplier = {match:'new', id:null, data:null, parsed:_INV.supplier.parsed};
+  else { const s=(R.suppliers||[]).find(x=>String(x.id)===String(v)); if(s) _INV.supplier = {match:'found', id:s.id, data:s, parsed:_INV.supplier.parsed}; }
+  renderInvoiceReview();
+}
+function invSetNewSupName(v){ _INV.newSupName = String(v||'').slice(0,120); }
+function invSetMeta(field, v){
+  if(field==='invNo') _INV.meta.invNo = String(v||'').trim().slice(0,60);
+  else if(field==='date' && /^\d{4}-\d{2}-\d{2}$/.test(v||'')){ _INV.meta.date = v; _INV.meta.dateRead = true; }
+  renderInvoiceReview();
+}
 function invSetQty(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.baseQtyG=_invNum(v); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetTotal(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.lineTotalNet=_invNum(v); _invRecalcLanded(); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetFx(v){ const n=_invNum(v); if(n>0){ _INV.fx.rate=n; _INV.fx.source='kézi'; renderInvoiceReview(); } }
@@ -503,8 +582,11 @@ function invSetManualExtra(v, cur){
 async function invCommit(){
   if(_INV.busy) return;
   const btn = document.getElementById('inv-commit-btn');
-  const p = _INV.parsed||{};
-  const invNo = (p.invoice_number||'').toString().trim();
+  const meta = _INV.meta || {};
+  const invNo = (meta.invNo||'').toString().trim();
+  const recDate = /^\d{4}-\d{2}-\d{2}$/.test(meta.date||'') ? meta.date : localToday();
+  const supName = _invSupplierName();
+  if(!supName){ toast('⚠️ Add meg a beszállító nevét (vagy válassz meglévőt).', true); document.getElementById('inv-sup-name')?.focus(); return; }
 
   if(_INV.fx.currency!=='RON' && !(_INV.fx.rate>0)){ toast('⚠️ Add meg az árfolyamot.', true); return; }
   const missing = _INV.lines.filter(l=>l.status==='missing');
@@ -516,14 +598,21 @@ async function invCommit(){
       const dup = await kData.query('ingredient_batches', { filter:`invoice_number=eq.${encodeURIComponent(invNo)}`, limit:1 });
       if(dup && dup.length){ if(!(await confirmDialog(`A(z) „${invNo}" számla már be lett vételezve. Biztos újra rögzíted?`))) return; }
     }catch(e){ /* ha az oszlop még nincs, tovább */ }
+  } else if(!_INV.partial){
+    // v2.55.3: szám nélkül (pl. webshop-rendelés) — ugyanattól a beszállítótól ugyanarra a napra már volt számla-bevételezés?
+    try{
+      const dup = await kData.query('ingredient_batches', { select:'id', filter:`supplier_name=eq.${encodeURIComponent(supName)}&received_date=eq.${recDate}&source_type=eq.invoice`, limit:1 });
+      if(dup && dup.length){ if(!(await confirmDialog(`${supName} — ${recDate} napra már van számla-bevételezés. Nem ugyanazt rögzíted újra?\n\nHa ez egy másik számla, mehet.`))) return; }
+    }catch(e){ /* tovább */ }
   }
 
   _INV.busy = true; if(btn){ btn.disabled=true; btn.textContent='⏳ Bevételezés…'; }
   try{
     // 1) Beszállító
-    let supplierName = _INV.supplier.parsed?.name || '';
-    if(_INV.supplier.match==='new' && supplierName){
-      const sp = _INV.supplier.parsed;
+    // v2.55.3: meglévő beszállítónál a TÖRZSADATBELI név kerül a tételre (eddig a számláról olvasott név)
+    const supplierName = supName;
+    if(_INV.supplier.match==='new'){
+      const sp = { ..._INV.supplier.parsed, name: supName };
       const allSup = await kData.query('suppliers', { order:'id.desc', limit:1 });
       const nextId = (allSup?.[0]?.id||0)+1;
       const sdata = { id:nextId, name:sp.name, cui:sp.cui||null, reg_com:sp.reg_com||null, address:sp.address||null, bank_iban:sp.iban||null, currency:(_INV.fx.currency||'lej').toLowerCase()==='ron'?'lej':(_INV.fx.currency||'lej').toLowerCase(), active:true, updated_at:new Date().toISOString() };
@@ -564,7 +653,7 @@ async function invCommit(){
       if(ln.landed>0) noteBits.push(`+szállítás ${_invFmt(_invLej(ln.landed))} lej`);
       const batchRow = {
         ingredient_id: ingId,
-        received_date: (p.invoice_date && /^\d{4}-\d{2}-\d{2}$/.test(p.invoice_date)) ? p.invoice_date : localToday(),
+        received_date: recDate,
         qty_received_g: ln.baseQtyG,
         qty_remaining_g: ln.baseQtyG,
         price_per_g: pricePerG,
@@ -592,7 +681,7 @@ async function invCommit(){
 
     _INV.busy=false;
     toast(`✅ Bevételezve: ${received} tétel${created?`, ${created} új alapanyag`:''}.`);
-    document.getElementById('inv-review').innerHTML = `<div class="card" style="text-align:center;padding:26px"><div style="font-size:2rem">✅</div><div style="font-weight:700;color:var(--teal-dark);margin-top:6px">Kész! ${received} tétel bevételezve.</div><div style="font-size:0.8rem;color:var(--text-soft);margin-top:4px">Ellenőrizd az <b>Alapanyagok & Készlet</b> nézetben.</div><button class="btn btn-ghost mt-16" data-action="invPick">Újabb számla</button></div>`;
+    document.getElementById('inv-review').innerHTML = `<div class="card" style="text-align:center;padding:26px"><div style="font-size:2rem">✅</div><div style="font-weight:700;color:var(--teal-dark);margin-top:6px">Kész! ${received} tétel bevételezve.</div><div style="font-size:0.8rem;color:var(--text-soft);margin-top:4px">Ellenőrizd az <b>Alapanyagok & Készlet</b> nézetben.</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-ghost" data-action="invPick">Újabb számla</button><button class="btn btn-ghost" data-action="invLaterCostOpen">➕ Később érkezett szállítás / költség</button></div></div>`;
     _INV.parsed=null; _INV.lines=[]; _INV.partial=false;
   }catch(e){
     _INV.busy=false; if(btn){ btn.disabled=false; btn.textContent='✅ Bevételezés véglegesítése'; }
@@ -628,8 +717,10 @@ async function invLaterCostOpen(pre){
     map.get(key).batches.push(b);
   });
   let groups = [...map.values()];
-  const sN = _invNorm(_LC.supplier);
-  if(sN) groups.sort((a, b) => (_invNorm(b.supplier) === sN ? 1 : 0) - (_invNorm(a.supplier) === sN ? 1 : 0));   // azonos beszállító előre
+  // azonos beszállító előre (v2.55.3: jogi forma / domain nélkül: „vrac-magazin.ro" ≈ „Vrac Magazin SRL")
+  const sK = _invSupKey(_LC.supplier);
+  const same = g => { const k = _invSupKey(g.supplier); return sK.length >= 4 && k.length >= 4 && (k === sK || k.includes(sK) || sK.includes(k)); };
+  if(sK) groups.sort((a, b) => (same(b) ? 1 : 0) - (same(a) ? 1 : 0));
   _LC.groups = groups.slice(0, 30);
   if(_LC.currency !== 'RON' && !(_LC.rate > 0)) { const fx = await _invFxRate(_LC.currency, _LC.date); _LC.rate = fx.rate || 0; }
   renderLaterCost();
@@ -674,7 +765,7 @@ function renderLaterCost(){
   const groupsHtml = _LC.groups.length ? _LC.groups.map(g => {
     const on = g.key === _LC.sel;
     const left = g.batches.filter(b => Number(b.qty_remaining_g) > 0).length;
-    const title = g.invoice ? `🧾 Számla ${esc(g.invoice)}` : '✍️ Kézi bevételezés';
+    const title = g.invoice ? `🧾 Számla ${esc(g.invoice)}` : (g.batches.every(b => b.source_type === 'invoice') ? '🧾 Számla (szám nélkül)' : '✍️ Kézi bevételezés');
     return `<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid ${on ? 'var(--teal)' : 'var(--border)'};border-radius:12px;margin-bottom:8px;cursor:pointer;background:${on ? 'var(--teal-pale)' : '#fff'}">
       <input type="radio" name="lc-group" ${on ? 'checked' : ''} onchange="lcSelect('${g.key.replace(/'/g, "\\'")}')" style="margin-top:3px;accent-color:var(--teal)">
       <div style="flex:1;font-size:0.82rem"><div style="font-weight:600;color:var(--teal-dark)">${title} · ${esc(g.supplier || 'beszállító nélkül')}</div>
@@ -749,5 +840,5 @@ async function invLaterCostCommit(){
 // globálisok (data-action rendszerhez)
 if(typeof window!=='undefined'){
   Object.assign(window, { renderInvoiceIntake, invPick, invSaveVisionModel, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit,
-    invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit });
+    invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit, invConfirmIng, invSetSupplier, invSetNewSupName, invSetMeta });
 }
