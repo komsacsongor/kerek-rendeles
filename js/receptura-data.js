@@ -243,10 +243,11 @@ async function initApp() {
   // Supabase-ből tölt minden beállítást
   const settingLoads = [
     ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
-    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object'){ const { invoice, ...rest } = v; Object.assign(R.settings,rest); } }], // v2.56.0: a számla-beállítás saját kulcsból jön
     ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
     ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
     ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
+    ['invoice_settings', v=>{ if(v&&typeof v==='object') R.settings.invoice=v; }], // v2.56.0: Gemini kulcs (számla), ÁFA-fizető cég
     ['invoice_vision_model', v=>{ if(typeof v==='string' && v.trim()) R.settings.invoiceVisionModel=v.trim(); }], // v2.55.4: eddig mentődött, de be nem töltődött
   ];
   await Promise.all(settingLoads.map(async ([key, apply]) => {

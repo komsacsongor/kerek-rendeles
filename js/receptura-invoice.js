@@ -3,6 +3,8 @@
 // v2.54.0 · v2.55.2: kép lekicsinyítés/több oldal, külön számlás és utólagos szállítási költség
 // v2.55.3: beszállító-választó (hasonló név), szerkeszthető szám/dátum, szám nélküli duplikátum-védelem,
 //         hasonló nevű párosítás = ellenőrizendő, összesítő-ellenőrzés, új alapanyag egysége a kiszerelésből
+// v2.56.0: a Készlet nézeten belül; párosítás: tanult → szótár → AI a saját listából → hasonló név;
+//         szöveg beillesztése; nettó/bruttó felismerés (+ ÁFA-fizető cég → nettó bekerülés); Gemini a számlákhoz
 // Számla (PDF/kép, RO/EN/HU) → kiolvasás (text/vision) → párosítás
 // → landed cost → deviza→lej (BNR) → áttekintő → cég+alapanyag+FIFO bevételezés
 // ============================================================
@@ -20,7 +22,31 @@ const _INV = {
 // v2.55.4: a Groq 2026 júliusában kivezette a llama-4-scout-ot → ha a beállított modell nem létezik,
 // a Groq modell-listájából automatikusan választ képes modellt (és megjegyzi).
 const _INV_GROQ_VISION = ['qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'meta-llama/llama-4-scout-17b-16e-instruct'];
-const _INV_VISION_DEFAULT = { groq: _INV_GROQ_VISION[0], openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514', gemini: 'gemini-2.0-flash' };
+const _INV_VISION_DEFAULT = { groq: _INV_GROQ_VISION[0], openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514', gemini: 'gemini-2.5-flash' };
+const _INV_GEMINI_DEFAULT = 'gemini-2.5-flash';
+
+// v2.56.0: számla-beállítások (settings: invoice_settings) — Gemini kulcs a számlákhoz, ÁFA-fizető cég
+function _invCfg(){ return R.settings?.invoice || {}; }
+function _invVatPayer(){ return _invCfg().companyVatPayer !== false; }   // alapértelmezés: ÁFA-fizető
+function _invAiInfo(){
+  const c = _invCfg();
+  if(c.geminiKey) return { provider:'gemini', apiKey:c.geminiKey, model:c.geminiModel || _INV_GEMINI_DEFAULT, label:'Gemini' };
+  const provider = R.settings?.aiProvider || 'anthropic';
+  return { provider, apiKey:R.settings?.apiKey, model:null, label:provider };
+}
+async function invSaveSettings(){
+  const key = document.getElementById('inv-gemini-key')?.value?.trim() || '';
+  const vat = !!document.getElementById('inv-vat-payer')?.checked;
+  const prev = _invCfg();
+  R.settings.invoice = { ...prev, geminiKey:key, companyVatPayer:vat, geminiModel: key && key===prev.geminiKey ? prev.geminiModel : '' };
+  try { await sb.setSetting('invoice_settings', R.settings.invoice); toast('✅ Számla-beállítások mentve.'); }
+  catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
+  renderInvoiceIntake();
+}
+function _invSaveCfgQuiet(){ try { Promise.resolve(sb.setSetting('invoice_settings', R.settings.invoice)).catch(e=>console.warn('invoice_settings:', e.message)); } catch(e){} }
+function invBackToStock(){ nav('stock'); }
+function invOpenLaterCost(){ nav('invoice-intake'); invLaterCostOpen(); }
+function invSetMode(m){ _INV.mode = m; renderInvoiceIntake(); }
 
 function _invNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''); }
 function _invNum(v){ if(v==null) return 0; if(typeof v==='number') return v; const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.').replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
@@ -29,39 +55,44 @@ function _invNum(v){ if(v==null) return 0; if(typeof v==='number') return v; con
 function renderInvoiceIntake(){
   const host = document.getElementById('view-invoice-intake');
   if(!host) return;
-  const p = R.settings?.aiProvider || 'anthropic';
-  const hasKey = !!R.settings?.apiKey;
+  const ai = _invAiInfo(), c = _invCfg();
+  const hasKey = !!ai.apiKey;
+  const mode = _INV.mode || 'file';
+  const tab = (m, lbl) => `<button class="btn btn-sm ${mode===m?'btn-primary':'btn-ghost'}" onclick="invSetMode('${m}')">${lbl}</button>`;
   host.innerHTML = `
   <div style="max-width:960px;margin:0 auto">
-    <div class="card" style="border-left:4px solid var(--teal)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <div style="font-size:1.6rem">🧾</div>
-        <div>
-          <div style="font-family:'Fraunces',serif;font-weight:700;font-size:1.15rem;color:var(--teal-dark)">Számla bevételezés</div>
-          <div style="font-size:0.8rem;color:var(--text-soft)">Tölts fel egy beszállítói számlát (PDF vagy fotó). Az operátor kiolvassa, párosítja, és előkészíti a bevételezést — te csak a bizonytalan tételeket erősíted meg.</div>
-        </div>
-      </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="font-size:0.8rem;color:var(--text-soft)">Az operátor kiolvassa a számlát, párosítja az alapanyagokkal, te csak a bizonytalan tételeket erősíted meg.</div>
+      <button class="btn btn-ghost btn-sm" data-action="invBackToStock">← Vissza a készlethez</button>
     </div>
 
     <div class="card">
-      <input type="file" id="inv-file" accept="application/pdf,image/*,.heic,.heif" multiple style="display:none" onchange="handleInvoiceFile(this)">
-      <div id="inv-drop" data-action="invPick" style="border:2px dashed var(--border);border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;transition:.15s;background:var(--teal-pale)">
-        <div style="font-size:2rem;margin-bottom:6px">📤</div>
-        <div style="font-weight:600;color:var(--teal-dark)">Kattints ide a számla feltöltéséhez</div>
-        <div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px">PDF (szöveges vagy szkennelt) vagy fotó (JPG/PNG, több oldal = több kép egyszerre) · RO / EN / HU</div>
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" data-action="invLaterCostOpen">➕ Utólagos szállítási / egyéb költség hozzáadása (kézzel)</button>
-      ${!hasKey ? `<div style="margin-top:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;font-size:0.8rem;color:#9a3412">⚠️ Nincs AI API-kulcs. Add meg a <b>Beállítások → AI</b> alatt.</div>` : ''}
-      <div style="margin-top:10px;font-size:0.72rem;color:var(--text-soft)">
-        AI szolgáltató: <b>${esc(p)}</b>${p==='groq'?' — a szöveges PDF a jelenlegi modelleddel megy; fotó/szkennelt PDF esetén vision-modell kell (lásd lent).':''}
-      </div>
-      <details style="margin-top:8px">
-        <summary style="font-size:0.74rem;color:var(--text-soft);cursor:pointer">Haladó: vision (képes) modell</summary>
-        <div style="margin-top:6px;display:flex;gap:8px;align-items:center">
-          <input type="text" id="inv-vision-model" value="${esc(R.settings?.invoiceVisionModel || _INV_VISION_DEFAULT[p] || '')}" placeholder="képes modell azonosító" style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.8rem">
-          <button class="btn btn-ghost btn-sm" data-action="invSaveVisionModel">Mentés</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${tab('file','📷 Fotó / PDF')}${tab('text','📋 Szöveg beillesztése')}</div>
+      ${mode==='text' ? `
+        <textarea id="inv-text" placeholder="Webshop-rendelésnél: jelöld ki a rendelés táblázatát (tételek + összesítő) → Másolás → ide Beillesztés." style="width:100%;min-height:150px;box-sizing:border-box;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-family:Kodchasan,sans-serif;font-size:0.8rem">${esc(_INV.lastText||'')}</textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">
+          <span style="font-size:0.72rem;color:var(--text-soft)">A beszállító neve, dátum, tételek és az összesítő (részösszeg, ÁFA, végösszeg) legyen benne.</span>
+          <button class="btn btn-primary btn-sm" data-action="handleInvoiceText">Feldolgozás →</button>
+        </div>` : `
+        <input type="file" id="inv-file" accept="application/pdf,image/*,.heic,.heif" multiple style="display:none" onchange="handleInvoiceFile(this)">
+        <div id="inv-drop" data-action="invPick" style="border:2px dashed var(--border);border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;transition:.15s;background:var(--teal-pale)">
+          <div style="font-size:2rem;margin-bottom:6px">📤</div>
+          <div style="font-weight:600;color:var(--teal-dark)">Kattints ide a számla feltöltéséhez</div>
+          <div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px">PDF (szöveges vagy szkennelt) vagy fotó (JPG/PNG, több oldal = több kép egyszerre) · RO / EN / HU</div>
+        </div>`}
+      ${!hasKey ? `<div style="margin-top:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;font-size:0.8rem;color:#9a3412">⚠️ Nincs AI-kulcs. Add meg lent a Gemini kulcsot (ajánlott), vagy a <b>Beállítások → AI</b> alatt.</div>` : ''}
+      <div style="margin-top:10px;font-size:0.72rem;color:var(--text-soft)">Kiolvasás: <b>${esc(ai.label)}</b>${ai.provider==='gemini'?` (${esc(ai.model)})`:(ai.provider==='groq'?' — fotóhoz a Gemini sokkal pontosabb (lásd lent)':'')} · Bekerülési érték: <b>${_invVatPayer()?'nettó (ÁFA-fizető cég)':'bruttó (nem ÁFA-fizető)'}</b></div>
+      <details style="margin-top:8px" ${hasKey?'':'open'}>
+        <summary style="font-size:0.76rem;color:var(--teal-dark);cursor:pointer;font-weight:600">⚙️ Számla-beállítások</summary>
+        <div style="margin-top:8px;display:grid;gap:10px">
+          <div><div style="font-size:0.72rem;color:var(--text-soft);margin-bottom:3px">Gemini API-kulcs (ingyenes: aistudio.google.com → Get API key)</div>
+            <input type="password" id="inv-gemini-key" value="${esc(c.geminiKey||'')}" placeholder="AIza…" autocomplete="off" style="width:100%;max-width:420px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.8rem;box-sizing:border-box"></div>
+          <label style="display:flex;gap:8px;align-items:center;font-size:0.8rem;cursor:pointer"><input type="checkbox" id="inv-vat-payer" ${_invVatPayer()?'checked':''} style="accent-color:var(--teal)"> A cég ÁFA-fizető (plătitor de TVA) → a készlet nettó áron kerül be</label>
+          <div><button class="btn btn-primary btn-sm" data-action="invSaveSettings">Mentés</button></div>
         </div>
-        <div style="font-size:0.68rem;color:var(--text-soft);margin-top:4px">Csak szkennelt/fotó számlához kell. Szöveges PDF-hez nincs rá szükség.</div>
+        ${ai.provider!=='gemini' ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input type="text" id="inv-vision-model" value="${esc(R.settings?.invoiceVisionModel || _INV_VISION_DEFAULT[ai.provider] || '')}" placeholder="képes modell azonosító" style="flex:1;max-width:320px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.76rem">
+          <button class="btn btn-ghost btn-sm" data-action="invSaveVisionModel">Képes modell mentése</button></div>`:''}
       </details>
     </div>
 
@@ -166,71 +197,94 @@ async function handleInvoiceFile(input){
       payload = { text:'', images: [] };
       for(const f of imgs) payload.images.push(await _imgToJpegDataURL(f, 1600));
     }
-    if(payload.images.length){ _invStatus('Számla kiolvasása képből (vision AI)…', true); }
-    else { _invStatus('Számla kiolvasása szövegből (AI)…', true); }
-    const parsed = await aiParseInvoice(payload);
-    _INV.parsed = parsed; _INV.partial = false;
-    _invStatus('Párosítás és költség-számítás…', true);
-    await _invBuildModel(parsed);
-    document.getElementById('inv-status').style.display='none';
-    // v2.55.2: csak szállítás/egyéb költség van rajta (nincs alapanyag) → egy korábbi bevételezéshez rendeljük
-    if(!_INV.lines.length && (_INV.extra||[]).length){
-      invLaterCostOpen({ amount: _INV.extraInvoice, currency: _INV.fx.currency, rate: _INV.fx.rate, date: parsed.invoice_date,
-        desc: 'Szállítás' + (parsed.invoice_number ? ' · számla ' + parsed.invoice_number : ''), supplier: parsed.supplier?.name || '', fromInvoice: true });
-      return;
-    }
-    renderInvoiceReview();
+    await _invProcess(payload);
   }catch(e){
     console.error('invoice:', e);
     _invStatus('❌ '+e.message, false);
   }
 }
 
+// v2.56.0: beillesztett szöveg (webshop-rendelés, e-mail) — nincs képolvasás, pontosabb
+async function handleInvoiceText(){
+  const text = (document.getElementById('inv-text')?.value || '').trim();
+  if(text.length < 20){ toast('⚠️ Illeszd be a rendelés / számla szövegét.', true); return; }
+  _INV.lastText = text; _INV.file = null;
+  document.getElementById('inv-review').innerHTML='';
+  try { await _invProcess({ text: text.substring(0, 12000), images: [] }); }
+  catch(e){ console.error('invoice text:', e); _invStatus('❌ '+e.message, false); }
+}
+
+async function _invProcess(payload){
+  if(payload.images.length){ _invStatus('Számla kiolvasása képből (AI)…', true); }
+  else { _invStatus('Számla kiolvasása szövegből (AI)…', true); }
+  const parsed = await aiParseInvoice(payload);
+  _INV.parsed = parsed; _INV.partial = false; _INV.srcText = payload.text || '';
+  _invStatus('Párosítás és költség-számítás…', true);
+  await _invBuildModel(parsed);
+  document.getElementById('inv-status').style.display='none';
+  // v2.55.2: csak szállítás/egyéb költség van rajta (nincs alapanyag) → egy korábbi bevételezéshez rendeljük
+  if(!_INV.lines.length && (_INV.extra||[]).length){
+    invLaterCostOpen({ amount: _INV.extraInvoice, currency: _INV.fx.currency, rate: _INV.fx.rate, date: parsed.invoice_date,
+      desc: 'Szállítás' + (parsed.invoice_number ? ' · számla ' + parsed.invoice_number : ''), supplier: parsed.supplier?.name || '', fromInvoice: true });
+    return;
+  }
+  renderInvoiceReview();
+}
+
 // ---------- AI KIOLVASÁS ----------
 function _invPrompt(){
-  return `Te egy pékség beszállítói SZÁMLÁIT dolgozod fel. Olvasd ki az adatokat és adj vissza KIZÁRÓLAG JSON-t, semmi más szöveget.
-A számla lehet román, angol vagy magyar nyelvű. A terméknevet fordítsd/normalizáld MAGYAR alapanyagnévre a "hu_name" mezőbe (pl. "făină de orez"/"rice flour" → "rizsliszt", "drojdie" → "élesztő", "zahăr" → "cukor", "sare" → "só").
+  // v2.56.0: az AI NEM fordít szabadon — a KEREK alapanyag-listájából választ (ingredient_id), az összegeket
+  // úgy adja vissza, ahogy a számlán állnak (nettó/bruttó felismerés a programban, az összesítőből is)
+  const ings = (R.ingredients||[]).map(i => `${i.id}: ${i.name}`).join('\n');
+  return `Te egy gluténmentes pékség beszállítói SZÁMLÁIT / RENDELÉSEIT dolgozod fel. Adj vissza KIZÁRÓLAG JSON-t, semmi más szöveget.
+A számla lehet román, angol vagy magyar nyelvű.
 
 JSON struktúra:
 {
-  "supplier": {"name":"cég neve","cui":"adószám/CUI ha van (pl RO12345678)","reg_com":"cégjegyzékszám ha van","address":"cím ha van","iban":"IBAN ha van"},
-  "invoice_number":"számla sorszáma",
-  "invoice_date":"ÉÉÉÉ-HH-NN",
-  "currency":"RON|EUR|HUF|USD (a számla pénzneme)",
+  "supplier": {"name":"cég / webshop neve","cui":"adószám/CUI ha van","reg_com":"cégjegyzékszám ha van","address":"cím ha van","iban":"IBAN ha van"},
+  "invoice_number":"számla / rendelés sorszáma vagy null",
+  "invoice_date":"ÉÉÉÉ-HH-NN vagy null",
+  "currency":"RON|EUR|HUF|USD",
+  "amount_basis":"net|gross|unknown",   // a TÉTELSOROK összegei ÁFA nélküliek (net) vagy ÁFÁ-val (gross)? pl. "fără TVA" = net
   "lines":[
     {
-      "raw_name":"a tétel eredeti neve a számlán",
-      "hu_name":"magyar alapanyagnév",
-      "type":"material|shipping|other",   // material=nyersanyag/áru, shipping=szállítás/fuvar, other=betétdíj/csomagolás/egyéb
-      "qty":2,                            // számlázott mennyiség (darabszám vagy tömeg)
-      "unit":"az egység a számlán (buc/db/kg/l/zsák/sac...)",
-      "pack_size":25,                     // 1 csomag/zsák nettó tartalma, ha értelmezhető
+      "raw_name":"a tétel neve PONTOSAN úgy, ahogy a számlán áll (ne fordítsd!)",
+      "ingredient_id": 12,              // az alábbi ALAPANYAG-LISTÁBÓL annak az id-ja, amelyik UGYANAZ az anyag; ha egyik sem, null
+      "hu_name":"magyar alapanyagnév (csak ha ingredient_id null)",
+      "type":"material|shipping|other", // material=áru, shipping=szállítás/fuvar/transport/livrare, other=betétdíj/csomagolás
+      "qty":1,                          // számlázott mennyiség (darab / csomag / tömeg)
+      "unit":"az egység a számlán (buc/db/kg/l/zsák...)",
+      "pack_size":10,                   // 1 csomag nettó tartalma, ha a névben/sorban szerepel (pl. "– 10kg" → 10)
       "pack_unit":"kg|l|g|ml|db",
-      "base_qty_g":50000,                 // A TELJES mennyiség GRAMBAN vagy ML-ben (db esetén darabszám). Számold ki: qty*pack_size átváltva g/ml-re. Ha nem tudod, null.
-      "weight_kg":50,                     // a tétel becsült össztömege kg-ban (landed cost súlyozáshoz); ha nem tudod, null
-      "unit_price_net":12.5,             // NETTÓ egységár (ÁFA nélkül)
-      "line_total_net":625,              // NETTÓ sorérték (ÁFA nélkül)
-      "vat_pct":9
+      "base_qty_g":10000,               // TELJES mennyiség grammban / ml-ben (db esetén darab): qty*pack_size átváltva. Ha nem tudod: null
+      "weight_kg":10,                   // össztömeg kg-ban, ha tudható; különben null
+      "unit_price":88.0,                // egységár, AHOGY A SZÁMLÁN ÁLL
+      "line_total":88.0,                // sorérték, AHOGY A SZÁMLÁN ÁLL (ne számold át!)
+      "vat_pct":11                      // a sor ÁFA-kulcsa, ha látszik; különben null
     }
   ],
-  "totals":{"net":0,"vat":0,"gross":0}
+  "totals":{"net":587.65,"vat":64.62,"gross":652.27}   // részösszeg ÁFA nélkül, ÁFA, végösszeg — ami látszik, különben null
 }
 
 FONTOS:
-- Minden árat NETTÓ (ÁFA nélküli) értékként adj meg. Ha csak bruttót látsz, számold vissza a vat_pct alapján.
-- A "type" legyen "shipping" a szállítási/fuvar/transport tételeknél, "other" a betétdíj/csomagolás/kaució tételeknél, "material" minden valós árunál.
-- base_qty_g: kg→*1000, l→*1000, g/ml→*1, db→darabszám. Ha "2 zsák × 25 kg", akkor 2*25*1000 = 50000.
-- Ha egy mező nem olvasható ki, tedd null-ra. NE találj ki adatot.`;
+- A raw_name-et NE fordítsd és NE javítsd — szó szerint másold.
+- ingredient_id: csak akkor adj meg id-t, ha biztosan ugyanaz az anyag (pl. "Hrișcă decorticată" = hajdina, "Mei decorticat" = köles, "Făină de năut" = csicseriborsóliszt). Kétes esetben null.
+- A szállítás ("Livrare", "Transport") csak akkor legyen sor, ha VAN összege; "később közöljük" típusú szövegnél hagyd ki.
+- Ha egy mező nem olvasható ki, tedd null-ra. NE találj ki adatot.
+
+ALAPANYAG-LISTA (id: név):
+${ings || '(üres)'}`;
 }
 
 async function aiParseInvoice({text, images}){
-  const apiKey = R.settings?.apiKey;
-  if(!apiKey) throw new Error('Nincs AI API-kulcs (Beállítások → AI).');
-  const provider = R.settings?.aiProvider || 'anthropic';
-  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-2.0-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
-  let model = R.settings?.aiModel || _pd[provider] || 'gpt-4o-mini';
+  // v2.56.0: ha van Gemini kulcs a számla-beállításokban, a számlát a Gemini olvassa (szöveget és képet is)
+  const ai = _invAiInfo();
+  const apiKey = ai.apiKey, provider = ai.provider;
+  if(!apiKey) throw new Error('Nincs AI-kulcs — add meg a Gemini kulcsot a Számla-beállításokban.');
+  const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:_INV_GEMINI_DEFAULT,groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
   const useVision = images && images.length>0;
-  if(useVision){
+  let model = ai.model || R.settings?.aiModel || _pd[provider] || 'gpt-4o-mini';
+  if(useVision && !ai.model){
     model = (R.settings?.invoiceVisionModel || _INV_VISION_DEFAULT[provider] || model);
   }
   const promptText = _invPrompt() + (text ? `\n\nSZÁMLA SZÖVEGE:\n${text}` : '');
@@ -249,7 +303,7 @@ async function aiParseInvoice({text, images}){
     headers = { 'Content-Type':'application/json' };
     const parts = [{text:promptText}];
     (images||[]).forEach(d=>{ const m=/^data:(image\/[a-z]+);base64,(.*)$/i.exec(d); if(m) parts.push({inline_data:{mime_type:m[1], data:m[2]}}); });
-    body = JSON.stringify({ contents:[{parts}], generationConfig:{maxOutputTokens:8000, responseMimeType:'application/json'} });
+    body = JSON.stringify({ contents:[{parts}], generationConfig:{maxOutputTokens:16384, responseMimeType:'application/json'} });
   } else if(provider === 'groq'){
     apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
     headers = { 'Content-Type':'application/json', 'Authorization':'Bearer '+apiKey };
@@ -291,13 +345,32 @@ async function aiParseInvoice({text, images}){
       t = await res.text();
     }
   }
+  // v2.56.0: kivezetett / ismeretlen Gemini-modell → a fiók modell-listájából a legújabb „flash” (és megjegyzi)
+  if(!res.ok && provider === 'gemini' && (res.status === 404 || /not found|not supported|deprecat/i.test(t))){
+    let models = [];
+    try {
+      const lr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=200`);
+      models = ((await lr.json())?.models || []).filter(m => (m.supportedGenerationMethods||[]).includes('generateContent')).map(m => m.name.replace('models/',''));
+    } catch(e) { console.warn('gemini models:', e.message); }
+    const ver = id => parseFloat((/gemini-(\d+(?:\.\d+)?)/.exec(id)||[])[1] || 0);
+    const cands = models.filter(id => /flash/.test(id) && !/image|tts|audio|live|embed|thinking|exp/.test(id) && id !== model)
+      .sort((a, b) => (/preview|lite/.test(a) - /preview|lite/.test(b)) || ver(b) - ver(a));
+    for(const m of cands.slice(0, 4)){
+      _invStatus(`A(z) „${esc(model)}” modell nem elérhető — próba: ${esc(m)}…`, true);
+      res = await send(m);
+      if(res.ok){ R.settings.invoice = { ..._invCfg(), geminiModel: m }; _invSaveCfgQuiet(); toast('ℹ️ Gemini modell beállítva: ' + m); break; }
+      t = await res.text();
+    }
+  }
   if(!res.ok){
-    if((res.status===400 || res.status===404) && useVision) throw new Error('A képes kiolvasás nem sikerült — nem találtam elérhető képes (vision) modellt, vagy a beállított nem jó. Nyisd le a „Haladó: vision modell" részt és adj meg egy képes modellt. Részlet: '+t.slice(0,300));
+    if(provider==='gemini' && (res.status===400 || res.status===403) && /API key|API_KEY|permission/i.test(t)) throw new Error('A Gemini kulcs nem érvényes vagy nincs engedélyezve. Ellenőrizd a Számla-beállításokban. Részlet: '+t.slice(0,200));
+    if(res.status===429) throw new Error('Az AI napi / percenkénti kerete elfogyott. Próbáld újra kicsit később. Részlet: '+t.slice(0,200));
+    if((res.status===400 || res.status===404) && useVision) throw new Error('A képes kiolvasás nem sikerült — nem találtam elérhető képes (vision) modellt, vagy a beállított nem jó. Ajánlott: Gemini kulcs a Számla-beállításokban. Részlet: '+t.slice(0,300));
     throw new Error('AI hiba: '+res.status+' '+t.slice(0,300));
   }
   const data = await res.json();
   let jsonText;
-  if(provider==='gemini') jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(provider==='gemini') jsonText = (data.candidates?.[0]?.content?.parts||[]).filter(p => !p.thought).map(p => p.text||'').join('');
   else if(provider==='anthropic'||provider==='custom') jsonText = data.content?.[0]?.text;
   else jsonText = data.choices?.[0]?.message?.content;
   // v2.55.4: gondolkodó modellek (pl. Qwen) <think>…</think> blokkja nem a válasz része
@@ -335,47 +408,154 @@ async function _invBuildModel(parsed){
 
   // Deviza
   _INV.fx = await _invFxRate(parsed.currency, parsed.invoice_date);
+  const aliases = await _invLoadAliases();
 
   // Sorok feldolgozása
   const rawLines = Array.isArray(parsed.lines) ? parsed.lines : [];
   const matLines = [], extraLines = [];
   rawLines.forEach((ln, idx)=>{
     const type = (ln.type||'material').toLowerCase();
+    const qty = _invNum(ln.qty);
+    // a számlán álló sorérték (v2.56.0: nettó/bruttó a programban dől el); régi formátum: line_total_net
+    const printed = _invNum(ln.line_total) || _invNum(ln.line_total_net) || (_invNum(ln.unit_price ?? ln.unit_price_net) * (qty || 1));
     const obj = {
       idx,
       raw: ln.raw_name||'',
-      hu: ln.hu_name||ln.raw_name||'',
-      type,
-      qty: _invNum(ln.qty),
+      hu: ln.hu_name||'',
+      aiIngId: ln.ingredient_id != null ? String(ln.ingredient_id) : null,
+      type, qty,
       unit: ln.unit||'',
       packUnit: ln.pack_unit||'',
       baseQtyG: _invNum(ln.base_qty_g),
       weightKg: _invNum(ln.weight_kg),
-      unitPriceNet: _invNum(ln.unit_price_net),
-      lineTotalNet: _invNum(ln.line_total_net) || (_invNum(ln.unit_price_net)*_invNum(ln.qty)),
+      printed, lineTotalNet: printed,
       vatPct: _invNum(ln.vat_pct),
-      match: null, status: '', chosenIngId: null, newIng: null, landed: 0,
+      match: null, status: '', chosenIngId: null, newIng: null, landed: 0, src: '', srcNote: '',
     };
+    // v2.56.0: mennyiség a tételnévből („– 10kg × 1”) — megbízhatóbb, mint az AI számolása
+    const q = _invQtyFromName(obj.raw);
+    if(q){ obj.baseQtyG = q.base; if(q.kg) obj.weightKg = q.kg; if(!obj.packUnit) obj.packUnit = q.unit; obj.qtySrc = 'név'; }
     if(type==='material') matLines.push(obj); else extraLines.push(obj);
   });
 
-  // Alapanyag-párosítás + státusz
+  // v2.56.0: párosítás — tanult → szótár → AI (a saját listából) → hasonló név → új
+  const supKey = _invSupKey(_invSupplierName() || sup.name);
   matLines.forEach(ln=>{
-    const m = (typeof _matchIngredientByName==='function') ? _matchIngredientByName(ln.hu) || _matchIngredientByName(ln.raw) : null;
+    const rk = _invRawKey(ln.raw);
+    const dictHu = (typeof invDictLookup === 'function') ? invDictLookup(ln.raw) : null;
+    const al = aliases.get(supKey + '|' + rk) || aliases.get('*|' + rk);
+    const alIng = al ? getIng(Number(al.ingredient_id)) : null;
+    let hit = null;
+    if(alIng) hit = { ing: alIng, src: 'learned', fuzzy: false, note: 'korábban jóváhagyva' };
+    if(!hit && dictHu){ const r = _invIngByName(dictHu); if(r) hit = { ing: r.ing, src: 'dict', fuzzy: !r.exact, note: `szótár: ${dictHu}` }; }
+    if(!hit && ln.aiIngId){ const ai = getIng(Number(ln.aiIngId)); if(ai) hit = { ing: ai, src: 'ai', fuzzy: true, note: 'AI-javaslat' }; }
+    if(!hit){
+      const nm = (typeof _matchIngredientByName==='function') ? (_matchIngredientByName(ln.hu) || null) : null;
+      if(nm) hit = { ing: nm, src: 'name', fuzzy: true, note: 'hasonló név' };
+    }
+    if(dictHu) ln.hu = dictHu;            // az új alapanyag neve is a szótárból (nem az AI fordítása)
+    if(!ln.hu) ln.hu = ln.raw;
     ln.newIng = _invSuggestNewIng(ln);
-    if(m){ ln.match = m; ln.chosenIngId = String(m.id);
-      // v2.55.3: csak a pontos névegyezés „kész"; a hasonló név (pl. „sushi rizs" → Rizs) ellenőrizendő
-      ln.fuzzy = ![ln.hu, ln.raw].some(x => _invNorm(x) && _invNorm(x)===_invNorm(m.name)); }
-    else { ln.chosenIngId='__new__'; }
+    if(hit){ ln.match = hit.ing; ln.chosenIngId = String(hit.ing.id); ln.fuzzy = hit.fuzzy; ln.src = hit.src; ln.srcNote = hit.note; }
+    else { ln.chosenIngId = '__new__'; ln.src = 'new'; ln.srcNote = dictHu ? `szótár: ${dictHu} (nincs ilyen alapanyag)` : ''; }
+    ln.rawKey = rk;
     ln.status = _invLineStatus(ln);   // hiányos adat felülírja
   });
 
   _INV.lines = matLines;
   _INV.extra = extraLines;
-  _INV.extraInvoice = extraLines.reduce((s,l)=>s+(l.lineTotalNet||0),0);   // a számlán szereplő szállítás/egyéb
+  _INV.basis = _invDetectBasis(parsed, [...matLines, ...extraLines], _INV.srcText || '');
+  _invApplyBasis();
   _INV.manualExtra = { amount: 0, currency: _INV.fx.currency };   // v2.55.2: külön számlán érkezett (kézzel)
   _invRecalcLanded();
 }
+
+// ---------- v2.56.0: PÁROSÍTÁS-SEGÉDEK ----------
+// tételnév kulcs a tanult párosításhoz: mennyiség / kiszerelés nélkül („Hrișcă decorticată – 10kg × 1” → „hriscadecorticata”)
+function _invRawKey(raw){
+  return _invNorm(String(raw||'').toLowerCase()
+    .replace(/(\d+(?:[.,]\d+)?)\s*(kg|g|gr|grame?|l|ml|buc|db|pcs)\b/gi,' ')
+    .replace(/(?:×|\bx)\s*\d+(?:[.,]\d+)?/gi,' ').replace(/\d+/g,' '));
+}
+// mennyiség a névből: „10kg × 2” → 20000 g; „500 g” → 500 g; „1 l” → 1000 ml
+function _invQtyFromName(raw){
+  const t = String(raw||'');
+  const all = [...t.matchAll(/(\d+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml)\b/gi)];
+  if(!all.length) return null;
+  const m = all[all.length-1];
+  const n = parseFloat(m[1].replace(',','.')); const u = m[2].toLowerCase();
+  if(!(n > 0)) return null;
+  const mul = (() => { const x = /(?:×|\bx)\s*(\d+(?:[.,]\d+)?)/i.exec(t.slice(m.index + m[0].length)); return x ? parseFloat(x[1].replace(',','.')) : 1; })();
+  const f = { kg:1000, g:1, gr:1, l:1000, ml:1 }[u];
+  const base = Math.round(n * f * mul * 1000) / 1000;
+  return { base, kg: (u==='kg'||u==='g'||u==='gr') ? base/1000 : 0, unit: (u==='l'||u==='ml') ? 'l' : 'kg' };
+}
+// alapanyag a (szótárbeli) magyar név alapján: pontos (zárójel nélkül) → ezzel kezdődő / ezt tartalmazó legrövidebb
+function _invIngByName(hu){
+  const n = (x) => (x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,'').replace(/[^a-z0-9]/g,'');
+  const k = n(hu); if(!k) return null;
+  const list = R.ingredients || [];
+  const ex = list.find(i => n(i.name) === k); if(ex) return { ing: ex, exact: true };
+  const part = list.filter(i => { const a = n(i.name); return a.length >= 3 && (a.startsWith(k) || a.includes(k)); })
+    .sort((a, b) => n(a.name).length - n(b.name).length);
+  return part.length ? { ing: part[0], exact: false } : null;
+}
+// tanult párosítások (ingredient_aliases tábla); ha a tábla még nincs, üres
+async function _invLoadAliases(force){
+  if(_INV.aliases && !force) return _INV.aliases;
+  const map = new Map();
+  try {
+    const rows = await kData.query('ingredient_aliases', { select:'supplier_key,raw_key,ingredient_id,updated_at', order:'updated_at.asc', limit:5000 }) || [];
+    rows.forEach(r => { map.set(r.supplier_key + '|' + r.raw_key, r); map.set('*|' + r.raw_key, r); });   // a legutóbbi nyer
+  } catch(e) { console.warn('ingredient_aliases:', e.message); }
+  _INV.aliases = map;
+  return map;
+}
+async function _invSaveAliases(lines, supplierName){
+  const sk = _invSupKey(supplierName);
+  const now = new Date().toISOString();
+  const rows = lines.filter(l => l.rawKey && l.savedIngId && !(l.src === 'learned' && String(l.match?.id) === String(l.savedIngId)))
+    .map(l => ({ supplier_key: sk, raw_key: l.rawKey, raw_name: String(l.raw).slice(0, 200), ingredient_id: Number(l.savedIngId), updated_at: now }));
+  if(!rows.length) return;
+  try { await kData.insert('ingredient_aliases', rows, true, 'supplier_key,raw_key'); await _invLoadAliases(true); }
+  catch(e) { console.warn('alias mentés:', e.message); }
+}
+
+// ---------- v2.56.0: NETTÓ / BRUTTÓ ----------
+// Sorrend: összesítő-egyezés (a sorok összege = részösszeg → nettó, = végösszeg → bruttó) → kulcsszó → AI → nettó (bizonytalan)
+function _invDetectBasis(parsed, all, text){
+  const T = parsed.totals || {};
+  const tn = _invNum(T.net), tg = _invNum(T.gross), tv = _invNum(T.vat);
+  const sum = all.reduce((t, l) => t + (l.printed || 0), 0);
+  const lineVat = (all.find(l => l.vatPct > 0) || {}).vatPct || 0;
+  const vat = (tn > 0 && tv > 0) ? Math.round(tv / tn * 1000) / 10 : (tn > 0 && tg > tn ? Math.round((tg / tn - 1) * 1000) / 10 : lineVat);
+  const near = (a, b) => b > 0 && Math.abs(a - b) <= Math.max(0.05, b * 0.0005);
+  const f = n => _invFmt(n);
+  if(near(sum, tn) && !(near(sum, tg) && tg !== tn)) return { basis:'net', vat, why:`a tételek összege egyezik a ${f(tn)} részösszeggel (ÁFA nélkül)` };
+  if(near(sum, tg) && tg !== tn) return { basis:'gross', vat, why:`a tételek összege egyezik a ${f(tg)} végösszeggel (ÁFA-val)` };
+  const txt = (text + ' ' + all.map(l => l.raw).join(' ')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if(/fara\s*tva|excl(?:\.|uding|usiv)?\s*(?:tva|vat)|without\s*vat|afa\s*nelkul|\bnetto?\b/.test(txt)) return { basis:'net', vat, why:'a számlán: „fără TVA” / ÁFA nélkül' };
+  if(/cu\s*tva|incl(?:\.|uding|usiv)?\s*(?:tva|vat)|tva\s*inclus|afa-?val|\bbrutto?\b/.test(txt)) return { basis:'gross', vat, why:'a számlán: „cu TVA” / ÁFA-val' };
+  if(parsed.amount_basis === 'net' || parsed.amount_basis === 'gross') return { basis: parsed.amount_basis, vat, why:'az AI szerint — ellenőrizd', unsure:true };
+  return { basis:'net', vat, why:'nem egyértelmű — ellenőrizd', unsure:true };
+}
+function _invApplyBasis(){
+  const B = _INV.basis || { basis:'net', vat:0 };
+  [...(_INV.lines||[]), ...(_INV.extra||[])].forEach(l => {
+    const v = l.vatPct || B.vat || 0;
+    l.lineTotalNet = B.basis === 'gross' ? (l.printed || 0) / (1 + v / 100) : (l.printed || 0);
+  });
+  // a számlán szereplő szállítás/egyéb — bekerülési értéken (ÁFA-fizetőnél nettó)
+  _INV.extraInvoice = (_INV.extra||[]).reduce((s, l) => s + _invLineCost(l), 0);
+}
+// bekerülési érték (a számla pénznemében): ÁFA-fizető cégnél nettó, egyébként bruttó (az ÁFA a költség része)
+function _invLineCost(l){
+  if(_invVatPayer()) return l.lineTotalNet || 0;
+  const v = l.vatPct || _INV.basis?.vat || 0;
+  return (l.lineTotalNet || 0) * (1 + v / 100);
+}
+function invSetBasis(b){ if(b !== 'net' && b !== 'gross') return; _INV.basis = { ...(_INV.basis||{}), basis:b, why:'kézzel beállítva', unsure:false }; _invApplyBasis(); _invRecalcLanded(); renderInvoiceReview(); }
+function invSetVat(v){ const n = _invNum(v); if(n >= 0 && n < 100){ _INV.basis = { ...(_INV.basis||{}), vat:n }; _invApplyBasis(); _invRecalcLanded(); renderInvoiceReview(); } }
 
 // v2.55.3: beszállító keresése — CUI, majd név (jogi forma / domain nélkül: „vrac-magazin.ro" ≈ „Vrac Magazin SRL")
 function _invSupKey(name){
@@ -427,11 +607,15 @@ function renderInvoiceReview(){
   const supOpts = (R.suppliers||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'))
     .map(x=>`<option value="${x.id}" ${s.match!=='new' && String(s.id)===String(x.id)?'selected':''}>${esc(x.name)}</option>`).join('');
   // összesítő-ellenőrzés: a tételek nettó összege vs. a számla nettó összesítője (AI-olvasási hiba jelzése)
-  const linesNet = _INV.lines.reduce((t,l)=>t+(l.lineTotalNet||0),0);
-  const invNet = _invNum(p.totals?.net);
-  const extraNet = _INV.extraInvoice||0;
-  const sumOk = !(invNet>0) || Math.abs(invNet-linesNet)<0.02 || Math.abs(invNet-linesNet-extraNet)<0.02;
-  const grandLej = _invLej(linesNet + (_INV.extraSum||0));
+  // v2.56.0: a számlán álló összegeket (nettó VAGY bruttó) vetjük össze a megfelelő összesítővel
+  const B = _INV.basis || { basis:'net', vat:0 };
+  const curLbl = fx.currency==='RON' ? 'lej' : fx.currency;
+  const printedSum = [..._INV.lines, ...(_INV.extra||[])].reduce((t,l)=>t+(l.printed||0),0);
+  const invTot = _invNum(B.basis==='gross' ? p.totals?.gross : p.totals?.net);
+  const sumOk = !(invTot>0) || Math.abs(invTot-printedSum) < 0.05;
+  const linesCost = _INV.lines.reduce((t,l)=>t+_invLineCost(l),0);
+  const grandLej = _invLej(linesCost + (_INV.extraSum||0));
+  const costLbl = _invVatPayer() ? 'nettó' : 'bruttó';
   const fxNote = fx.currency==='RON' ? 'lej (nincs átváltás)'
     : (fx.rate>0 ? `${fx.currency} → lej árfolyam: <b>${fx.rate}</b> <span style="color:var(--text-soft)">(${esc(fx.source)})</span>`
                  : `<span style="color:#c0574e">⚠️ ${fx.currency} árfolyam nem elérhető — add meg kézzel</span>`);
@@ -466,6 +650,19 @@ function renderInvoiceReview(){
     </div>
   </div>
 
+  <div class="card" style="${B.unsure?'border-left:4px solid #f59e0b':''}">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:0.82rem">
+      <span style="font-weight:600;color:var(--teal-dark)">💶 A számlán az árak:</span>
+      <select id="inv-basis" onchange="invSetBasis(this.value)" style="${inp}">
+        <option value="net" ${B.basis==='net'?'selected':''}>ÁFA nélkül (nettó)</option>
+        <option value="gross" ${B.basis==='gross'?'selected':''}>ÁFA-val (bruttó)</option>
+      </select>
+      <span>ÁFA</span><input type="number" step="0.1" min="0" id="inv-vat" value="${B.vat||''}" placeholder="pl. 11" onchange="invSetVat(this.value)" style="${inp};width:70px;text-align:right"><span>%</span>
+      <span style="color:${B.unsure?'#9a3412':'var(--text-soft)'};font-size:0.74rem">${B.unsure?'⚠️ ':'✅ '}${esc(B.why||'')}</span>
+    </div>
+    <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">Bekerülési érték: <b>${costLbl}</b> (${_invVatPayer()?'a cég ÁFA-fizető, az ÁFA visszaigényelhető':'nem ÁFA-fizető cég: az ÁFA a költség része'}) — Számla-beállításokban módosítható.${B.basis==='gross' && !(B.vat>0) ? ' <b style="color:#c0574e">Add meg az ÁFA-kulcsot!</b>':''}</div>
+  </div>
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-weight:700;color:var(--teal-dark)">Tételek</div>
@@ -487,7 +684,7 @@ function renderInvoiceReview(){
           <th style="padding:6px 8px">Számla tétel</th>
           <th style="padding:6px 8px">Alapanyag (párosítás)</th>
           <th style="padding:6px 8px" class="num">Menny.</th>
-          <th style="padding:6px 8px" class="num">Nettó ár</th>
+          <th style="padding:6px 8px" class="num">Sorérték</th>
           <th style="padding:6px 8px" class="num">+Szállítás</th>
           <th style="padding:6px 8px" class="num">lej/bázis</th>
         </tr></thead>
@@ -507,9 +704,9 @@ function renderInvoiceReview(){
 
   <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
     <div style="font-size:0.8rem;color:var(--text-soft);flex:1;min-width:220px">
-      <div style="font-size:0.86rem;color:var(--text)">Tételek nettó: <b>${_invFmt(_invLej(linesNet))} lej</b>${(_INV.extraSum||0)>0?` + költség <b>${_invFmt(_invLej(_INV.extraSum))} lej</b>`:''} = bevételezett érték <b style="color:var(--teal-dark)">${_invFmt(grandLej)} lej</b></div>
-      ${invNet>0 ? (sumOk ? `<div style="color:var(--teal-dark);margin-top:2px">✅ Egyezik a számla nettó összesítőjével (${_invFmt(invNet)} ${esc(fx.currency==='RON'?'lej':fx.currency)}).</div>`
-        : `<div style="color:#c0574e;font-weight:600;margin-top:2px">⚠️ A tételek összege (${_invFmt(linesNet)}) eltér a számla nettó összesítőjétől (${_invFmt(invNet)}) — ellenőrizd a sorokat!</div>`) : ''}
+      <div style="font-size:0.86rem;color:var(--text)">Tételek ${costLbl}: <b>${_invFmt(_invLej(linesCost))} lej</b>${(_INV.extraSum||0)>0?` + költség <b>${_invFmt(_invLej(_INV.extraSum))} lej</b>`:''} = bevételezett érték <b style="color:var(--teal-dark)">${_invFmt(grandLej)} lej</b></div>
+      ${invTot>0 ? (sumOk ? `<div style="color:var(--teal-dark);margin-top:2px">✅ A sorok összege egyezik a számla ${B.basis==='gross'?'végösszegével':'részösszegével'} (${_invFmt(invTot)} ${esc(curLbl)}).</div>`
+        : `<div style="color:#c0574e;font-weight:600;margin-top:2px">⚠️ A sorok összege (${_invFmt(printedSum)}) eltér a számla ${B.basis==='gross'?'végösszegétől':'részösszegétől'} (${_invFmt(invTot)}) — ellenőrizd a sorokat!</div>`) : ''}
       <div style="margin-top:4px">A véglegesítés: ${s.match==='new'?'létrehozza a beszállítót, ':''}a hiányzó alapanyagokat létrehozza, és FIFO-tételként bevételez (visszakövethető${meta.invNo?', számlaszámmal':''}).</div>
     </div>
     <button class="btn btn-primary" data-action="invCommit" id="inv-commit-btn">✅ Bevételezés véglegesítése</button>
@@ -525,32 +722,43 @@ function _invRowHtml(ln){
   const lejPerBase = _invRowLejPerBase(ln);
   const missingCls = ln.status==='missing' ? 'background:#fef2f2' : ((ln.status==='new'||ln.status==='uncertain')?'background:#fff7ed':'');
   return `<tr style="border-bottom:1px solid var(--border);${missingCls}">
-    <td style="padding:7px 8px"><div style="font-weight:600">${badge} ${esc(ln.raw)}</div><div style="font-size:0.68rem;color:var(--text-soft)">${esc(ln.hu)}${ln.type!=='material'?' · '+esc(ln.type):''}</div></td>
+    <td style="padding:7px 8px"><div style="font-weight:600">${badge} ${esc(ln.raw)}</div>${ln.qtySrc?`<div style="font-size:0.64rem;color:var(--text-soft)">mennyiség a névből</div>`:''}</td>
     <td style="padding:7px 8px">
       <select onchange="invSetIng(${ln.idx}, this.value)" style="width:100%;max-width:200px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;font-size:0.76rem">
         <option value="__new__" ${ln.chosenIngId==='__new__'?'selected':''}>🆕 Új: ${esc(ln.newIng?.name||ln.hu)}</option>
         ${opts}
       </select>
       ${ln.chosenIngId==='__new__' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Új alapanyag lesz (${esc(ln.newIng?.category||'')}, ${esc(ln.newIng?.unit==='g'?'kg':ln.newIng?.unit||'')})</div>`:''}
-      ${ln.status==='uncertain' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Hasonló név alapján — jó? <button class="btn btn-ghost btn-sm" style="padding:1px 8px;font-size:0.66rem" onclick="invConfirmIng(${ln.idx})">✓ Igen</button></div>`:''}
+      ${_invSrcBadge(ln)}
+      ${ln.status==='uncertain' ? `<div style="font-size:0.66rem;color:#9a3412;margin-top:3px">Jó így? <button class="btn btn-ghost btn-sm" style="padding:1px 8px;font-size:0.66rem" onclick="invConfirmIng(${ln.idx})">✓ Igen</button></div>`:''}
     </td>
     <td style="padding:7px 8px" class="num">
       <input type="number" step="any" value="${ln.baseQtyG||''}" onchange="invSetQty(${ln.idx}, this.value)" style="width:82px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-size:0.76rem">
       <div style="font-size:0.62rem;color:var(--text-soft)">bázis (g/ml/db)</div>
     </td>
     <td style="padding:7px 8px" class="num">
-      <input type="number" step="any" value="${ln.lineTotalNet||''}" onchange="invSetTotal(${ln.idx}, this.value)" style="width:82px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-size:0.76rem">
-      <div style="font-size:0.62rem;color:var(--text-soft)">nettó sor (${esc(_INV.fx.currency)})</div>
+      <input type="number" step="any" value="${ln.printed||''}" onchange="invSetTotal(${ln.idx}, this.value)" style="width:82px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px;text-align:right;font-size:0.76rem">
+      <div style="font-size:0.62rem;color:var(--text-soft)">sor ${_INV.basis?.basis==='gross'?'bruttó':'nettó'} (${esc(_INV.fx.currency)})</div>
     </td>
     <td class="num" data-l="+Szállítás (lej)" style="padding:7px 8px;font-size:0.76rem;color:var(--text-soft)">${ln.landed>0?_invFmt(_invLej(ln.landed)):'—'}</td>
     <td class="num" data-l="Bekerülési ár" style="padding:7px 8px;font-weight:600">${lejPerBase>0?_invFmt(lejPerBase):'—'}<div style="font-size:0.62rem;color:var(--text-soft);font-weight:400">lej/${esc(unitLbl||'bázis')}</div></td>
   </tr>`;
 }
 
+// v2.56.0: honnan jött a párosítás
+function _invSrcBadge(ln){
+  const cur = String(ln.chosenIngId);
+  if(ln.chosenIngId === '__new__') return ln.srcNote ? `<div style="font-size:0.64rem;color:var(--text-soft);margin-top:3px">📖 ${esc(ln.srcNote)}</div>` : '';
+  if(!ln.match || cur !== String(ln.match.id)) return `<div style="font-size:0.64rem;color:var(--teal-dark);margin-top:3px">✍️ kézzel választva — megjegyzem</div>`;
+  const st = { learned:['✅ tanult','var(--teal-pale)','var(--teal-dark)'], dict:['📖 szótár','#eef2ff','#3730a3'], ai:['🤖 AI-javaslat','#fff7ed','#9a3412'], name:['🔤 hasonló név','#fff7ed','#9a3412'] }[ln.src];
+  if(!st) return '';
+  return `<div style="margin-top:3px"><span style="display:inline-block;border-radius:10px;padding:1px 8px;font-size:0.64rem;font-weight:600;background:${st[1]};color:${st[2]}">${st[0]}</span>${ln.src==='dict'&&ln.srcNote&&_invNorm(ln.srcNote.replace('szótár: ',''))!==_invNorm(ln.match.name)?` <span style="font-size:0.62rem;color:var(--text-soft)">${esc(ln.srcNote.replace('szótár: ',''))}</span>`:''}</div>`;
+}
+
 // lej/megjelenítési-egység (kg/l/db) az ellenőrzéshez
 function _invRowLejPerBase(ln){
   if(!(ln.baseQtyG>0)) return 0;
-  const totalLej = _invLej((ln.lineTotalNet||0) + (ln.landed||0));
+  const totalLej = _invLej(_invLineCost(ln) + (ln.landed||0));
   const perBaseG = totalLej / ln.baseQtyG; // lej / g|ml|db
   const ing = ln.chosenIngId && ln.chosenIngId!=='__new__' ? getIng(parseInt(ln.chosenIngId)) : null;
   const unit = ing ? ing.unit : (ln.newIng?.unit||'g');
@@ -578,7 +786,7 @@ function invSetMeta(field, v){
   renderInvoiceReview();
 }
 function invSetQty(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.baseQtyG=_invNum(v); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
-function invSetTotal(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.lineTotalNet=_invNum(v); _invRecalcLanded(); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
+function invSetTotal(idx, v){ const ln=_INV.lines.find(l=>l.idx==idx); if(!ln) return; ln.printed=_invNum(v); _invApplyBasis(); _invRecalcLanded(); ln.status=_invLineStatus(ln); renderInvoiceReview(); }
 function invSetFx(v){ const n=_invNum(v); if(n>0){ _INV.fx.rate=n; _INV.fx.source='kézi'; renderInvoiceReview(); } }
 
 // landed cost (újra)számítás: a számlán lévő + a kézzel megadott (külön számlás) szállítás/egyéb költség
@@ -676,10 +884,11 @@ async function invCommit(){
       }
 
       // FIFO batch (lejben, landed cost beépítve, nettó)
-      const totalLej = _invLej((ln.lineTotalNet||0) + (ln.landed||0));
+      const totalLej = _invLej(_invLineCost(ln) + (ln.landed||0));   // v2.56.0: ÁFA-fizetőnél nettó
       const pricePerG = ln.baseQtyG>0 ? totalLej/ln.baseQtyG : 0;
       const noteBits = [];
-      if(_INV.fx.currency!=='RON') noteBits.push(`${_invFmt(ln.lineTotalNet)} ${_INV.fx.currency} @ ${_INV.fx.rate}`);
+      if(_INV.fx.currency!=='RON') noteBits.push(`${_invFmt(_invLineCost(ln))} ${_INV.fx.currency} @ ${_INV.fx.rate}`);
+      if(!_invVatPayer()) noteBits.push('ÁFA-val (nem ÁFA-fizető)');
       if(ln.landed>0) noteBits.push(`+szállítás ${_invFmt(_invLej(ln.landed))} lej`);
       const batchRow = {
         ingredient_id: ingId,
@@ -702,11 +911,12 @@ async function invCommit(){
       const saved = Array.isArray(ins) ? ins[0] : ins;
       R.batches = R.batches||[];
       R.batches.push(mapBatchRow(saved && saved.id != null ? saved : batchRow));
-      ln.committed = true; _INV.partial = true;
+      ln.committed = true; _INV.partial = true; ln.savedIngId = ingId;
       received++;
     }
 
     recomputeIngredientStock();
+    await _invSaveAliases(_INV.lines, supplierName);   // v2.56.0: legközelebb „tanult” párosítás
     if(typeof auditLog==='function') auditLog('invoice_intake', supplierName, `Számla ${invNo||'—'}: ${received} tétel, ${created} új alapanyag`);
 
     _INV.busy=false;
@@ -870,5 +1080,6 @@ async function invLaterCostCommit(){
 // globálisok (data-action rendszerhez)
 if(typeof window!=='undefined'){
   Object.assign(window, { renderInvoiceIntake, invPick, invSaveVisionModel, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit,
-    invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit, invConfirmIng, invSetSupplier, invSetNewSupName, invSetMeta });
+    invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit, invConfirmIng, invSetSupplier, invSetNewSupName, invSetMeta,
+    handleInvoiceText, invSaveSettings, invBackToStock, invOpenLaterCost, invSetMode, invSetBasis, invSetVat });
 }

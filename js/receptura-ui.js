@@ -6,7 +6,7 @@ const VIEW_TITLES = {
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
   'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
-  'shopping':'🛒 Bevásárló lista', 'invoice-intake':'🧾 Számla bevételezés', 'suppliers':'👥 Beszállítók', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'baking-log':'📒 Sütési napló', 'receptura-help':'Súgó'
+  'shopping':'🛒 Bevásárló lista', 'invoice-intake':'🌿 Készlet › 🧾 Számla bevételezése', 'suppliers':'👥 Beszállítók', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'baking-log':'📒 Sütési napló', 'receptura-help':'Súgó'
 };
 function nav(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -20,6 +20,8 @@ function nav(id) {
     const dataArg = n.getAttribute('data-arg1') || '';
     if (act.includes(`'${id}'`) || (dataAct === 'nav' && dataArg === id)) n.classList.add('active');
   });
+  // v2.56.0: a számla-bevételezés az Alapanyagok & Készlet része → a menüben az marad kijelölve
+  if (id === 'invoice-intake') document.querySelector('.nav-item[data-action="nav"][data-arg1="stock"]')?.classList.add('active');
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
     recipes: renderRecipes,

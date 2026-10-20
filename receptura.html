@@ -16,9 +16,9 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.55.4"></script>
+<script src="kerek-constants.js?v=2.56.0"></script>
 <script>window.KEREK_MODULE='receptura';</script>
-<script src="supabase.js?v=2.55.4"></script>
+<script src="supabase.js?v=2.56.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css?v=2.53.37">
 <style>
@@ -330,7 +330,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="nav-section">
     <div class="nav-label">Készlet & Beszerzés</div>
     <button class="nav-item" data-action="nav" data-arg1="stock"><span class="icon">🌿</span>Alapanyagok & Készlet</button>
-    <button class="nav-item" data-action="nav" data-arg1="invoice-intake"><span class="icon">🧾</span>Számla bevételezés</button>
     <button class="nav-item" data-action="nav" data-arg1="shopping"><span class="icon">🛒</span>Bevásárló lista</button>
   </div>
   <div class="nav-section">
@@ -716,6 +715,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div id="stock-alerts"></div>
     <div class="flex justify-between items-center mb-16">
       <div class="flex gap-8 flex-wrap">
+        <button class="btn btn-sm" style="background:var(--gold);color:var(--teal-dark);font-weight:600" data-action="nav" data-arg1="invoice-intake">🧾 Számla bevételezése</button>
+        <button class="btn btn-ghost btn-sm" data-action="invOpenLaterCost">➕ Utólagos szállítási költség</button>
         <button class="btn btn-primary btn-sm" data-action="generateShoppingList">🛒 Bevásárló lista</button>
         <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV">📥 CSV export</button>
         <button class="btn btn-ghost btn-sm" onclick="calcAutoMinMax().then(()=>toast('✅ Min/Max frissítve'))" title="Min/Max újraszámítás rendelésekből">🤖 Auto Min/Max</button>
@@ -1041,8 +1042,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.55.4"></script>
-<script src="js/receptura-ui.js?v=2.54.0"></script>
+<script src="js/receptura-data.js?v=2.56.0"></script>
+<script src="js/receptura-ui.js?v=2.56.0"></script>
 <script src="js/receptura-recipes.js?v=2.53.117"></script>
 <script src="js/receptura-operational.js?v=2.53.123"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
@@ -1065,7 +1066,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 <script src="js/receptura-shopping.js?v=2.53.70"></script>
 <script src="js/receptura-suppliers.js?v=2.53.71"></script>
 <script src="js/receptura-masterdata.js?v=2.53.80"></script>
-<script src="js/receptura-invoice.js?v=2.55.4"></script>
+<script src="js/receptura-invoice-dict.js?v=2.56.0"></script>
+<script src="js/receptura-invoice.js?v=2.56.0"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>

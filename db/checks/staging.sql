@@ -35,3 +35,9 @@ WHERE table_schema='public' AND (table_name, column_name) IN (
   ('production_logs','batch_no'),('production_logs','allocation'),
   ('ingredient_batches','invoice_number'),('ingredient_batches','currency'),('ingredient_batches','fx_rate'))
 GROUP BY table_name ORDER BY table_name;
+
+\echo '--- v2.56: tanult párosítások (ingredient_aliases) ---'
+SELECT c.relname AS tabla, c.relrowsecurity AS rls_on,
+       (SELECT count(*) FROM public.ingredient_aliases) AS sorok
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = 'ingredient_aliases';

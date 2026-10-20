@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.55.4** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.0** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -80,6 +80,15 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 
 ### v2.55.4 — vision-modell csere (2026-10-20)
 - A Groq 2026-07-ben kivezette a `meta-llama/llama-4-scout-17b-16e-instruct`-ot (fotós számla: „model_not_found”). Új alapértelmezés `qwen/qwen3.8-27b`; ha a modell nem létezik, a Groq `/models` listájából automatikusan választ képes modellt, és elmenti (`invoice_vision_model`). A mentett modell eddig betöltéskor nem töltődött vissza — javítva.
+
+### v2.56.0 — számla-operátor átdolgozás (2026-10-20)
+- **Menü**: a külön „Számla bevételezés” pont megszűnt → **Alapanyagok & Készlet** tetején „🧾 Számla bevételezése” és „➕ Utólagos szállítási költség”.
+- **Párosítás** (az AI szabad fordítása helyett): ✅ tanult (beszállító + tételnév, `ingredient_aliases`) → 📖 szótár (`js/receptura-invoice-dict.js`, RO/EN → HU, bővíthető) → 🤖 AI a saját alapanyag-listából (ellenőrizendő) → 🔤 hasonló név → 🆕 új (a szótárbeli magyar névvel). Bevételezéskor minden sor párosítását megjegyzi.
+- **Mennyiség** a tételnévből („– 10kg × 1”).
+- **Bemenet**: 📷 Fotó / PDF vagy 📋 **Szöveg beillesztése** (webshop-rendelés).
+- **Nettó/bruttó**: felismerés az összesítőből (sorok összege = részösszeg → nettó; = végösszeg → bruttó), majd kulcsszó („fără TVA”/„cu TVA”), majd AI; az áttekintőn átállítható + ÁFA-kulcs. **Bekerülési érték**: ÁFA-fizető cég → nettó (alapértelmezés; Csongor: ÁFA-fizető), egyébként bruttó.
+- **Gemini** a számlákhoz: ⚙️ Számla-beállítások → Gemini API-kulcs (`invoice_settings`); elavult modellnél a fiók listájából a legújabb „flash”-t választja és megjegyzi. Kulcs nélkül a régi (Beállítások → AI) szolgáltató.
+- **DB**: `db/2026-10_v2.56_ingredient_aliases.sql` — staging automatikus, **PROD: Csongor** (tábla nélkül a bevételezés működik, csak nem tanul). EF: `admin-data` whitelist bővült (PROD promóciókor deploy).
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
