@@ -41,3 +41,9 @@ SELECT c.relname AS tabla, c.relrowsecurity AS rls_on,
        (SELECT count(*) FROM public.ingredient_aliases) AS sorok
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname = 'ingredient_aliases';
+
+\echo '--- v2.56.1: settings — RLS szabályok és a mentéshez használt sorok megléte (értéket NEM listáz) ---'
+SELECT policyname, cmd, roles::text, left(coalesce(qual,''),160) AS qual, left(coalesce(with_check,''),160) AS with_check
+FROM pg_policies WHERE schemaname='public' AND tablename='settings' ORDER BY cmd, policyname;
+SELECT k AS kulcs, EXISTS (SELECT 1 FROM public.settings s WHERE s.key = k) AS letezik
+FROM unnest(ARRAY['recipe_ai_settings','recipe_financial_settings','recipe_baking_settings','invoice_settings','invoice_vision_model']) AS k;

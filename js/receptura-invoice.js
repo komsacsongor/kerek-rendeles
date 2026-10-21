@@ -25,25 +25,22 @@ const _INV_GROQ_VISION = ['qwen/qwen3.8-27b', 'qwen/qwen3.6-27b', 'meta-llama/ll
 const _INV_VISION_DEFAULT = { groq: _INV_GROQ_VISION[0], openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514', gemini: 'gemini-2.5-flash' };
 const _INV_GEMINI_DEFAULT = 'gemini-2.5-flash';
 
-// v2.56.0: számla-beállítások (settings: invoice_settings) — Gemini kulcs a számlákhoz, ÁFA-fizető cég
-function _invCfg(){ return R.settings?.invoice || {}; }
-function _invVatPayer(){ return _invCfg().companyVatPayer !== false; }   // alapértelmezés: ÁFA-fizető
+// v2.56.1: a számla-AI a közös Beállítások → AI alól jön (kulcs szolgáltatónként, külön számla-szolgáltató);
+// az ÁFA-fizetés a Pénzügyi beállításokból
+function _invVatPayer(){ return R.settings?.companyVatPayer !== false; }   // alapértelmezés: ÁFA-fizető
 function _invAiInfo(){
-  const c = _invCfg();
-  if(c.geminiKey) return { provider:'gemini', apiKey:c.geminiKey, model:c.geminiModel || _INV_GEMINI_DEFAULT, label:'Gemini' };
-  const provider = R.settings?.aiProvider || 'anthropic';
-  return { provider, apiKey:R.settings?.apiKey, model:null, label:provider };
+  const S = R.settings || {};
+  const provider = S.invoiceProvider || S.aiProvider || 'anthropic';
+  const apiKey = (S.aiKeys || {})[provider] || (provider === S.aiProvider ? S.apiKey : '');
+  const sameAsRecipe = !S.invoiceProvider || S.invoiceProvider === S.aiProvider;
+  const label = { gemini:'Gemini', groq:'Groq', anthropic:'Claude', openai:'OpenAI', custom:'egyéni' }[provider] || provider;
+  return { provider, apiKey, model: S.invoiceModel || null, sameAsRecipe, label };
 }
-async function invSaveSettings(){
-  const key = document.getElementById('inv-gemini-key')?.value?.trim() || '';
-  const vat = !!document.getElementById('inv-vat-payer')?.checked;
-  const prev = _invCfg();
-  R.settings.invoice = { ...prev, geminiKey:key, companyVatPayer:vat, geminiModel: key && key===prev.geminiKey ? prev.geminiModel : '' };
-  try { await sb.setSetting('invoice_settings', R.settings.invoice); toast('✅ Számla-beállítások mentve.'); }
-  catch(e){ toast('⚠️ Mentés sikertelen: '+e.message, true); }
-  renderInvoiceIntake();
+// a menet közben választott új modellt a közös AI-beállításba menti (meglévő sor frissítése)
+function _invRememberModel(m){
+  R.settings.invoiceModel = m;
+  try { if(typeof persistAiSettings === 'function') Promise.resolve(persistAiSettings()).catch(e => console.warn('AI beállítás mentés:', e.message)); } catch(e){}
 }
-function _invSaveCfgQuiet(){ try { Promise.resolve(sb.setSetting('invoice_settings', R.settings.invoice)).catch(e=>console.warn('invoice_settings:', e.message)); } catch(e){} }
 function invBackToStock(){ nav('stock'); }
 function invOpenLaterCost(){ nav('invoice-intake'); invLaterCostOpen(); }
 function invSetMode(m){ _INV.mode = m; renderInvoiceIntake(); }
@@ -55,7 +52,7 @@ function _invNum(v){ if(v==null) return 0; if(typeof v==='number') return v; con
 function renderInvoiceIntake(){
   const host = document.getElementById('view-invoice-intake');
   if(!host) return;
-  const ai = _invAiInfo(), c = _invCfg();
+  const ai = _invAiInfo();
   const hasKey = !!ai.apiKey;
   const mode = _INV.mode || 'file';
   const tab = (m, lbl) => `<button class="btn btn-sm ${mode===m?'btn-primary':'btn-ghost'}" onclick="invSetMode('${m}')">${lbl}</button>`;
@@ -80,20 +77,11 @@ function renderInvoiceIntake(){
           <div style="font-weight:600;color:var(--teal-dark)">Kattints ide a számla feltöltéséhez</div>
           <div style="font-size:0.76rem;color:var(--text-soft);margin-top:4px">PDF (szöveges vagy szkennelt) vagy fotó (JPG/PNG, több oldal = több kép egyszerre) · RO / EN / HU</div>
         </div>`}
-      ${!hasKey ? `<div style="margin-top:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;font-size:0.8rem;color:#9a3412">⚠️ Nincs AI-kulcs. Add meg lent a Gemini kulcsot (ajánlott), vagy a <b>Beállítások → AI</b> alatt.</div>` : ''}
-      <div style="margin-top:10px;font-size:0.72rem;color:var(--text-soft)">Kiolvasás: <b>${esc(ai.label)}</b>${ai.provider==='gemini'?` (${esc(ai.model)})`:(ai.provider==='groq'?' — fotóhoz a Gemini sokkal pontosabb (lásd lent)':'')} · Bekerülési érték: <b>${_invVatPayer()?'nettó (ÁFA-fizető cég)':'bruttó (nem ÁFA-fizető)'}</b></div>
-      <details style="margin-top:8px" ${hasKey?'':'open'}>
-        <summary style="font-size:0.76rem;color:var(--teal-dark);cursor:pointer;font-weight:600">⚙️ Számla-beállítások</summary>
-        <div style="margin-top:8px;display:grid;gap:10px">
-          <div><div style="font-size:0.72rem;color:var(--text-soft);margin-bottom:3px">Gemini API-kulcs (ingyenes: aistudio.google.com → Get API key)</div>
-            <input type="password" id="inv-gemini-key" value="${esc(c.geminiKey||'')}" placeholder="AIza…" autocomplete="off" style="width:100%;max-width:420px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.8rem;box-sizing:border-box"></div>
-          <label style="display:flex;gap:8px;align-items:center;font-size:0.8rem;cursor:pointer"><input type="checkbox" id="inv-vat-payer" ${_invVatPayer()?'checked':''} style="accent-color:var(--teal)"> A cég ÁFA-fizető (plătitor de TVA) → a készlet nettó áron kerül be</label>
-          <div><button class="btn btn-primary btn-sm" data-action="invSaveSettings">Mentés</button></div>
-        </div>
-        ${ai.provider!=='gemini' ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-          <input type="text" id="inv-vision-model" value="${esc(R.settings?.invoiceVisionModel || _INV_VISION_DEFAULT[ai.provider] || '')}" placeholder="képes modell azonosító" style="flex:1;max-width:320px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.76rem">
-          <button class="btn btn-ghost btn-sm" data-action="invSaveVisionModel">Képes modell mentése</button></div>`:''}
-      </details>
+      ${!hasKey ? `<div style="margin-top:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;font-size:0.8rem;color:#9a3412">⚠️ Nincs kulcs a számlákhoz választott AI-szolgáltatóhoz (${esc(ai.label)}). Add meg a <b>Beállítások → AI integráció</b> alatt (ajánlott: Google Gemini, ingyenes).</div>` : ''}
+      <div style="margin-top:10px;font-size:0.72rem;color:var(--text-soft);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span>Kiolvasás: <b>${esc(ai.label)}</b>${ai.model?` (${esc(ai.model)})`:''}${ai.provider==='groq'?' — fotóhoz a Gemini pontosabb':''} · Bekerülési érték: <b>${_invVatPayer()?'nettó (ÁFA-fizető cég)':'bruttó (nem ÁFA-fizető)'}</b></span>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:0.7rem" data-action="nav" data-arg1="settings-r">⚙️ Beállítások</button>
+      </div>
     </div>
 
     <div id="inv-status" style="display:none" class="card"></div>
@@ -102,13 +90,6 @@ function renderInvoiceIntake(){
 }
 
 function invPick(){ document.getElementById('inv-file')?.click(); }
-function invSaveVisionModel(){
-  const v = document.getElementById('inv-vision-model')?.value?.trim() || '';
-  R.settings.invoiceVisionModel = v;
-  try { sb.setSetting('invoice_vision_model', v); } catch(e){}
-  toast('✅ Vision modell mentve.');
-}
-
 function _invStatus(html, spin){
   const el = document.getElementById('inv-status');
   if(!el) return;
@@ -280,13 +261,11 @@ async function aiParseInvoice({text, images}){
   // v2.56.0: ha van Gemini kulcs a számla-beállításokban, a számlát a Gemini olvassa (szöveget és képet is)
   const ai = _invAiInfo();
   const apiKey = ai.apiKey, provider = ai.provider;
-  if(!apiKey) throw new Error('Nincs AI-kulcs — add meg a Gemini kulcsot a Számla-beállításokban.');
+  if(!apiKey) throw new Error(`Nincs kulcs a számlákhoz választott AI-szolgáltatóhoz (${ai.label}) — Beállítások → AI integráció.`);
   const _pd = {anthropic:'claude-sonnet-4-20250514',gemini:_INV_GEMINI_DEFAULT,groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
   const useVision = images && images.length>0;
-  let model = ai.model || R.settings?.aiModel || _pd[provider] || 'gpt-4o-mini';
-  if(useVision && !ai.model){
-    model = (R.settings?.invoiceVisionModel || _INV_VISION_DEFAULT[provider] || model);
-  }
+  // modell: a számlákhoz mentett → (ha ugyanaz a szolgáltató, mint a recepteknél) a recept-modell szöveghez → alapértelmezés
+  let model = ai.model || (useVision ? _INV_VISION_DEFAULT[provider] : ((ai.sameAsRecipe && R.settings?.aiModel) || _pd[provider])) || 'gpt-4o-mini';
   const promptText = _invPrompt() + (text ? `\n\nSZÁMLA SZÖVEGE:\n${text}` : '');
 
   const build = model => {
@@ -336,9 +315,7 @@ async function aiParseInvoice({text, images}){
       _invStatus(`A(z) „${esc(model)}” modell nem elérhető — próba: ${esc(m)}…`, true);
       res = await send(m);
       if(res.ok){
-        R.settings.invoiceVisionModel = m;
-        try { Promise.resolve(sb.setSetting('invoice_vision_model', m)).catch(e => console.warn('vision model save:', e.message)); } catch(e){}
-        const inp = document.getElementById('inv-vision-model'); if(inp) inp.value = m;
+        _invRememberModel(m);
         toast('ℹ️ Új képes AI-modell beállítva: ' + m);
         break;
       }
@@ -358,14 +335,14 @@ async function aiParseInvoice({text, images}){
     for(const m of cands.slice(0, 4)){
       _invStatus(`A(z) „${esc(model)}” modell nem elérhető — próba: ${esc(m)}…`, true);
       res = await send(m);
-      if(res.ok){ R.settings.invoice = { ..._invCfg(), geminiModel: m }; _invSaveCfgQuiet(); toast('ℹ️ Gemini modell beállítva: ' + m); break; }
+      if(res.ok){ _invRememberModel(m); toast('ℹ️ Gemini modell beállítva: ' + m); break; }
       t = await res.text();
     }
   }
   if(!res.ok){
-    if(provider==='gemini' && (res.status===400 || res.status===403) && /API key|API_KEY|permission/i.test(t)) throw new Error('A Gemini kulcs nem érvényes vagy nincs engedélyezve. Ellenőrizd a Számla-beállításokban. Részlet: '+t.slice(0,200));
+    if(provider==='gemini' && (res.status===400 || res.status===403) && /API key|API_KEY|permission/i.test(t)) throw new Error('A Gemini kulcs nem érvényes vagy nincs engedélyezve. Ellenőrizd: Beállítások → AI integráció. Részlet: '+t.slice(0,200));
     if(res.status===429) throw new Error('Az AI napi / percenkénti kerete elfogyott. Próbáld újra kicsit később. Részlet: '+t.slice(0,200));
-    if((res.status===400 || res.status===404) && useVision) throw new Error('A képes kiolvasás nem sikerült — nem találtam elérhető képes (vision) modellt, vagy a beállított nem jó. Ajánlott: Gemini kulcs a Számla-beállításokban. Részlet: '+t.slice(0,300));
+    if((res.status===400 || res.status===404) && useVision) throw new Error('A képes kiolvasás nem sikerült — nem találtam elérhető képes (vision) modellt, vagy a beállított nem jó. Ajánlott: Google Gemini a számlákhoz (Beállítások → AI integráció). Részlet: '+t.slice(0,300));
     throw new Error('AI hiba: '+res.status+' '+t.slice(0,300));
   }
   const data = await res.json();
@@ -660,7 +637,7 @@ function renderInvoiceReview(){
       <span>ÁFA</span><input type="number" step="0.1" min="0" id="inv-vat" value="${B.vat||''}" placeholder="pl. 11" onchange="invSetVat(this.value)" style="${inp};width:70px;text-align:right"><span>%</span>
       <span style="color:${B.unsure?'#9a3412':'var(--text-soft)'};font-size:0.74rem">${B.unsure?'⚠️ ':'✅ '}${esc(B.why||'')}</span>
     </div>
-    <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">Bekerülési érték: <b>${costLbl}</b> (${_invVatPayer()?'a cég ÁFA-fizető, az ÁFA visszaigényelhető':'nem ÁFA-fizető cég: az ÁFA a költség része'}) — Számla-beállításokban módosítható.${B.basis==='gross' && !(B.vat>0) ? ' <b style="color:#c0574e">Add meg az ÁFA-kulcsot!</b>':''}</div>
+    <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">Bekerülési érték: <b>${costLbl}</b> (${_invVatPayer()?'a cég ÁFA-fizető, az ÁFA visszaigényelhető':'nem ÁFA-fizető cég: az ÁFA a költség része'}) — Beállítások → Pénzügyi beállítások.${B.basis==='gross' && !(B.vat>0) ? ' <b style="color:#c0574e">Add meg az ÁFA-kulcsot!</b>':''}</div>
   </div>
 
   <div class="card">
@@ -1079,7 +1056,7 @@ async function invLaterCostCommit(){
 
 // globálisok (data-action rendszerhez)
 if(typeof window!=='undefined'){
-  Object.assign(window, { renderInvoiceIntake, invPick, invSaveVisionModel, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit,
+  Object.assign(window, { renderInvoiceIntake, invPick, handleInvoiceFile, aiParseInvoice, invSetIng, invSetQty, invSetTotal, invSetFx, invCommit,
     invSetManualExtra, invLaterCostOpen, lcSet, lcSelect, lcToggle, invLaterCostCommit, invConfirmIng, invSetSupplier, invSetNewSupName, invSetMeta,
-    handleInvoiceText, invSaveSettings, invBackToStock, invOpenLaterCost, invSetMode, invSetBasis, invSetVat });
+    handleInvoiceText, invBackToStock, invOpenLaterCost, invSetMode, invSetBasis, invSetVat });
 }

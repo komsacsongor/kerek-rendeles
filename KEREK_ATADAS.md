@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.56.0** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.1** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -87,7 +87,7 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **Mennyiség** a tételnévből („– 10kg × 1”).
 - **Bemenet**: 📷 Fotó / PDF vagy 📋 **Szöveg beillesztése** (webshop-rendelés).
 - **Nettó/bruttó**: felismerés az összesítőből (sorok összege = részösszeg → nettó; = végösszeg → bruttó), majd kulcsszó („fără TVA”/„cu TVA”), majd AI; az áttekintőn átállítható + ÁFA-kulcs. **Bekerülési érték**: ÁFA-fizető cég → nettó (alapértelmezés; Csongor: ÁFA-fizető), egyébként bruttó.
-- **Gemini** a számlákhoz: ⚙️ Számla-beállítások → Gemini API-kulcs (`invoice_settings`); elavult modellnél a fiók listájából a legújabb „flash”-t választja és megjegyzi. Kulcs nélkül a régi (Beállítások → AI) szolgáltató.
+- **AI-beállítás (v2.56.1)**: Beállítások → AI integráció — kulcs szolgáltatónként (Gemini, Groq, Anthropic, OpenAI), külön szolgáltató a **receptekhez** és a **számlákhoz**; minden a meglévő `recipe_ai_settings` sorban (a `settings` tábla RLS-e új sort nem enged — 42501). Elavult modellnél a fiók listájából újat választ, és ide menti. **ÁFA-fizető cég**: Pénzügyi beállítások.
 - **DB**: `db/2026-10_v2.56_ingredient_aliases.sql` — staging automatikus, **PROD: Csongor** (tábla nélkül a bevételezés működik, csak nem tanul). EF: `admin-data` whitelist bővült (PROD promóciókor deploy).
 
 ### C2 — admin / receptúra (következik)

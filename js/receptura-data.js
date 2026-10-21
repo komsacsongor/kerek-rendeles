@@ -242,13 +242,15 @@ async function initApp() {
 
   // Supabase-ből tölt minden beállítást
   const settingLoads = [
-    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
-    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object'){ const { invoice, ...rest } = v; Object.assign(R.settings,rest); } }], // v2.56.0: a számla-beállítás saját kulcsból jön
+    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||'';
+      // v2.56.1: kulcs szolgáltatónként + külön számla-szolgáltató; régi formátumnál a meglévő kulcs a saját szolgáltatójához kerül
+      R.settings.aiKeys = (v.keys && typeof v.keys==='object') ? { ...v.keys } : {};
+      if(v.apiKey && !R.settings.aiKeys[R.settings.aiProvider]) R.settings.aiKeys[R.settings.aiProvider] = v.apiKey;
+      R.settings.invoiceProvider = v.invoiceProvider || ''; R.settings.invoiceModel = v.invoiceModel || ''; } }],
+    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings, settingsWithoutAi(v)); }], // v2.56.1: régi mentésben benne maradt AI-kulcs ne írja felül a frisset
     ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
     ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
     ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
-    ['invoice_settings', v=>{ if(v&&typeof v==='object') R.settings.invoice=v; }], // v2.56.0: Gemini kulcs (számla), ÁFA-fizető cég
-    ['invoice_vision_model', v=>{ if(typeof v==='string' && v.trim()) R.settings.invoiceVisionModel=v.trim(); }], // v2.55.4: eddig mentődött, de be nem töltődött
   ];
   await Promise.all(settingLoads.map(async ([key, apply]) => {
     try { const val = await sb.getSetting(key); if(val!==null) apply(val); }
