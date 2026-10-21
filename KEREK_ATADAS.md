@@ -7,7 +7,7 @@
 
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
-| **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
+| **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
 | **Staging** | **v2.56.2** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
@@ -91,7 +91,7 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **DB**: `db/2026-10_v2.56_ingredient_aliases.sql` — staging automatikus, **PROD: Csongor** (tábla nélkül a bevételezés működik, csak nem tanul). EF: `admin-data` whitelist bővült (PROD promóciókor deploy).
 
 ### v2.56.2 — beállítás-mentés (2026-10-21)
-- Staging-ellenőrzés: a `settings` táblán **csak** `settings_anon_select` (SELECT) policy van → a böngészőből semmilyen beállítás nem mentődött (receptúra: AI, pénzügyi, sütési, kategóriák; admin: kategóriák, sütési napok, súgó, fejléc-szöveg). Most az `admin-data` EF-en át ír (modul-jelszóval). **PROD**: ellenőrizni kell, ott is így van-e (promóciókor az EF-et is telepíteni kell, különben a mentés PROD-on is a régi úton megy).
+- Staging-ellenőrzés: a `settings` táblán **csak** `settings_anon_select` (SELECT) policy van → a böngészőből semmilyen beállítás nem mentődött (receptúra: AI, pénzügyi, sütési, kategóriák; admin: kategóriák, sütési napok, súgó, fejléc-szöveg). Most az `admin-data` EF-en át ír (modul-jelszóval). **PROD**: ugyanígy volt (Csongor lekérdezése 2026-10-21) → **hotfix élesítve** (main `b9e2bdc` EF + `e98d9ed` kliens, v2.53.94-hotfix). Élesítés után a fontos beállításokat (admin-kategóriák, súgó, vevő-fejléc, receptúra pénzügyi/sütési) egyszer újra menteni kell.
 - Staging: a `recipe_financial_settings` és `recipe_baking_settings` sor nem létezett — első mentéskor létrejön.
 
 ### C2 — admin / receptúra (következik)
