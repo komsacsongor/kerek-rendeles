@@ -2,7 +2,7 @@
 // KEREK – Közös konstansok
 // Betöltési sorrend: kerek-constants.js → supabase.js → oldal JS
 // ============================================================
-const APP_VERSION = 'v2.56.4-sec (2026-10-21)';
+const APP_VERSION = 'v2.56.5-sec (2026-10-21)';
 
 // Helyi dátum YYYY-MM-DD formátumban (NEM toISOString, ami UTC → éjfél környékén téves nap)
 function localToday() {
@@ -282,6 +282,9 @@ function isProductAvailableOnDay(product, day, dow, exForMonth) {
 }
 
 // ===== v2.55.0: biztonsági kérdések (a vevo-auth EF csak az azonosítót tárolja) =====
+// v2.56.5: PIN-átállás határideje (a belépő felület üzenete). Ugyanez a dátum a vevo-auth EF-ben: LEGACY_EMAIL_UNTIL —
+// eddig a még PIN nélküli vevő e-maillel (PIN nélkül) is beléphet, és a rendszer végigvezeti a beállításon.
+const VEVO_PIN_DEADLINE = '2026-11-30';
 const SEC_QUESTIONS = {
   1: 'Mi volt az első mobiltelefonod márkája és típusa?',
   2: 'Mi volt az első munkahelyed neve?',

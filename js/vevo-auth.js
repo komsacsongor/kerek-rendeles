@@ -319,8 +319,24 @@ async function setupSave() {
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Mentés ✓'; } }
 }
 
+// v2.56.5: tájékoztató a belépő felületen — a még PIN nélküli vevők állítsák be a PIN-t
+function renderPinNotice() {
+  const box = document.getElementById('pin-notice'); if (!box) return;
+  const dl = (typeof VEVO_PIN_DEADLINE !== 'undefined') ? VEVO_PIN_DEADLINE : '';
+  const until = dl ? Date.parse(dl + 'T23:59:59+02:00') : 0;
+  const d = dl ? new Date(dl + 'T12:00:00') : null;
+  const dlText = d ? d.toLocaleDateString('hu-HU', { month: 'long', day: 'numeric' }).replace(/\.$/, '') : '';   // „november 30-ig”
+  box.innerHTML = (until && Date.now() <= until)
+    ? `<b>🔐 Új, biztonságosabb belépés:</b> e-mail cím + 4 jegyű PIN-kód.<br>
+       <b>Még nincs PIN-ed?</b> Írd be az e-mail címed, a PIN-t hagyd üresen, és nyomd meg a <b>Belépés</b> gombot — 1 perc alatt beállítod a PIN-t és 2 biztonsági kérdést.
+       <span style="display:block;margin-top:4px"><b>${dlText}-ig</b> állítsd be, utána csak PIN-nel lehet belépni.</span>`
+    : `<b>🔐 Belépés:</b> e-mail cím + 4 jegyű PIN-kód. <b>Még nincs PIN-ed?</b> Kérj ideiglenes PIN-t a pékségtől, és belépéskor állítsd be a sajátodat.`;
+  box.style.display = 'block';
+}
+
 // ---------- indítás ----------
 function vevoAuthInit() {
+  renderPinNotice();
   // v2.55.1: bármely mező szerkesztésekor eltűnik a korábbi hibaüzenet
   document.querySelector('#login-screen .login-card')?.addEventListener('input', e => { if (!e.target.closest('.pinbox')) _showLoginError(''); });
   document.getElementById('setup-sheet')?.addEventListener('input', () => setupErr(''));

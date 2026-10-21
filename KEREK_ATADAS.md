@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
-| **Staging** | **v2.56.4** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.5** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -44,7 +44,7 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 ### C1 — vevői oldal: KÉSZ (staging, v2.55.0) — tesztre vár
 - **Belépés a szerveren** (`vevo-auth` EF): kód VAGY e-mail + PIN; név szerinti belépés megszűnt; aláírt token („Maradjak bejelentkezve” 90 nap, egyébként 12 óra). A böngésző NEM tölti le a vevőlistát.
 - **Saját adatok** (`vevo-data` EF): rendelés, állapot, üzenet, állandó rendelés, push — a tokenre szűkítve; a **határidőt és a lezárt napokat a szerver is ellenőrzi** (lezárt nap sorait kihagyja), a vevő nem írhat admin-üzenetet, nem állíthat fulfilled/cancelled státuszt.
-- **Meglévő vevők**: belépés után kötelező pop-up (adatok → PIN → 2 kérdés), „Később” nincs. **Átmenet**: a még PIN nélküli fiók **2026-10-31-ig** e-maillel (PIN nélkül) is beléphet — utána csak kóddal (`LEGACY_EMAIL_UNTIL`, vevo-auth).
+- **Meglévő vevők**: belépés után kötelező pop-up (adatok → PIN → 2 kérdés), „Később” nincs. **Átmenet**: a még PIN nélküli fiók **2026-11-30-ig** (v2.56.5-ben kitolva) e-maillel (PIN nélkül) is beléphet — utána csak kóddal (`LEGACY_EMAIL_UNTIL`, vevo-auth).
 - **Új vevők**: regisztráció 2 lépésben (név/e-mail/telefon kötelező → PIN + 2 kérdés), a kódot a szerver generálja. `register.html` → átirányít.
 - **Helyreállítás**: e-mail → saját 2 kérdés → új PIN (napi 3 próba; a 3. után admin-push). Ismeretlen e-mailre is „kérdések” jönnek (nem derül ki, kinek van fiókja).
 - **Admin**: vevő-kártyán PIN-állapot, „PIN törlése”, hibás-helyreállítás figyelmeztetés, összesítő + szűrő; **előnézet** csak olvasható, 30 perces tokennel (a nyitott `?preview=ID` megszűnt); admin-jog jelzés javítva (`is_admin` a leképezésben).
@@ -56,7 +56,7 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 ### C1 javítás — v2.55.1 (Csongor tesztje alapján, 2026-10-08)
 - **Belépés csak e-mail + 4 jegyű PIN** (a kód már nem belépési adat, csak belső azonosító); a 4. számjegy után automatikus belépés.
 - **Ideiglenes PIN** (admin, 🔑 a vevő-kártyán): 4 jegy, 7 napig; a vevő belépéskor köteles újat választani (`must_change`, `temp_pin_until`). A „PIN törlése” megszűnt.
-- Átmenet: PIN nélküli fiók 2026-10-31-ig e-maillel PIN nélkül is beléphet (→ kötelező beállítás); utána ideiglenes PIN kell.
+- Átmenet: PIN nélküli fiók 2026-11-30-ig (v2.56.5) e-maillel PIN nélkül is beléphet (→ kötelező beállítás); utána ideiglenes PIN kell.
 - Hibák javítva: hosszú űrlap görgethető; PIN-dobozban a kurzor mindig a végén (visszatörlés); a hibaüzenet eltűnik szerkesztéskor és sikernél; siker-képernyő „Vissza a belépéshez” gombbal; **regisztráció visszavonódik, ha a PIN nem mentődött** (eddig csendben „sikeres” lett — Suba Ernő esete).
 - **Ok (DB-ellenőrzés 2026-10-08):** a `client_auth` tábla sem stagingen, sem PROD-on NEM létezett → `db/2026-10_v2.55.1_vevo_auth_temp_pin.sql` (a tábla + új oszlopok, egyben) — **STAGING és PROD**.
 - DB: **staging SQL automatikus** (`db-staging.yml` + csak olvasó `db/checks/staging.sql`, 2026-10-20); PROD-ot Csongor futtatja. Kézi gyors-ellenőrzés: `db-check.yml`.

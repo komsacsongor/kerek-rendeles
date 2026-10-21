@@ -19,7 +19,7 @@ import {
 } from '../_shared/vevo.ts'
 
 // Az átmeneti időszak végéig a még PIN nélküli fiók e-maillel (PIN nélkül) is beléphet — utána ideiglenes PIN kell (admin).
-const LEGACY_EMAIL_UNTIL = Date.parse('2026-10-31T23:59:59+02:00')
+const LEGACY_EMAIL_UNTIL = Date.parse('2026-11-30T23:59:59+02:00') // v2.56.5: PROD-élesítés + kb. 5 hét; a kliensben: VEVO_PIN_DEADLINE
 const DAY = 86400000
 const PIN_LOCK_AFTER = 3, PIN_LOCK_MS = 15 * 60000, REC_PER_DAY = 3
 
