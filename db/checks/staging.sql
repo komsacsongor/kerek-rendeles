@@ -97,3 +97,27 @@ SELECT date, SUM(pieces_actual) FILTER (WHERE log_type IN ('order', 'extra')) AS
        count(DISTINCT batch_no) AS batch, SUM(trays_used) AS talca, max(bake_minutes) AS max_perc, count(DISTINCT oven_id) AS suto,
        round(SUM(total_cost) FILTER (WHERE log_type = 'customer')::numeric, 2) AS anyag_lej
 FROM public.production_logs GROUP BY date ORDER BY date DESC LIMIT 25;
+
+-- ============================================================
+-- Számla-bevételezés diagnózis (2026-10-21): dupla alapanyag / dupla tétel
+-- ============================================================
+\echo '--- SZÁMLA 1) azonos nevű alapanyagok (normalizálva) ---'
+SELECT lower(trim(name)) AS nev, count(*) AS db, array_agg(id ORDER BY id) AS idk, array_agg(coalesce(category,'-') ORDER BY id) AS kat
+FROM public.ingredients GROUP BY 1 HAVING count(*) > 1 ORDER BY 1;
+
+\echo '--- SZÁMLA 2) legutóbb létrehozott alapanyagok ---'
+SELECT id, left(name, 30) AS nev, category, unit, created_at FROM public.ingredients ORDER BY id DESC LIMIT 25;
+
+\echo '--- SZÁMLA 3) számla-bevételezések (legutóbbi 40 tétel) ---'
+SELECT b.id, b.ingredient_id AS ing, left(i.name, 24) AS alapanyag, b.received_date AS datum, b.qty_received_g AS g,
+       round((b.price_per_g * 1000)::numeric, 2) AS lej_kg, left(b.supplier_name, 20) AS beszallito, b.invoice_number AS szamla,
+       to_char(b.created_at, 'MM-DD HH24:MI:SS') AS letrehozva, left(b.notes, 50) AS megj
+FROM public.ingredient_batches b LEFT JOIN public.ingredients i ON i.id = b.ingredient_id
+WHERE b.source_type = 'invoice' ORDER BY b.created_at DESC, b.id DESC LIMIT 40;
+
+\echo '--- SZÁMLA 4) tanult párosítások ---'
+SELECT supplier_key, raw_key, ingredient_id, to_char(updated_at, 'MM-DD HH24:MI') AS frissitve FROM public.ingredient_aliases ORDER BY updated_at DESC LIMIT 30;
+
+\echo '--- SZÁMLA 5) audit: számla-bevételezések ---'
+SELECT to_char(created_at, 'MM-DD HH24:MI:SS') AS ido, action, left(entity_name, 24) AS ki, left(details, 80) AS reszlet
+FROM public.audit_log WHERE action LIKE 'invoice%' ORDER BY created_at DESC LIMIT 15;
