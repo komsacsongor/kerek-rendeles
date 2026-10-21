@@ -246,30 +246,25 @@ async function recordLevainBatch(totalG) {
   try {
     const today = new Date();
     const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    await kData.insert('ingredient_batches', {
+    // v2.56.3: a levain ára a képletből (liszt + víz) — eddig 0 lej/g-mal került készletre, így a gyártási önköltségből kimaradt
+    const ppg = (typeof levainCostPerG === 'function') ? (levainCostPerG(true).ppg || 0) : 0;
+    const row = {
       ingredient_id: 105,
       received_date: dateStr,
       qty_received_g: totalG,
       qty_remaining_g: totalG,
-      price_per_g: 0,
+      price_per_g: ppg,
       supplier_name: 'Saját előállítás',
       source_type: 'processing',
       notes: 'Napi levain – ' + dateStr
-    });
-    // Update local R.batches
+    };
+    const ins = await kData.insert('ingredient_batches', row);
+    // v2.56.3: a DB-sor (ID-val) kerül a helyi állapotba — ID nélkül a gyártás FIFO-levonása kihagyta (újratöltésig)
+    const saved = Array.isArray(ins) ? ins[0] : ins;
     if (!R.batches) R.batches = [];
-    R.batches.push({
-      ingredientId: 105,
-      receivedDate: dateStr,
-      qtyReceivedG: totalG,
-      qtyRemainingG: totalG,
-      pricePerG: 0,
-      supplierName: 'Saját előállítás',
-      sourceType: 'processing',
-    });
-    // Update ingredient totalStockG
-    const ing = R.ingredients?.find(i => i.id === 105);
-    if (ing) ing.totalStockG = (ing.totalStockG || 0) + totalG;
+    R.batches.push((typeof mapBatchRow === 'function') ? mapBatchRow(saved && saved.id != null ? saved : row) : { ingredientId: 105, receivedDate: dateStr, qtyReceivedG: totalG, qtyRemainingG: totalG, pricePerG: ppg, supplierName: 'Saját előállítás', sourceType: 'processing' });
+    if (typeof recomputeIngredientStock === 'function') recomputeIngredientStock();
+    else { const ing = R.ingredients?.find(i => i.id === 105); if (ing) ing.totalStockG = (ing.totalStockG || 0) + totalG; }
     toast(`✅ ${totalG.toLocaleString()}g kész levain rögzítve!`);
   } catch(e) { toast('⚠️ Hiba: ' + e.message, true); }
 }

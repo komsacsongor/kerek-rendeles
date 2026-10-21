@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
-| **Staging** | **v2.56.2** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.3** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -93,6 +93,11 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 ### v2.56.2 — beállítás-mentés (2026-10-21)
 - Staging-ellenőrzés: a `settings` táblán **csak** `settings_anon_select` (SELECT) policy van → a böngészőből semmilyen beállítás nem mentődött (receptúra: AI, pénzügyi, sütési, kategóriák; admin: kategóriák, sütési napok, súgó, fejléc-szöveg). Most az `admin-data` EF-en át ír (modul-jelszóval). **PROD**: ugyanígy volt (Csongor lekérdezése 2026-10-21) → **hotfix élesítve** (main `b9e2bdc` EF + `e98d9ed` kliens, v2.53.94-hotfix). Élesítés után a fontos beállításokat (admin-kategóriák, súgó, vevő-fejléc, receptúra pénzügyi/sütési) egyszer újra menteni kell.
 - Staging: a `recipe_financial_settings` és `recipe_baking_settings` sor nem létezett — első mentéskor létrejön.
+
+### v2.56.3 — önköltség egységesítés (2026-10-21)
+- Egy számolás (`calcRecipeCost` → `calcRecipeMaterial`): recept költség-fül, receptlista, Önköltség elemzés, batch-tervező és gyártás ugyanazt használja, a gyártás levonásával azonos szorzóval. Levain: készletár vagy képlet (barnarizs liszt + víz). Napi levain-rögzítés árral.
+- Önköltség elemzés: nyersanyag/db, önköltség/db (10 db-os sütés), javasolt bruttó ár, fedezet a nettó árból, teli sütős önköltség; **hiányzó adatok** (összetevő nélküli receptek, ár nélküli alapanyagok, levain, rezsi/sütő).
+- Staging-adat (2026-10-21): 14 aktív receptből 3-nak van összetevője; sok ár hiányzik; sütő nincs felvéve.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
