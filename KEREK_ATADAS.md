@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94 | kurált promóciók — main és staging divergál |
-| **Staging** | **v2.56.1** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.2** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 
@@ -89,6 +89,10 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - **Nettó/bruttó**: felismerés az összesítőből (sorok összege = részösszeg → nettó; = végösszeg → bruttó), majd kulcsszó („fără TVA”/„cu TVA”), majd AI; az áttekintőn átállítható + ÁFA-kulcs. **Bekerülési érték**: ÁFA-fizető cég → nettó (alapértelmezés; Csongor: ÁFA-fizető), egyébként bruttó.
 - **AI-beállítás (v2.56.1)**: Beállítások → AI integráció — kulcs szolgáltatónként (Gemini, Groq, Anthropic, OpenAI), külön szolgáltató a **receptekhez** és a **számlákhoz**; minden a meglévő `recipe_ai_settings` sorban (a `settings` tábla RLS-e új sort nem enged — 42501). Elavult modellnél a fiók listájából újat választ, és ide menti. **ÁFA-fizető cég**: Pénzügyi beállítások.
 - **DB**: `db/2026-10_v2.56_ingredient_aliases.sql` — staging automatikus, **PROD: Csongor** (tábla nélkül a bevételezés működik, csak nem tanul). EF: `admin-data` whitelist bővült (PROD promóciókor deploy).
+
+### v2.56.2 — beállítás-mentés (2026-10-21)
+- Staging-ellenőrzés: a `settings` táblán **csak** `settings_anon_select` (SELECT) policy van → a böngészőből semmilyen beállítás nem mentődött (receptúra: AI, pénzügyi, sütési, kategóriák; admin: kategóriák, sütési napok, súgó, fejléc-szöveg). Most az `admin-data` EF-en át ír (modul-jelszóval). **PROD**: ellenőrizni kell, ott is így van-e (promóciókor az EF-et is telepíteni kell, különben a mentés PROD-on is a régi úton megy).
+- Staging: a `recipe_financial_settings` és `recipe_baking_settings` sor nem létezett — első mentéskor létrejön.
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
