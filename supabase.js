@@ -155,6 +155,14 @@ const sb = {
 
   async setSetting(key, value) {
     const strVal = JSON.stringify(value);
+    // v2.56.2 hotfix: a settings táblát az anon kulcs CSAK OLVASHATJA (RLS: settings_anon_select) — az írás eddig csendben
+    // elveszett (meglévő sor: 0 sor frissül, hiba nélkül) vagy 42501-es hibát adott (új sor). Belépett modulból
+    // (admin / receptúra) a jelszóval védett admin-data EF-en át írunk.
+    if (typeof window !== 'undefined' && window._kerekPw && typeof kData !== 'undefined') {
+      const ex = await kData.query('settings', { select: 'key', filter: `key=eq.${encodeURIComponent(key)}`, limit: 1 });
+      if (ex && ex.length) return kData.update('settings', { value: strVal }, `key=eq.${encodeURIComponent(key)}`);
+      return kData.insert('settings', { key, value: strVal });
+    }
     try {
       const existing = await this.query('settings', { filter: `key=eq.${key}` });
       if (existing.length > 0) {
