@@ -5,7 +5,7 @@ describe('invDictLookup — vrac-magazin rendelés', () => {
   const cases = [
     ['Hrișcă decorticată – 10kg × 1', 'Hajdina'],
     ['Mei decorticat – 5kg × 1', 'Köles'],
-    ['Orez pentru Sushi – 5kg × 1', 'Rizs'],
+    ['Orez pentru Sushi – 5kg × 1', 'Sushi rizs'],
     ['Orez brun, natur – 10kg × 1', 'Barna rizs'],
     ['Făină de năut – 5kg × 1', 'Csicseriborsóliszt'],
     ['Eritritol – 5kg × 1', 'Eritrit'],

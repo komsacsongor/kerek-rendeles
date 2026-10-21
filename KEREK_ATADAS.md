@@ -8,7 +8,7 @@
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
 | **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
-| **Staging** | **v2.56.3** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+| **Staging** | **v2.56.4** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
 

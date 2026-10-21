@@ -467,15 +467,32 @@ function _invQtyFromName(raw){
   const base = Math.round(n * f * mul * 1000) / 1000;
   return { base, kg: (u==='kg'||u==='g'||u==='gr') ? base/1000 : 0, unit: (u==='l'||u==='ml') ? 'l' : 'kg' };
 }
-// alapanyag a (szótárbeli) magyar név alapján: pontos (zárójel nélkül) → ezzel kezdődő / ezt tartalmazó legrövidebb
+// alapanyag a (szótárbeli) magyar név alapján: pontos (zárójel nélkül) → ezt tartalmazó legrövidebb
+// v2.56.4: a tartalmazó találat NEM lehet más FORMÁJÚ termék — „Hajdina” ≠ „Világos hajdina liszt” (liszt / pehely /
+// keményítő / olaj / dara / őrölt …, ha a keresett névben nincs benne)
+const _INV_FORM_WORDS = ['liszt','pehely','pelyhek','kemenyito','olaj','dara','orolt','por','krem','szirup','ecet','puffasztott','csira','tej','vaj','lecitin','feherje','izolatum','rost','korpa','kasa','teszta','granola','muzli'];
+function _invNameKey(x){ return (x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,'').replace(/[^a-z0-9]/g,''); }
 function _invIngByName(hu){
-  const n = (x) => (x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,'').replace(/[^a-z0-9]/g,'');
+  const n = _invNameKey;
   const k = n(hu); if(!k) return null;
   const list = R.ingredients || [];
   const ex = list.find(i => n(i.name) === k); if(ex) return { ing: ex, exact: true };
-  const part = list.filter(i => { const a = n(i.name); return a.length >= 3 && (a.startsWith(k) || a.includes(k)); })
+  const formOk = name => { const a = n(name); return !_INV_FORM_WORDS.some(w => a.includes(w) && !k.includes(w)); };
+  const part = list.filter(i => { const a = n(i.name); return a.length >= 3 && a.includes(k) && formOk(i.name); })
     .sort((a, b) => n(a.name).length - n(b.name).length);
   return part.length ? { ing: part[0], exact: false } : null;
+}
+// pontos névegyezés (zárójeles kiegészítés nélkül) — helyben, majd a DB-ben is (más eszközön létrehozott)
+async function _invFindIngByExactName(name){
+  const k = _invNameKey(name); if(!k) return null;
+  const local = (R.ingredients||[]).find(i => _invNameKey(i.name) === k);
+  if(local) return local;
+  try {
+    const rows = await kData.query('ingredients', { select:'id,name,category,sub_type,unit,material_type', filter:`name=ilike.${encodeURIComponent(String(name).trim())}*`, limit:10 }) || [];
+    const r = rows.find(x => _invNameKey(x.name) === k);
+    if(r){ const o = { id:r.id, name:r.name, cat:r.category, subType:r.sub_type, unit:r.unit||'g', materialType:r.material_type||'raw', suppliers:[], totalStockG:0, fifoPrice:0, avgPrice:0, basePriceG:0, notes:'' }; R.ingredients.push(o); return o; }
+  } catch(e) { console.warn('alapanyag név-ellenőrzés:', e.message); }
+  return null;
 }
 // tanult párosítások (ingredient_aliases tábla); ha a tábla még nincs, üres
 async function _invLoadAliases(force){
@@ -794,9 +811,20 @@ function invSetManualExtra(v, cur){
 }
 
 // ---------- VÉGLEGESÍTÉS ----------
+// v2.56.4: a zár AZONNAL bekapcsol — eddig csak az ellenőrző lekérdezések után, így a dupla kattintás
+// két párhuzamos bevételezést indított (staging 2026-10-21: 10 sorból 15 tétel, 2 dupla alapanyag)
 async function invCommit(){
   if(_INV.busy) return;
+  _INV.busy = true;
   const btn = document.getElementById('inv-commit-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Ellenőrzés…'; }
+  let started = false;
+  try { started = await _invCommitRun(btn); }
+  finally {
+    if(!started){ _INV.busy = false; if(btn && document.body.contains(btn)){ btn.disabled = false; btn.textContent = '✅ Bevételezés véglegesítése'; } }
+  }
+}
+async function _invCommitRun(btn){
   const meta = _INV.meta || {};
   const invNo = (meta.invNo||'').toString().trim();
   const recDate = /^\d{4}-\d{2}-\d{2}$/.test(meta.date||'') ? meta.date : localToday();
@@ -821,7 +849,7 @@ async function invCommit(){
     }catch(e){ /* tovább */ }
   }
 
-  _INV.busy = true; if(btn){ btn.disabled=true; btn.textContent='⏳ Bevételezés…'; }
+  if(btn){ btn.textContent='⏳ Bevételezés…'; }
   try{
     // 1) Beszállító
     // v2.55.3: meglévő beszállítónál a TÖRZSADATBELI név kerül a tételre (eddig a számláról olvasott név)
@@ -843,6 +871,13 @@ async function invCommit(){
       if(ln.committed) continue; // v2.54.1: félbeszakadt bevételezés folytatása — a már rögzített sort kihagyjuk
       let ingId = ln.chosenIngId;
       // Új alapanyag
+      // v2.56.4: ha már van ilyen nevű alapanyag (pl. ugyanebben a számlában egy előző sor hozta létre, vagy
+      // közben más rögzítette), azt használjuk — nem jön létre dupla
+      if(ingId==='__new__'){
+        const ni0 = ln.newIng || _invSuggestNewIng(ln);
+        const ex = await _invFindIngByExactName(ni0.name);
+        if(ex){ ingId = String(ex.id); ln.chosenIngId = ingId; }
+      }
       if(ingId==='__new__'){
         const ni = ln.newIng || _invSuggestNewIng(ln);
         // v2.54.1: az ID a DB-ben lévő legnagyobb + 1 (a helyi lista hiányos lehet → ütközés)
@@ -905,6 +940,7 @@ async function invCommit(){
     console.error('invCommit:', e);
     toast('⚠️ Hiba a bevételezésnél: '+e.message, true);
   }
+  return true;   // a zárat innentől a fenti ág kezeli
 }
 
 // ---------- UTÓLAGOS KÖLTSÉG (v2.55.2) ----------

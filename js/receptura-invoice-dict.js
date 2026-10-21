@@ -47,6 +47,7 @@ const INV_DICT = [
   [['fulgi de quinoa', 'quinoa flakes'], 'Quinoapehely'],
   [['fulgi de orz', 'barley flakes'], 'Árpapehely'],
   [['fulgi de porumb', 'corn flakes', 'cornflakes'], 'Kukoricapehely'],
+  [['orez pentru sushi', 'orez sushi', 'sushi rice'], 'Sushi rizs'],
   [['orez brun', 'orez integral', 'brown rice'], 'Barna rizs'],
   [['orez', 'rice'], 'Rizs'],
   [['hrisca', 'buckwheat'], 'Hajdina'],
