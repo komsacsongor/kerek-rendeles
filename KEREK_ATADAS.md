@@ -1,4 +1,4 @@
-# KEREK – ÁTADÁS (2026-09-29)
+# KEREK – ÁTADÁS (2026-10-22)
 
 > **Ezt olvasd ELŐSZÖR** egy új session-ben (a `CLAUDE.md` után, a `KEREK_SKILL.md` előtt).
 > A jelenlegi állapotot és a következő lépéseket rögzíti.
@@ -7,7 +7,7 @@
 
 | Környezet | Verzió | Megjegyzés |
 |---|---|---|
-| **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
+| **Prod (main)** | **v2.56.5** | 2026-10-22 PROD PROMÓCIÓ (EF `156b847` + web `e8be0d7`); PROD SQL lefutott (4/4); main = staging |
 | **Staging** | **v2.56.5** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
 
 A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
@@ -98,6 +98,11 @@ A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felker�
 - Egy számolás (`calcRecipeCost` → `calcRecipeMaterial`): recept költség-fül, receptlista, Önköltség elemzés, batch-tervező és gyártás ugyanazt használja, a gyártás levonásával azonos szorzóval. Levain: készletár vagy képlet (barnarizs liszt + víz). Napi levain-rögzítés árral.
 - Önköltség elemzés: nyersanyag/db, önköltség/db (10 db-os sütés), javasolt bruttó ár, fedezet a nettó árból, teli sütős önköltség; **hiányzó adatok** (összetevő nélküli receptek, ár nélküli alapanyagok, levain, rezsi/sütő).
 - Staging-adat (2026-10-21): 14 aktív receptből 3-nak van összetevője; sok ár hiányzik; sütő nincs felvéve.
+
+### PROD PROMÓCIÓ v2.56.5 — 2026-10-22
+- Sorrend: PROD SQL (`db/PROD_2026-10_v2.56.5_elesites.sql`, Csongor, 4/4 ✅) → Edge Functionök (vevo-auth, vevo-data, bnr-rates, auto-confirm-orders, admin-data) → weboldal. A main fája = staging.
+- **Élesítés utáni teendők (Csongor)**: verzió ellenőrzése (v2.56.5) admin / receptúra / vevő; teszt-vevővel e-mail-belépés → PIN-beállítás → rendelés → PIN-es belépés; Beállítások → AI integráció (Gemini kulcs, számla-szolgáltató) és Pénzügyi (ÁFA-fizető) újramentése.
+- **PIN-átállás**: 2026-11-30-ig e-maillel is (→ kötelező beállítás); utána ideiglenes PIN (admin 🔑). 11 jóváhagyott vevő még PIN nélkül (staging-másolat szerint).
 
 ### C2 — admin / receptúra (következik)
 - `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.

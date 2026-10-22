@@ -430,10 +430,10 @@ Kiemelt: anti-spread DB (`kData.updateFields`), CSS központosítás (`kerek-sty
 
 ---
 
-## 19. Aktuális állapot (2026-09-29)
+## 19. Aktuális állapot (2026-10-22)
 
-- **Prod (main)**: v2.53.94
-- **Staging**: **v2.55.0** — számla-operátor, audit-javítások (A+B), **C1 biztonság: szerver-oldali vevő-belépés (PIN)**. Részletek, teendők: `KEREK_ATADAS.md`.
+- **Prod (main)**: **v2.56.5** — 2026-10-22 PROD PROMÓCIÓ, main = staging.
+- **Staging**: v2.56.5. Részletek, teendők: `KEREK_ATADAS.md`.
 
 ---
 
