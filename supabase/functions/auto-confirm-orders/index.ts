@@ -32,27 +32,54 @@ Deno.serve(async (_req) => {
     new Date(Date.UTC(year, month0, day - 1, 16, 0, 0))
   const mkKey = (c: string, y: number, m: number, d: number) => `${c}-${y}-${m}-${d}`
 
+  // v2.54.1: a PostgREST egy kérésre max ~1000 sort ad → lapozva olvasunk, és csak a releváns
+  // hónapokat (az elmúlt ~60 nap + holnap) nézzük; eddig 1000 sor fölött rendelések kimaradtak.
+  const months: Array<{year:number, month:number}> = []
+  for (let back = 60; back >= -1; back -= 1) {
+    const d = new Date(nowDate.getTime() - back * 86400000)
+    const ym = { year: d.getUTCFullYear(), month: d.getUTCMonth() }
+    if (!months.some(x => x.year === ym.year && x.month === ym.month)) months.push(ym)
+  }
+  const PAGE = 1000
+  async function fetchAll(table: string, cols: string, tieBreak?: string) {
+    const out: any[] = []
+    for (const { year, month } of months) {
+      for (let from = 0; ; from += PAGE) {
+        // stabil rendezés (egyedi kulcs szerint), hogy a lapozás ne hagyjon ki / duplázzon sort
+        let q = supabase.from(table).select(cols).eq('year', year).eq('month', month).order('client_id').order('day')
+        if (tieBreak) q = q.order(tieBreak)
+        const { data, error } = await q.range(from, from + PAGE - 1)
+        if (error) throw new Error(`${table}: ${error.message}`)
+        out.push(...(data || []))
+        if (!data || data.length < PAGE) break
+      }
+    }
+    return out
+  }
+
   // 1) Minden RENDELT nap (a rendelésekből — így a status-sor NÉLKÜLI rendelések is beleesnek)
-  const { data: orders, error: oErr } = await supabase
-    .from('orders').select('client_id,year,month,day')
-  if (oErr) return new Response(JSON.stringify({ error: oErr.message }), { status: 500 })
-  if (!orders || orders.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
+  let orders: any[], statuses: any[]
+  try {
+    orders = await fetchAll('orders', 'client_id,year,month,day,product_id', 'product_id')
+    statuses = await fetchAll('order_status', 'client_id,year,month,day,status,deadline')
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String((e as Error).message || e) }), { status: 500 })
+  }
+  if (orders.length === 0) return new Response(JSON.stringify({ confirmed: 0 }), { status: 200 })
 
   const orderedDays = new Map<string, {client_id:string,year:number,month:number,day:number}>()
   for (const o of orders) orderedDays.set(mkKey(o.client_id, o.year, o.month, o.day), o)
 
   // 2) Meglévő státuszok (kulcs → {status, deadline})
-  const { data: statuses, error: sErr } = await supabase
-    .from('order_status').select('client_id,year,month,day,status,deadline')
-  if (sErr) return new Response(JSON.stringify({ error: sErr.message }), { status: 500 })
   const stMap = new Map<string, {status:string, deadline:string|null}>()
-  for (const s of (statuses || [])) stMap.set(mkKey(s.client_id, s.year, s.month, s.day), { status: s.status, deadline: s.deadline })
+  for (const s of statuses) stMap.set(mkKey(s.client_id, s.year, s.month, s.day), { status: s.status, deadline: s.deadline })
 
   // 3) Lejárt, még le nem zárt rendelt napok → jóváhagyandók
   const toConfirm: Array<{client_id:string,year:number,month:number,day:number}> = []
   for (const [key, od] of orderedDays) {
     const st = stMap.get(key)
-    if (st && (st.status === 'confirmed' || st.status === 'cancelled')) continue // már lezárt
+    // v2.54.1: a már kisütött (fulfilled) napot se állítsa vissza confirmed-re (és ne küldjön újra push-t)
+    if (st && (st.status === 'confirmed' || st.status === 'cancelled' || st.status === 'fulfilled')) continue // már lezárt
     const dl = st?.deadline ? new Date(st.deadline) : defaultDeadline(od.year, od.month, od.day)
     if (dl <= nowDate) toConfirm.push(od)
   }

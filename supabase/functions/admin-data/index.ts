@@ -36,7 +36,8 @@ const ALLOWED: Record<string, Record<string, string[]>> = {
     recipe_ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
     ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
     ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
-    settings: ['GET', 'POST', 'PATCH'], // v2.56.2 hotfix: beállítás-írás (anon csak olvas)
+    ingredient_aliases: ['GET', 'POST', 'PATCH', 'DELETE'], // v2.56.0: számla-operátor tanult párosításai
+    settings: ['GET', 'POST', 'PATCH'], // v2.56.2: beállítás-írás (anon csak olvas)
   },
   admin: {
     recipes: ['GET', 'POST', 'PATCH', 'DELETE'],
@@ -44,7 +45,7 @@ const ALLOWED: Record<string, Record<string, string[]>> = {
     ingredients: ['GET', 'POST', 'PATCH', 'DELETE'],
     ingredient_batches: ['GET', 'POST', 'PATCH', 'DELETE'],
     audit_log: ['GET'],
-    settings: ['GET', 'POST', 'PATCH'], // v2.56.2 hotfix: beállítás-írás (anon csak olvas)
+    settings: ['GET', 'POST', 'PATCH'], // v2.56.2: beállítás-írás (anon csak olvas)
   },
   gyartas: {},
 }
