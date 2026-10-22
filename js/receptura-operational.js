@@ -1,6 +1,29 @@
 // ===== OPERATIONAL VIEW =====
 function renderOpSelect() {
-  document.getElementById('op-recipe-list').innerHTML = R.recipes.map(r=>`
+  const box = document.getElementById('op-recipe-list');
+  let html = '';
+  const batches = (typeof _batchPlan!=='undefined' && _batchPlan.batches) ? _batchPlan.batches.filter(b=>b.items.length) : [];
+  if (batches.length) {
+    html += `<div style="grid-column:1/-1"><h3 style="font-family:'Fraunces',serif;color:var(--teal-dark);margin:0 0 10px">🔥 Mai batchek — válaszd, mit sütsz</h3></div>`;
+    batches.forEach(b=>{
+      const oven=(R.equipment||[]).find(e=>e.id===b.ovenId);
+      const recipesHtml = b.items.map(it=>{ const r=(R.recipes||[]).find(x=>x.id===it.recipeId);
+        return `<button onclick="openOpDetailForBatch(${it.recipeId},${it.qty})" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:12px 14px;margin:6px 0;border:1.5px solid var(--teal);border-radius:12px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif;font-size:0.95rem"><span style="font-size:1.3rem">🍞</span><span style="flex:1"><b>${esc(r?.name||'?')}</b> <span style="color:var(--text-soft)">×${it.qty} db</span></span><span style="background:var(--teal);color:#fff;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700">▶ Sütés indítása</span></button>`;
+      }).join('');
+      html += `<div style="grid-column:1/-1;background:var(--teal-pale,#f0fdfa);border-radius:14px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:0.82rem;font-weight:700;color:var(--teal-dark);margin-bottom:2px">${esc(oven?.name||'?')} · batch #${b.id}</div>
+        ${recipesHtml}</div>`;
+    });
+    // ad-hoc receptek lenyíló mögé (ne floodolja kártyákkal)
+    html += `<details style="grid-column:1/-1;margin-top:8px"><summary style="cursor:pointer;color:var(--text-soft);font-size:0.85rem;padding:6px 0">➕ Vagy bármely recept (ad-hoc, batchen kívül)</summary>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${R.recipes.map(r=>`<button onclick="openOpDetail(${r.id})" style="text-align:left;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-family:'Kodchasan',sans-serif">${esc(r.name)} <span style="color:var(--text-soft);font-size:0.75rem">· ${esc(r.category||'')}</span></button>`).join('')}</div></details>`;
+    box.innerHTML = html;
+    box.style.display='block';
+    return;
+  }
+  // nincs batch → egyszerű recept-lista + tipp
+  html += `<div style="grid-column:1/-1;background:#fffbeb;border-radius:12px;padding:14px;margin-bottom:12px;font-size:0.85rem;color:#92400e">Nincs mai batch. Az <b>Előkészítés</b> lépésben oszd a termékeket sütőbe, vagy válassz alább egy receptet ad-hoc sütéshez.</div>`;
+  html += R.recipes.map(r=>`
     <div class="recipe-card" onclick="openOpDetail(${r.id})">
       <div class="recipe-card-img">🍞</div>
       <div class="recipe-card-body">
@@ -9,7 +32,14 @@ function renderOpSelect() {
         <div style="margin-top:8px"><button class="btn btn-gold btn-sm">👨‍🍳 Elkezdés</button></div>
       </div>
     </div>`).join('');
+  box.innerHTML = html;
 }
+function openOpDetailForBatch(recipeId, qty){
+  openOpDetail(recipeId);
+  // a batch mennyiségét állítsuk be a vezetett nézet skálázásához
+  setTimeout(()=>{ const el=document.getElementById('op-scale-pieces'); if(el){ el.value=qty; if(typeof renderOpDetail==='function') renderOpDetail(); } }, 60);
+}
+if(typeof window!=='undefined') window.openOpDetailForBatch=openOpDetailForBatch;
 
 let currentOpRecipeId = null;
 function openOpDetail(id) {
@@ -76,7 +106,7 @@ function renderOpDetail() {
       else dedupOp[k] = { displayName, scaled };
     });
     Object.values(dedupOp).forEach(item => {
-      html += `<div class="op-ing-item"><span>${item.displayName}</span><span class="op-ing-amount">${item.scaled} g</span></div>`;
+      html += `<label class="op-ing-item" style="cursor:pointer;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:20px;height:20px;accent-color:var(--teal);flex:0 0 auto" onchange="this.closest('.op-ing-item').style.opacity=this.checked?'0.45':'1';this.closest('.op-ing-item').style.textDecoration=this.checked?'line-through':'none'"><span style="flex:1">${item.displayName}</span><span class="op-ing-amount">${item.scaled} g</span></label>`;
     });
     html += '</div>';
   });

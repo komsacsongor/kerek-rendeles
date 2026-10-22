@@ -1,10 +1,12 @@
 // ===== NAVIGATION =====
 const VIEW_TITLES = {
+  'gyartas-flow': '🔥 Gyártás',
+  'prodstats': '📊 Sütési statisztika',
   'masterdata': '📚 Törzsadatok',
   recipes:'Receptek', 'recipe-detail':'Recept részletei', 'op-select':'Üzemi nézet – termékkiválasztás',
   'op-detail':'Üzemi nézet', ingredients:'Nyersanyag árjegyzék', 'settings-r':'Beállítások',
   'cost-analysis':'Önköltség elemzés', stock:'Készletkezelés', 'levain-daily':'Napi levain igény', 'production-prep':'Gyártás előkészítés',
-  'shopping':'🛒 Bevásárló lista', 'suppliers':'👥 Beszállítók', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'baking-log':'📒 Sütési napló', 'receptura-help':'Súgó'
+  'shopping':'🛒 Bevásárló lista', 'invoice-intake':'🌿 Készlet › 🧾 Számla bevételezése', 'suppliers':'👥 Beszállítók', 'archiv':'Archív receptek', 'processing':'Malom / Feldolgozás', 'baking-log':'📒 Sütési napló', 'receptura-help':'Súgó'
 };
 function nav(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -18,23 +20,28 @@ function nav(id) {
     const dataArg = n.getAttribute('data-arg1') || '';
     if (act.includes(`'${id}'`) || (dataAct === 'nav' && dataArg === id)) n.classList.add('active');
   });
+  // v2.56.0: a számla-bevételezés az Alapanyagok & Készlet része → a menüben az marad kijelölve
+  if (id === 'invoice-intake') document.querySelector('.nav-item[data-action="nav"][data-arg1="stock"]')?.classList.add('active');
   document.getElementById('topbar-title').textContent = VIEW_TITLES[id]||id;
   const renders = {
-    recipes: renderRecipes, 'op-select': renderOpSelect,
+    recipes: renderRecipes,
+    'gyartas-flow': () => { if(typeof renderGyartasFlow==='function') renderGyartasFlow(); }, 'op-select': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('op-select'); renderOpSelect(); },
+    'prodstats': () => { if(typeof renderProductionStats==='function') renderProductionStats(); },
     ingredients: renderIngredients, 'settings-r': renderSettings,
     'cost-analysis': () => { if(typeof renderCostAnalysis === 'function') renderCostAnalysis(); }, stock: () => { renderStock(); renderStockAlerts(); },
-    'levain-daily': () => { initLevainDaily(); },
+    'levain-daily': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('levain-daily'); initLevainDaily(); },
     'processing': () => { initProcessingView(); },
     'masterdata': () => { if(typeof renderMasterData==='function') renderMasterData(); },
     'receptura-help': () => { renderRecepturaHelp(); },
-    'production-prep': () => { initLevainDaily(); initProductionPrep(); },
-    'baking-log': () => { initBakingLog(); },
+    'production-prep': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('production-prep'); initProductionPrep(); },
+    'baking-log': () => { if(typeof renderGyartasTabbar==='function')renderGyartasTabbar('baking-log'); initBakingLog(); },
     archiv: renderArchivView,
     'shopping': async () => {
       if (typeof loadShoppingOverrides === 'function' && !_shopLoaded){ _shopLoaded = true; await loadShoppingOverrides(); }
       if(typeof renderShoppingList === 'function') renderShoppingList();
     },
     'suppliers': () => { if(typeof renderSuppliers === 'function') renderSuppliers(); },
+    'invoice-intake': () => { if(typeof renderInvoiceIntake === 'function') renderInvoiceIntake(); },
   };
   renders[id]?.();
 }
@@ -78,6 +85,21 @@ function subTypeHeadClass(subType) {
 }
 
 // Scale factor for ingredient calculation - NO bake_loss (recipe amounts already include it)
+
+// v2.53.107: hány db fér egy recept-termékből EGY sütő-töltetbe (GN-terület arányos).
+// oven.capacityTrays × ( recept.piecesPerTray × sütő-tálca-terület / GN1/1-terület )
+function ovenCapacityPieces(oven, recipe){
+  if(!oven || !recipe) return 0;
+  const ppt = Number(recipe.piecesPerTray)||0;
+  const trays = Number(oven.capacityTrays)||0;
+  if(ppt<=0 || trays<=0) return 0;
+  const GN11 = 530*325;
+  const area = (Number(oven.trayWmm)||530) * (Number(oven.trayHmm)||325);
+  const perTray = ppt * (area / GN11);
+  return Math.floor(trays * perTray);
+}
+if(typeof window!=='undefined') window.ovenCapacityPieces=ovenCapacityPieces;
+
 function calcScaleFactor(recipe, pieces) {
   const unitWeight = recipe.unitWeight || recipe.basePortion;
   return (pieces * unitWeight) / (recipe.basePortion || 1000);
@@ -113,27 +135,60 @@ function getTotalStock(ing) {
   if (!ing.suppliers) return ing.stock || 0;
   return ing.suppliers.reduce((a, s) => a + (s.stock || 0), 0);
 }
+// ===== v2.56.3: KÖZÖS nyersanyag-számolás =====
+// Ugyanaz a szorzó (calcScaleFactor — a recept-mennyiségek már tartalmazzák a sütési veszteséget) és
+// ugyanaz az összetevő-lista, mint a gyártás készletlevonásánál (addRecipeNeeds). Eddig a költség-oldal
+// a sütési veszteséggel még egyszer felszorzott (~+19%), és kihagyta az „egyéb száraz” / levain-típusú sorokat.
+function recipeIngredientList(recipe){
+  return (recipe.allIngredients && recipe.allIngredients.length) ? recipe.allIngredients
+    : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]), ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
+}
+// a levain-képlet alapanyagai név szerint (a régi rögzített ID csak tartalék)
+function _levainIng(kind){
+  const n = x => (x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');
+  const L = R.ingredients || [];
+  if(kind === 'water') return L.find(i => n(i.name) === 'viz') || getIng(1);
+  return L.find(i => n(i.name) === 'barnarizsliszt') || L.find(i => n(i.name).includes('barnarizs') && n(i.name).includes('liszt')) || getIng(9);
+}
+// 1 g kész levain ára: a „Kész levain” készlet ára, ha van; különben a képletből (liszt + víz arány —
+// a kovász-rész maga is levain, így hosszú távon a liszt és a víz ára határozza meg)
+function levainCostPerG(formulaOnly){
+  if(!formulaOnly){
+    const lv = getIng(typeof LEVAIN_ING_ID !== 'undefined' ? LEVAIN_ING_ID : 105);
+    const p = lv ? getFifoPrice(lv) : 0;
+    if(p > 0) return { ppg: p, src: 'készlet' };
+  }
+  const sl = R.settings.levain || { starter:33, water:30, flour:37 };
+  const fl = _levainIng('flour'), wa = _levainIng('water');
+  const fp = fl ? getFifoPrice(fl) : 0, wp = wa ? getFifoPrice(wa) : 0;
+  const den = (Number(sl.flour)||0) + (Number(sl.water)||0);
+  return { ppg: den > 0 ? ((Number(sl.flour)||0) * fp + (Number(sl.water)||0) * wp) / den : 0, src: 'képlet', flourName: fl?.name || '', flourPriced: fp > 0 };
+}
+// nyersanyagköltség + hiányzó adatok (pieces db-ra)
+function calcRecipeMaterial(recipe, pieces){
+  const scale = calcScaleFactor(recipe, pieces);
+  const list = recipeIngredientList(recipe);
+  let cost = 0; const missing = [];
+  list.forEach(i => {
+    const amt = (Number(i.amount)||0) * scale; if(!(amt > 0)) return;
+    const ing = getIng(i.ingredientId); const p = ing ? getFifoPrice(ing) : 0;
+    if(!(p > 0)) missing.push(ing?.name || i.name || '?');
+    cost += p * amt;
+  });
+  let levainCost = 0;
+  if(recipe.levainAmount > 0){
+    const lv = levainCostPerG();
+    levainCost = lv.ppg * recipe.levainAmount * scale;
+    if(!(lv.ppg > 0)) missing.push('Levain (' + (lv.flourName || 'barnarizs liszt') + ' ára)');
+  }
+  return { cost: cost + levainCost, levainCost, missing, noIngredients: list.length === 0 };
+}
+
 function calcRecipeCost(recipe, pieces) {
   const s = R.settings;
-  const unitWeight = recipe.unitWeight || recipe.basePortion;
-  const totalBaked = pieces * unitWeight;
-  const rawWeight = calcRawWeight(recipe, pieces);
-  const scale = rawWeight / recipe.basePortion;
+  const mat = calcRecipeMaterial(recipe, pieces);
+  const rawCost = mat.cost;
 
-  // Raw material cost
-  let rawCost = 0;
-  const levain = calcLevain(recipe.levainAmount * scale);
-  rawCost += calcIngCost(4, levain.starter); // kovász
-  rawCost += calcIngCost(9, levain.flour);   // barnarizs
-  rawCost += calcIngCost(1, levain.water);   // víz
-
-  [...(recipe.dryIngredients||[]), ...(recipe.wetIngredients||[])].forEach(ing=>{
-    rawCost += calcIngCost(ing.ingredientId, ing.amount * scale);
-  });
-
-  // ===== Egyéb költségek =====
-  // ÚJ modell (batch-alapú), ha a receptnek van setup_min/per_unit_min paramétere.
-  // Különben a RÉGI (lapos) képlet fut → meglévő receptek nem törnek.
   const hasBatchModel = (recipe.setupMin != null && recipe.setupMin !== '') ||
                         (recipe.perUnitMin != null && recipe.perUnitMin !== '');
   let laborCost, electricityCost, overheadCost = 0, bakeInfo = null;
@@ -185,7 +240,8 @@ function calcRecipeCost(recipe, pieces) {
   const priceGross = priceNet * (1 + s.vat/100);
 
   return { rawCost, laborCost, electricityCost, overheadCost, toolCost, consumablesCost,
-    totalCost, costPerUnit, priceNet, priceGross, hasBatchModel, bakeInfo };
+    totalCost, costPerUnit, priceNet, priceGross, hasBatchModel, bakeInfo,
+    levainCost: mat.levainCost, missing: mat.missing, noIngredients: mat.noIngredients };
 }
 
 // ===== MODAL TABS =====
@@ -418,104 +474,76 @@ function getTotalStock(ing) {
 }
 
 // ===== ÖNKÖLTSÉG ELEMZÉS =====
+// v2.56.3: ugyanazzal a számolással, mint a recept költség-füle és a gyártás (calcRecipeCost) — a Beállítások
+// értékeivel (eddig nem létező beállításnevekből alapértékekkel számolt) — + hiányzó adatok listája
+const COST_REF_PIECES = 10;   // referencia-sütés (a receptlista is 10 db-bal számol)
 function renderCostAnalysis() {
   const tbody = document.getElementById('cost-analysis-tbody');
   const stats = document.getElementById('cost-stats');
   if (!tbody) return;
-
-  const margin = (R.settings?.financialSettings?.targetMargin || 30) / 100;
-  const laborH = R.settings?.financialSettings?.laborCostPerHour || 55;
-  const electricKwh = R.settings?.financialSettings?.electricityCostPerKwh || 1.8;
+  const s = R.settings;
+  const oven = (typeof activeOvens === 'function') ? activeOvens()[0] : null;
+  const fmt = n => n.toFixed(2) + ' lej';
 
   const rows = [];
-  let totalRevPotential = 0, totalCostPotential = 0;
-
+  const missingIng = new Map(), noIng = [];
   R.recipes.filter(r => !r.archived).forEach(recipe => {
-    // Find linked product
     const product = window._adminProductsCache?.find(p => p.id === recipe.product_id);
-    const currentPrice = product?.price || 0;
-    const basePortion = recipe.basePortion || 1000;
-    const pieces = 1;
-    const rawWeight = calcRawWeight(recipe, pieces);
-    const scale = rawWeight / basePortion;
-
-    // Ingredient cost
-    const allIng = recipe.allIngredients && recipe.allIngredients.length > 0
-      ? recipe.allIngredients
-      : [...(recipe.dryIngredients||[]), ...(recipe.otherDryIngredients||[]),
-         ...(recipe.wetIngredients||[]), ...(recipe.starterIngredients||[])];
-
-    let ingCost = 0;
-    allIng.forEach(ing => {
-      const scaled = ing.amount * scale;
-      if (ing.ingredientId) {
-        const master = getIng(ing.ingredientId);
-        ingCost += getFifoPrice(master) * scaled;
-      }
-    });
-
-    // Levain cost
-    if (recipe.levainAmount > 0) {
-      const lev = calcLevain(recipe.levainAmount * scale);
-      const kovasz = getIng(4);
-      ingCost += getFifoPrice(kovasz) * lev.starter;
-    }
-
-    // Labor cost
-    const laborCost = (recipe.laborH || 0) * laborH / (recipe.basePortion / (recipe.unitWeight || recipe.basePortion));
-
-    // Electricity cost
-    const elCost = (recipe.electricity || 0) * electricKwh / (recipe.basePortion / (recipe.unitWeight || recipe.basePortion));
-
-    const totalCost = ingCost + laborCost + elCost;
-    const suggestedPrice = margin > 0 ? totalCost / (1 - margin) : totalCost * 1.3;
-    const diff = currentPrice - totalCost;
-    const diffPct = totalCost > 0 ? (diff / totalCost * 100) : 0;
-
-    // Optimal scale (15 db example)
-    const optPieces = 15;
-    const optRaw = calcRawWeight(recipe, optPieces);
-    const optScale = optRaw / basePortion;
-    let optIngCost = 0;
-    allIng.forEach(ing => { if (ing.ingredientId) { const m = getIng(ing.ingredientId); optIngCost += getFifoPrice(m) * ing.amount * optScale; }});
-    const optLaborCost = (recipe.laborH || 0) * laborH;
-    const optCost = (optIngCost + optLaborCost + (recipe.electricity||0)*electricKwh) / optPieces;
-    const saving = totalCost - optCost;
-
-    totalRevPotential += currentPrice;
-    totalCostPotential += totalCost;
-
-    rows.push({ recipe, product, currentPrice, totalCost, suggestedPrice, diff, diffPct, optCost, saving, ingCost, laborCost, elCost });
+    const currentPrice = Number(product?.price) || 0;
+    const c = calcRecipeCost(recipe, COST_REF_PIECES);
+    const fullN = Math.max(COST_REF_PIECES, (typeof ovenCapacityPieces === 'function' && oven) ? ovenCapacityPieces(oven, recipe) : 0, 15);
+    const cFull = calcRecipeCost(recipe, fullN);
+    const netPrice = currentPrice / (1 + (Number(s.vat) || 0) / 100);
+    const diff = netPrice - c.costPerUnit;
+    if (c.noIngredients) noIng.push(recipe.name);
+    c.missing.forEach(n => { if (!missingIng.has(n)) missingIng.set(n, []); missingIng.get(n).push(recipe.name); });
+    rows.push({ recipe, currentPrice, netPrice, c, cFull, fullN, diff, matPerUnit: c.rawCost / COST_REF_PIECES });
   });
 
-  // Stats cards
-  const avgMargin = totalCostPotential > 0 ? ((totalRevPotential - totalCostPotential) / totalRevPotential * 100) : 0;
-  const noPrice = rows.filter(r => r.currentPrice === 0).length;
-  const belowCost = rows.filter(r => r.diff < 0).length;
+  const priced = rows.filter(r => r.currentPrice > 0 && !r.c.noIngredients);
+  const avgMargin = priced.length ? priced.reduce((t, r) => t + (r.netPrice > 0 ? r.diff / r.netPrice : 0), 0) / priced.length * 100 : 0;
+  const belowCost = priced.filter(r => r.diff < 0).length;
   if (stats) stats.innerHTML = [
     {label:'Aktív receptek', val: rows.length, color:'var(--teal-dark)'},
-    {label:'Átlagos fedezet', val: avgMargin.toFixed(1)+'%', color: avgMargin > 20 ? '#059669' : '#dc2626'},
-    {label:'Nincs ár', val: noPrice, color: noPrice > 0 ? '#dc2626' : '#059669'},
+    {label:'Átlagos fedezet (nettó árból)', val: priced.length ? avgMargin.toFixed(1)+'%' : '—', color: avgMargin > 20 ? '#059669' : '#dc2626'},
+    {label:'Hiányos recept (nincs összetevő / ár)', val: rows.filter(r => r.c.noIngredients || r.c.missing.length).length, color: '#d97706'},
     {label:'Önköltség alatt', val: belowCost, color: belowCost > 0 ? '#dc2626' : '#059669'},
-  ].map(s => `<div class="card" style="border-left:4px solid ${s.color};padding:14px 18px">
-    <div style="font-size:1.6rem;font-weight:800;color:${s.color};font-family:'Fraunces',serif">${s.val}</div>
-    <div style="font-size:0.78rem;color:var(--text-soft);margin-top:2px">${s.label}</div>
+  ].map(x => `<div class="card" style="border-left:4px solid ${x.color};padding:14px 18px">
+    <div style="font-size:1.6rem;font-weight:800;color:${x.color};font-family:'Fraunces',serif">${x.val}</div>
+    <div style="font-size:0.78rem;color:var(--text-soft);margin-top:2px">${x.label}</div>
   </div>`).join('');
 
   tbody.innerHTML = rows.map(r => {
-    const hasPrice = r.currentPrice > 0;
-    const ok = r.diff >= 0;
-    const rowColor = !hasPrice ? '' : ok ? '' : 'background:#fff1f2';
-    return `<tr style="${rowColor}">
-      <td style="font-weight:600">${esc(r.recipe.name)}</td>
-      <td class="num">${r.totalCost > 0 ? r.totalCost.toFixed(2)+' lej' : '<span style="color:var(--text-soft)">—</span>'}</td>
-      <td class="num">${r.suggestedPrice > 0 ? r.suggestedPrice.toFixed(2)+' lej' : '—'}</td>
-      <td class="num">${hasPrice ? r.currentPrice.toFixed(2)+' lej' : '<span style="color:#dc2626">Nincs ár</span>'}</td>
-      <td class="num" style="color:${ok?'#059669':'#dc2626'};font-weight:600">${hasPrice ? (ok?'+':'')+r.diff.toFixed(2)+' lej ('+r.diffPct.toFixed(0)+'%)' : '—'}</td>
-      <td class="num" style="color:var(--text-soft)">${r.optCost > 0 ? r.optCost.toFixed(2)+' lej' : '—'}</td>
-      <td class="num" style="color:#059669">${r.saving > 0.01 ? '+'+r.saving.toFixed(2)+' lej' : '—'}</td>
+    const hasPrice = r.currentPrice > 0, incomplete = r.c.noIngredients || r.c.missing.length > 0, ok = r.diff >= 0;
+    const flag = r.c.noIngredients ? '<span style="color:#d97706" title="Nincs összetevő">⚠️ nincs összetevő</span>'
+      : (r.c.missing.length ? `<span style="color:#d97706" title="${esc(r.c.missing.join(', '))}">⚠️ ${r.c.missing.length} ár hiányzik</span>` : '');
+    return `<tr style="${hasPrice && !ok && !incomplete ? 'background:#fff1f2' : ''}">
+      <td style="font-weight:600">${esc(r.recipe.name)}<div style="font-size:0.7rem;font-weight:400">${flag}</div></td>
+      <td class="num">${r.c.noIngredients ? '—' : fmt(r.matPerUnit)}</td>
+      <td class="num">${r.c.noIngredients ? '—' : fmt(r.c.costPerUnit)}</td>
+      <td class="num">${r.c.noIngredients ? '—' : fmt(r.c.priceGross)}</td>
+      <td class="num">${hasPrice ? fmt(r.currentPrice) : '<span style="color:#dc2626">Nincs ár</span>'}</td>
+      <td class="num" style="color:${ok?'#059669':'#dc2626'};font-weight:600">${hasPrice && !r.c.noIngredients ? (ok?'+':'')+r.diff.toFixed(2)+' lej' + (r.netPrice > 0 ? ' ('+(r.diff/r.netPrice*100).toFixed(0)+'%)' : '') : '—'}</td>
+      <td class="num" style="color:var(--text-soft)">${r.c.noIngredients ? '—' : fmt(r.cFull.costPerUnit) + `<div style="font-size:0.66rem">${r.fullN} db</div>`}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-soft);padding:20px">Nincs aktív recept</td></tr>';
+
+  // hiányzó adatok — mit kell pótolni a pontos önköltséghez
+  const box = document.getElementById('cost-missing');
+  if (box) {
+    const lv = levainCostPerG();
+    const setNotes = [];
+    if (!(Number(s.monthlyOverhead) > 0) || !(Number(s.monthlyProdHours) > 0)) setNotes.push('havi rezsi / havi termelő óra (üzemi óradíj) — Beállítások → Pénzügyi');
+    if (!oven) setNotes.push('nincs sütő felvéve — Törzsadatok → Eszközök (sütő-energia 0)');
+    const items = [
+      noIng.length ? `<div style="margin-bottom:8px"><b>Receptek összetevő nélkül (${noIng.length}):</b> ${noIng.map(esc).join(', ')}</div>` : '',
+      missingIng.size ? `<div style="margin-bottom:8px"><b>Alapanyagok ár nélkül (${missingIng.size}):</b> ${[...missingIng.entries()].map(([n, rs]) => `${esc(n)} <span style="color:var(--text-soft)">(${rs.length} recept)</span>`).join(', ')}<div style="font-size:0.72rem;color:var(--text-soft)">Ár = a készleten lévő legrégebbi tétel beszerzési ára (bevételezés), ennek híján az alapanyag alapára.</div></div>` : '',
+      `<div style="margin-bottom:8px"><b>Levain:</b> ${lv.ppg > 0 ? `${(lv.ppg*1000).toFixed(2)} lej/kg (${lv.src === 'készlet' ? 'Kész levain készletár' : 'képletből: ' + esc(lv.flourName) + ' + víz'})` : `<span style="color:#d97706">nincs ár — add meg a(z) ${esc(lv.flourName || 'barnarizs liszt')} árát</span>`}</div>`,
+      setNotes.length ? `<div><b>Beállítások:</b> ${setNotes.map(esc).join(' · ')}</div>` : '',
+    ].join('');
+    box.innerHTML = `<div class="card-head"><div class="card-title">🔎 Hiányzó adatok a pontos önköltséghez</div></div><div class="card-body" style="font-size:0.82rem">${items}
+      <div style="font-size:0.72rem;color:var(--text-soft);margin-top:8px">Számolás: ${COST_REF_PIECES} db-os sütés; munka ${Number(s.labor)||0} lej/h, áram ${Number(s.electricity)||0} lej/kWh, haszon ${Number(s.margin)||0}%, ÁFA ${Number(s.vat)||0}% (Beállítások → Pénzügyi). A fedezet a jelenlegi ár nettó részéből számol.</div></div>`;
+  }
 }
 
 

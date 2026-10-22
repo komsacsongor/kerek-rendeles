@@ -83,7 +83,8 @@ async function loadAllData() {
     sb.query('clients', { order: 'name', limit: QUERY_LIMIT_CLIENTS }).then(clients => {
       D.clients = (clients||[]).map(c => ({
         id: c.id, name: c.name, email: c.email || '',
-        phone: c.phone || '', note: c.note || '', joinDate: c.join_date || ''
+        phone: c.phone || '', note: c.note || '', joinDate: c.join_date || '',
+        is_admin: !!c.is_admin  // v2.55.0: eddig kimaradt → a 👑 jelzés eltűnt, a jog nem volt visszavonható
       }));
     }),
     sb.query('monthly_active_products', { limit: 2000 }).then(maps => {
@@ -210,7 +211,11 @@ function loginClearError() {
 // S2: Rate limiting – max 5 attempts per 60 seconds
 const _adminLoginAttempts = { count: 0, resetAt: 0 };
 
-async function doLogin(){
+// v2.55.3: a gomb (data-action) + az űrlap-submit + az Enter egyszerre 2-3× hívta → dupla belépés/initApp,
+// a próbálkozás-számláló hármasával nőtt. Egyszerre csak egy belépés futhat.
+let _loginInFlight = false;
+async function doLogin(){ if(_loginInFlight) return; _loginInFlight = true; try { await _doLogin(); } finally { _loginInFlight = false; } }
+async function _doLogin(){
   const _now = Date.now();
   if (_now > _adminLoginAttempts.resetAt) { _adminLoginAttempts.count = 0; _adminLoginAttempts.resetAt = _now + 60000; }
   _adminLoginAttempts.count++;

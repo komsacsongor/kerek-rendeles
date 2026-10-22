@@ -22,6 +22,38 @@ let R = _s || {
 
 function save() { R._v = DATA_VERSION; localStorage.setItem('kerek_recipe_data', JSON.stringify(R)); }
 
+// v2.54.1: EGY leképezés az ingredient_batches sorokra (első betöltés, polling, új bevételezés)
+function mapBatchRow(b) {
+  return {
+    id: b.id, ingredientId: b.ingredient_id,
+    receivedDate: b.received_date || '',
+    qtyReceivedG: Number(b.qty_received_g) || 0,
+    qtyRemainingG: Number(b.qty_remaining_g) || 0,
+    pricePerG: Number(b.price_per_g) || 0,
+    priceGrossPerUnit: Number(b.price_gross_per_unit) || 0,
+    packageSizeG: b.package_size_g || 1000,
+    supplierName: b.supplier_name || '',
+    sourceType: b.source_type || 'purchase',
+    processingId: b.processing_id || null,
+    notes: b.notes || '',
+  };
+}
+
+// Alapanyagonkénti készlet / FIFO-ár / átlagár / beszállítók újraszámítása az R.batches-ből
+function recomputeIngredientStock(onlyIngId) {
+  (R.ingredients || []).forEach(ing => {
+    if (onlyIngId != null && ing.id !== onlyIngId) return;
+    const ingBatches = (R.batches || []).filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0)
+      .sort((a, b) => (a.receivedDate || '').localeCompare(b.receivedDate || ''));
+    ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
+    ing.fifoPrice = ingBatches[0] ? ingBatches[0].pricePerG : 0;
+    ing.avgPrice = ing.totalStockG > 0
+      ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / ing.totalStockG
+      : 0;
+    ing.suppliers = [...new Set(ingBatches.map(b => b.supplierName).filter(Boolean))];
+  });
+}
+
 // v2.37.0 fix #11/#15: full reload Realtime callback-hez, nem hív loadAllData-t mert az nem létezik fv-ként
 // Csak a kritikus táblákat tölti újra (recipes + ingredients + products + batches)
 // v2.53.73: EGYETLEN kanonikus adat-betöltő. NINCS nav / render / save() — csak R feltöltése.
@@ -51,6 +83,7 @@ async function loadReceptCoreData() {
         laborH: r.labor_h||1, electricity: r.electricity||5,
         setupMin: r.setup_min ?? null, perUnitMin: r.per_unit_min ?? null,
         bakeMin: r.bake_min ?? null, bakeTempC: r.bake_temp_c ?? null,
+        piecesPerTray: r.pieces_per_tray ?? null,
         unitsPerTray: r.units_per_tray ?? null, traysPerCycle: r.trays_per_cycle ?? null, mixerMin: r.mixer_min ?? null,
         marketing: r.marketing_desc||'',
         ingredientLabel: r.ingredient_label||'',
@@ -129,37 +162,19 @@ async function loadReceptCoreData() {
       }));
     }
     if(dbBatches) {
-      R.batches = dbBatches.map(b => ({
-        id: b.id, ingredientId: b.ingredient_id,
-        receivedDate: b.received_date,
-        qtyReceivedG: b.qty_received_g,
-        qtyRemainingG: b.qty_remaining_g,
-        pricePerG: b.price_per_g || 0,
-        priceGrossPerUnit: b.price_gross_per_unit || 0,
-        packageSizeG: b.package_size_g || 1000,
-        supplierName: b.supplier_name || '',
-        sourceType: b.source_type || 'purchase',
-        notes: b.notes || '',
-      }));
-      // Compute totalStockG per ingredient from batches
-      R.ingredients.forEach(ing => {
-        const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
-        ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
-        // FIFO price = oldest batch with stock
-        const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
-        ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
-        // Weighted average price
-        const totalStock = ing.totalStockG;
-        ing.avgPrice = totalStock > 0
-          ? ingBatches.reduce((s, b) => s + b.pricePerG * b.qtyRemainingG, 0) / totalStock
-          : 0;
-        ing.suppliers = [...new Set(ingBatches.map(b => b.supplierName).filter(Boolean))];
-      });
+      R.batches = dbBatches.map(mapBatchRow);
+      recomputeIngredientStock();
     }
     // Calc auto min/max from orders (async, non-blocking)
     calcAutoMinMax().catch(e => console.warn('autoMinMax:', e.message));
   } catch(e) { console.warn('Ingredients DB load:', e.message); }
   // Beszállítók + eszközök
+  // v2.53.106: sütési naptár (extra/kivett napok) — hogy a prep/napló az admin TÉNYLEGES napjait lássa
+  try {
+    const cal = await sb.query('baking_calendar', { limit: 200 });
+    R.bakingCalendar = {};
+    (cal||[]).forEach(r => { R.bakingCalendar[`${r.year}-${r.month}`] = { extra: r.extra_dates||[], removed: r.removed_dates||[] }; });
+  } catch(e) { R.bakingCalendar = R.bakingCalendar || {}; }
   try {
     const dbSuppliers = await kData.query('suppliers', { order: 'name' });
     if (Array.isArray(dbSuppliers) && typeof mapSupplierDb === 'function') R.suppliers = dbSuppliers.map(mapSupplierDb);
@@ -185,7 +200,11 @@ function loginError(msg) {
   const pw = document.getElementById('login-pw');
   if(pw) { pw.style.border='1.5px solid #f87171'; pw.focus(); pw.addEventListener('input', ()=>{ if(el) el.textContent=''; pw.style.border=''; }, {once:true}); }
 }
-async function doLogin() {
+// v2.55.3: a gomb (data-action) + az űrlap-submit + az Enter egyszerre 2-3× hívta → dupla belépés/initApp,
+// a próbálkozás-számláló hármasával nőtt. Egyszerre csak egy belépés futhat.
+let _loginInFlight = false;
+async function doLogin(){ if(_loginInFlight) return; _loginInFlight = true; try { await _doLogin(); } finally { _loginInFlight = false; } }
+async function _doLogin() {
   const pw = document.getElementById('login-pw').value;
   if(!pw) { loginError('⚠️ Add meg a jelszót!'); return; }
   try {
@@ -223,8 +242,12 @@ async function initApp() {
 
   // Supabase-ből tölt minden beállítást
   const settingLoads = [
-    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||''; } }],
-    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
+    ['recipe_ai_settings', v=>{ if(v&&typeof v==='object'){ R.settings.apiKey=v.apiKey||R.settings.apiKey; R.settings.aiProvider=v.aiProvider||'anthropic'; R.settings.aiModel=v.aiModel||'claude-sonnet-4-20250514'; R.settings.aiUrl=v.aiUrl||'';
+      // v2.56.1: kulcs szolgáltatónként + külön számla-szolgáltató; régi formátumnál a meglévő kulcs a saját szolgáltatójához kerül
+      R.settings.aiKeys = (v.keys && typeof v.keys==='object') ? { ...v.keys } : {};
+      if(v.apiKey && !R.settings.aiKeys[R.settings.aiProvider]) R.settings.aiKeys[R.settings.aiProvider] = v.apiKey;
+      R.settings.invoiceProvider = v.invoiceProvider || ''; R.settings.invoiceModel = v.invoiceModel || ''; } }],
+    ['recipe_financial_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings, settingsWithoutAi(v)); }], // v2.56.1: régi mentésben benne maradt AI-kulcs ne írja felül a frisset
     ['recipe_baking_settings', v=>{ if(v&&typeof v==='object') Object.assign(R.settings,v); }],
     ['categories', v=>{ if(Array.isArray(v) && v.length>0) R.recipeCategories=v; }], // Közös admin kategóriák
     ['baking_days_default', v=>{ if(Array.isArray(v) && v.length>0) R.settings.bakingDaysDefault=v; }],
@@ -274,25 +297,14 @@ async function initApp() {
   startUnifiedPolling(async () => {
     try {
       // Re-fetch ingredient batches (FIFO stock changes from purchases/baking)
-      const batches = await kData.query('ingredient_batches', { limit: 2000 });
-      const newBatchesJson = JSON.stringify((batches||[]).map(b=>({i:b.ingredient_id,r:b.qty_remaining_g})));
-      const oldBatchesJson = JSON.stringify((R.batches||[]).map(b=>({i:b.ingredientId,r:b.qtyRemainingG})));
-      if (newBatchesJson !== oldBatchesJson) {
-        R.batches = (batches||[]).map(b => ({
-          id: b.id, ingredientId: b.ingredient_id, receivedDate: b.received_date,
-          qtyReceivedG: b.qty_received_g, qtyRemainingG: b.qty_remaining_g,
-          pricePerG: b.price_per_g, supplierName: b.supplier_name,
-          sourceType: b.source_type, processingId: b.processing_id, notes: b.notes
-        }));
-        // Recompute per-ingredient stock
-        if (R.ingredients) {
-          R.ingredients.forEach(ing => {
-            const ingBatches = R.batches.filter(b => b.ingredientId === ing.id && b.qtyRemainingG > 0);
-            ing.totalStockG = ingBatches.reduce((s, b) => s + b.qtyRemainingG, 0);
-            const fifoB = ingBatches.sort((a,b) => a.receivedDate.localeCompare(b.receivedDate))[0];
-            ing.fifoPrice = fifoB ? fifoB.pricePerG : 0;
-          });
-        }
+      // v2.54.1: ugyanaz a lekérés (limit + rendezés) és ugyanaz a leképezés, mint az első betöltésnél —
+      // eddig a polling kevesebb mezőt (csomagméret, bruttó ár) és max 2000 tételt töltött vissza.
+      const batches = await kData.query('ingredient_batches', { order:'ingredient_id,received_date,id', limit: 5000 });
+      const sig = arr => arr.map(b => `${b.id}:${b.qtyRemainingG}`).sort().join('|');
+      const fresh = (batches||[]).map(mapBatchRow);
+      if (sig(fresh) !== sig(R.batches||[])) {
+        R.batches = fresh;
+        recomputeIngredientStock();
         // Re-render active view
         const activeView = document.querySelector('.view.active')?.id?.replace('view-','');
         if (activeView === 'stock') { if (typeof renderStock === 'function') renderStock(); if (typeof renderStockAlerts === 'function') renderStockAlerts(); }

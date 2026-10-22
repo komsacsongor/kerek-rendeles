@@ -1,0 +1,116 @@
+# KEREK – ÁTADÁS (2026-09-29)
+
+> **Ezt olvasd ELŐSZÖR** egy új session-ben (a `CLAUDE.md` után, a `KEREK_SKILL.md` előtt).
+> A jelenlegi állapotot és a következő lépéseket rögzíti.
+
+## 1. Verzió-állapot
+
+| Környezet | Verzió | Megjegyzés |
+|---|---|---|
+| **Prod (main)** | v2.53.94-hotfix | kurált promóciók — main és staging divergál; 2026-10-21 hotfix: beállítás-mentés az admin-data EF-en át |
+| **Staging** | **v2.56.5** | v2.53.95–136 gyártás flow + admin-vevő, v2.54.0 számla-operátor, v2.54.1 audit-javítások |
+
+A korábbi push-blokk (2026-09-25) megoldódott: a v2.54.0 a bundle-ből felkerült (2026-09-26).
+
+## 2. v2.54.1 — audit-javítások (A+B csomag, 2026-09-29)
+
+- **Auto-confirm EF**: lapozva olvas (eddig 1000 sor fölött kimaradtak rendelések); a kisütött (fulfilled) napot nem állítja vissza confirmed-re, és nem küld újra push-t.
+- **Gyártás flow „Nap lezárása"**: FIFO-készletlevonás + önköltség ('customer' log), rendelések → fulfilled (lemondottak kivételével) + vevő-push; nem zárható le duplán (sem itt, sem a régi gombbal).
+- **Régi „Sütés elvégezve"**: „Mégse" utáni dupla extra-levonás javítva; lemondott rendelés nem lesz fulfilled; ugyanaz a dupla-levonás védelem; a push-ból kikerült a kitöltő „Str. Főutca 1" cím.
+- **Közös segédek** (`receptura-production.js`): `addRecipeNeeds`, `findMissingNeeds`, `fifoDeductNeeds` (helyi állapot csak sikeres DB-írás után), `hasStockDeductionForDate`, `markDaysFulfilled`.
+- **Vevő**: „Összes törlése" csak a még módosítható napokat törli; tétel 0-ra vételekor a jóváhagyott nap visszakerül pending-be.
+- **Készlet-polling**: ugyanaz a leképezés/limit, mint az első betöltésnél (`mapBatchRow`, `recomputeIngredientStock`).
+- **Számla-operátor**: hiányzó adatú új alapanyag nem véglegesíthető; egység-felismerés pontos egyezéssel („kilogram" ≠ liter); újrapróbálás nem hoz létre dupla beszállítót / alapanyagot / tételt; a bevételezett tétel DB-ID-val kerül a helyi állapotba; új alapanyag-ID a DB maximumából.
+- SQL-ek a `db/`-be; GitHub token eltávolítva a `package.json`-ból; `CLAUDE.md` létrehozva.
+
+## 3. 🔴 Teendők (Csongor)
+
+1. **GitHub token visszavonása** (`ghp_sinR…`, a git-történetben megmarad): GitHub → Settings → Developer settings → Personal access tokens.
+2. **SQL a STAGING-en** (Supabase SQL Editor), mindkettő idempotens, a végén ellenőrző lekérdezéssel:
+   - `db/2026-09_v2.53_gyartas_oszlopok.sql` (várt eredmény: 9 sor)
+   - `db/2026-09_v2.54_szamla_bevetelezes.sql` (várt eredmény: 3 sor)
+3. **Teszt a `/staging/`-en** (lásd §4), majd jóváhagyás → PROD.
+4. PROD élesítéskor: ugyanez a két SQL **PROD-on is, a kód előtt**; EF-ek PROD-ra (`deploy-edge-functions.yml` → production: `auto-confirm-orders`, `bnr-rates`).
+
+## 4. Staging teszt-forgatókönyv
+
+- **Gyártás flow**: nap kiválasztása → 4 fázis → „Nap lezárása": a megerősítő ablak listázza a levonandó alapanyagokat; utána a Készlet csökken, a napló/statisztikában megjelenik az önköltség, a rendelések „elkészült"-ek. Második lezárási kísérletnél figyelmeztetés.
+- **Régi „Sütés elvégezve"** ugyanarra a napra → figyelmeztet, hogy már volt levonás.
+- **Vevő**: jövőbeli nap tétele 0-ra → admin oldalon a nap pending; „Összes törlése" a múltbeli/lezárt napokat meghagyja.
+- **Számla-operátor**: PDF feltöltés → áttekintő → véglegesítés → a Készletben megjelenik; hiányzó mennyiségű új tételnél nem enged véglegesíteni.
+
+## 5. C csomag (biztonság)
+
+### C1 — vevői oldal: KÉSZ (staging, v2.55.0) — tesztre vár
+- **Belépés a szerveren** (`vevo-auth` EF): kód VAGY e-mail + PIN; név szerinti belépés megszűnt; aláírt token („Maradjak bejelentkezve” 90 nap, egyébként 12 óra). A böngésző NEM tölti le a vevőlistát.
+- **Saját adatok** (`vevo-data` EF): rendelés, állapot, üzenet, állandó rendelés, push — a tokenre szűkítve; a **határidőt és a lezárt napokat a szerver is ellenőrzi** (lezárt nap sorait kihagyja), a vevő nem írhat admin-üzenetet, nem állíthat fulfilled/cancelled státuszt.
+- **Meglévő vevők**: belépés után kötelező pop-up (adatok → PIN → 2 kérdés), „Később” nincs. **Átmenet**: a még PIN nélküli fiók **2026-11-30-ig** (v2.56.5-ben kitolva) e-maillel (PIN nélkül) is beléphet — utána csak kóddal (`LEGACY_EMAIL_UNTIL`, vevo-auth).
+- **Új vevők**: regisztráció 2 lépésben (név/e-mail/telefon kötelező → PIN + 2 kérdés), a kódot a szerver generálja. `register.html` → átirányít.
+- **Helyreállítás**: e-mail → saját 2 kérdés → új PIN (napi 3 próba; a 3. után admin-push). Ismeretlen e-mailre is „kérdések” jönnek (nem derül ki, kinek van fiókja).
+- **Admin**: vevő-kártyán PIN-állapot, „PIN törlése”, hibás-helyreállítás figyelmeztetés, összesítő + szűrő; **előnézet** csak olvasható, 30 perces tokennel (a nyitott `?preview=ID` megszűnt); admin-jog jelzés javítva (`is_admin` a leképezésben).
+- Realtime: a vevő a saját üzeneteit/állapotát 30 mp-es lekérdezéssel kapja (a realtime mindenki eseményét küldte volna).
+- DB: `client_auth` tábla (RLS, policy nélkül) — `db/2026-10_v2.55_vevo_auth.sql`.
+
+**Teendő a teszthez:** az SQL STAGING-en (és PROD-on is futtatható, üres új tábla). Teszt: kóddal belépés → pop-up → beállítás → kilépés → e-mail+PIN belépés → „Elfelejtettem” → regisztráció → admin: PIN-állapot, PIN törlése, előnézet.
+
+### C1 javítás — v2.55.1 (Csongor tesztje alapján, 2026-10-08)
+- **Belépés csak e-mail + 4 jegyű PIN** (a kód már nem belépési adat, csak belső azonosító); a 4. számjegy után automatikus belépés.
+- **Ideiglenes PIN** (admin, 🔑 a vevő-kártyán): 4 jegy, 7 napig; a vevő belépéskor köteles újat választani (`must_change`, `temp_pin_until`). A „PIN törlése” megszűnt.
+- Átmenet: PIN nélküli fiók 2026-11-30-ig (v2.56.5) e-maillel PIN nélkül is beléphet (→ kötelező beállítás); utána ideiglenes PIN kell.
+- Hibák javítva: hosszú űrlap görgethető; PIN-dobozban a kurzor mindig a végén (visszatörlés); a hibaüzenet eltűnik szerkesztéskor és sikernél; siker-képernyő „Vissza a belépéshez” gombbal; **regisztráció visszavonódik, ha a PIN nem mentődött** (eddig csendben „sikeres” lett — Suba Ernő esete).
+- **Ok (DB-ellenőrzés 2026-10-08):** a `client_auth` tábla sem stagingen, sem PROD-on NEM létezett → `db/2026-10_v2.55.1_vevo_auth_temp_pin.sql` (a tábla + új oszlopok, egyben) — **STAGING és PROD**.
+- DB: **staging SQL automatikus** (`db-staging.yml` + csak olvasó `db/checks/staging.sql`, 2026-10-20); PROD-ot Csongor futtatja. Kézi gyors-ellenőrzés: `db-check.yml`.
+
+### Számla-operátor bővítés — v2.55.2 (2026-10-20)
+- **Fotó**: több kép egyszerre (több oldalas számla, max 4), automatikus lekicsinyítés 1600 px JPEG-re (nagy telefonfotó / HEIC elutasítás ellen); olvashatatlan HEIC-re útmutató.
+- **(a) Külön számlás szállítás a bevételezéskor**: kézi összeg + pénznem az áttekintőn → a tételekre osztva.
+- **(b) Csak szállítást tartalmazó számla feltöltése** → felismeri, és felajánlja: melyik korábbi bevételezéshez tartozik.
+- **(c) Utólagos kézi költség** („➕ Utólagos szállítási / egyéb költség”): összeg + pénznem (BNR) + megnevezés → bevételezés kiválasztása (számla vagy kézi bevételezés, azonos beszállító elöl) → előnézet → az ár a **még raktáron lévő** mennyiségre emelkedik (súly, vegyes egységnél érték szerint); megjegyzés a tételen, dupla-hozzáadás figyelmeztetés.
+- Javítva (v2.54.0 óta): vegyes súly/érték szétosztásnál többet osztott szét, mint a költség.
+
+### Számla-operátor finomítás — v2.55.3 (2026-10-20, e2e böngészős teszt a vrac-magazin rendeléssel)
+- **Beszállító**: választó az áttekintőn (meglévő / új, új névnél szerkeszthető); hasonló név felismerése jogi forma és domain nélkül („vrac-magazin.ro” ≈ „Vrac Magazin SRL”) → ⚠️ ellenőrizendő. Eddig ilyenkor **dupla beszállító** jött létre, és a tételre a számláról olvasott név került (most a törzsadatbeli).
+- **Szám és dátum** szerkeszthető; ha a dátum nem olvasható, kiemelve jelzi (eddig csendben a mai nap lett).
+- **Duplikátum-védelem szám nélkül**: azonos beszállító + nap számla-bevételezésénél rákérdez.
+- **Párosítás**: csak a pontos névegyezés „kész”; a hasonló név (pl. „sushi rizs” → Rizs) ⚠️ ellenőrizendő, „✓ Igen” gombbal.
+- **Összesítő**: tételek nettó + költség = bevételezett érték; eltérés a számla nettó összesítőjétől → piros figyelmeztetés (AI-olvasási hiba).
+- **Hiba javítva**: új alapanyag egysége a kiszerelésből („1 buc × 3 kg” eddig **db** lett, 3000 darabbal).
+- Telefonon kártyás tétel-nézet; siker után „➕ Később érkezett szállítás” gomb; utólagos listán „Számla (szám nélkül)” címke.
+- **Belépés** (receptúra + admin): a gomb + Enter + űrlap egyszerre 2-3× hívta (dupla betöltés, a próbálkozás-számláló hármasával nőtt) → egyszer.
+
+### v2.55.4 — vision-modell csere (2026-10-20)
+- A Groq 2026-07-ben kivezette a `meta-llama/llama-4-scout-17b-16e-instruct`-ot (fotós számla: „model_not_found”). Új alapértelmezés `qwen/qwen3.8-27b`; ha a modell nem létezik, a Groq `/models` listájából automatikusan választ képes modellt, és elmenti (`invoice_vision_model`). A mentett modell eddig betöltéskor nem töltődött vissza — javítva.
+
+### v2.56.0 — számla-operátor átdolgozás (2026-10-20)
+- **Menü**: a külön „Számla bevételezés” pont megszűnt → **Alapanyagok & Készlet** tetején „🧾 Számla bevételezése” és „➕ Utólagos szállítási költség”.
+- **Párosítás** (az AI szabad fordítása helyett): ✅ tanult (beszállító + tételnév, `ingredient_aliases`) → 📖 szótár (`js/receptura-invoice-dict.js`, RO/EN → HU, bővíthető) → 🤖 AI a saját alapanyag-listából (ellenőrizendő) → 🔤 hasonló név → 🆕 új (a szótárbeli magyar névvel). Bevételezéskor minden sor párosítását megjegyzi.
+- **Mennyiség** a tételnévből („– 10kg × 1”).
+- **Bemenet**: 📷 Fotó / PDF vagy 📋 **Szöveg beillesztése** (webshop-rendelés).
+- **Nettó/bruttó**: felismerés az összesítőből (sorok összege = részösszeg → nettó; = végösszeg → bruttó), majd kulcsszó („fără TVA”/„cu TVA”), majd AI; az áttekintőn átállítható + ÁFA-kulcs. **Bekerülési érték**: ÁFA-fizető cég → nettó (alapértelmezés; Csongor: ÁFA-fizető), egyébként bruttó.
+- **AI-beállítás (v2.56.1)**: Beállítások → AI integráció — kulcs szolgáltatónként (Gemini, Groq, Anthropic, OpenAI), külön szolgáltató a **receptekhez** és a **számlákhoz**; minden a meglévő `recipe_ai_settings` sorban (a `settings` tábla RLS-e új sort nem enged — 42501). Elavult modellnél a fiók listájából újat választ, és ide menti. **ÁFA-fizető cég**: Pénzügyi beállítások.
+- **DB**: `db/2026-10_v2.56_ingredient_aliases.sql` — staging automatikus, **PROD: Csongor** (tábla nélkül a bevételezés működik, csak nem tanul). EF: `admin-data` whitelist bővült (PROD promóciókor deploy).
+
+### v2.56.2 — beállítás-mentés (2026-10-21)
+- Staging-ellenőrzés: a `settings` táblán **csak** `settings_anon_select` (SELECT) policy van → a böngészőből semmilyen beállítás nem mentődött (receptúra: AI, pénzügyi, sütési, kategóriák; admin: kategóriák, sütési napok, súgó, fejléc-szöveg). Most az `admin-data` EF-en át ír (modul-jelszóval). **PROD**: ugyanígy volt (Csongor lekérdezése 2026-10-21) → **hotfix élesítve** (main `b9e2bdc` EF + `e98d9ed` kliens, v2.53.94-hotfix). Élesítés után a fontos beállításokat (admin-kategóriák, súgó, vevő-fejléc, receptúra pénzügyi/sütési) egyszer újra menteni kell.
+- Staging: a `recipe_financial_settings` és `recipe_baking_settings` sor nem létezett — első mentéskor létrejön.
+
+### v2.56.3 — önköltség egységesítés (2026-10-21)
+- Egy számolás (`calcRecipeCost` → `calcRecipeMaterial`): recept költség-fül, receptlista, Önköltség elemzés, batch-tervező és gyártás ugyanazt használja, a gyártás levonásával azonos szorzóval. Levain: készletár vagy képlet (barnarizs liszt + víz). Napi levain-rögzítés árral.
+- Önköltség elemzés: nyersanyag/db, önköltség/db (10 db-os sütés), javasolt bruttó ár, fedezet a nettó árból, teli sütős önköltség; **hiányzó adatok** (összetevő nélküli receptek, ár nélküli alapanyagok, levain, rezsi/sütő).
+- Staging-adat (2026-10-21): 14 aktív receptből 3-nak van összetevője; sok ár hiányzik; sütő nincs felvéve.
+
+### C2 — admin / receptúra (következik)
+- `clients`, `orders`, `order_status`, `messages`, `push_subscriptions`, `standing_orders`, `settings`-írás → `kData` (admin-data EF) + összevont (batch) lekérés a rate-limit miatt.
+- `dynamic-service` hitelesítés: service kulcs / modul-jelszó / vevő-token (csak ADMIN felé).
+- AI-kulcs szerver-oldalra (ai-proxy EF, kulcs az `admin_secrets`-ben) + régi kulcs cseréje.
+- Műveleti napló (audit_log) admin/receptúra írás kData-n át (júliusi lezárás óta nem írt).
+
+### C3 — lezárás (SQL, Csongor futtatja)
+- RLS + policy nélkül: clients, orders, order_status, messages, standing_orders, push_subscriptions; settings: csak nyilvános kulcsok olvashatók; termékek/kínálat/naptár: anon csak olvas.
+
+Biztonsági kérdések (lista): `kerek-constants.js` → `SEC_QUESTIONS` (9 db).
+
+## 6. Nyitott (következő csomagok)
+
+- **D — Tesztek** a rendelés / készlet / gyártás logikára.
+- Nyitott kérdések Csongor felé: az élesben is `admin` az admin jelszó? A pékség valódi címe (ha kell a push-ba)?

@@ -16,9 +16,9 @@
 <link rel="manifest" href="manifest-admin.json">
 <title>KEREK – Receptúra</title>
 <link rel="stylesheet" href="fonts.css">
-<script src="kerek-constants.js?v=2.53.94h1"></script>
+<script src="kerek-constants.js?v=2.56.5"></script>
 <script>window.KEREK_MODULE='receptura';</script>
-<script src="supabase.js?v=2.53.94h1"></script>
+<script src="supabase.js?v=2.56.5"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kerek-styles.css?v=2.53.37">
 <style>
@@ -334,12 +334,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
   <div class="nav-section">
     <div class="nav-label">Gyártás</div>
-    <button class="nav-item" data-action="nav" data-arg1="levain-daily"><span class="icon">🧫</span>Napi levain igény</button>
+    <button class="nav-item" data-action="nav" data-arg1="gyartas-flow"><span class="icon">🔥</span>Gyártás (napi flow)</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Egyéb gyártás</div>
     <button class="nav-item" data-action="nav" data-arg1="processing"><span class="icon">🏭</span>Malom / Feldolgozás</button>
     <button class="nav-item" id="nav-exp-bake" onclick="openExperimentalBake(currentRecipeId)" style="color:#b45309"><span class="icon">🧪</span>Kísérleti sütés</button>
-    <button class="nav-item" onclick="openExperimentalBake(null,'extra')" style="color:#92400e"><span class="icon">➕</span>Extra sütés</button>
-    <button class="nav-item" data-action="nav" data-arg1="production-prep"><span class="icon">🏭</span>Gyártás előkészítés</button>
-    <button class="nav-item" data-action="nav" data-arg1="baking-log"><span class="icon">📒</span>Sütési napló</button>
   </div>
   <div class="nav-section">
     <div class="nav-label">Rendszer</div>
@@ -348,6 +348,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   <div class="nav-section">
     <div class="nav-label">Elemzés</div>
     <button class="nav-item" data-action="nav" data-arg1="cost-analysis"><span class="icon">💰</span>Önköltség elemzés</button>
+    <button class="nav-item" data-action="nav" data-arg1="prodstats"><span class="icon">📊</span>Sütési statisztika</button>
   </div>
     <button class="nav-item" data-action="nav" data-arg1="receptura-help"><span class="icon">❓</span>Súgó</button>
   <div class="sidebar-footer">
@@ -428,6 +429,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="card-head"><div class="card-title">💰 Önköltség kalkulátor</div></div>
           <div class="card-body" id="cost-detail"></div>
         </div>
+        <!-- Készlet-fedezet (P1) -->
+        <div class="card">
+          <div class="card-head"><div class="card-title">📦 Készlet-fedezet</div><span style="font-size:0.72rem;color:var(--text-soft)">a fenti mennyiséghez</span></div>
+          <div class="card-body" id="stock-coverage-detail"></div>
+        </div>
+        <!-- Kiszerelések / család-variánsok (P) -->
+        <div class="card" id="recipe-variants-card" style="display:none">
+          <div class="card-head"><div class="card-title">🏷 Kiszerelések</div><span style="font-size:0.72rem;color:var(--text-soft)">ugyanazon termék változatai</span></div>
+          <div class="card-body" id="recipe-variants-detail"></div>
+        </div>
         <!-- Process -->
         <div class="card">
           <div class="card-head"><div class="card-title">📋 Folyamat</div></div>
@@ -446,6 +457,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
 
   <div id="view-op-select" class="view">
+    <div class="gyartas-tabbar" style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:16px"></div>
     <div class="op-header">
       <h2>Üzemi nézet</h2>
       <p>Válaszd ki a sütni kívánt terméket és add meg a mennyiséget</p>
@@ -540,6 +552,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
           <div class="form-group"><label>Hőfok-tűrés (°C)</label><input type="number" id="s-temp-tolerance" placeholder="10" step="5" min="0"></div>
         </div>
         <div id="shop-rate-info" style="font-size:0.8rem;color:var(--text-soft);margin-bottom:10px"></div>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:0.84rem;cursor:pointer;margin:4px 0 12px">
+          <input type="checkbox" id="s-vat-payer" style="width:18px;height:18px;accent-color:var(--teal);margin-top:1px">
+          <span><b>A cég ÁFA-fizető</b> (plătitor de TVA)<br><span style="font-size:0.74rem;color:var(--text-soft)">Számla-bevételezésnél: ÁFA-fizetőnél a készlet <b>nettó</b> áron kerül be (az ÁFA visszaigényelhető), egyébként bruttó áron.</span></span>
+        </label>
         <button class="btn btn-primary" data-action="saveFinancialSettings">Mentés</button>
       </div>
     </div>
@@ -569,13 +585,21 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">🤖 AI integráció</div></div>
       <div class="card-body">
-        <p class="text-sm text-soft mb-16">AI segítségével Word/Excel fájlból automatikusan tölt ki recepteket, generál tápértéket és marketing szöveget. Az API kulcs Supabase-ben tárolódik – bármely eszközről elérhető.</p>
+        <p class="text-sm text-soft mb-16">Két AI-feladat van: a <b>receptek</b> (Word/Excel kitöltés, tápérték, marketing szöveg) és a <b>számlák</b> beolvasása (fotó / szöveg). Mindkettőhöz külön szolgáltató választható; a kulcsot szolgáltatónként egyszer kell megadni. A kulcsok Supabase-ben tárolódnak – bármely eszközről elérhetők.</p>
+        <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:8px">🔑 API-kulcsok (csak amit használsz)</div>
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label>API kulcs</label>
-            <input type="password" id="s-api-key" placeholder="sk-ant-... vagy sk-...">
-          </div>
+          <div class="form-group"><label>Google Gemini <span style="font-weight:400;color:var(--text-soft)">· ingyenes: aistudio.google.com → Get API key</span></label><input type="password" id="s-key-gemini" placeholder="AIza…" autocomplete="off"></div>
+          <div class="form-group"><label>Groq <span style="font-weight:400;color:var(--text-soft)">· ingyenes</span></label><input type="password" id="s-key-groq" placeholder="gsk_…" autocomplete="off"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Anthropic (Claude)</label><input type="password" id="s-key-anthropic" placeholder="sk-ant-…" autocomplete="off"></div>
+          <div class="form-group"><label>OpenAI (GPT)</label><input type="password" id="s-key-openai" placeholder="sk-…" autocomplete="off"></div>
+        </div>
+        <div class="sep"></div>
+        <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:8px">📋 Receptek</div>
+        <div class="form-row">
           <div class="form-group"><label>Szolgáltató</label>
-            <select id="s-ai-provider" onchange="const m={anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};const el=document.getElementById('s-ai-model');if(el&&!R.settings.aiModel)el.value=m[this.value]||'';">
+            <select id="s-ai-provider" onchange="aiProviderChanged()">
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="gemini">Google Gemini (ingyenes)</option>
               <option value="groq">Groq (ingyenes)</option>
@@ -583,15 +607,32 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
               <option value="custom">Egyéni URL</option>
             </select>
           </div>
+          <div class="form-group" style="flex:2"><label>Modell neve</label>
+            <input type="text" id="s-ai-model" placeholder="pl. openai/gpt-oss-20b (groq), claude-sonnet-4-20250514">
+          </div>
         </div>
         <div id="s-ai-custom-url-row" style="display:none" class="form-group mb-16">
-          <label>API végpont URL</label>
-          <input type="text" id="s-ai-url" placeholder="https://api.example.com/v1/messages">
+          <label>Egyéni: API végpont URL és kulcs</label>
+          <input type="text" id="s-ai-url" placeholder="https://api.example.com/v1/messages" style="margin-bottom:6px">
+          <input type="password" id="s-key-custom" placeholder="egyéni API-kulcs" autocomplete="off">
         </div>
-        <div class="form-group mb-16">
-          <label>Modell neve</label>
-          <input type="text" id="s-ai-model" placeholder="pl. openai/gpt-oss-20b (groq), claude-sonnet-4-20250514">
+        <div class="sep"></div>
+        <div style="font-weight:600;font-size:0.85rem;color:var(--teal-dark);margin-bottom:8px">🧾 Számlák (Készlet → Számla bevételezése)</div>
+        <div class="form-row">
+          <div class="form-group"><label>Szolgáltató</label>
+            <select id="s-inv-provider">
+              <option value="">Ugyanaz, mint a recepteknél</option>
+              <option value="gemini">Google Gemini (ajánlott, ingyenes)</option>
+              <option value="groq">Groq (ingyenes)</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:2"><label>Modell <span style="font-weight:400;color:var(--text-soft)">· üresen hagyva automatikus</span></label>
+            <input type="text" id="s-inv-model" placeholder="automatikus (a legújabb elérhető)">
+          </div>
         </div>
+        <div style="font-size:0.74rem;color:var(--text-soft);margin-bottom:14px">Fotóhoz képes modell kell — a Gemini a legpontosabb. Ha a beállított modellt a szolgáltató kivezeti, a program automatikusan újat választ és ide menti.</div>
         <button class="btn btn-primary btn-sm" data-action="saveAiSettings">💾 Mentés</button>
         <button class="btn btn-sm" style="margin-left:8px;background:var(--gold);color:#fff" data-action="migrateRecipeProductIds">🔧 product_id javítás (egyszeri)</button>
         <span id="ai-test-result" style="font-size:0.78rem;margin-left:10px"></span>
@@ -600,7 +641,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
   </div>
 
   <!-- ===== LEVAIN DAILY ===== -->
+  <div id="view-gyartas-flow" class="view">
+    <div id="gyartas-flow"></div>
+  </div>
+
   <div id="view-levain-daily" class="view">
+    <div class="gyartas-tabbar" style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:16px"></div>
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">🧫 Napi levain előkészítés</div></div>
       <div class="card-body" style="padding-bottom:8px">
@@ -614,30 +660,29 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
   <!-- ===== PRODUCTION PREP ===== -->
   <div id="view-production-prep" class="view">
+    <div class="gyartas-tabbar" style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:16px"></div>
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">📅 Sütési nap</div></div>
       <div class="card-body">
         <div id="prod-day-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
         <button class="btn btn-primary btn-sm" data-action="calcProductionPrep">🏭 Előkészítés kiszámítása</button>
         <button id="prod-done-btn-top" data-action="confirmBakingDone" style="display:none;margin-left:8px;padding:7px 16px;background:var(--teal-dark);color:var(--gold);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.82rem;font-family:'Kodchasan',sans-serif">✅ Sütés elvégezve</button>
-        <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV" style="margin-left:8px">📥 CSV export</button>
-        <button class="btn btn-primary btn-sm" data-action="generateShoppingList" style="margin-left:8px">🛒 Bevásárló lista</button>
-        <button class="btn btn-ghost btn-sm" onclick="openExperimentalBake(null,'extra')" style="margin-left:8px;color:#92400e;border-color:#fde68a;background:#fffbeb">➕ Extra sütés</button>
       </div>
     </div>
     <div id="prod-prep-result"></div>
-    <div id="bake-plan-result"></div>
     <div id="prod-done-btn" style="display:none"></div>
-    <div id="shopping-list-panel" class="mb-16"></div>
     <div id="stock-alerts" class="mb-16"></div>
   </div>
 
   <!-- ===== SÜTÉSI NAPLÓ (P1) ===== -->
   <div id="view-baking-log" class="view">
+    <div class="gyartas-tabbar" style="display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:16px"></div>
     <div class="card mb-16">
       <div class="card-head"><div class="card-title">📒 Sütési napló</div></div>
       <div class="card-body">
-        <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);margin-right:8px">Nap:</label>
+        <label style="font-size:0.82rem;font-weight:600;color:var(--teal-dark);margin-right:8px">Sütési nap:</label>
+        <select id="blog-day-select" onchange="if(document.getElementById('blog-date'))document.getElementById('blog-date').value=this.value; renderBakingLog(this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif;background:white;color:var(--teal-dark)"></select>
+        <span style="font-size:0.72rem;color:var(--text-soft);margin:0 6px">vagy dátum:</span>
         <input type="date" id="blog-date" onchange="renderBakingLog(this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Kodchasan',sans-serif">
       </div>
     </div>
@@ -646,9 +691,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
   <!-- ===== COST ANALYSIS ===== -->
   <!-- ===== BESZÁLLÍTÓK (v2.40.0) ===== -->
+  <div id="view-prodstats" class="view">
+    <div id="prodstats-content" style="padding:4px"></div>
+  </div>
+
   <div id="view-masterdata" class="view">
     <div id="masterdata-content" style="padding:4px"></div>
   </div>
+
+  <!-- ===== SZÁMLA BEVÉTELEZÉS (v2.54.0) ===== -->
+  <div id="view-invoice-intake" class="view"></div>
 
 
   <!-- ===== BEVÁSÁRLÓ LISTA (v2.39.0) ===== -->
@@ -666,11 +718,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
       <div class="card-head"><div class="card-title">💰 Termékenkénti önköltség és ároptimalizálás</div></div>
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Termék</th><th class="num">Önköltség/db</th><th class="num">Javasolt ár</th><th class="num">Jelenlegi ár</th><th class="num">Különbség</th><th class="num">Optimális (15db)</th><th class="num">Megtakarítás/db</th></tr></thead>
+          <thead><tr><th>Termék</th><th class="num">Nyersanyag/db</th><th class="num">Önköltség/db (10 db-os sütés)</th><th class="num">Javasolt ár (bruttó)</th><th class="num">Jelenlegi ár</th><th class="num">Fedezet (nettó)</th><th class="num">Önköltség/db teli sütőnél</th></tr></thead>
           <tbody id="cost-analysis-tbody"></tbody>
         </table>
       </div>
     </div>
+    <div class="card mb-16" id="cost-missing"></div>
   </div>
 
   <!-- ===== MALOM / FELDOLGOZÁS ===== -->
@@ -692,6 +745,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
     <div id="stock-alerts"></div>
     <div class="flex justify-between items-center mb-16">
       <div class="flex gap-8 flex-wrap">
+        <button class="btn btn-sm" style="background:var(--gold);color:var(--teal-dark);font-weight:600" data-action="nav" data-arg1="invoice-intake">🧾 Számla bevételezése</button>
+        <button class="btn btn-ghost btn-sm" data-action="invOpenLaterCost">➕ Utólagos szállítási költség</button>
         <button class="btn btn-primary btn-sm" data-action="generateShoppingList">🛒 Bevásárló lista</button>
         <button class="btn btn-ghost btn-sm" data-action="exportShoppingListCSV">📥 CSV export</button>
         <button class="btn btn-ghost btn-sm" onclick="calcAutoMinMax().then(()=>toast('✅ Min/Max frissítve'))" title="Min/Max újraszámítás rendelésekből">🤖 Auto Min/Max</button>
@@ -853,6 +908,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
         </div>
         <div class="form-row">
           <div class="form-group"><label>Sütési idő (perc)</label><input type="number" id="r-bake-min" placeholder="80" step="5" min="0"></div>
+          <div class="form-group"><label>Db / tálca (GN 1/1) <span style="font-weight:400;color:var(--text-soft);font-size:0.7rem">a batch-kapacitáshoz</span></label><input type="number" id="r-pieces-per-tray" placeholder="pl. 6" step="1" min="0"></div>
           <div class="form-group"><label>Sütési hőfok (°C)</label><input type="number" id="r-bake-temp" placeholder="230" step="5" min="0"></div>
           <div class="form-group"><label>Db / tálca</label><input type="number" id="r-units-per-tray" placeholder="4" step="1" min="0"></div>
           <div class="form-group"><label>Tálca / sütés</label><input type="number" id="r-trays-per-cycle" placeholder="2" step="1" min="0"></div>
@@ -1016,27 +1072,32 @@ table.tbl{width:100%;border-collapse:collapse;font-size:0.8rem;}
 
 <div id="toast"></div>
 
-<script src="js/receptura-data.js?v=2.53.92"></script>
-<script src="js/receptura-ui.js?v=2.53.75"></script>
-<script src="js/receptura-recipes.js?v=2.53.94"></script>
-<script src="js/receptura-operational.js?v=2.53.17"></script>
+<script src="js/receptura-data.js?v=2.56.1"></script>
+<script src="js/receptura-ui.js?v=2.56.3"></script>
+<script src="js/receptura-recipes.js?v=2.53.117"></script>
+<script src="js/receptura-operational.js?v=2.53.123"></script>
 <script src="js/receptura-ingredients.js?v=2.53.78"></script>
-<script src="js/receptura-equipment.js?v=2.53.74"></script>
+<script src="js/receptura-equipment.js?v=2.53.107"></script>
 <script src="js/receptura-costhelp.js?v=2.53.53"></script>
-<script src="js/receptura-settings.js?v=2.53.93"></script>
+<script src="js/receptura-settings.js?v=2.56.1"></script>
 <script src="js/receptura-ing-cats.js?v=2.53.70"></script>
 <script src="js/receptura-recipe-cats.js?v=2.53.77"></script>
 <script src="js/receptura-processing.js?v=2.53.17"></script>
   <script src="js/receptura-help.js?v=2.53.17"></script>
-  <script src="js/receptura-levain.js?v=2.53.91"></script>
-<script src="js/receptura-production.js?v=2.53.56"></script>
+  <script src="js/receptura-levain.js?v=2.56.3"></script>
+<script src="js/receptura-production.js?v=2.54.1"></script>
+<script src="js/receptura-batch.js?v=2.53.124"></script>
+<script src="js/receptura-gyartas.js?v=2.54.1"></script>
+<script src="js/receptura-stats.js?v=2.53.130"></script>
 <script src="js/receptura-bakeplan.js?v=2.53.56"></script>
 <script src="js/receptura-stock.js?v=2.53.72"></script>
-<script src="js/receptura-modal.js?v=2.53.53"></script>
-<script src="js/receptura-ai.js?v=2.53.92"></script>
+<script src="js/receptura-modal.js?v=2.53.107"></script>
+<script src="js/receptura-ai.js?v=2.53.111"></script>
 <script src="js/receptura-shopping.js?v=2.53.70"></script>
 <script src="js/receptura-suppliers.js?v=2.53.71"></script>
 <script src="js/receptura-masterdata.js?v=2.53.80"></script>
+<script src="js/receptura-invoice-dict.js?v=2.56.4"></script>
+<script src="js/receptura-invoice.js?v=2.56.4"></script>
 <div id="view-receptura-help" class="view"></div>
 </body>
 </html>

@@ -53,7 +53,7 @@ function materializeStandingOrder(rule, ctx, io) {
 // standing_orders betöltése egy hónapra → appData.standingOrders[product_id] = szabály
 async function loadStandingOrders(year, month) {
   const filter = `client_id=eq.${currentUser.id}&year=eq.${year}&month=eq.${month}`;
-  const rows = await sb.query('standing_orders', { filter });
+  const rows = await vData.query('standing_orders', { filter });
   const map = {};
   (rows || []).forEach(r => { map[r.product_id] = r; });
   appData.standingOrders = appData.standingOrders || {};
@@ -101,7 +101,7 @@ async function applyStanding(year, month, productId, ruleFields) {
     { client_id: currentUser.id, product_id: productId, year: year, month: month, qty: 0, dows: [], active: true, override_days: [] },
     ruleFields, { updated_at: new Date().toISOString() }
   );
-  await sb.upsert('standing_orders', [rule], 'client_id,product_id,year,month');
+  await vData.upsert('standing_orders', [rule], 'client_id,product_id,year,month');
   appData.standingOrders = appData.standingOrders || {};
   const _mk = year + '-' + month;
   if (!appData.standingOrders[_mk]) appData.standingOrders[_mk] = {};
@@ -132,7 +132,7 @@ async function applyStanding(year, month, productId, ruleFields) {
   });
 
   if (upsertRows.length) {
-    await sb.upsert('orders', upsertRows, 'client_id,year,month,day,product_id');
+    await vData.upsert('orders', upsertRows, 'client_id,year,month,day,product_id');
     upsertRows.forEach(r => {
       const k = getOrderKey(currentUser.id, year, month, r.day);
       if (!appData.orders[k]) appData.orders[k] = {};
@@ -140,7 +140,7 @@ async function applyStanding(year, month, productId, ruleFields) {
     });
   }
   if (removeDays.length) {
-    await sb.delete('orders', `client_id=eq.${currentUser.id}&year=eq.${year}&month=eq.${month}&product_id=eq.${productId}&day=in.(${removeDays.join(',')})`);
+    await vData.delete('orders', `client_id=eq.${currentUser.id}&year=eq.${year}&month=eq.${month}&product_id=eq.${productId}&day=in.(${removeDays.join(',')})`);
     removeDays.forEach(day => {
       const k = getOrderKey(currentUser.id, year, month, day);
       if (appData.orders[k]) { delete appData.orders[k][productId]; if (!Object.keys(appData.orders[k]).length) delete appData.orders[k]; }
@@ -154,7 +154,7 @@ async function applyStanding(year, month, productId, ruleFields) {
     const k = getOrderKey(currentUser.id, year, month, day);
     const st = (appData.orderStatus && appData.orderStatus[k]) || {};
     if (st.status === 'confirmed' || st.status === 'modified') {
-      await sb.upsert('order_status', { client_id: currentUser.id, year: year, month: month, day: day, status: 'pending', admin_note: st.admin_note || null }, 'client_id,year,month,day');
+      await vData.upsert('order_status', { client_id: currentUser.id, year: year, month: month, day: day, status: 'pending', admin_note: st.admin_note || null }, 'client_id,year,month,day');
       if (!appData.orderStatus) appData.orderStatus = {};
       appData.orderStatus[k] = { ...st, status: 'pending' };
     }
@@ -232,7 +232,7 @@ async function markStandingOverride(pid, day) {
   }
   if (changed) {
     rule.updated_at = new Date().toISOString();
-    try { await sb.upsert('standing_orders', [rule], 'client_id,product_id,year,month'); }
+    try { await vData.upsert('standing_orders', [rule], 'client_id,product_id,year,month'); }
     catch (e) { console.warn('override mentés:', e && e.message); }
   }
 }

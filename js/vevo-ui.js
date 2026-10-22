@@ -157,29 +157,7 @@ function renderHelpConditions() {
   if (appData.helpDelivery) document.getElementById('help-delivery').innerHTML = appData.helpDelivery.replace(/\n/g,'<br>');
 }
 
-// ===== AUTO-LOGIN FROM PREVIEW =====
-function checkAutoLogin() {
-  const params = new URLSearchParams(window.location.search);
-  const previewId = params.get('preview');
-  if (previewId) {
-    const client = appData.clients.find(c => c.id === previewId);
-    if (client) {
-      currentUser = client;
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('user-badge').textContent = '👤 ' + client.name;
-      document.getElementById('hero-greeting').textContent = 'Szia, ' + client.name.split(' ').slice(-1)[0] + '! 👋';
-      // Show preview banner
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:var(--gold);color:var(--teal-dark);text-align:center;padding:6px;font-size:0.78rem;font-weight:700;z-index:999;font-family:Kodchasan,sans-serif';
-      banner.textContent = '👁 ADMIN ELŐNÉZET – ' + client.name + ' nézetében';
-      document.body.prepend(banner);
-      buildMonthSelectors();
-      renderOrderTable();
-      updateHeroTotal();
-      renderHelpConditions();
-    }
-  }
-}
+// v2.55.0: az admin-előnézet biztonságos tokennel működik (js/vevo-auth.js → vevoPreviewFromHash)
 
 // ===== TOAST =====
 function toast(msg, isError=false) {
@@ -194,12 +172,10 @@ function toast(msg, isError=false) {
   el._t = setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.style.display='none',300); el.style.background=''; }, duration);
 }
 
-// Auto-login check runs after everything is loaded
-window.addEventListener('load', checkAutoLogin);
 async function loadMessage() {
   const key = `${currentUser.id}-${selectedYear}-${selectedMonth}`;
   try {
-    const msgs = await sb.query('messages', {
+    const msgs = await vData.query('messages', {
       filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`,
       order: 'created_at'
     });
@@ -256,9 +232,9 @@ async function deleteMyMessage(idx) {
   if(!target) return;
   try {
     // Delete from Supabase by matching text+timestamp
-    const all = await sb.query('messages', {filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`});
+    const all = await vData.query('messages', {filter: `client_id=eq.${currentUser.id}&year=eq.${selectedYear}&month=eq.${selectedMonth}`});
     const found = all.find(m => m.text===target.text && m.created_at===target.ts);
-    if(found?.id) await sb.delete('messages', `id=eq.${found.id}`);
+    if(found?.id) await vData.delete('messages', `id=eq.${found.id}`);
     // Update local cache
     appData.messages[key] = msgs.filter(m => !(m.text===target.text && m.ts===target.ts));
     loadMessage();

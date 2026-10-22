@@ -1,5 +1,27 @@
 // ===== AI RECEPT IMPORT =====
 // mammoth.js betöltése Word feldolgozáshoz
+// v2.53.102: robusztus alapanyag-név párosító — ékezet/szóköz/zárójel-érzéketlen + token-alapú.
+function _aiNorm(str){ return (str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').replace(/[^a-z0-9]/g,''); }
+function _matchIngredientByName(name){
+  const n = _aiNorm(name);
+  if(!n || n.length < 2) return null;
+  const list = (typeof R!=='undefined' && R.ingredients) ? R.ingredients : [];
+  // 1) pontos normalizált egyezés
+  let m = list.find(i => _aiNorm(i.name) === n);
+  if(m) return m;
+  // 2) egyik tartalmazza a másikat (normalizálva, min 4 karakter)
+  m = list.find(i => { const a=_aiNorm(i.name); return a.length>=4 && n.length>=4 && (a.includes(n) || n.includes(a)); });
+  if(m) return m;
+  // 3) token-átfedés: CSAK megkülönböztető szóra (a generikus kategória-szavakat kihagyjuk,
+  //    hogy ne legyen hamis találat pl. "keményítő"/"liszt" alapján). Inkább nincs találat, mint rossz.
+  const GENERIC = ['liszt','lisztek','kemenyito','keskeny','olaj','olajok','mag','magok','magvak','por','pehely','pelyhek','daralt','darabolt','nyers','feher','vilagos','barna','sotet','folyadek','alapu','kovasz'];
+  const tokens = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\(.*?\)/g,'').split(/[^a-z0-9]+/)
+    .filter(t=>t.length>=4 && !GENERIC.includes(t)).sort((a,b)=>b.length-a.length);
+  for(const t of tokens){ m = list.find(i => _aiNorm(i.name).includes(t)); if(m) return m; }
+  return null;
+}
+if(typeof window!=='undefined'){ window._matchIngredientByName=_matchIngredientByName; }
+
 function loadMammoth() {
   return new Promise((resolve, reject) => {
     if(window.mammoth) { resolve(); return; }
@@ -149,6 +171,7 @@ FONTOS:
 - A levainAmount a teljes tészta levain tartalma gramban
 - A dryIngredients: lisztek, keményítők, magvak, só, sütőpor – száraz összetevők
 - A wetIngredients: víz, olaj, tojás, folyadékok + levain is ide kerül
+- A "steps" tömbbe az ÖSSZES elkészítési lépést vedd fel, SORRENDBEN és RÉSZLETESEN (pl. autolízis, keverés/dagasztás, bulk kelesztés, hajtogatás, formázás, végső kelesztés, sütés, hűtés). Ne vonj össze több lépést egybe. Ahol várakozás/idő van, add meg a "timer" percet. Cél: a pék a lépésekből végig tudja csinálni a sütést.
 
 Recept szöveg:
 ${text.substring(0, 6000)}`;
@@ -257,8 +280,13 @@ function fillRecipeForm(r) {
     if(n.protein !== undefined) document.getElementById('r-nut-protein').value = n.protein;
     if(n.salt !== undefined) document.getElementById('r-nut-salt').value = n.salt;
   }
-  if(r.dryIngredients) { modalDryIngs = r.dryIngredients; }
-  if(r.wetIngredients) { modalWetIngs = r.wetIngredients; }
+  // v2.53.102: az LLM/JSON által adott összetevőket is párosítjuk a törzsadat-alapanyagokhoz
+  const _linkParsed = (arr) => (arr||[]).map(ing => ({
+    name: ing.name, amount: ing.amount,
+    ingredientId: ing.ingredientId || (_matchIngredientByName(ing.name)?.id || null)
+  }));
+  if(r.dryIngredients) { modalDryIngs = _linkParsed(r.dryIngredients); }
+  if(r.wetIngredients) { modalWetIngs = _linkParsed(r.wetIngredients); }
   if(r.steps) { modalSteps = r.steps; }
   renderModalIngredients();
   renderModalSteps();
@@ -308,11 +336,8 @@ function parseTextRecipe() {
       if(unit==='dl') amount *= 100;
       if(unit==='ml') amount *= 1;
 
-      // Match to existing ingredient
-      const matchedIng = R.ingredients.find(i =>
-        i.name.toLowerCase().includes(name.toLowerCase().slice(0,6)) ||
-        name.toLowerCase().includes(i.name.toLowerCase().slice(0,6))
-      );
+      // v2.53.102: ROBUSZTUS párosítás a meglévő alapanyagokhoz (ékezet/szóköz/zárójel-érzéketlen)
+      const matchedIng = _matchIngredientByName(name);
 
       const ingObj = {name: name.trim(), amount: Math.round(amount), ingredientId: matchedIng?.id || null};
 
@@ -368,6 +393,15 @@ function parseTextRecipe() {
 async function saveRecipe() {
   const name = document.getElementById('r-name').value.trim();
   if (!name) { toast('Recept neve kötelező!'); return; }
+  // v2.53.101 INTEGRITÁS (1. elv): minden összetevő KÖTELEZŐEN alapanyaghoz kötött legyen.
+  // Nem-linkelt (ingredientId nélküli) összetevővel nem mentünk → a recept sosem lehet "vak" a készletre.
+  const _unlinked = [...(modalDryIngs||[]), ...(modalWetIngs||[])]
+    .filter(ing => (ing.name && ing.name.trim()) && !ing.ingredientId);
+  if (_unlinked.length > 0) {
+    const names = _unlinked.map(i => '„' + (i.name||'?') + '"').join(', ');
+    toast('⚠️ Nem menthető: ' + _unlinked.length + ' összetevő nincs alapanyaghoz kötve (' + names + '). Válaszd ki mindegyiknél a listából a megfelelő alapanyagot (vagy előbb hozd létre a Törzsadatokban).', true);
+    return;
+  }
   const data = {
     product_id: parseInt(document.getElementById('r-product-link')?.value)||null,
     familyId: document.getElementById('r-family-id')?.value ? parseInt(document.getElementById('r-family-id').value) : null,
@@ -403,6 +437,7 @@ async function saveRecipe() {
     setupMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-setup-min')?.value),
     perUnitMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-per-unit-min')?.value),
     bakeMin: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-min')?.value),
+    piecesPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-pieces-per-tray')?.value),
     bakeTempC: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-bake-temp')?.value),
     unitsPerTray: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-units-per-tray')?.value),
     traysPerCycle: (v=>v===''||v==null?null:parseFloat(v))(document.getElementById('r-trays-per-cycle')?.value),
@@ -416,6 +451,12 @@ async function saveRecipe() {
     toast('✅ Recept frissítve!');
     save(); closeModal('recipe-modal'); renderRecipes();
   } else {
+    // v2.53.96: közvetlen elő-link (Recept készítése termékhez) — a név-match ELŐTT
+    if (!data.product_id && typeof window!=='undefined' && window._preLinkedProductId) {
+      data.product_id = window._preLinkedProductId;
+      data.productPrice = null; // a meglévő termék árát ne írjuk felül
+      window._preLinkedProductId = null;
+    }
     // Duplikátum check – modal nyitva marad ha hiba van
     if (!data.product_id) {
       try {

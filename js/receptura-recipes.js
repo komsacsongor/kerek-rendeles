@@ -18,21 +18,17 @@ function filterRecipes(cat, btn) {
 }
 
 function renderRecipeGrid(cat) {
-  // Only active (non-archived) recipes
+  // v2.53.117: KOMPLETT recept = van legalább 1 összetevője. A hiányos/üres receptek NEM a fő listában.
+  const _isComplete = r => ((r.ingredients?r.ingredients.length:0)+(r.dryIngredients||[]).length+(r.otherDryIngredients||[]).length+(r.wetIngredients||[]).length+(r.starterIngredients||[]).length) > 0;
   const active = R.recipes.filter(r => !r.archived);
-  const filtered = cat==='Mind' ? active : active.filter(r=>r.category===cat);
+  const activeComplete = active.filter(_isComplete);
+  const filtered = cat==='Mind' ? activeComplete : activeComplete.filter(r=>r.category===cat);
   let gridHtml = filtered.map(r => {
     const cost = calcRecipeCost(r, 10);
-    const _ingCount = (r.ingredients ? r.ingredients.length : 0)
-      + (r.dryIngredients||[]).length + (r.otherDryIngredients||[]).length
-      + (r.wetIngredients||[]).length + (r.starterIngredients||[]).length;
-    const isEmpty = _ingCount === 0;
-    const emptyStyle = isEmpty ? 'border:2px solid #dc2626;background:#fef2f2' : '';
-    const emptyBadge = isEmpty ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-left:6px" title="Nincs alapanyag rögzítve!">⚠️ ÜRES</span>' : '';
-    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})" style="${emptyStyle}">
+    return `<div class="recipe-card" onclick="openRecipeDetail(${r.id})">
       <div class="recipe-card-img">🍞</div>
       <div class="recipe-card-body">
-        <div class="recipe-card-name">${r.name}${emptyBadge}</div>
+        <div class="recipe-card-name">${r.name}</div>
         <div class="recipe-card-meta">
           <span class="badge badge-teal">${r.category}</span>
           ${(r.version||1) > 1 ? `<span style="background:var(--gold);color:#000;padding:1px 7px;border-radius:10px;font-size:.7rem;font-weight:700">v${r.version}</span>` : ''}
@@ -42,25 +38,35 @@ function renderRecipeGrid(cat) {
         <div class="recipe-card-price">${cost.priceGross.toFixed(2)} lej <span style="font-size:0.75rem;color:var(--text-soft)">/db bruttó</span></div>
       </div>
     </div>`;
-  }).join('') || '<p class="text-soft text-sm">Nincs recept ebben a kategóriában.</p>';
+  }).join('') || '<p class="text-soft text-sm">Nincs komplett recept ebben a kategóriában.</p>';
 
-  // v2.53.94 TRANSZPARENCIA: recept nélküli termékek (léteznek az adminban, de nincs aktív receptjük)
-  const recipedPids = new Set(active.filter(r=>r.product_id).map(r=>r.product_id));
-  let orphanProds = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[])
-    .filter(p => !p.deleted_at && !recipedPids.has(p.id));
+  // TRANSZPARENCIA (v2.53.117): recept NÉLKÜLI vagy HIÁNYOS receptű termékek → itt jelennek meg.
+  // Család-tudatos: a variáns nem hiányos, ha a családban van KOMPLETT recept.
+  const completePids = new Set(activeComplete.filter(r=>r.product_id).map(r=>r.product_id));
+  const incompleteRecipeByPid = {};
+  active.filter(r=>r.product_id && !_isComplete(r) && !completePids.has(r.product_id)).forEach(r=>{ if(!incompleteRecipeByPid[r.product_id]) incompleteRecipeByPid[r.product_id]=r.id; });
+  window._incompleteRecipeByPid = incompleteRecipeByPid;
+  const _pcache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
+  const familyHasRecipe = (p) => {
+    const headId = p.product_family_id || p.id;
+    return _pcache.some(m => ((m.product_family_id||m.id) === headId) && completePids.has(m.id));
+  };
+  let orphanProds = _pcache
+    .filter(p => !p.deleted_at && !completePids.has(p.id) && !familyHasRecipe(p));
   if (cat !== 'Mind') orphanProds = orphanProds.filter(p => (p.category||'') === cat);
   if (orphanProds.length) {
     gridHtml += `<div style="grid-column:1/-1;margin-top:22px;border-top:2px dashed var(--border);padding-top:14px">
-      <h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0 0 4px;font-size:1.05rem">🏷 Recept nélküli termékek <span style="font-size:0.75rem;font-weight:400">(${orphanProds.length})</span></h3>
-      <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Léteznek az adminban, de még nincs receptjük. Kattints egy kártyára recept készítéséhez.</p></div>`;
-    gridHtml += orphanProds.map(p => `<div class="recipe-card" onclick="createRecipeForProduct(${p.id})" style="border:2px dashed #f59e0b;background:#fffbeb">
-      <div class="recipe-card-img">🏷</div>
+      <h3 style="font-family:'Fraunces',serif;color:var(--text-soft);margin:0 0 4px;font-size:1.05rem">🏷 Recept nélküli / hiányos termékek <span style="font-size:0.75rem;font-weight:400">(${orphanProds.length})</span></h3>
+      <p style="font-size:0.78rem;color:var(--text-soft);margin:0 0 12px">Nincs komplett receptjük (nincs recept, vagy a recept hiányos/üres). Kattints → recept készítése/kiegészítése.</p></div>`;
+    gridHtml += orphanProds.map(p => { const inc = incompleteRecipeByPid[p.id];
+      return `<div class="recipe-card" onclick="createRecipeForProduct(${p.id})" style="border:2px dashed ${inc?'#dc2626':'#f59e0b'};background:${inc?'#fef2f2':'#fffbeb'}">
+      <div class="recipe-card-img">${inc?'⚠️':'🏷'}</div>
       <div class="recipe-card-body">
-        <div class="recipe-card-name">${esc(p.name)}<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-left:6px">➕ nincs receptúra</span></div>
+        <div class="recipe-card-name">${esc(p.name)}<span style="background:${inc?'#dc2626':'#f59e0b'};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;margin-left:6px">${inc?'⚠️ hiányos recept':'➕ nincs receptúra'}</span></div>
         <div class="recipe-card-meta"><span class="badge badge-teal">${esc(p.category||'—')}</span>${p.code?`<span style="font-family:monospace;font-size:0.68rem;color:var(--text-soft)">${esc(p.code)}</span>`:''}</div>
-        <div class="recipe-card-price" style="color:#d97706;font-size:0.85rem">Recept készítése →</div>
+        <div class="recipe-card-price" style="color:${inc?'#dc2626':'#d97706'};font-size:0.85rem">${inc?'Recept kiegészítése →':'Recept készítése →'}</div>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
   }
   document.getElementById('recipes-grid').innerHTML = gridHtml;
 
@@ -70,15 +76,18 @@ function renderRecipeGrid(cat) {
 
 // v2.53.94: recept létrehozása egy meglévő (admin) termékhez, elő-linkelve
 function createRecipeForProduct(prodId) {
+  // v2.53.117: ha a terméknek van MÁR (hiányos) receptje, azt nyitjuk kiegészítésre — nem csinálunk újat
+  const _inc = (typeof window!=='undefined' && window._incompleteRecipeByPid) ? window._incompleteRecipeByPid[prodId] : null;
+  if (_inc) { openRecipeModal(_inc); toast('Egészítsd ki a hiányos receptet (adj hozzá összetevőket).'); return; }
   const p = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]).find(x=>x.id===prodId);
   if(!p) return;
   openRecipeModal(null);
+  window._preLinkedProductId = prodId; // v2.53.96: KÖZVETLEN link (nem név-match) → nincs duplikátum
   setTimeout(()=>{
     const nameEl=document.getElementById('r-name'); if(nameEl) nameEl.value = p.name;
-    const linkEl=document.getElementById('r-product-link'); if(linkEl) linkEl.value = String(prodId);
     const catEl=document.getElementById('r-category');
     if(catEl && p.category){ const opt=[...catEl.options].find(o=>o.value===p.category||o.text===p.category); if(opt) catEl.value=opt.value; }
-    toast('Recept készítése ehhez: '+p.name+'. Töltsd ki és mentsd.');
+    toast('Recept készítése ehhez: '+p.name+'. Töltsd ki és mentsd (a meglévő termékhez linkel).');
   }, 120);
 }
 if (typeof window !== 'undefined') window.createRecipeForProduct = createRecipeForProduct;
@@ -148,6 +157,8 @@ function renderRecipeDetail() {
 
   // Cost
   renderCostDetail(r, pieces);
+  renderStockCoverage(r, pieces);
+  renderRecipeVariants(r);
 
   // Process
   renderProcessDetail(r);
@@ -312,6 +323,76 @@ async function showIngDetail(ingId) {
 `;
   });
   await alertDialog(msg);
+}
+
+function renderRecipeVariants(r) {
+  const card = document.getElementById('recipe-variants-card');
+  const box = document.getElementById('recipe-variants-detail');
+  if (!box || !card) return;
+  const cache = (typeof _adminProductsCache!=='undefined'?_adminProductsCache:[]);
+  const prod = cache.find(p => p.id === r.product_id);
+  if (!prod) { card.style.display='none'; return; }
+  const headId = prod.product_family_id || prod.id;
+  const members = cache.filter(p => !p.deleted_at && ((p.product_family_id||p.id) === headId));
+  if (members.length <= 1) { card.style.display='none'; return; } // nincs variáns
+  const recipedPids = new Set((R.recipes||[]).filter(x=>!x.archived && x.product_id).map(x=>x.product_id));
+  members.sort((a,b)=>(a.name||'').localeCompare(b.name||'','hu'));
+  const rows = members.map(m => {
+    const ownRecipe = recipedPids.has(m.id);
+    const isCurrent = m.id === prod.id;
+    const typeLabel = ownRecipe
+      ? '<span style="background:#e0e7ff;color:#3730a3;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700">🍞 saját recept</span>'
+      : '<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700">📦 kiszerelés · közös recept</span>';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:0.5px solid var(--border);font-size:0.83rem;${isCurrent?'font-weight:700':''}">
+      <span style="flex:1">${esc(m.name)}${isCurrent?' <span style=\'color:var(--teal-dark);font-size:0.7rem\'>(ez)</span>':''}</span>
+      <span style="color:var(--text-soft);min-width:60px;text-align:right">${m.weight?esc(m.weight):'—'}</span>
+      <span style="color:var(--teal-dark);min-width:60px;text-align:right;font-weight:600">${m.price!=null?m.price+' lej':'—'}</span>
+      ${typeLabel}
+    </div>`;
+  }).join('');
+  box.innerHTML = `<p style="font-size:0.76rem;color:var(--text-soft);margin:0 0 8px">A „📦 kiszerelés" változatok ezt a receptet öröklik (egy sütés, más csomagolás/ár). A „🍞 saját recept" változatok külön sütést igényelnek.</p>` + rows;
+  card.style.display='block';
+}
+
+function renderStockCoverage(r, pieces) {
+  const box = document.getElementById('stock-coverage-detail');
+  if (!box) return;
+  const rawWeight = calcRawWeight(r, pieces);
+  const scale = rawWeight / (r.basePortion || 1000);
+  // igények gyűjtése ingId -> gramm (bázisegységben)
+  const needs = {};
+  const addNeed = (ingId, g) => { if(!ingId || !g) return; needs[ingId] = (needs[ingId]||0) + g; };
+  if (r.levainAmount) {
+    const lev = calcLevain(r.levainAmount * scale);
+    addNeed(4, lev.starter); addNeed(9, lev.flour); addNeed(1, lev.water);
+  }
+  [...(r.dryIngredients||[]), ...(r.wetIngredients||[]), ...(r.otherDryIngredients||[])].forEach(ing => {
+    addNeed(ing.ingredientId, (ing.amount||0) * scale);
+  });
+  const rows = [];
+  Object.entries(needs).forEach(([ingId, needG]) => {
+    const ing = getIng(parseInt(ingId));
+    if (!ing) return;
+    const stock = ing.totalStockG || 0;
+    const ok = stock >= needG - 0.001;
+    rows.push({ name: ing.name, unit: ing.unit || 'g', needG, stock, ok, short: Math.max(0, needG - stock) });
+  });
+  if (!rows.length) { box.innerHTML = '<p class="text-soft text-sm">Nincs összetevő a fedezet-számításhoz.</p>'; return; }
+  rows.sort((a,b) => (a.ok===b.ok) ? a.name.localeCompare(b.name,'hu') : (a.ok?1:-1));
+  const shortRows = rows.filter(x=>!x.ok);
+  const fmt = (g,u) => (typeof fmtQtyUnit==='function') ? fmtQtyUnit(g, u) : (Math.round(g)+' g');
+  const banner = shortRows.length === 0
+    ? `<div style="background:var(--green-pale,#ecfdf5);color:#065f46;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:10px">✅ Van elég készlet ${pieces} db-hoz</div>`
+    : `<div style="background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:10px">⚠️ ${shortRows.length} alapanyag hiányzik ${pieces} db-hoz</div>`;
+  const list = rows.map(x => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:0.5px solid var(--border);font-size:0.82rem">
+      <span style="width:18px">${x.ok?'✅':'❌'}</span>
+      <span style="flex:1">${esc(x.name)}</span>
+      <span style="color:var(--text-soft)">kell: ${fmt(x.needG,x.unit)}</span>
+      <span style="width:14px;text-align:center;color:var(--text-soft)">/</span>
+      <span style="color:${x.ok?'var(--text-soft)':'#dc2626'};min-width:70px;text-align:right">van: ${fmt(x.stock,x.unit)}${x.ok?'':' <b>(−'+fmt(x.short,x.unit)+')</b>'}</span>
+    </div>`).join('');
+  box.innerHTML = banner + list;
 }
 
 function renderCostDetail(r, pieces) {

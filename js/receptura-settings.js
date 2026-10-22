@@ -10,12 +10,10 @@
 function renderSettings() {
   if(document.getElementById('r-categories-list')) renderRCategories();
   if(document.getElementById('ing-categories-list')) renderIngCategories();
-  if(document.getElementById('s-api-key') && R.settings?.apiKey) {
-    document.getElementById('s-api-key').value = R.settings.apiKey;
-  }
   loadAiSettingsUI();
   const s = R.settings;
   document.getElementById('s-vat').value = s.vat;
+  const vp = document.getElementById('s-vat-payer'); if(vp) vp.checked = s.companyVatPayer !== false;   // v2.56.1
   document.getElementById('s-margin').value = s.margin;
   document.getElementById('s-labor').value = s.labor;
   document.getElementById('s-electricity').value = s.electricity;
@@ -47,9 +45,11 @@ async function saveFinancialSettings() {
     tempToleranceC: parseFloat(document.getElementById('s-temp-tolerance')?.value)||10,
     toolWear: parseFloat(document.getElementById('s-tool-wear').value)||5,
     consumables: parseFloat(document.getElementById('s-consumables').value)||0.5,
+    companyVatPayer: document.getElementById('s-vat-payer') ? document.getElementById('s-vat-payer').checked : (R.settings.companyVatPayer !== false),
   });
   save();
-  try { await sb.setSetting('recipe_financial_settings', R.settings); } catch(e) { console.warn('Supabase settings save:', e); }
+  // v2.56.1: az AI-kulcsok NEM kerülnek a pénzügyi beállítások közé (eddig az egész R.settings mentődött ide)
+  try { await sb.setSetting('recipe_financial_settings', settingsWithoutAi(R.settings)); } catch(e) { console.warn('Supabase settings save:', e); }
   toast('Pénzügyi beállítások mentve!');
 }
 
@@ -89,6 +89,7 @@ async function syncRecipeToSupabase(data, existingId) {
       electricity: data.electricity||5,
       setup_min: data.setupMin ?? null, per_unit_min: data.perUnitMin ?? null,
       bake_min: data.bakeMin ?? null, bake_temp_c: data.bakeTempC ?? null,
+      pieces_per_tray: data.piecesPerTray ?? null,
       units_per_tray: data.unitsPerTray ?? null, trays_per_cycle: data.traysPerCycle ?? null, mixer_min: data.mixerMin ?? null,
       marketing_desc: data.marketing||'',
       ingredient_label: data.ingredientLabel||'',
@@ -181,33 +182,57 @@ async function syncRecipeToSupabase(data, existingId) {
   }
 }
 
+// ===== AI (v2.56.1: kulcs szolgáltatónként; receptek és számlák külön szolgáltatóval) =====
+const AI_PROVIDERS = ['anthropic', 'gemini', 'groq', 'openai', 'custom'];
+const AI_MODEL_DEFAULTS = { anthropic:'claude-sonnet-4-20250514', gemini:'gemini-2.5-flash', groq:'openai/gpt-oss-20b', openai:'gpt-4o-mini' };
+const AI_SETTING_FIELDS = ['apiKey', 'aiProvider', 'aiModel', 'aiUrl', 'aiKeys', 'invoiceProvider', 'invoiceModel', 'invoiceVisionModel', 'invoice'];
+function settingsWithoutAi(obj){ const o = { ...(obj||{}) }; AI_SETTING_FIELDS.forEach(k => delete o[k]); return o; }
+// a recipe_ai_settings sorba mentendő adat (meglévő sor → frissítés; új settings-sort az RLS nem enged)
+function aiSettingsPayload(){
+  const S = R.settings;
+  return { apiKey: S.apiKey || '', aiProvider: S.aiProvider || 'anthropic', aiModel: S.aiModel || '', aiUrl: S.aiUrl || '',
+    keys: S.aiKeys || {}, invoiceProvider: S.invoiceProvider || '', invoiceModel: S.invoiceModel || '' };
+}
+async function persistAiSettings(){ return sb.setSetting('recipe_ai_settings', aiSettingsPayload()); }
+
 async function saveAiSettings() {
-  R.settings.apiKey = document.getElementById('s-api-key').value.trim();
+  const keys = { ...(R.settings.aiKeys || {}) };
+  AI_PROVIDERS.forEach(p => { const el = document.getElementById('s-key-' + p); if(el) keys[p] = el.value.trim(); });
+  R.settings.aiKeys = keys;
   R.settings.aiProvider = document.getElementById('s-ai-provider').value;
-  R.settings.aiModel = document.getElementById('s-ai-model').value.trim() || 'claude-sonnet-4-20250514';
+  R.settings.apiKey = keys[R.settings.aiProvider] || '';          // a recept-AI ezt használja (változatlan)
+  R.settings.aiModel = document.getElementById('s-ai-model').value.trim() || AI_MODEL_DEFAULTS[R.settings.aiProvider] || '';
   R.settings.aiUrl = document.getElementById('s-ai-url')?.value.trim() || '';
-  // Supabase-be mentés
+  const ip = document.getElementById('s-inv-provider')?.value || '';
+  const im = document.getElementById('s-inv-model')?.value.trim() || '';
+  if(ip !== (R.settings.invoiceProvider || '') && im === (R.settings.invoiceModel || '')) R.settings.invoiceModel = '';   // szolgáltató-csere → automatikus modell
+  else R.settings.invoiceModel = im;
+  R.settings.invoiceProvider = ip;
+  const invProv = ip || R.settings.aiProvider;
   try {
-    await sb.setSetting('recipe_ai_settings', {
-      apiKey: R.settings.apiKey,
-      aiProvider: R.settings.aiProvider,
-      aiModel: R.settings.aiModel,
-      aiUrl: R.settings.aiUrl
-    });
-    toast('✅ AI beállítások mentve (Supabase)!');
-  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message); }
+    await persistAiSettings();
+    loadAiSettingsUI();
+    toast(!keys[invProv] ? `✅ Mentve. ⚠️ A számlákhoz választott szolgáltatóhoz (${invProv}) nincs kulcs.` : (!R.settings.apiKey ? `✅ Mentve. ⚠️ A receptekhez választott szolgáltatóhoz (${R.settings.aiProvider}) nincs kulcs.` : '✅ AI beállítások mentve!'));
+  } catch(e) { toast('⚠️ Mentés sikertelen: ' + e.message, true); }
+}
+
+function aiProviderChanged(){
+  const p = document.getElementById('s-ai-provider')?.value;
+  const m = document.getElementById('s-ai-model');
+  if(m && (!m.value || Object.values(AI_MODEL_DEFAULTS).includes(m.value))) m.value = AI_MODEL_DEFAULTS[p] || '';
+  const urlRow = document.getElementById('s-ai-custom-url-row'); if(urlRow) urlRow.style.display = p === 'custom' ? 'block' : 'none';
 }
 
 function loadAiSettingsUI() {
-  if(document.getElementById('s-api-key')) document.getElementById('s-api-key').value = R.settings.apiKey||'';
-  if(document.getElementById('s-ai-provider')) document.getElementById('s-ai-provider').value = R.settings.aiProvider||'anthropic';
-  const _provDefaults = {anthropic:'claude-sonnet-4-20250514',gemini:'gemini-1.5-flash',groq:'openai/gpt-oss-20b',openai:'gpt-4o-mini'};
-  if(document.getElementById('s-ai-model')) document.getElementById('s-ai-model').value = R.settings.aiModel || _provDefaults[R.settings.aiProvider||'anthropic'] || '';
-  if(document.getElementById('s-ai-url')) document.getElementById('s-ai-url').value = R.settings.aiUrl||'';
-  // Custom URL sor megjelenítése
-  const prov = R.settings.aiProvider||'anthropic';
+  const S = R.settings, keys = S.aiKeys || {};
+  AI_PROVIDERS.forEach(p => { const el = document.getElementById('s-key-' + p); if(el) el.value = keys[p] || ''; });
+  if(document.getElementById('s-ai-provider')) document.getElementById('s-ai-provider').value = S.aiProvider||'anthropic';
+  if(document.getElementById('s-ai-model')) document.getElementById('s-ai-model').value = S.aiModel || AI_MODEL_DEFAULTS[S.aiProvider||'anthropic'] || '';
+  if(document.getElementById('s-ai-url')) document.getElementById('s-ai-url').value = S.aiUrl||'';
+  if(document.getElementById('s-inv-provider')) document.getElementById('s-inv-provider').value = S.invoiceProvider || '';
+  if(document.getElementById('s-inv-model')) document.getElementById('s-inv-model').value = S.invoiceModel || '';
   const urlRow = document.getElementById('s-ai-custom-url-row');
-  if(urlRow) urlRow.style.display = prov==='custom' ? 'block' : 'none';
+  if(urlRow) urlRow.style.display = (S.aiProvider||'anthropic')==='custom' ? 'block' : 'none';
 }
 
 
