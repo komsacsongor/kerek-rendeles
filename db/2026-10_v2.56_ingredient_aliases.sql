@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS public.ingredient_aliases (
 
 ALTER TABLE public.ingredient_aliases ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ingredient_aliases FROM anon, authenticated;
+GRANT ALL ON public.ingredient_aliases TO service_role;                              -- 2026-10-24: kifejezett jog (Supabase 10-30)
+GRANT USAGE, SELECT ON SEQUENCE public.ingredient_aliases_id_seq TO service_role;
 
 -- Ellenőrzés: 1 sor, rls_on = true, policy_db = 0
 SELECT c.relname AS tabla, c.relrowsecurity AS rls_on,

@@ -72,9 +72,8 @@ jobs:
           GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
           GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
           GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
-          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+          -- 2026-10-24: NINCS „ALTER DEFAULT PRIVILEGES” — a Supabase 2026-10-30-tól az új táblákra nem ad automatikus
+          -- jogosultságot (PROD-on sem). Ha a staging megadná, egy GRANT nélküli migráció a stagingen működne, élesben nem.
           NOTIFY pgrst, 'reload schema';
           SQL
           echo "✅ Permissions restored, schema cache reload signal sent"

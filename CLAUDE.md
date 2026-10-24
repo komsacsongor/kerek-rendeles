@@ -23,6 +23,7 @@
 - A Supabase ebből a környezetből NEM érhető el közvetlenül. Séma-változás = idempotens SQL a `db/ÉÉÉÉ-HH_vX.Y_leírás.sql` fájlba, ellenőrző SELECT-tel.
 - **STAGING: automatikus** (`.github/workflows/db-staging.yml`, 2026-10-20): staging-pushra a push-ban új/módosított `db/*.sql` lefut a staging DB-n; újrafuttatás: `db/staging-apply.list` módosításával. Utána mindig fut a **csak olvasó** `db/checks/staging.sql` — az eredményt a GitHub Actions logból olvasd (GitHub MCP `get_job_logs`). Kérdéshez a checks fájlt bővítsd (személyes adatot ne listázz, csak darabszámot/állapotot).
 - **PROD: Csongor futtatja** a Supabase SQL Editorban — a vasárnapi szinkron a PROD sémáját másolja a stagingre, ezért minden séma-változás kell PROD-ra is.
+- **Új tábla = kifejezett GRANT** (Supabase, 2026-10-30-tól nincs automatikus jogosultság): `GRANT ... ON public.<tábla> TO service_role;` (az EF-ek ezzel érik el) + a sorozatra `GRANT USAGE, SELECT ON SEQUENCE ...`; `anon` / `authenticated` csak ha a böngészőnek közvetlenül kell (különben `REVOKE` + RLS policy nélkül).
 - Séma-referencia és tiltott oszlopnevek: `KEREK_SKILL.md` §7 és §12.
 
 ## Push előtt (kötelező)
